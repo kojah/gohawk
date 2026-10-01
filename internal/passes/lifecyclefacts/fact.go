@@ -177,6 +177,9 @@ const (
 	ClaimReleases
 	ClaimSynchronouslyInvokes
 	ClaimReleasesInLoop
+	// ClaimAsynchronouslyExposes is a may-claim derived from positive heap
+	// escape effects. It cannot establish release or transfer on every return.
+	ClaimAsynchronouslyExposes
 )
 
 // Claim returns the parameters this summary makes the claim about.
@@ -196,6 +199,8 @@ func (fact *Fact) Claim(claim Claim) ParameterMask {
 		return fact.SynchronouslyInvoked()
 	case ClaimReleasesInLoop:
 		return fact.May.LoopReleased
+	case ClaimAsynchronouslyExposes:
+		return fact.heapClaim(func(index int) bool { return asynchronouslyExposed(fact.Heap, index) })
 	}
 	return 0
 }

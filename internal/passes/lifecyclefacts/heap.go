@@ -78,6 +78,16 @@ func retained(summary *heapmodel.HeapSummary, index int) bool {
 	return heldOutside(summary, parameter, true)
 }
 
+// Asynchronous exposure is narrower than retention: a synchronous opaque
+// call may retain an argument but does not itself launch another participant.
+// Only the parameter's exact object is claimed, not an arbitrary child field.
+func asynchronouslyExposed(summary *heapmodel.HeapSummary, index int) bool {
+	parameter := heapmodel.HeapSlot{Root: heapmodel.HeapRoot{Kind: heapmodel.HeapParameter, Index: index}}
+	return slices.ContainsFunc(summary.Effects, func(effect heapmodel.HeapEffect) bool {
+		return effect.Slot == parameter && effect.Escape&heapmodel.HeapEscapedAsync != 0
+	})
+}
+
 // stored is the Stored claim as a query over the projection, and keeps its
 // strict polarity: positive evidence that the parameter's object was put
 // somewhere that outlives the call, a global, an object the caller can

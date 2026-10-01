@@ -49,6 +49,20 @@ including any unexported constructor, and a wrapper returned inside an
 aggregate, are uncertain boundaries. Discarding the wrapper on an error return
 still abandons the resource. See `retaining_results.go` in the fixtures.
 
+Asynchronous resource use through a helper supplies unknown ownership locally
+and across package boundaries. The local call-effect query and the imported
+`ClaimAsynchronouslyExposes` selector feed one classifier predicate. The latter
+derives from existing heap escape effects for the exact parameter, not from
+generic retention or child-field effects. It does not prove release, transfer,
+or which return paths launch the work. A synchronous writer, exposure of another
+argument, and a return bypassing the handoff retain diagnostics
+(`imported_async.go`); heap-claim tests cover child fields and missing facts.
+[Viewcore's profiling writer](https://github.com/golang/debug/blob/ac862fd6552b739f50ba812382eed75745a129b1/cmd/viewcore/main.go#L820-L829)
+is the representative imported handoff. Conditional exposure can hide a real
+leak on a callee path with no launch, matching the existing local may-exposure
+boundary. This extends the existing asynchronous-consumption family in the
+large classifier file; policy and tracing continue through its single label.
+
 For compression writers, error returns and explicit pipe aborts can abandon
 the output rather than publish it. Those paths are uncertain, not proven
 finalization; successful returns still require Close where the contract applies.

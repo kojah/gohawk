@@ -502,6 +502,14 @@ clear `Retained` bit is not a read-only guarantee. This query requires a visible
 body and does not synthesize effects from missing lifecycle-summary bits; see
 [Local storage model](storage-model.md).
 
+`ClaimAsynchronouslyExposes` reads positive `HeapEscapedAsync` effects for an
+exact parameter object from the existing heap projection. It is a may-claim:
+the asynchronous handoff need not happen on every return. A child-field effect,
+synchronous opaque call, missing heap, or truncation alone cannot set it.
+The claim adds no serialized mask or fact version. Resource lifetime uses it
+at the same unknown-ownership boundary as positive local async call effects;
+it never proves cleanup, a join, or absence of exposure when the bit is clear.
+
 ## What the model can express
 
 - A lifecycle action guaranteed on every normal return of the callee.

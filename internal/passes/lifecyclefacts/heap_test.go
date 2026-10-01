@@ -68,3 +68,27 @@ func UseAfterLog(c *closer, s sink) *closer  { o := &owner{}; SetThenLog(o, c, s
 		t.Errorf("Inspect should claim nothing beyond its reads, got heap:\n%s", fact.Heap.String())
 	}
 }
+
+func TestAsynchronousExposureClaim(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+type writer interface{ Write([]byte) (int, error) }
+type holder struct{ destination writer }
+func Async(w writer) { go w.Write(nil) }
+func Borrow(w writer) { _, _ = w.Write(nil) }
+func Other(w, other writer) { _, _ = w.Write(nil); go other.Write(nil) }
+func Nested(h *holder) { go h.destination.Write(nil) }
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	for name, want := range map[string]ParameterMask{
+		"Async": parameterMaskFor(0), "Borrow": 0, "Other": parameterMaskFor(1), "Nested": 0,
+	} {
+		fact := summarize(pass, pkg.Func(name))
+		if got := fact.Claim(ClaimAsynchronouslyExposes); got != want {
+			t.Errorf("%s asynchronous parameters=%b, want %b; heap:\n%s", name, got, want, fact.Heap.String())
+		}
+	}
+	if mask := (&Fact{}).Claim(ClaimAsynchronouslyExposes); mask != 0 {
+		t.Errorf("unavailable heap claims asynchronous exposure: %b", mask)
+	}
+}

@@ -34,6 +34,7 @@ func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 	assertCleanupBoundaryTrace(t, events)
 	assertOwnershipBoundaryTrace(t, events, "indirect-destination-unknown", "indirect_destinations.go:")
 	assertOwnershipBoundaryTrace(t, events, "response-body-aggregate-handoff", "body_handoffs.go:")
+	assertOwnershipBoundaryTrace(t, events, "call-effects-asynchronous-exposure", "imported_async.go:")
 	assertContextErrorGuardTrace(t, events)
 	assertUncertainEdgeTrace(t, events, "repeated-guard-edge-unknown", "guard_facts.go:")
 	assertUncertainEdgeTrace(t, events, "rows-exhausted-edge-unknown", "sql_")

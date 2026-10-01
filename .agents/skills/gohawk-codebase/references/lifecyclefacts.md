@@ -50,7 +50,7 @@ it needs rather than knowing which fields spell it. Releasing is a union
 because the settling action depends on the resource: a file is closed, a
 ticker stopped, a transaction committed or rolled back.
 
-## ClaimReturnsOwner, ClaimReturnsView, ClaimRetains, ClaimStores, ClaimReleases, ClaimSynchronouslyInvokes, ClaimReleasesInLoop
+## ClaimReturnsOwner, ClaimReturnsView, ClaimRetains, ClaimStores, ClaimReleases, ClaimSynchronouslyInvokes, ClaimReleasesInLoop, ClaimAsynchronouslyExposes
 
 [Source](../../../../internal/passes/lifecyclefacts/fact.go)
 
@@ -63,6 +63,9 @@ const (
 	ClaimReleases
 	ClaimSynchronouslyInvokes
 	ClaimReleasesInLoop
+	// ClaimAsynchronouslyExposes is a may-claim derived from positive heap
+	// escape effects. It cannot establish release or transfer on every return.
+	ClaimAsynchronouslyExposes
 )
 ```
 
