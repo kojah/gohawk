@@ -19,6 +19,12 @@ The subsequent shared projection correction is recorded in
 [round 69](../round-69/README.md): the affected package no longer reports the FP,
 while the full urunc scan remains incomplete under the CGO-disabled profile.
 
+The [production FP queue refresh](production-fp-queue-2026-10-01.md) reconciles
+all 55 original production FP locations from batches 62/63 with current scoped
+observations, earlier correction receipts, and the corrected promu judgment.
+It leaves 22 locations needing current replay and keeps historical test labels
+outside the correction counts.
+
 After a batch record is committed and every emitted finding has a source
 verdict, the audit runner can remove only its pinned, clean checkouts while
 retaining reports and ledgers. Preview first, then omit `--cleanup-dry-run`:
