@@ -1,0 +1,4 @@
+repository,analyzer,check,position,verdict
+twmb/kcl,resourcelifetime,resourcelifetime/missing-release,client/client.go:1445:13,false_positive
+ozontech/cute,resourcelifetime,resourcelifetime/missing-release,test.go:614:13,true_positive
+basecamp/basecamp-cli,resourcelifetime,resourcelifetime/missing-release,internal/commands/connect_worker_mcp_unix.go:19:22,true_positive

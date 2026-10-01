@@ -23,8 +23,9 @@ Local fixtures pin those distinctions, and tracing reports the existing
 An initial seven-label comparison also attempted the four original SCTP
 goroutine controls at `association_test.go:5197:2`, `5209:2`, `5289:2`, and
 `5301:2`. All four are absent with both the parent binary containing `1075818`
-and the changed binary. This is pre-existing baseline drift, not a loss caused
-by this lock change or a corrected review judgment. Their original batch 63
+and the changed binary. These historical test findings are outside the current
+production-only profile following removal of test analysis, not losses caused
+by this lock change or corrected review judgments. Their original batch 63
 labels remain frozen; they are not included as passing controls in this cohort.
 The parent still reports the lock FP and retains both XD lock controls.
 
