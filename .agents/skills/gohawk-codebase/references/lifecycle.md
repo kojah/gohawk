@@ -31,6 +31,9 @@ reach upward. A new file joins the family of the highest layer it needs.
 func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool
 ```
 
+CallInvokesArgumentOnEveryReturn reports whether a synchronous or deferred
+callee invokes the exact target before every normal return.
+
 ## CallReturnsDeferredCleanup
 
 [Source](../../../../internal/lifecycle/store_transfers.go)

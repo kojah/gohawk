@@ -37,6 +37,15 @@ summary that does not claim the call is not proof that the helper never
 cancels, and the call stays unknown. Fixtures:
 `cancellationownership/argument_cases.go`.
 
+Local callback invocation uses the same structured completion engine as
+method cleanup, including exact identity, stable capture mapping, callback
+bindings and bounded recursion. The Boolean adapter projects only a proven
+result; unavailable or recursively rejected bodies remain unknown to the
+underlying proof. Invocation on another goroutine never establishes a
+synchronous release. Shared tests in `lifecycle/completion_invocation_test.go`
+cover replaced and mixed callbacks, conditional invocation, bound invokers,
+asynchronous launches, recursion and budget exhaustion.
+
 A deferred literal that captures the cancel function is judged exactly when
 the capture is simple: the cancel function is stored once into a cell that
 only directly deferred literals read, each deferred after the store. Such a

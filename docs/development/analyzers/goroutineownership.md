@@ -17,6 +17,13 @@ imported helpers and local wrappers that call them. Existing branch-aware
 helper and ownership proofs remain in use when an ordered summary is
 unavailable; missing summaries are never treated as evidence of no join.
 An asynchronously launched waiter does not join the worker in its parent.
+Local callback wrappers use the shared exact invocation proof, including
+an invoker passed as another bound callback. The wrapper must synchronously
+invoke the exact worker before every normal return; forwarding to another
+goroutine or dropping it supplies no worker promise. Fixtures in
+`goroutineownership/callback_bindings.go` pair the joined and unjoined forms
+with those opaque controls. The body-only promise never credits the outer
+launch as a join.
 A `select` receive joins only the path that selects that case. Timeout,
 default, send, and unrelated receive arms do not inherit its completion;
 each must independently honor the obligation or terminate the goroutine.

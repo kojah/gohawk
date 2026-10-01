@@ -82,18 +82,16 @@ func ProveCompletion(request CompletionRequest) ssaflow.CompletionProof {
 		search.returnedSummaries = request.ReturnedSummaries
 		answer := search.completes(request.Instruction, request.Target)
 		if answer.proven {
-			return ssaflow.CompletionProof{
-				Proof: ssaflow.Proof{
-					State: ssaflow.EvidenceProven, Reason: answer.launch.reason(), Method: method, Provenance: ssaflow.EvidenceFromLocalSSA,
-				},
-				Path:      answer.paths.path,
-				PathKnown: answer.paths.known(),
-			}
+			return answer.proof(method)
 		}
 		searched = searched || answer.available
 		incomplete = incomplete || *search.incomplete
 		inCycle = inCycle || *search.inCycle
 	}
+	return request.unprovenCompletion(searched, incomplete, inCycle)
+}
+
+func (request CompletionRequest) unprovenCompletion(searched, incomplete, inCycle bool) ssaflow.CompletionProof {
 	if !searched {
 		return request.giveUp(ssaflow.CompletionProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}})
 	}

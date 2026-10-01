@@ -27,6 +27,12 @@ for each; these times include each check's prerequisite passes.
   `ssaflow.DirectCallee` and `CallBindings`, including the broad deferred
   callback handoff query. Pairing supplies no identity guarantee: lifecycle
   keeps captured-cell matching distinct from eagerly evaluated arguments.
+  Callback invocation also uses the structured completion engine. The
+  synchronous-call adapter submits an exact invocation request; the spawned
+  wrapper adapter examines the callee body independently of its launch.
+  Both share binding, coverage, recursion and budget rules. A body promise
+  never makes an asynchronous launch complete its caller's obligation, and
+  rejecting a recursive body visit supplies unknown evidence.
   Callback transfer and aggregate containment keep their distinct policies,
   while sharing capture-binding identity and cell-content checks. A callback
   capturing an aggregate can contain a resource without establishing the

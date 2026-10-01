@@ -34,6 +34,15 @@ type completionAnswer struct {
 	paths completionPaths
 }
 
+func (answer completionAnswer) proof(method string) ssaflow.CompletionProof {
+	return ssaflow.CompletionProof{
+		Proof: ssaflow.Proof{
+			State: ssaflow.EvidenceProven, Reason: answer.launch.reason(), Method: method, Provenance: ssaflow.EvidenceFromLocalSSA,
+		},
+		Path: answer.paths.path, PathKnown: answer.paths.known(),
+	}
+}
+
 // completes reports whether the instruction's callees all call method on the
 // target with the coverage their launch demands. The answer is unavailable
 // when no callee body was available to search.
@@ -106,5 +115,11 @@ func (search *completionSearch) calleeCompletes(callee completionCallee, target 
 		answer.paths = *search.paths
 		search.paths = previous
 	})
+	if !answer.available {
+		// A rejected body visit supplies no negative evidence. In
+		// particular, recursive calls must remain unknown rather than
+		// turning an incomplete coverage search into a disproof.
+		*search.incomplete = true
+	}
 	return answer
 }

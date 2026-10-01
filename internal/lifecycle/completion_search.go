@@ -90,10 +90,9 @@ const (
 	// launchStarted covers go statements and sync.WaitGroup.Go: the callee
 	// runs on its own goroutine.
 	launchStarted
-	// launchCallback is a function literal examined as a value, without any
-	// launch; when it runs is the caller's concern. It is never resolved from
-	// an instruction, so a literal that is merely created or stored proves
-	// nothing on its own.
+	// launchCallback is a body examined independently of its launch; when
+	// it runs is the caller's concern. It is never resolved from an
+	// instruction, so merely creating or storing a literal proves nothing.
 	launchCallback
 )
 
