@@ -89,6 +89,17 @@ func (supplied ArgumentConstants) Satisfies(assumed ArgumentConstants) bool
 Satisfies reports whether the supplied constants fix every argument the
 assumed constants name, to the same value.
 
+## BlockEndsInPanic
+
+[Source](../../../../internal/ssaflow/flow_termination.go)
+
+```go
+func BlockEndsInPanic(block *ssa.BasicBlock) bool
+```
+
+BlockEndsInPanic reports whether the final instruction is an explicit panic.
+It does not establish function termination: deferred recovery may return.
+
 ## BlockInCycle
 
 [Source](../../../../internal/ssaflow/call_goroutines.go)
@@ -1609,6 +1620,17 @@ func (loop NaturalLoop) Contains(block *ssa.BasicBlock) bool
 ```
 
 Contains reports whether block belongs to the loop.
+
+## NaturalLoop.DominatesBackEdges
+
+[Source](../../../../internal/ssaflow/natural_loops.go)
+
+```go
+func (loop NaturalLoop) DominatesBackEdges(block *ssa.BasicBlock) bool
+```
+
+DominatesBackEdges reports whether block dominates every predecessor of the
+header inside this loop. It need not dominate exits or paths that break.
 
 ## NaturalLoopAt
 

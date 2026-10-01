@@ -5,6 +5,20 @@ import (
 	"strings"
 )
 
+// PointerStruct returns the underlying struct behind exactly one pointer
+// layer, including named pointers and aliases. Other shapes return nil.
+func PointerStruct(value types.Type) *types.Struct {
+	if value == nil {
+		return nil
+	}
+	pointer, ok := value.Underlying().(*types.Pointer)
+	if !ok {
+		return nil
+	}
+	structure, _ := pointer.Elem().Underlying().(*types.Struct)
+	return structure
+}
+
 // ShortPackageName returns the final component of an import path.
 func ShortPackageName(packagePath string) string {
 	if index := strings.LastIndexByte(packagePath, '/'); index >= 0 {

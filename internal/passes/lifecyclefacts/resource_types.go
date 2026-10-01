@@ -52,12 +52,8 @@ func ResponseBodyField(value ssa.Value) *ssa.FieldAddr {
 	if !ok || !syntax.NamedType(field.X.Type(), "net/http", "Response") {
 		return nil
 	}
-	pointer, ok := field.X.Type().Underlying().(*types.Pointer)
-	if !ok {
-		return nil
-	}
-	structure, ok := pointer.Elem().Underlying().(*types.Struct)
-	if !ok || structure.Field(field.Field).Name() != "Body" {
+	structure := syntax.PointerStruct(field.X.Type())
+	if structure == nil || structure.Field(field.Field).Name() != "Body" {
 		return nil
 	}
 	return field

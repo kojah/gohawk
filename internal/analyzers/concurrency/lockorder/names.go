@@ -1,9 +1,9 @@
 package lockorder
 
 import (
-	"go/token"
 	"strings"
 
+	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -49,19 +49,12 @@ func displayClass(pass *analysis.Pass, class string) string {
 	return strings.TrimPrefix(class, pass.Pkg.Path()+".")
 }
 
-// lockEvidence cites the whole Lock call, so the evidence at the reported
-// acquisition covers the same span as the diagnostic and labels it.
-func lockEvidence(pass *analysis.Pass, position token.Pos, message string) analysis.RelatedInformation {
-	source := syntax.SourceRange(pass, position)
-	return analysis.RelatedInformation{Pos: source.Pos(), End: source.End(), Message: message}
-}
-
 // callEvidence widens each helper call on an acquisition's route to the
 // span of the call expression.
 func callEvidence(pass *analysis.Pass, calls []analysis.RelatedInformation) []analysis.RelatedInformation {
 	evidence := make([]analysis.RelatedInformation, 0, len(calls))
 	for _, call := range calls {
-		evidence = append(evidence, lockEvidence(pass, call.Pos, call.Message))
+		evidence = append(evidence, check.Evidence(pass, call.Pos, call.Message))
 	}
 	return evidence
 }
@@ -103,6 +96,6 @@ func (flow lockFlowContext) acquisitionEvidence(identity string) []analysis.Rela
 	}
 	effect, _ := directMutexEffect(acquisition)
 	return []analysis.RelatedInformation{
-		lockEvidence(flow.pass, acquisition.Pos(), flow.lockName(identity)+" is "+effect.acquired.verb()+" here"),
+		check.Evidence(flow.pass, acquisition.Pos(), flow.lockName(identity)+" is "+effect.acquired.verb()+" here"),
 	}
 }

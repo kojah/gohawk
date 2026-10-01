@@ -3,7 +3,6 @@ package resourcelifetime
 import (
 	"go/constant"
 	"go/token"
-	"go/types"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -293,12 +292,8 @@ func requestUsesPreserveMethod(request ssa.Value) bool {
 }
 
 func requestFieldName(field *ssa.FieldAddr) string {
-	pointer, ok := field.X.Type().Underlying().(*types.Pointer)
-	if !ok || !syntax.NamedType(field.X.Type(), "net/http", "Request") {
-		return ""
-	}
-	structure, ok := pointer.Elem().Underlying().(*types.Struct)
-	if !ok {
+	structure := syntax.PointerStruct(field.X.Type())
+	if structure == nil || !syntax.NamedType(field.X.Type(), "net/http", "Request") {
 		return ""
 	}
 	return structure.Field(field.Field).Name()

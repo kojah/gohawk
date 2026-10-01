@@ -225,10 +225,10 @@ func reportOrderCycle(pass *analysis.Pass, cycle []orderEdge) {
 		names = append(names, edge.acquired.cycleName(pass))
 		related = append(related, callEvidence(pass, edge.held.calls)...)
 		held, acquired := edge.held.displayName(pass), edge.acquired.displayName(pass)
-		related = append(related, lockEvidence(pass, edge.held.position, fmt.Sprintf("%s is %s here", held, edge.held.verb())))
+		related = append(related, check.Evidence(pass, edge.held.position, fmt.Sprintf("%s is %s here", held, edge.held.verb())))
 		related = append(related, callEvidence(pass, edge.acquired.calls)...)
 		then := fmt.Sprintf("then %s is %s while %s is held", acquired, edge.acquired.verb(), held)
-		related = append(related, lockEvidence(pass, edge.acquired.position, then))
+		related = append(related, check.Evidence(pass, edge.acquired.position, then))
 		if probe.Enabled() {
 			reason := lockReasonCycleOrderRecorded
 			if len(cycle) == 2 && index != 0 {

@@ -28,7 +28,7 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 	for _, block := range flow.order {
 		// A panicking block contributes no alternative: it never returns
 		// normally, so none of its states can reach a later event.
-		if panics(block) {
+		if ssaflow.BlockEndsInPanic(block) {
 			continue
 		}
 		folded := flow.isFolded(block)

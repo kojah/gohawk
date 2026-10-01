@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -200,12 +201,8 @@ func (engine *Engine) callerLoad(function *ssa.Function, address ssaflow.Embedde
 
 // fieldOf returns the field a field address selects.
 func fieldOf(address *ssa.FieldAddr) *types.Var {
-	pointer, ok := address.X.Type().Underlying().(*types.Pointer)
-	if !ok {
-		return nil
-	}
-	structure, ok := pointer.Elem().Underlying().(*types.Struct)
-	if !ok {
+	structure := syntax.PointerStruct(address.X.Type())
+	if structure == nil {
 		return nil
 	}
 	return structure.Field(address.Field)

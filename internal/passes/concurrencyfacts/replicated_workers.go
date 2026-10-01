@@ -69,7 +69,7 @@ func (engine *Engine) workerPool(loop ssaflow.NaturalLoop, root bool) ([]*ssa.Ba
 	var every []*ssa.BasicBlock
 	var optional Summary
 	for _, block := range loop.Blocks {
-		if dominatesLatches(loop, block) {
+		if loop.DominatesBackEdges(block) {
 			every = append(every, block)
 			continue
 		}
@@ -110,16 +110,6 @@ func markReplicated(summary *Summary, before int) {
 	for index := before; index < len(summary.Workers); index++ {
 		summary.Workers[index].Replicated = true
 	}
-}
-
-// dominatesLatches reports whether block runs on every iteration.
-func dominatesLatches(loop ssaflow.NaturalLoop, block *ssa.BasicBlock) bool {
-	for _, predecessor := range loop.Header.Preds {
-		if loop.Contains(predecessor) && !block.Dominates(predecessor) {
-			return false
-		}
-	}
-	return true
 }
 
 // invariantResource reports whether reference names the same object on every

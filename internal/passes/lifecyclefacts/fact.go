@@ -8,6 +8,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
 
@@ -338,10 +339,10 @@ func (fact *Fact) fieldNames(mask FieldMask, signature *types.Signature) []strin
 	}
 	var structure *types.Struct
 	if signature.Recv() != nil {
-		structure = structBehind(signature.Recv().Type())
+		structure = syntax.PointerStruct(signature.Recv().Type())
 	} else {
 		for result := range signature.Results().Variables() {
-			if structure = structBehind(result.Type()); structure != nil {
+			if structure = syntax.PointerStruct(result.Type()); structure != nil {
 				break
 			}
 		}
@@ -356,15 +357,6 @@ func (fact *Fact) fieldNames(mask FieldMask, signature *types.Signature) []strin
 		}
 	}
 	return names
-}
-
-func structBehind(value types.Type) *types.Struct {
-	pointer, ok := value.Underlying().(*types.Pointer)
-	if !ok {
-		return nil
-	}
-	structure, _ := pointer.Elem().Underlying().(*types.Struct)
-	return structure
 }
 
 func (fact *Fact) parameterMasks(index int) []string {

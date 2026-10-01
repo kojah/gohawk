@@ -1,7 +1,6 @@
 package deferinloop
 
 import (
-	"go/types"
 	"slices"
 	"strconv"
 
@@ -264,11 +263,8 @@ func resourceUseStatus(
 			return resourceUnknown, reasonWrapperPassedToCallee
 		}
 		if !alias.Aliases {
-			if pointer, ok := argument.Type().Underlying().(*types.Pointer); ok {
-				if _, aggregate := pointer.Elem().Underlying().(*types.Struct); aggregate &&
-					heapmodel.ValueDerivesFrom(argument, target) {
-					return resourceUnknown, reasonWrapperPassedToCallee
-				}
+			if syntax.PointerStruct(argument.Type()) != nil && heapmodel.ValueDerivesFrom(argument, target) {
+				return resourceUnknown, reasonWrapperPassedToCallee
 			}
 			continue
 		}

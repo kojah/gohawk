@@ -399,11 +399,7 @@ func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instru
 		if retained, _ := analysis.evidence.ArgumentRetained(instruction, index); retained {
 			return true
 		}
-		pointer, ok := argument.Type().Underlying().(*types.Pointer)
-		if !ok {
-			continue
-		}
-		if _, aggregate := pointer.Elem().Underlying().(*types.Struct); !aggregate {
+		if syntax.PointerStruct(argument.Type()) == nil {
 			continue
 		}
 		effects := analysis.evidence.CallEffects(instruction, argument)
@@ -654,7 +650,7 @@ func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosur
 		if !ok || heapmodel.MayAlias(owner, analysis.resource) {
 			continue
 		}
-		if _, aggregate := pointer.Elem().Underlying().(*types.Struct); !aggregate {
+		if syntax.PointerStruct(pointer) == nil {
 			continue
 		}
 		for _, binding := range closure.Bindings {

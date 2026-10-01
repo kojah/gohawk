@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -23,7 +24,11 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 	states := map[*ssa.BasicBlock]Summary{function.Blocks[0]: {}}
 	var terminal *Summary
 	for _, block := range flow.order {
-		if panics(block) {
+		// A block that ends in panic never returns normally. detachedRecovery
+		// already rejected recovery, so this path cannot disagree about later
+		// ordered effects. If every path panics, no terminal remains and the
+		// summary stays unknown.
+		if ssaflow.BlockEndsInPanic(block) {
 			continue
 		}
 		state := states[block]
@@ -191,17 +196,4 @@ func foldSources(into, from Summary) Summary {
 		}
 	}
 	return into
-}
-
-// A block that ends in panic never returns normally. A function that recovers
-// is never complete (see detachedRecovery), so the panic ends the path before
-// any later event, and the path cannot disagree with the others about the
-// ordered effects that follow. If every path panics, no terminal remains and
-// the summary stays unknown.
-func panics(block *ssa.BasicBlock) bool {
-	if len(block.Instrs) == 0 {
-		return false
-	}
-	_, ok := block.Instrs[len(block.Instrs)-1].(*ssa.Panic)
-	return ok
 }

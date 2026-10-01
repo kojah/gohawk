@@ -84,8 +84,7 @@ func waitGroupPointer(value types.Type) bool {
 	if !ok {
 		return false
 	}
-	_, structure := pointer.Elem().Underlying().(*types.Struct)
-	return structure && syntax.NamedType(pointer.Elem(), "sync", "WaitGroup")
+	return syntax.PointerStruct(pointer) != nil && syntax.NamedType(pointer.Elem(), "sync", "WaitGroup")
 }
 
 func (engine *Engine) deferCompletion(result *Summary, instruction *ssa.Defer) Reason {

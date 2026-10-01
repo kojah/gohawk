@@ -39,3 +39,13 @@ func callTerminatesControlFlow(common *ssa.CallCommon) bool {
 	return HasLibraryContract(common, ContractRuntimeGoexit) || HasLibraryContract(common, ContractTestingTermination) ||
 		HasLibraryContract(common, ContractProcessExit)
 }
+
+// BlockEndsInPanic reports whether the final instruction is an explicit panic.
+// It does not establish function termination: deferred recovery may return.
+func BlockEndsInPanic(block *ssa.BasicBlock) bool {
+	if block == nil || len(block.Instrs) == 0 {
+		return false
+	}
+	_, panics := block.Instrs[len(block.Instrs)-1].(*ssa.Panic)
+	return panics
+}

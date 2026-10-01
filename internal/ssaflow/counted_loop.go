@@ -126,7 +126,7 @@ func leavesOnlyThroughHeader(header, body *ssa.BasicBlock, budget *SearchBudget)
 	for len(work) > 0 {
 		block := work[len(work)-1]
 		work = work[:len(work)-1]
-		if !budget.Spend() || block == header.Succs[1] || (len(block.Succs) == 0 && !endsInPanic(block)) {
+		if !budget.Spend() || block == header.Succs[1] || (len(block.Succs) == 0 && !BlockEndsInPanic(block)) {
 			return false
 		}
 		for _, successor := range block.Succs {
@@ -144,14 +144,6 @@ func leavesOnlyThroughHeader(header, body *ssa.BasicBlock, budget *SearchBudget)
 		}
 	}
 	return true
-}
-
-func endsInPanic(block *ssa.BasicBlock) bool {
-	if len(block.Instrs) == 0 {
-		return false
-	}
-	_, panics := block.Instrs[len(block.Instrs)-1].(*ssa.Panic)
-	return panics
 }
 
 func countedHeader(header *ssa.BasicBlock) (*ssa.Phi, *ssa.BinOp) {

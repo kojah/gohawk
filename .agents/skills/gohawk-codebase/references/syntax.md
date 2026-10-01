@@ -194,6 +194,17 @@ func PackageVariable(packagePath, name string) Symbol
 
 PackageVariable identifies a package-level variable.
 
+## PointerStruct
+
+[Source](../../../../internal/syntax/types.go)
+
+```go
+func PointerStruct(value types.Type) *types.Struct
+```
+
+PointerStruct returns the underlying struct behind exactly one pointer
+layer, including named pointers and aliases. Other shapes return nil.
+
 ## ShortPackageName
 
 [Source](../../../../internal/syntax/types.go)

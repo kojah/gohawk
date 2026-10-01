@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -152,7 +153,7 @@ func cleanupFieldPath(owner types.Type, step string) bool {
 	if !ok {
 		return false
 	}
-	structure := structBehind(owner)
+	structure := syntax.PointerStruct(owner)
 	if structure == nil {
 		return false
 	}

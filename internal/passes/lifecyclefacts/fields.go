@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -28,11 +29,7 @@ import (
 func returnedStruct(function *ssa.Function) (*types.Struct, int, bool) {
 	results := function.Signature.Results()
 	for index := range results.Len() {
-		pointer, ok := results.At(index).Type().Underlying().(*types.Pointer)
-		if !ok {
-			continue
-		}
-		if structure, ok := pointer.Elem().Underlying().(*types.Struct); ok {
+		if structure := syntax.PointerStruct(results.At(index).Type()); structure != nil {
 			return structure, index, true
 		}
 	}
@@ -284,12 +281,8 @@ func releasedFields(pass *analysis.Pass, function *ssa.Function) FieldMask {
 		return 0
 	}
 	receiver := function.Params[0]
-	pointer, ok := receiver.Type().Underlying().(*types.Pointer)
-	if !ok {
-		return 0
-	}
-	structure, ok := pointer.Elem().Underlying().(*types.Struct)
-	if !ok {
+	structure := syntax.PointerStruct(receiver.Type())
+	if structure == nil {
 		return 0
 	}
 	var released FieldMask

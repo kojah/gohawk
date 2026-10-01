@@ -44,6 +44,8 @@ Start with [Understanding SSA](../understanding-ssa.md) and the public
 
 ## Measurements and history
 
+- [Consolidation completion audit](consolidation-completion-audit.md) — current
+  evidence, reviewed duplicate candidates and remaining verification gaps.
 - [Heap evidence loss](heap-evidence-loss.md) — pinned measurements of where
   cached heap evidence is lost.
 - [Resource test performance](resource-test-performance.md) — baseline

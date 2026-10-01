@@ -1,10 +1,10 @@
 package heapmodel
 
 import (
-	"go/constant"
 	"go/types"
 	"strconv"
 
+	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -17,7 +17,7 @@ type storageArrayView struct {
 }
 
 func (storage *Storage) indexLocation(index *ssa.IndexAddr) (storageLocation, bool) {
-	position, fixed := storageInteger(index.Index, 0)
+	position, fixed := ssaflow.StorageInteger(index.Index, 0)
 	view, known := storage.arrayView(index.X)
 	if !fixed || !known || position < 0 || position >= view.size {
 		return storageLocation{}, false
@@ -32,9 +32,9 @@ func (storage *Storage) arrayView(value ssa.Value) (storageArrayView, bool) {
 	}
 	if sliced, ok := value.(*ssa.Slice); ok {
 		base, known := storage.arrayView(sliced.X)
-		low, lowOK := storageInteger(sliced.Low, 0)
-		high, highOK := storageInteger(sliced.High, base.size)
-		max, maxOK := storageInteger(sliced.Max, base.cap)
+		low, lowOK := ssaflow.StorageInteger(sliced.Low, 0)
+		high, highOK := ssaflow.StorageInteger(sliced.High, base.size)
+		max, maxOK := ssaflow.StorageInteger(sliced.Max, base.cap)
 		if !known || !lowOK || !highOK || !maxOK || low < 0 || low > high || high > max || max > base.cap {
 			return storageArrayView{}, false
 		}
@@ -52,15 +52,4 @@ func (storage *Storage) arrayView(value ssa.Value) (storageArrayView, bool) {
 	}
 	base, known := storage.location(value)
 	return storageArrayView{base: base, size: array.Len(), cap: array.Len()}, known
-}
-
-func storageInteger(value ssa.Value, fallback int64) (int64, bool) {
-	if value == nil {
-		return fallback, true
-	}
-	literal, ok := value.(*ssa.Const)
-	if !ok || literal.Value == nil {
-		return 0, false
-	}
-	return constant.Int64Val(literal.Value)
 }

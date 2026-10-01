@@ -2,18 +2,17 @@ package ssaflow
 
 import (
 	"go/token"
-	"go/types"
+
+	"github.com/kojah/gohawk/internal/syntax"
 
 	"golang.org/x/tools/go/ssa"
 )
 
 func CapturedBindingValue(binding ssa.Value) ssa.Value { //nolint:ireturn // Stored captures may contain any SSA value implementation.
-	if pointer, ok := binding.Type().Underlying().(*types.Pointer); ok {
-		if _, structured := pointer.Elem().Underlying().(*types.Struct); structured {
-			// A captured struct local is represented by its address. Its stores
-			// initialize or mutate the value; they do not replace its identity.
-			return binding
-		}
+	if syntax.PointerStruct(binding.Type()) != nil {
+		// A captured struct local is represented by its address. Its stores
+		// initialize or mutate the value; they do not replace its identity.
+		return binding
 	}
 	if binding.Referrers() == nil {
 		return binding

@@ -5,6 +5,8 @@ import (
 	"go/types"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/syntax"
+
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -64,7 +66,7 @@ func NewWriteOnceFields(pkg *types.Package, functions []*ssa.Function) *WriteOnc
 func (fields *WriteOnceFields) record(instruction ssa.Instruction) {
 	switch instruction := instruction.(type) {
 	case *ssa.FieldAddr:
-		owner := addressedStruct(instruction.X.Type())
+		owner := syntax.PointerStruct(instruction.X.Type())
 		if owner != nil {
 			field := owner.Field(instruction.Field).Origin()
 			fields.addresses[field] = append(fields.addresses[field], instruction)
@@ -261,13 +263,4 @@ func syncPrimitive(value types.Type) bool {
 		return false
 	}
 	return slices.Contains([]string{"Mutex", "RWMutex", "WaitGroup", "Once", "Cond"}, named.Obj().Name())
-}
-
-func addressedStruct(value types.Type) *types.Struct {
-	pointer, ok := value.Underlying().(*types.Pointer)
-	if !ok {
-		return nil
-	}
-	structure, _ := pointer.Elem().Underlying().(*types.Struct)
-	return structure
 }

@@ -133,7 +133,7 @@ func BoundedLoop(loop NaturalLoop, budget *SearchBudget) bool {
 func boundedCounter(loop NaturalLoop) bool {
 	for _, block := range loop.Blocks {
 		test, ok := exitTest(loop, block)
-		if !ok || !dominatesBackEdges(loop, block) {
+		if !ok || !loop.DominatesBackEdges(block) {
 			continue
 		}
 		counter := risingCounter(loop, test.X)
@@ -156,7 +156,9 @@ func exitTest(loop NaturalLoop, block *ssa.BasicBlock) (*ssa.BinOp, bool) {
 	return test, ok && test.Op == token.LSS
 }
 
-func dominatesBackEdges(loop NaturalLoop, block *ssa.BasicBlock) bool {
+// DominatesBackEdges reports whether block dominates every predecessor of the
+// header inside this loop. It need not dominate exits or paths that break.
+func (loop NaturalLoop) DominatesBackEdges(block *ssa.BasicBlock) bool {
 	for _, predecessor := range loop.Header.Preds {
 		if loop.Contains(predecessor) && !block.Dominates(predecessor) {
 			return false

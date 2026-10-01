@@ -5,7 +5,47 @@ import (
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
+	"golang.org/x/tools/go/ssa"
 )
+
+func TestBackEdgeDominanceDoesNotRequireExitCoverage(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "latches", `package latches
+func mark() {}
+func conditional(n int, choose bool) { for i:=0; i<n; i++ { if choose { mark() } } }
+func breakPath(n int, early bool) { for i:=0; i<n; i++ { if early { break }; mark() } }
+`)
+	for _, test := range []struct {
+		name string
+		want bool
+	}{
+		{"conditional", false},
+		{"breakPath", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			function := pkg.Func(test.name)
+			loops, ok := ssaflow.OutermostLoops(function, ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+			if !ok || len(loops) != 1 {
+				t.Fatal("expected one natural loop")
+			}
+			var marked *ssa.BasicBlock
+			for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
+				if call.Common().StaticCallee() == pkg.Func("mark") {
+					marked = call.Block()
+				}
+			}
+			if marked == nil {
+				t.Fatal("missing marker call")
+			}
+			loop := loops[0]
+			if !loop.DominatesBackEdges(loop.Header) {
+				t.Error("header did not dominate its back edges")
+			}
+			if got := loop.DominatesBackEdges(marked); got != test.want {
+				t.Errorf("DominatesBackEdges() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
 
 // A loop is bounded only when a counter rises by one toward a bound fixed
 // before the loop. A bound the body can grow, a counter the body resets, any
