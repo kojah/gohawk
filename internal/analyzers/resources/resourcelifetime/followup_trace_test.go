@@ -11,6 +11,7 @@ type followupTraceEvent struct {
 	Phase     string            `json:"phase"`
 	Outcome   string            `json:"outcome"`
 	Candidate string            `json:"candidate"`
+	Function  string            `json:"function"`
 	Details   map[string]string `json:"details"`
 }
 
@@ -30,6 +31,7 @@ func decodeFollowupTrace(t *testing.T, data []byte) []followupTraceEvent {
 func assertFollowupBoundaryTrace(t *testing.T, data []byte) {
 	t.Helper()
 	events := decodeFollowupTrace(t, data)
+	assertResourceDecisions(t, events)
 	assertHTTPBoundaryTrace(t, events)
 	assertCleanupBoundaryTrace(t, events)
 	assertOwnershipBoundaryTrace(t, events, "indirect-destination-unknown", "indirect_destinations.go:")
@@ -164,4 +166,37 @@ func assertOwnershipBoundaryTrace(t *testing.T, events []followupTraceEvent, rea
 		return
 	}
 	t.Errorf("missing %s ownership boundary", reason)
+}
+
+// Final decisions consume the same proof as reporting. An opaque handoff or a
+// possible deferred release must not claim cleanup, while a memory-only writer
+// is excluded by policy even if its data was not finalized.
+func assertResourceDecisions(t *testing.T, events []followupTraceEvent) {
+	t.Helper()
+	cases := []struct{ function, reason, outcome, file string }{
+		{"resourcelifetime.importedAsyncWriter", "opaque-consumption", "unknown", "imported_async.go:10:"},
+		{"resourcelifetime.importedSynchronousWriter", "unowned-return", "rejected", "imported_async.go:19:"},
+		{"resourcelifetime.importedAsyncWriterBypassed", "unowned-return", "rejected", "imported_async.go:37:"},
+		{"resourcelifetime.deferredRequiredClose", "release-proven", "accepted", "required_cleanup.go:11:"},
+		{"resourcelifetime.gzipWriterOverLocalBuffer", "memory-writer-no-external-resource", "accepted", "compression_resources.go:103:"},
+		{"resourcelifetime.gzipWriterOverConstructedStringBuffer", "memory-writer-no-external-resource", "accepted", "compression_resources.go:126:"},
+		{"resourcelifetime.customBufferFactory", "unowned-return", "rejected", "compression_resources.go:135:"},
+		{"resourcelifetime.mixedMemoryAndExternalWriter", "unowned-return", "rejected", "compression_resources.go:144:"},
+		{"resourcelifetime.filesAppendedToDeferredCloserSlice", "prior-defer-may-release", "unknown", "aggregate_ownership.go:252:"},
+	}
+	for _, expected := range cases {
+		count := 0
+		for _, event := range events {
+			if event.Function != expected.function || event.Phase != "decision" || event.Reason == "diagnostic-reported" {
+				continue
+			}
+			count++
+			if event.Reason != expected.reason || event.Outcome != expected.outcome || !strings.Contains(event.Candidate, expected.file) {
+				t.Errorf("unexpected final resource decision: %+v; want %+v", event, expected)
+			}
+		}
+		if count != 1 {
+			t.Errorf("final resource decisions for %s = %d, want 1", expected.function, count)
+		}
+	}
 }

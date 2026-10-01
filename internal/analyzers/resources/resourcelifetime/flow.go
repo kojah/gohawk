@@ -56,13 +56,20 @@ func evaluateResourceFlow(
 	resource ssa.Value,
 	contract resourceContract,
 ) resourceLifetimePolicyResult {
+	// This is a policy exclusion, not proof that a compressor was finalized.
+	// Keep it before candidate evidence and all flow queries, as in the entry
+	// point's former gate, so moving the decision does not add analysis work.
+	if memoryWriterExempt(call, contract) {
+		return acceptedResourceLifetime(resourceReasonMemoryWriter)
+	}
+	evidence.ForCandidate(call.Pos())
 	index := ssaflow.InstructionIndex(call)
 	if index < 0 {
-		return acceptedResourceLifetime(resourceReasonReleaseProven)
+		return unknownResourceLifetime(resourceReasonAcquisitionLocationUnknown)
 	}
 	errorValue := acquisitionErrorResult(call)
 	if reason := httpAcquisitionBoundary(pass, call); reason != resourceReasonNone {
-		return acceptedResourceLifetime(reason)
+		return unknownResourceLifetime(reason)
 	}
 	if acquisitionContextCanceled(call) {
 		return acceptedResourceLifetime(resourceReasonCanceledAcquisition)
@@ -74,8 +81,11 @@ func evaluateResourceFlow(
 	if optionalAcquisition.Proven() {
 		resource = optionalAcquisition.resourcePhi
 	}
+	// This pre-acquisition query uses anywhere coverage: a deferred loop may
+	// release the resource, but it does not prove every-return settlement of
+	// this exact acquisition. Preserve that uncertainty in the final proof.
 	if deferredBeforeAcquisitionMayRelease(evidence, call, resource, contract.cleanup) {
-		return acceptedResourceLifetime(resourceReasonReleaseProven)
+		return unknownResourceLifetime(resourceReasonPriorDeferMayRelease)
 	}
 	owners := localResourceOwners(call.Parent(), resource)
 	analysis := &resourceAnalysis{
@@ -88,7 +98,7 @@ func evaluateResourceFlow(
 	analysis.collection = analysis.localCollection()
 	analysis.guardedDefers = analysis.findResultGuardedDefers()
 	if analysis.cleanupRegisteredBefore(call) {
-		return acceptedResourceLifetime(resourceReasonOpaqueConsumption)
+		return unknownResourceLifetime(resourceReasonOpaqueConsumption)
 	}
 	if !analysis.acquisitionReachable() {
 		return acceptedResourceLifetime(resourceReasonAcquisitionUnreachable)
@@ -128,7 +138,7 @@ func evaluateResourceFlow(
 		return result
 	}
 	if opaque {
-		return acceptedResourceLifetime(resourceReasonOpaqueConsumption)
+		return unknownResourceLifetime(resourceReasonOpaqueConsumption)
 	}
 	return acceptedResourceLifetime(resourceReasonReleaseProven)
 }

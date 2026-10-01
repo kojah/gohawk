@@ -4,6 +4,26 @@ The public page is [resourcelifetime](../../analyzers/). This note keeps every p
 boundary: what the analyzer accepts or reports at the edge of its proof, and
 why. Update it with the fixtures when a boundary changes.
 
+## Final decision and tracing
+
+`evaluateResourceFlow` owns the final diagnostic evidence and reason, including
+its memory-writer policy exclusion. Reporting checks only the proven state;
+tracing projects the same state with `trace.DiagnosticOutcome`. The state is
+about permission to report, not proof that a resource was closed: exact release,
+unreachable acquisition and policy exclusions suppress the diagnostic with a
+disproven result. Opaque consumption, HTTP acquisition uncertainty, possible
+pre-acquisition deferred release and unavailable instruction evidence remain
+unknown. The reporter does not reconstruct this distinction from reason codes.
+
+The existing memory-writer check still precedes candidate evidence and all flow
+queries. It now yields a final accepted policy decision instead of bypassing
+that boundary. Its reason explicitly excludes external-resource ownership;
+unfinalized compressed data can still be a defect outside this check.
+`assertResourceDecisions` shares the ordinary fixture run and covers exactly
+one final decision for selected opaque/imported, deferred-release, memory-only,
+mixed-writer and reportable controls. No reporting policy, traversal, cleanup
+contract, query budget or exported summary schema changes with this projection.
+
 ## Detection boundaries
 
 Release owned resources on every path. Storing a resource in a partially

@@ -72,13 +72,9 @@ func checkAcquisition(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvi
 	if resource == nil {
 		return
 	}
-	if memoryWriterExempt(call, contract) {
-		return
-	}
-	evidence.ForCandidate(call.Pos())
 	result := evaluateResourceFlow(pass, evidence, call, resource, contract)
 	emitResourceDecision(pass, function, call, resource, contract, result)
-	if !result.report {
+	if result.state != ssaflow.EvidenceProven {
 		return
 	}
 	acquisition := syntax.ShortPackageName(contract.packagePath) + "." + contract.name
@@ -108,12 +104,7 @@ func emitResourceDecision(
 	if !probe.Enabled() {
 		return
 	}
-	outcome := analysisTrace.OutcomeAccepted
-	if result.report {
-		outcome = analysisTrace.OutcomeRejected
-	} else if result.reason == resourceReasonHeadAcquisition || result.reason == resourceReasonHeaderOnlyAcquisition {
-		outcome = analysisTrace.OutcomeUnknown
-	}
+	outcome := analysisTrace.DiagnosticOutcome(result.state)
 	details := map[string]string{"acquisition": contract.packagePath + "." + contract.name}
 	if resource != nil && resource.Type() != nil {
 		details["resource_type"] = resource.Type().String()

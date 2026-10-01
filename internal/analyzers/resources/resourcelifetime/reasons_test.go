@@ -4,6 +4,9 @@ import "testing"
 
 // resourceReasonSpellings is every reason's code as a trace prints it.
 var resourceReasonSpellings = map[resourceLifetimeReason]string{
+	resourceReasonMemoryWriter:                             "memory-writer-no-external-resource",
+	resourceReasonAcquisitionLocationUnknown:               "acquisition-location-unknown",
+	resourceReasonPriorDeferMayRelease:                     "prior-defer-may-release",
 	resourceReasonNone:                                     "",
 	resourceReasonAcquisitionErrorProven:                   "acquisition-error-proven",
 	resourceReasonAggregateOwnerMayEscape:                  "aggregate-owner-may-escape",

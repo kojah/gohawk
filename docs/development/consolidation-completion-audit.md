@@ -12,7 +12,7 @@ consolidation tracked in `gohawk-dho.24`.
 | --- | --- | --- |
 | Shared responsibilities and downward dependencies | The architecture guide names the SSA, heap, lifecycle, resource and summary layers. Repository-wide architecture tests enforce imports, analyzer layout, fact ownership, summary access, traversal and reporting boundaries. | Structural conformance has passing canonical receipts. It does not prove every proof policy is cohesive; semantic review remains open. |
 | No duplicated proof mechanics | The value-walk and storage/summary reviews document concrete merges and distinct policies. The broader normalized-body scan below found five additional mechanical duplicate groups, now consolidated. | The identified groups are addressed. Partial blocks and equivalent logic written differently remain outside that scan; no repository-wide absence claim is made. |
-| One authoritative decision for each check | Reviewed lifecycle analyzers classify once and ask a shared flow query. The remaining normalized matches in classifier caches and state keys contain different domain state, rather than second acceptance rules. | The ten-check inventory below locates each reporting pipeline. Concurrent capture and process ownership now share their final decisions with tracing. Lock release and mutation reporting also consume structured decisions after dho.27. Defer-loop outcomes now also use a structured proof after dho.28. Deeper classification and precision-family review remain open. |
+| One authoritative decision for each check | Reviewed lifecycle analyzers classify once and ask a shared flow query. The remaining normalized matches in classifier caches and state keys contain different domain state, rather than second acceptance rules. | The ten-check inventory below locates each reporting pipeline. Concurrent capture and process ownership now share their final decisions with tracing. Lock release and mutation reporting also consume structured decisions after dho.27. Defer-loop outcomes use a structured proof after dho.28; resource lifetime now also owns its state and pre-flow policy exclusion after dho.30. Deeper classification and precision-family review remain open. |
 | Remaining easy FPs fixed | Frozen batches 62/63 supplied 55 production FP locations. The queue refresh, successful 22-site replay and four subsequent corrections leave 18 unresolved production sites. The ten-family assessment states the missing evidence for each. Rune callback wait is separately corrected; fresh-lock publication remains open. | No target-resolution-only correction has been demonstrated. The remaining families need policy, identity, state or protocol evidence. Further current-source review must distinguish a newly available bounded fix from a genuinely larger model. |
 | Precision preserved by consolidation | Parent/current boundary comparisons, accepted and diagnostic fixtures, ordinary tests and local dogfood scans accompany focused changes. Existing facts retain must/may polarity, exact binding, observation time and bounded unknown outcomes. | Passing receipts prove their stated scopes. They do not certify every historical finding against the latest source. Use affected pinned cases when behavior changes; do not rewrite frozen labels or credit unscannable cases. |
 | Tight development cycle | Focused tests precede stable `make verify` gates. The local gate runs ordinary tests, formatting, vet, lint, dead-code and local dogfood; it does not invoke precision-regression. | Maintained. No full precision replay or local race run is part of these iterations. |
@@ -97,7 +97,7 @@ claim or a review of every transitive predicate.
 | Concurrent capture | The AST collector selects repeated writes to outer locals, then `captureEvidence.proveMutation` returns the guard decision consumed by reporting and tracing. | The former inline four-rule switch is consolidated. Syntax candidate gates remain bounded suppressions; their semantic contracts still need review. |
 | Goroutine join | `spawnAnalysis.prove` combines obligation discovery, one obligation walk and conservative post-walk boundaries into `GoroutineProof`. The entry reports only `GoroutineLifecycleViolated`. | Classification and discovery helpers need the remaining partial-duplication review; the final reporter does not independently select suppressions. |
 | Cancellation release | `proveCancellation` converts `EvaluateObligationWitness` into `CancellationProof`; reporting and final tracing consume the same outcome. | Parent and deferred-cell classifiers remain distinct evidence families; their shared mechanics need review rather than a generic cancellation exemption. |
-| Resource release | `evaluateResourceFlow` owns acquisition boundaries, resource-state walking and final policy result. `checkAcquisition` traces that result and reports only its report flag. | The pre-flow memory-writer gate and post-flow policy rules belong in the remaining cohesion review. Resource state is richer than a generic join lattice. |
+| Resource release | `evaluateResourceFlow` owns acquisition boundaries, the memory-writer policy exclusion, resource-state walking and final structured result. `checkAcquisition` traces that state and reports only proven diagnostic evidence. | dho.30 puts the memory-writer gate inside the proof and removes trace-only reason interpretation. Resource state is richer than a generic join lattice; transitive classification review remains required. |
 | Process wait | Pre-Start ownership gates select local obligations; the post-Start walk supplies a witness to `decideProcessReturn`. Reporting and tracing consume that final decision. | Pre-Start paths are not all traced. Their ownership rules and the flow's command/merged-command classification still require partial-duplication review. |
 | Deferred cleanup in loop | `proveDeferLifetime` owns retention-before-defer, instruction classification and live-backedge search. Its structured outcome controls reporting and final tracing. | dho.28 separates unknown backedges from no-live-backedge acceptance without changing the traversal or diagnostic rule. Classifier policy still needs the remaining partial-duplication review. |
 | Producer send lifetime | `abandonedProducerSend` returns `producerProof` after send attribution and `channelReceives`; the reporter and final trace consume Proven/Known. | Protocol counting and receive effects require the remaining classification review. Position deduplication is reporting mechanics, not a second proof. |
@@ -217,6 +217,65 @@ The final canonical local gate passes (`goal-trace-outcomes-final-verify.log`);
 the initial test-style lint finding was corrected. No full precision corpus,
 local race, FP removal or exported summary change is credited.
 
+
+## Resource final proof and bounded flow comparison
+
+Beads `gohawk-dho.30` follows the resource classification review. The former
+policy result stored a report Boolean, while final tracing separately selected
+unknown for two HTTP reason codes and accepted every other silent result.
+That described opaque consumption as acceptance and possible pre-acquisition
+deferred cleanup as proven release. The existing memory-writer exclusion also
+bypassed final proof presentation in the analyzer entry.
+
+The policy result now carries diagnostic evidence state. The flow owner keeps
+policy exclusions and exact return coverage disproven, distinguishes opaque
+ownership and possible deferred cleanup as unknown, and returns proven only
+for the existing reportable witness. The reporter consumes that state, and
+tracing uses `DiagnosticOutcome` without consulting reasons. The memory-writer
+gate moves into the same ordered proof before candidate attribution and every
+query; it gains an accepted final policy reason, not a cleanup guarantee.
+The existing acquisition proof remains above its function-size review trigger:
+its cohesive responsibility is one ordered acquisition-to-return decision,
+including pre-flow boundaries and witness-conditioned post-flow policy. No
+second traversal or reporting policy is introduced.
+
+Direct comparison of `resourceFlowState`/`advanceResourceState`/
+`resourceSuccessorStates` with `ssaflow.obligationOutcome` finds material
+contracts that prohibit mechanically replacing the resource walk with the
+generic max-action lattice. Resource state distinguishes activation from
+settlement and sticky uncertainty; acquisition-error and presence edges can
+remove activation. The generic walk monotonically strengthens coverage. It
+prunes stable guard contradictions, whereas resource flow conservatively
+marks both contradiction kinds unknown. Resource returns and edges additionally
+consult exact owner, collection and conditional completion evidence. Both use
+`WalkStates`, `PathGuards` and `SuccessorPolicy`; domain transitions remain
+local. This disposition covers these flow functions, not every classifier
+predicate or every transitive callee. The adjacent classifier/cache review
+still leaves broader partial-duplication investigation open.
+
+The regression shares the existing resource fixture run. The parent overlay
+fails on accepted opaque consumption, accepted possible deferred release and
+missing memory-writer decisions; the current focused package tests pass.
+The selected controls cover exactly one proof decision at each expected
+candidate, including real release, bypassed async handoff and mixed external
+writers. The actual imported async fixture's SSA confirms the boxed file
+argument and ordinary return after the imported helper; it is recorded in
+`.build/goal-resource-decision-ssa.txt` rather than inferred from syntax.
+
+Parent/current `-enable-all -json` scans of the local resource fixture both
+exit 3 with empty stderr and identical nonempty diagnostic JSON (335,147 bytes).
+The current scan enables tracing; its 713 final proof decisions contain 256
+accepted, 141 unknown and 316 rejected outcomes, including three memory-writer
+exclusions. Infrastructure diagnostic notifications are excluded from those
+counts. These are fixture observations, not precision-corpus labels or FP
+removal credit. Receipts use `.build/goal-resource-decision-*`. Focused analyzer
+and architecture checks pass. The final canonical local gate passes all
+checks (`.build/goal-resource-decision-final-verify.log`), including ordinary
+tests (25 seconds), formatting, vet, lint, dead-code and local dogfood. The
+initial run passed ordinary tests and the other gates but found structurally
+similar assertion tables through the duplication linter; the new final-decision
+assertions use a case table instead. No full precision replay or local race run
+was performed.
 
 ## Next verification
 

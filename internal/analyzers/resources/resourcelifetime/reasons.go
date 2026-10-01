@@ -89,6 +89,9 @@ const (
 	resourceReasonResultGuardedDefer
 	resourceReasonResultGuardedRelease
 	resourceReasonResultGuardedUnknown
+	resourceReasonMemoryWriter
+	resourceReasonAcquisitionLocationUnknown
+	resourceReasonPriorDeferMayRelease
 	resourceReasonCount
 )
 
@@ -96,6 +99,9 @@ const (
 // particular, unset ("") and an inspected-but-untouched instruction ("none")
 // stay distinct. Numeric ordinals can change without changing that contract.
 var resourceReasonCodes = [...]string{
+	resourceReasonMemoryWriter:                             "memory-writer-no-external-resource",
+	resourceReasonAcquisitionLocationUnknown:               "acquisition-location-unknown",
+	resourceReasonPriorDeferMayRelease:                     "prior-defer-may-release",
 	resourceReasonNone:                                     "",
 	resourceReasonAcquisitionErrorProven:                   "acquisition-error-proven",
 	resourceReasonAggregateOwnerMayEscape:                  "aggregate-owner-may-escape",
