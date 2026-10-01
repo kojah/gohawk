@@ -1,0 +1,3 @@
+repository,analyzer,check,position,verdict
+TencentCloud/tencentmeeting-cli,processownership,processownership/missing-wait,internal/event/spawner/spawner.go:113:12,false_positive
+openfaas/of-watchdog,processownership,processownership/missing-wait,executor/serializing_fork_runner.go:105:12,true_positive

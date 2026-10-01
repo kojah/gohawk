@@ -82,6 +82,10 @@ recorded in [retired precision labels](../../docs/development/decisions/retired-
 
 ## Which check a label names
 
+[Round 70](round-70/README.md) preserves Tencent's guarded process release
+correction and a production missing-wait control. Immediate successful-Start
+evidence now refines the shared flow before merged returns.
+
 [Round 69](round-69/README.md) verifies urunc's returned value-copy handoff in
 the affected package and retains two production resource-leak controls.
 The shared heap projection preserves untouched fields; the full urunc scan
