@@ -21,10 +21,10 @@ import (
 const heapSummaryLimit = 131072
 
 // heapEntryState is where a callee's summary stands in the registry. A
-// callee being projected right now, which only a call cycle reaches again,
-// has no summary yet, so the cycle is cut where it closes. One whose
-// projection was not available is remembered so a call site does not ask
-// again at every replay.
+// callee being projected right now can be requested by another analyzer;
+// that request projects privately instead of treating contention as recursion.
+// Graph construction cuts call cycles before requesting a callee summary.
+// An unavailable projection is remembered to avoid retrying at every replay.
 type heapEntryState uint8
 
 const (
@@ -123,13 +123,11 @@ func heapSummaryOf(function *ssa.Function) (HeapSummary, bool) {
 	return projectHeapOnDemand(resolved)
 }
 
-// RegisteredHeapSummary returns the summary the registry holds for the
-// function, for the dump; it never projects one.
+// RegisteredHeapSummary returns the registry's ready summary for the function.
+// It never projects a summary and reports no answer while projection is in
+// progress or when it was unavailable.
 func RegisteredHeapSummary(function *ssa.Function) (HeapSummary, bool) {
-	heapSummaries.Lock()
-	defer heapSummaries.Unlock()
-	entry, ok := heapSummaries.entries[function]
-	return entry.summary, ok && entry.state == heapEntryReady
+	return registeredHeapSummary(function)
 }
 
 // registeredHeapSummary reports the registry's answer for one function:

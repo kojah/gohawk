@@ -900,8 +900,9 @@ the registry held evicts the cached graphs that consulted the old one.
 func RegisteredHeapSummary(function *ssa.Function) (HeapSummary, bool)
 ```
 
-RegisteredHeapSummary returns the summary the registry holds for the
-function, for the dump; it never projects one.
+RegisteredHeapSummary returns the registry's ready summary for the function.
+It never projects a summary and reports no answer while projection is in
+progress or when it was unavailable.
 
 ## RenderRegions
 

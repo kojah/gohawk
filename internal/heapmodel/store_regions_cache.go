@@ -38,11 +38,10 @@ var regionGraphs = struct {
 }{order: list.New(), entries: map[*ssa.Function]*list.Element{}, dependents: map[*ssa.Function]map[*regionGraphEntry]bool{}}
 
 // regionGraphEntry is one cached graph. Its graph is nil while the build
-// is in progress: a build that reaches the function again, through a
-// callee summary projected on demand around a call cycle, gets an
-// unavailable graph instead of recursing, and that summary is truncated
-// where the cycle closes. An evicted entry is stale, and a build that
-// finishes after its eviction is not cached.
+// is in progress, and concurrent lookups wait for done before reading it.
+// Graph construction cuts callee-summary call cycles before they can ask
+// for the same graph. An evicted entry is stale, and a build that finishes
+// after its eviction is not cached.
 type regionGraphEntry struct {
 	function *ssa.Function
 	graph    *regionGraph
