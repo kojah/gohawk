@@ -17,6 +17,18 @@ imported helpers and local wrappers that call them. Existing branch-aware
 helper and ownership proofs remain in use when an ordered summary is
 unavailable; missing summaries are never treated as evidence of no join.
 An asynchronously launched waiter does not join the worker in its parent.
+Caller-owned channel and stable receiver-context bounds share one receive
+search, keyed by both function and local value. Repeated calls to the same
+helper therefore retain distinct formal bindings. These are possible lifetime
+bounds, never joins; the search preserves the existing opaque captured-cell
+boundary and receiver-field mutation checks. Its queries share the candidate's
+budget. Exhaustion suppresses reporting as `worker-receive-budget-exhausted`,
+while recursive and unavailable bodies remain unknown within the search.
+Fixtures in `goroutineownership/receive_bindings.go` cover a receiver bound
+through the second helper call and an unrelated local receiver that supplies
+no caller-owned bound. Unit tests additionally cover diamonds, nested launches,
+capture opacity, recursion, missing bodies, field replacement and fresh-budget
+retries after an incomplete search.
 Local callback wrappers use the shared exact invocation proof, including
 an invoker passed as another bound callback. The wrapper must synchronously
 invoke the exact worker before every normal return; forwarding to another

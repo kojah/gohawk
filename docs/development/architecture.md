@@ -38,6 +38,11 @@ for each; these times include each check's prerequisite passes.
   Both share binding, coverage, recursion and budget rules. A body promise
   never makes an asynchronous launch complete its caller's obligation, and
   rejecting a recursive body visit supplies unknown evidence.
+  Worker lifetime bounds share one analyzer-local receive search with
+  caller-selected channel or context-field predicates. Its memo key includes
+  the function and local value, so a helper visited for one formal does not
+  hide another formal's receive. Search exhaustion becomes candidate-level
+  unknown evidence and uses the candidate's shared budget and observer.
   Callback transfer and aggregate containment keep their distinct policies,
   while sharing capture-binding identity and cell-content checks. A callback
   capturing an aggregate can contain a resource without establishing the

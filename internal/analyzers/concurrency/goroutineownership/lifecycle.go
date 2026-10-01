@@ -90,7 +90,7 @@ func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
 				continue
 			}
 			groups, _ := waitGroupCompletionValues(worker, function, closure)
-			if heapmodel.MayAliasAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker) {
+			if heapmodel.MayAliasAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker, analysis.budget()) {
 				return true
 			}
 		}
@@ -105,7 +105,7 @@ func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
 // https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/discovery/kubernetes/kubernetes.go#L438-L458
 // Reminal passes its stop channel through several small helpers:
 // https://github.com/harshalgajjar/Reminal/blob/c4fd9e64b3b1deabaaacd5e10b9090a28792148d/internal/client/directoryhost.go#L62-L106
-func goroutineReceivesCallerSignal(pass *analysis.Pass, spawn *ssa.Go) bool {
+func goroutineReceivesCallerSignal(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
 	function, closure := spawnedFunction(pass, spawn)
 	if function == nil {
 		return false
@@ -122,19 +122,19 @@ func goroutineReceivesCallerSignal(pass *analysis.Pass, spawn *ssa.Go) bool {
 	return spawnedParameterIsReceived(spawn, function, closure, func(value ssa.Value) bool {
 		channel, ok := value.Type().Underlying().(*types.Chan)
 		return ok && channel.Dir() == types.RecvOnly
-	})
+	}, budget)
 }
 
 // goroutineReceivesCallerContext reports whether the worker, or a static helper
 // it passes the exact context to, receives from a caller-owned context.
-func goroutineReceivesCallerContext(pass *analysis.Pass, spawn *ssa.Go) bool {
+func goroutineReceivesCallerContext(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
 	function, closure := spawnedFunction(pass, spawn)
 	if function == nil {
 		return false
 	}
 	return spawnedParameterIsReceived(spawn, function, closure, func(value ssa.Value) bool {
 		return syntax.NamedType(value.Type(), "context", "Context")
-	})
+	}, budget)
 }
 
 var contextDoneMethod = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "context", Receiver: "Context", Name: "Done"})
@@ -150,13 +150,13 @@ var contextDoneMethod = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "c
 // downloader selects on d.ctx.Done() in a helper the worker calls on its
 // captured receiver:
 // https://github.com/zkep/my-geektime/blob/a614af742806cfb10f84598c71c0dd668e96549b/libs/m3u8/downloader.go#L249-L288
-func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go) bool {
+func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
 	function, closure := spawnedFunction(pass, spawn)
 	if function == nil || workerHasSend(function) || workerHandsOffOutputChannel(function) {
 		return false
 	}
 	bounded := func(local ssa.Value) bool {
-		return contextFieldReceivedAnywhere(function, local, spawn.Parent(), map[*ssa.Function]bool{})
+		return contextFieldReceivedAnywhere(function, local, spawn.Parent(), budget)
 	}
 	for _, binding := range ssaflow.CallBindings(spawn.Common(), function, closure) {
 		if bindingIsExternallyOwned(binding) && bounded(binding.Local) {
@@ -166,43 +166,16 @@ func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go) bool {
 	return false
 }
 
-func contextFieldReceivedAnywhere(function *ssa.Function, local ssa.Value, spawner *ssa.Function, seen map[*ssa.Function]bool) bool {
-	if function == nil || seen[function] {
-		return false
-	}
-	seen[function] = true
-	derives := func(value ssa.Value) bool {
-		return heapmodel.ValueDerivesFrom(value, local)
-	}
-	receivesContextField := func(channel ssa.Value) bool {
+func contextFieldReceivedAnywhere(function *ssa.Function, local ssa.Value, spawner *ssa.Function, budget *ssaflow.SearchBudget) bool {
+	search := newWorkerReceiveSearch(budget, func(body *ssa.Function, target, channel ssa.Value) bool {
 		done, ok := channel.(*ssa.Call)
 		if !ok || !ssaflow.CallMatchesSymbol(done.Common(), contextDoneMethod) {
 			return false
 		}
 		field := loadedContextField(ssaflow.CallReceiver(done.Common()))
-		return field != nil && derives(field.X) && !fieldStoredIn(field, spawner) && !fieldStoredIn(field, function)
-	}
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if receivesFrom(instruction, receivesContextField) {
-				return true
-			}
-			common := ssaflow.InstructionCall(instruction)
-			if common == nil {
-				continue
-			}
-			callee, closure := ssaflow.DirectCallee(common)
-			if callee == nil {
-				continue
-			}
-			for _, pair := range ssaflow.CallBindings(common, callee, closure) {
-				if derives(pair.Supplied) && contextFieldReceivedAnywhere(callee, pair.Local, spawner, seen) {
-					return true
-				}
-			}
-		}
-	}
-	return false
+		return field != nil && heapmodel.ValueDerivesFrom(field.X, target) && !fieldStoredIn(field, spawner) && !fieldStoredIn(field, body)
+	})
+	return search.prove(function, local).Proven()
 }
 
 // loadedContextField returns the field address a context value was loaded
@@ -237,7 +210,7 @@ func fieldStoredIn(field *ssa.FieldAddr, function *ssa.Function) bool {
 // this only to decline the default context-mode diagnostic.
 // https://github.com/c9s/bbgo/blob/4a4a18a08897579d157c8fd3b412309cd4954852/pkg/cmd/exchangetest.go#L233-L255
 // https://github.com/inbucket/inbucket/blob/94472ab496822dec612edce7988a1f953a9eafbd/pkg/msghub/hub_test.go#L361-L372
-func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go) bool {
+func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
 	function, closure := spawnedFunction(pass, spawn)
 	if function == nil {
 		return false
@@ -263,7 +236,7 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go)
 		}
 		cancel := ssaflow.CallResult(call, 1)
 		owned := cancelCoversSpawn(spawn, cancel, storage)
-		if owned && receivesAnywhere(function, pair.Local, map[*ssa.Function]bool{}) {
+		if owned && receivesAnywhere(function, pair.Local, budget) {
 			return true
 		}
 		// An imported or dynamic helper receiving this exact canceled context
@@ -327,10 +300,16 @@ func callerSuppliedValue(spawn *ssa.Go, function *ssa.Function, closure *ssa.Mak
 // spawnedParameterIsReceived reports whether a caller-owned parameter or
 // capture accepted by typed is received from by the worker or by a static
 // helper chain it hands the exact value to.
-func spawnedParameterIsReceived(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, typed func(ssa.Value) bool) bool {
+func spawnedParameterIsReceived(
+	spawn *ssa.Go,
+	function *ssa.Function,
+	closure *ssa.MakeClosure,
+	typed func(ssa.Value) bool,
+	budget *ssaflow.SearchBudget,
+) bool {
 	for _, binding := range ssaflow.CallBindings(spawn.Common(), function, closure) {
 		if typed(binding.Local) && bindingIsExternallyOwned(binding) &&
-			receivesAnywhere(function, binding.Local, map[*ssa.Function]bool{}) {
+			receivesAnywhere(function, binding.Local, budget) {
 			return true
 		}
 	}
@@ -352,35 +331,11 @@ func bindingIsExternallyOwned(binding ssaflow.CallBinding) bool {
 // exact value to, receives from local on any path. A bounded worker commonly
 // selects on its stop signal inside a loop, so every-return coverage is not
 // required here; this evidence never proves a join, only a caller-owned bound.
-func receivesAnywhere(function *ssa.Function, local ssa.Value, seen map[*ssa.Function]bool) bool {
-	if function == nil || seen[function] {
-		return false
-	}
-	seen[function] = true
-	derives := func(value ssa.Value) bool {
-		return heapmodel.ValueDerivesFrom(value, local)
-	}
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if receivesFrom(instruction, derives) {
-				return true
-			}
-			common := ssaflow.InstructionCall(instruction)
-			if common == nil {
-				continue
-			}
-			callee, closure := ssaflow.DirectCallee(common)
-			if callee == nil {
-				continue
-			}
-			for _, pair := range ssaflow.CallBindings(common, callee, closure) {
-				if derives(pair.Supplied) && receivesAnywhere(callee, pair.Local, seen) {
-					return true
-				}
-			}
-		}
-	}
-	return false
+func receivesAnywhere(function *ssa.Function, local ssa.Value, budget *ssaflow.SearchBudget) bool {
+	search := newWorkerReceiveSearch(budget, func(_ *ssa.Function, target, channel ssa.Value) bool {
+		return heapmodel.ValueDerivesFrom(channel, target)
+	})
+	return search.prove(function, local).Proven()
 }
 
 // synctestOwnsGoroutine recognizes a worker launched from the callback passed

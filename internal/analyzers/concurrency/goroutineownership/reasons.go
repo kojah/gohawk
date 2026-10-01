@@ -30,6 +30,7 @@ const (
 	reasonSelectedContextEdge
 	reasonCountedDrainEdge
 	reasonProcessExitStopsWorker
+	reasonReceiveBudgetExhausted
 	// The label reasons say why the classifier labelled one instruction.
 	reasonLabelSignalReceived
 	reasonLabelDirectJoin
@@ -53,6 +54,7 @@ const (
 )
 
 var ownershipReasonCodes = [...]string{
+	reasonReceiveBudgetExhausted:      "worker-receive-budget-exhausted",
 	reasonNone:                        "",
 	reasonJoinProven:                  "join-proven",
 	reasonDeferredJoinBeforeSpawn:     "deferred-join-before-spawn",
