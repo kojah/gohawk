@@ -19,6 +19,17 @@ explicit `Wait` followed by process termination is also outside the normal-retur
 completion proof. Locally stored command fields are resolved at acquisition when
 checking whether a returned value owner contains the command.
 
+A returned aggregate may instead retain `cmd.Process`, leaving `exec.Cmd` local.
+The process-handle classifier asks the existing returned-value containment query
+about handle loads derived from the started command. Such a return is an unknown
+handoff, not a guaranteed wait: the owner may never perform cleanup. This covers
+the [sandbox container](https://github.com/criyle/go-sandbox/blob/6a60e40be9d0cefb656c4ae12415c5fd040df954/container/environment_linux.go#L266-L280),
+whose `Destroy` method waits on its stored handle. The loop over candidate loads
+uses one query budget from the command's pool. `returned_handles.go` covers a
+returned owner and slice, a different process, a PID-only result, and a return
+that bypasses transfer. Discarded local owners remain diagnostic. As elsewhere,
+possible containment may lose real leaks; it never establishes completion.
+
 Commands supplied by helpers, including `(command, error)` factories and
 interface calls, have uncertain ownership. The check does not assume their
 caller is the only possible wait owner. This can miss genuine leaks when a

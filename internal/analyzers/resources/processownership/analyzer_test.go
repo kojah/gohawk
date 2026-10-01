@@ -47,8 +47,14 @@ func TestAnalyzer(t *testing.T) {
 			}
 			found["merged-wait-proven"] = true
 		}
+		if event.Reason == "ambiguous-wait-ownership" && strings.Contains(event.Candidate, "returned_handles.go:") {
+			if event.Outcome != "unknown" {
+				t.Errorf("returned handle owner claimed a guaranteed wait: %+v", event)
+			}
+			found["returned-handle-owner"] = true
+		}
 	}
-	for _, outcome := range []string{"accepted", "rejected", "unknown", "merged-wait-proven", "helper-result"} {
+	for _, outcome := range []string{"accepted", "rejected", "unknown", "merged-wait-proven", "helper-result", "returned-handle-owner"} {
 		if !found[outcome] {
 			t.Errorf("missing process trace outcome %s", outcome)
 		}

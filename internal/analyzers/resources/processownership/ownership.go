@@ -402,10 +402,29 @@ func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa
 }
 
 func processHandleOwnershipAction(proof *commandProof, instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
+	if returned, ok := instruction.(*ssa.Return); ok && !returnsProcessHandle(returned, command) {
+		// A returned aggregate can keep the started child's lower-level handle
+		// without keeping exec.Cmd. Containment is a possible ownership handoff,
+		// not proof that the owner will Wait; PID-only projections do not qualify.
+		// https://github.com/criyle/go-sandbox/blob/6a60e40be9d0cefb656c4ae12415c5fd040df954/container/environment_linux.go#L266-L280
+		budget := proof.budget()
+		for _, handle := range ssaflow.InstructionsOf[*ssa.UnOp](returned.Parent()) {
+			if !budget.Spend() {
+				return ssaflow.EvidenceUnknown
+			}
+			if osProcessDerivedFromCommand(handle, command) && lifecycle.ReturnedValueOwnsValue(returned, handle) {
+				return ssaflow.EvidenceUnknown
+			}
+		}
+		return ssaflow.EvidenceDisproven
+	}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return ssaflow.EvidenceDisproven
 	}
+	// A helper handed the lower-level handle can reap the child without ever
+	// seeing exec.Cmd. Bind its Wait or returned-owner summary to that exact
+	// argument; incomplete searches remain unknown rather than absence of cleanup.
 	state := ssaflow.EvidenceDisproven
 	for _, argument := range common.Args {
 		if !osProcessDerivedFromCommand(argument, command) {
