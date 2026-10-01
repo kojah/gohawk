@@ -53,3 +53,19 @@ func helperHoldsAtMutation(items []int) {
 		}()
 	}
 }
+
+// Branching workers fall outside ordered effects. The existing syntax fallback
+// preserves uncertain serialization even when it cannot prove the lock held.
+func conditionalLockMayGuard(items []int, condition bool) {
+	var mu sync.Mutex
+	var count int
+	for range items {
+		go func() {
+			if condition {
+				mu.Lock()
+				defer mu.Unlock()
+			}
+			count++
+		}()
+	}
+}

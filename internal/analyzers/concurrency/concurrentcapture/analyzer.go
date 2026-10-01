@@ -138,26 +138,19 @@ func reportCapturedMutations(
 			}
 			probe := analysisTrace.For(pass, "concurrentcapture", string(check.ConcurrentCapture), identifier.Pos())
 			probe.Candidate(analysisTrace.Step{Reason: reasonRepeatedWrite.String(), Outcome: analysisTrace.OutcomeObserved, Pos: identifier.Pos()})
-			guard := evidence.lockGuard(closure, node)
-			// A held lock is evidence of possible serialization, not proof that
-			// every worker uses the same lock. Unknown effects retain the older
-			// syntax fallback rather than claiming the write is unguarded.
-			switch {
-			case guard.known && guard.guarded:
-				probe.Decision(analysisTrace.Step{Reason: guard.reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
-				continue
-			case !guard.known && fallbackLock:
-				probe.Decision(analysisTrace.Step{Reason: reasonLockFallbackUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
-				continue
-			case mutationHasWorkerGuard(pass, closure, node, varying):
-				probe.Decision(analysisTrace.Step{Reason: reasonWorkerGuardUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
-				continue
-			case mutationHasChannelGuard(pass, closure, node):
-				probe.Decision(analysisTrace.Step{Reason: reasonChannelGuardUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: identifier.Pos()})
+			// Guard evidence belongs to this mutation. An earlier guarded write
+			// must not hide a later unguarded write to the same capture, so only
+			// objects with a reportable proof enter the deduplication set.
+			proof := evidence.proveMutation(pass, closure, node, varying, fallbackLock)
+			outcome := analysisTrace.OutcomeUnknown
+			if proof.state == ssaflow.EvidenceProven {
+				outcome = analysisTrace.OutcomeRejected
+			}
+			probe.Decision(analysisTrace.Step{Reason: proof.reason.String(), Outcome: outcome, Pos: identifier.Pos()})
+			if proof.state != ssaflow.EvidenceProven {
 				continue
 			}
 			reported[object] = true
-			probe.Decision(analysisTrace.Step{Reason: reasonUnguardedWrite.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: identifier.Pos()})
 			reportSharedCapture(pass, identifier, object, loop)
 		}
 		return true

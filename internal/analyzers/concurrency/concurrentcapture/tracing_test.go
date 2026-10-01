@@ -36,6 +36,7 @@ func TestCaptureLockRegionTrace(t *testing.T) {
 		t.Fatal(err)
 	}
 	seen := map[string]bool{}
+	decisions := map[string]int{}
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event struct {
 			Phase     string `json:"phase"`
@@ -46,11 +47,33 @@ func TestCaptureLockRegionTrace(t *testing.T) {
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
 		}
-		if event.Phase == "decision" && strings.Contains(event.Candidate, "region_guards.go:") {
+		if event.Phase != "decision" {
+			continue
+		}
+		decisions[event.Candidate]++
+		want := "unknown"
+		if event.Reason == "capture-unguarded-write" {
+			want = "rejected"
+		}
+		if event.Outcome != want {
+			t.Errorf("decision %s: want %s, got %s", event.Candidate, want, event.Outcome)
+		}
+		if strings.Contains(event.Candidate, "region_guards.go:") {
 			seen[event.Reason+":"+event.Outcome] = true
 		}
+		seen[event.Reason] = true
 	}
-	for _, outcome := range []string{"capture-lock-held:unknown", "capture-unguarded-write:accepted"} {
+	for candidate, count := range decisions {
+		if count != 1 {
+			t.Errorf("candidate %s: want one final decision, got %d", candidate, count)
+		}
+	}
+	for _, reason := range []string{"capture-worker-guard-unknown", "capture-channel-guard-unknown", "capture-lock-fallback-unknown"} {
+		if !seen[reason] {
+			t.Errorf("missing %s guard boundary", reason)
+		}
+	}
+	for _, outcome := range []string{"capture-lock-held:unknown", "capture-unguarded-write:rejected"} {
 		if !seen[outcome] {
 			t.Errorf("missing %s trace in region guard fixture", outcome)
 		}

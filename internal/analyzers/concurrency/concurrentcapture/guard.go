@@ -2,9 +2,11 @@ package concurrentcapture
 
 import (
 	"go/ast"
+	"go/types"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
+	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -12,6 +14,35 @@ type lockGuardProof struct {
 	guarded bool
 	known   bool
 	reason  captureReason
+}
+
+// mutationProof decides whether the selected repeated write remains reportable
+// after the analyzer's guard evidence. Proven means the guard policy permits a
+// diagnostic; unknown suppresses it without establishing race freedom.
+type mutationProof struct {
+	state  ssaflow.EvidenceState
+	reason captureReason
+}
+
+func (evidence captureEvidence) proveMutation(
+	pass *analysis.Pass, closure *ast.FuncLit, mutation ast.Node, varying []types.Object, fallbackLock bool,
+) mutationProof {
+	guard := evidence.lockGuard(closure, mutation)
+	// A held lock is evidence of possible serialization, not proof that
+	// every worker uses the same lock. Unknown effects retain the older
+	// syntax fallback rather than claiming the write is unguarded.
+	switch {
+	case guard.known && guard.guarded:
+		return mutationProof{ssaflow.EvidenceUnknown, guard.reason}
+	case !guard.known && fallbackLock:
+		return mutationProof{ssaflow.EvidenceUnknown, reasonLockFallbackUnknown}
+	case mutationHasWorkerGuard(pass, closure, mutation, varying):
+		return mutationProof{ssaflow.EvidenceUnknown, reasonWorkerGuardUnknown}
+	case mutationHasChannelGuard(pass, closure, mutation):
+		return mutationProof{ssaflow.EvidenceUnknown, reasonChannelGuardUnknown}
+	default:
+		return mutationProof{ssaflow.EvidenceProven, reasonUnguardedWrite}
+	}
 }
 
 // lockGuard asks the broker for complete effects along one worker's ordered
