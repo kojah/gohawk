@@ -1962,3 +1962,7 @@ corrects an imported goroutine-runner handoff through the existing opaque
 callback rule. Scoped parent/current scans and an unknown trace isolate the
 removal; a complete OpenFaaS scan retains its reviewed process leak. Rune’s
 separate publication-order lock report remains unresolved.
+
+The [rune local-lock rendering follow-up](rune-lock-source-names-2026-10-01.md)
+reuses acquisition source names in primary cycle messages for local allocations.
+The same rune diagnostic key remains reported; no FP removal is credited.
