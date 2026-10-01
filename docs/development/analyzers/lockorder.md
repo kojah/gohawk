@@ -113,6 +113,22 @@ field, makes the prior held-lock state unknown. It does not prove the callback
 runs or that the protocol is live. Registering a deferred acquisition also does
 not establish that the lock is held in the function body.
 
+A direct unlock whose receiver may alias a held mutex also makes that mutex's
+state unknown when their exact identity keys differ. The flow forgets that
+held state and its exclusive guard, but does not record an exact release or
+an acquire-for-caller contract. This covers a captured owner whose later load
+becomes opaque: the heap model retains a possible alias between matching field
+paths of the earlier owner and the opaque read. Sibling fields do not alias,
+and an opaque read never proves the two receivers identical. This can miss a
+real leak when an unlock selects only one of several possible mutexes.
+
+`uncertain_unlock_identity.go` pairs the accepted nested-callback release with
+a reported sibling-mutex release. The shared heap tests additionally pin nested
+fields, array elements, and the distinction between an owner and its field.
+The real-world case is [Centrifuge's final unlock](https://github.com/centrifugal/centrifuge-go/blob/080126041ccc71654718bd0601b920ff8b22a8bf/client.go#L1435-L1762).
+Reported-return traces retain distinct observed mutex actions and their identity
+keys, rather than representing their merged observations as one execution path.
+
 The flow preserves the incoming control-flow edge when a merged local flag
 selects a constant. A path that already released a lock is not combined with
 the flag value from a different predecessor. Up to four exact Boolean/integer phi

@@ -450,6 +450,7 @@ func (flow lockFlowContext) applyMutexAction(
 	effect mutexEffect,
 	state lockFlowState,
 ) lockFlowState {
+	flow.releaseAttempts.recordAction(instruction, effect)
 	operation, identity, receiver := effect.operation, effect.identity, effect.receiver
 	if operation == mutexRelease {
 		flow.released[identity] = true
@@ -463,7 +464,7 @@ func (flow lockFlowContext) applyMutexAction(
 		delete(state.guards, identity)
 		state.held = releaseLock(state.held, identity)
 		state.readHeld = releaseLock(state.readHeld, identity)
-		return state
+		return flow.transferPossiblyAliasedUnlock(instruction, effect, state)
 	}
 	// Registering a deferred acquisition does not acquire the lock now. In
 	// particular, a temporary upgrade can defer restoring the reader state
@@ -524,6 +525,25 @@ func (flow lockFlowContext) applyMutexAction(
 		state.readHeld = releaseLock(state.readHeld, identity)
 	}
 	state.held = appendUniqueString(state.held, identity)
+	return state
+}
+
+// A release capability consumed through a possible alias makes the held state
+// unknown. It supplies no exact release witness or caller-transfer guarantee.
+// Separate identities can arise when a captured owner cell becomes opaque:
+// https://github.com/centrifugal/centrifuge-go/blob/080126041ccc71654718bd0601b920ff8b22a8bf/client.go#L1435-L1762
+func (flow lockFlowContext) transferPossiblyAliasedUnlock(
+	instruction ssa.Instruction, effect mutexEffect, state lockFlowState,
+) lockFlowState {
+	for _, identity := range slices.Clone(state.held) {
+		if identity == effect.identity || !heapmodel.MayAliasAny(effect.receiver, flow.lockValues[identity]) {
+			continue
+		}
+		flow.releaseAttempts.traceUnknownRelease(flow.pass, identity, flow.acquiredAt[identity], instruction)
+		delete(state.guards, identity)
+		state.held = releaseLock(state.held, identity)
+		state.readHeld = releaseLock(state.readHeld, identity)
+	}
 	return state
 }
 

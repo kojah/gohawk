@@ -99,19 +99,18 @@ func (graph *regionGraph) slotsMayAlias(x, y slot, depth int) bool {
 }
 
 // everHeld reports whether the placeholder's source slot, or a slot that
-// aliases it, ever held an object that may be the target. Only the
-// placeholder object itself can be such content; a slot beneath it is an
-// address inside that object.
+// aliases it, ever held an object whose matching projection may be the target.
+// Preserve the placeholder's relative path: its field is not the whole owner
+// or a sibling field, but may be the same field of an earlier occupant.
+// https://github.com/centrifugal/centrifuge-go/blob/080126041ccc71654718bd0601b920ff8b22a8bf/client.go#L1435-L1762
 func (graph *regionGraph) everHeld(placeholder, target slot, depth int) bool {
-	if placeholder.path != "" {
-		return false
-	}
 	source := placeholder.region.source
 	for held, set := range graph.history {
 		if held.region != source.region || !pathsMayAlias(held.path, source.path) {
 			continue
 		}
 		for pointee := range set {
+			pointee.path = joinSlotPath(pointee.path, placeholder.path)
 			if pointee.region.kind == regionUnknown {
 				return true
 			}

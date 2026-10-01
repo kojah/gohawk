@@ -56,7 +56,9 @@ func TestLockTraceBoundaries(t *testing.T) {
 	checkDecisionTrace(t, data, "fresh-field-identity-unknown", "escaped_fresh_field.go:", "unknown")
 	checkDecisionTrace(t, data, "cross-owner-class-unknown", "cross_owner_orders.go:", "unknown")
 	checkHelperReleaseTrace(t, data)
-	checkDeferredOwnerReleaseTrace(t, data)
+	checkInstructionEvidence(t, data, "deferred-release-proven", "captured_owner_handoff.go:", "accepted")
+	checkMutexActionTrace(t, data)
+	checkInstructionEvidence(t, data, "release-identity-unknown", "uncertain_unlock_identity.go:", "unknown")
 	found := false
 	foundUnknown := false
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
@@ -89,22 +91,48 @@ func TestLockTraceBoundaries(t *testing.T) {
 	}
 }
 
-func checkDeferredOwnerReleaseTrace(t *testing.T, data []byte) {
+func checkMutexActionTrace(t *testing.T, data []byte) {
+	t.Helper()
+	operations := make(map[string]bool)
+	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+		var event lockTraceEvent
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+		if event.Reason != "mutex-action-observed" || !strings.Contains(event.Candidate, "captured_owner_handoff.go:") {
+			continue
+		}
+		if event.Phase != "evidence" || event.Outcome != "observed" || event.Position == "" ||
+			event.Details["lock"] == "" || event.Details["instruction"] == "" || event.Details["deferred"] != "false" {
+			t.Fatalf("invalid mutex action evidence: %+v", event)
+		}
+		operation := event.Details["operation"]
+		if operation != "acquire" && operation != "release" || operations[operation] {
+			t.Fatalf("invalid or repeated mutex action: %+v", event)
+		}
+		operations[operation] = true
+	}
+	if !operations["acquire"] || !operations["release"] {
+		t.Fatalf("missing mutex actions on reported return: %v", operations)
+	}
+}
+
+func checkInstructionEvidence(t *testing.T, data []byte, reason, file, outcome string) {
 	t.Helper()
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event lockTraceEvent
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
 		}
-		if event.Reason != "deferred-release-proven" || !strings.Contains(event.Candidate, "captured_owner_handoff.go:") {
+		if event.Reason != reason || !strings.Contains(event.Candidate, file) {
 			continue
 		}
-		if event.Phase != "evidence" || event.Outcome != "accepted" || event.Position == "" || event.Position == event.Candidate {
-			t.Fatalf("unexpected deferred owner cleanup evidence: %+v", event)
+		if event.Phase != "evidence" || event.Outcome != outcome || event.Position == "" || event.Position == event.Candidate {
+			t.Fatalf("invalid instruction evidence: %+v", event)
 		}
 		return
 	}
-	t.Fatal("missing deferred owner cleanup evidence")
+	t.Fatalf("missing instruction evidence: %s", reason)
 }
 
 func checkDecisionTrace(t *testing.T, data []byte, reason, file, outcome string) {

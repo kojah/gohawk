@@ -18,7 +18,10 @@ import (
 // was known to be reported. While tracing, those unproven release questions
 // are kept per lock and replayed as evidence on each reported return, so a
 // trace of the reported line names the helpers that were asked and the
-// completion search's reason for each. Nothing is kept when tracing is off.
+// completion search's reason for each. Observed mutex actions are deduplicated
+// across visited states; their merged observations are not one execution path.
+// Uncertain alias releases are traced once when consumed. Nothing is kept when
+// tracing is off.
 
 type releaseAttempt struct {
 	position    token.Pos
@@ -32,7 +35,51 @@ type releaseAttempt struct {
 }
 
 type releaseAttempts struct {
-	byLock map[string][]releaseAttempt
+	byLock          map[string][]releaseAttempt
+	actions         []mutexActionTrace
+	unknownReleases []uncertainReleaseTrace
+}
+
+type uncertainReleaseTrace struct {
+	identity           string
+	acquired, released token.Pos
+}
+
+func (attempts *releaseAttempts) traceUnknownRelease(pass *analysis.Pass, identity string, acquired token.Pos, instruction ssa.Instruction) {
+	if attempts == nil {
+		return
+	}
+	release := uncertainReleaseTrace{identity: identity, acquired: acquired, released: instruction.Pos()}
+	if slices.Contains(attempts.unknownReleases, release) {
+		return
+	}
+	attempts.unknownReleases = append(attempts.unknownReleases, release)
+	analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), acquired).Evidence(analysisTrace.Step{
+		Reason: lockReasonReleaseIdentityUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: instruction.Pos(),
+	})
+}
+
+// Recorded actions explain which exact identity the flow acquired or released.
+// A deferred action registers future work rather than executing it now.
+type mutexActionTrace struct {
+	position              token.Pos
+	instruction, identity string
+	operation             mutexOperation
+	deferred              bool
+}
+
+func (attempts *releaseAttempts) recordAction(instruction ssa.Instruction, effect mutexEffect) {
+	if attempts == nil {
+		return
+	}
+	_, deferred := instruction.(*ssa.Defer)
+	action := mutexActionTrace{
+		position: instruction.Pos(), instruction: instruction.String(), identity: effect.identity,
+		operation: effect.operation, deferred: deferred,
+	}
+	if !slices.Contains(attempts.actions, action) {
+		attempts.actions = append(attempts.actions, action)
+	}
 }
 
 // newReleaseAttempts returns a recorder while missing-release tracing is on,
@@ -113,6 +160,19 @@ func (attempts *releaseAttempts) trace(pass *analysis.Pass, identity string, ret
 		return
 	}
 	probe := analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), returned)
+	for _, action := range attempts.actions {
+		operation := "acquire"
+		if action.operation == mutexRelease {
+			operation = "release"
+		}
+		probe.Evidence(analysisTrace.Step{
+			Reason: lockReasonMutexActionObserved.String(), Outcome: analysisTrace.OutcomeObserved, Pos: action.position,
+			Details: map[string]string{
+				"instruction": action.instruction, "lock": action.identity, "operation": operation,
+				"deferred": strconv.FormatBool(action.deferred),
+			},
+		})
+	}
 	for _, attempt := range attempts.byLock[identity] {
 		probe.Evidence(analysisTrace.Step{
 			Reason: lockReasonHelperReleaseUnproven.String(), Outcome: analysisTrace.OutcomeRejected, Pos: attempt.position,
