@@ -27,6 +27,11 @@ for each; these times include each check's prerequisite passes.
   `ssaflow.DirectCallee` and `CallBindings`, including the broad deferred
   callback handoff query. Pairing supplies no identity guarantee: lifecycle
   keeps captured-cell matching distinct from eagerly evaluated arguments.
+  Analyzer-side worker context bounds, nested completion signals and process
+  waiter mapping use those same binding helpers. Caller-owned worker bounds
+  interpret captured cells through one local predicate; ordinary arguments
+  retain their evaluated values. Process waiter evidence preserves its
+  capture-before-argument order, including unknown answers.
   Callback invocation also uses the structured completion engine. The
   synchronous-call adapter submits an exact invocation request; the spawned
   wrapper adapter examines the callee body independently of its launch.

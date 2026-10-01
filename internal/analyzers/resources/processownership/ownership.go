@@ -357,9 +357,11 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 			}
 		}
 	}
-	for index, parameter := range function.Params {
-		if index < len(common.Args) && heapmodel.MayAlias(common.Args[index], command) {
-			if proof := waitsOnEveryReturn(parameter); proof != ssaflow.EvidenceDisproven {
+	// Keep capture evidence first: an unknown captured waiter must not be
+	// reordered behind an argument proof by the shared positional mapping.
+	for _, binding := range ssaflow.CallBindings(common, function, nil) {
+		if heapmodel.MayAlias(binding.Supplied, command) {
+			if proof := waitsOnEveryReturn(binding.Local); proof != ssaflow.EvidenceDisproven {
 				return proof
 			}
 		}

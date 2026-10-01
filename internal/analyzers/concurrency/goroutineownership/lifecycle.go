@@ -158,16 +158,8 @@ func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go) bool {
 	bounded := func(local ssa.Value) bool {
 		return contextFieldReceivedAnywhere(function, local, spawn.Parent(), map[*ssa.Function]bool{})
 	}
-	for index, parameter := range function.Params {
-		if index < len(spawn.Common().Args) && ssaflow.ExternallyOwnedValue(spawn.Common().Args[index]) && bounded(parameter) {
-			return true
-		}
-	}
-	if closure == nil {
-		return false
-	}
-	for index, free := range function.FreeVars {
-		if index < len(closure.Bindings) && ssaflow.ExternallyOwnedValue(ssaflow.CapturedBindingValue(closure.Bindings[index])) && bounded(free) {
+	for _, binding := range ssaflow.CallBindings(spawn.Common(), function, closure) {
+		if bindingIsExternallyOwned(binding) && bounded(binding.Local) {
 			return true
 		}
 	}
@@ -323,9 +315,9 @@ func callerSuppliedValue(spawn *ssa.Go, function *ssa.Function, closure *ssa.Mak
 	if closure == nil {
 		return false
 	}
-	for index, free := range function.FreeVars {
-		if index < len(closure.Bindings) && ssaflow.ValueIsAccessPathFrom(value, free) &&
-			ssaflow.ExternallyOwnedValue(ssaflow.CapturedBindingValue(closure.Bindings[index])) {
+	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
+		if ssaflow.ValueIsAccessPathFrom(value, captured.Free) &&
+			ssaflow.ExternallyOwnedValue(ssaflow.CapturedBindingValue(captured.Binding)) {
 			return true
 		}
 	}
@@ -336,23 +328,24 @@ func callerSuppliedValue(spawn *ssa.Go, function *ssa.Function, closure *ssa.Mak
 // capture accepted by typed is received from by the worker or by a static
 // helper chain it hands the exact value to.
 func spawnedParameterIsReceived(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, typed func(ssa.Value) bool) bool {
-	for index, parameter := range function.Params {
-		if index < len(spawn.Common().Args) && typed(parameter) && ssaflow.ExternallyOwnedValue(spawn.Common().Args[index]) &&
-			receivesAnywhere(function, parameter, map[*ssa.Function]bool{}) {
-			return true
-		}
-	}
-	if closure == nil {
-		return false
-	}
-	for index, free := range function.FreeVars {
-		if index < len(closure.Bindings) && typed(free) &&
-			ssaflow.ExternallyOwnedValue(ssaflow.CapturedBindingValue(closure.Bindings[index])) &&
-			receivesAnywhere(function, free, map[*ssa.Function]bool{}) {
+	for _, binding := range ssaflow.CallBindings(spawn.Common(), function, closure) {
+		if typed(binding.Local) && bindingIsExternallyOwned(binding) &&
+			receivesAnywhere(function, binding.Local, map[*ssa.Function]bool{}) {
 			return true
 		}
 	}
 	return false
+}
+
+// A captured cell supplies its contents to the worker. An ordinary argument
+// supplies the value evaluated at the launch; loading it would change which
+// value the caller-owned lifetime boundary applies to.
+func bindingIsExternallyOwned(binding ssaflow.CallBinding) bool {
+	supplied := binding.Supplied
+	if binding.Captured {
+		supplied = ssaflow.CapturedBindingValue(supplied)
+	}
+	return ssaflow.ExternallyOwnedValue(supplied)
 }
 
 // receivesAnywhere reports whether function, or a static helper it hands the

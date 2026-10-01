@@ -122,11 +122,9 @@ func newSpawnAnalysis(pass *analysis.Pass, function *ssa.Function, spawn *ssa.Go
 }
 
 func spawnedFunction(pass *analysis.Pass, spawn *ssa.Go) (*ssa.Function, *ssa.MakeClosure) {
-	function := spawn.Common().StaticCallee()
-	closure, _ := spawn.Common().Value.(*ssa.MakeClosure)
+	function, closure := ssaflow.DirectCallee(spawn.Common())
 	if closure != nil {
-		function, _ = closure.Fn.(*ssa.Function)
-		return ssaflow.ResolvedFunction(function), closure
+		return function, closure
 	}
 	// A helper that invokes a zero-argument callback before every normal
 	// return is transparent to the spawned worker's lifecycle. Panic-reporting
@@ -147,7 +145,7 @@ func spawnedFunction(pass *analysis.Pass, spawn *ssa.Go) (*ssa.Function, *ssa.Ma
 		}
 		return ssaflow.ResolvedFunction(callback), callbackClosure
 	}
-	return ssaflow.ResolvedFunction(function), closure
+	return function, closure
 }
 
 func callbackTarget(value ssa.Value) (*ssa.Function, *ssa.MakeClosure) {
@@ -389,9 +387,9 @@ func nestedClosureSignal(nested *ssa.MakeClosure) ssa.Value { //nolint:ireturn /
 			if channel == nil {
 				continue
 			}
-			for index, free := range function.FreeVars {
-				if index < len(nested.Bindings) && ssaflow.MayAliasThroughLoads(channel, free) {
-					return ssaflow.CapturedBindingValue(nested.Bindings[index])
+			for _, captured := range ssaflow.ClosureBindingPairs(function, nested) {
+				if ssaflow.MayAliasThroughLoads(channel, captured.Free) {
+					return ssaflow.CapturedBindingValue(captured.Binding)
 				}
 			}
 		}
