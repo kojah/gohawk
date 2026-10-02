@@ -60,20 +60,17 @@ func MayAliasThroughLoads(value, target ssa.Value) bool {
 	return MayAliasThroughLoadsWithin(value, target, nil)
 }
 
-// MayAliasThroughLoadsWithin charges reaching leaves to budget. A cutoff
+// MayAliasThroughLoadsWithin charges reaching-value visits to budget. A cutoff
 // cannot prove that value does not possibly originate at target.
 func MayAliasThroughLoadsWithin(value, target ssa.Value, budget *SearchBudget) bool {
 	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
 	var leaf func(ReachingWalk, ssa.Value) bool
 	leaf = func(walk ReachingWalk, value ssa.Value) bool {
-		if !budget.Spend() {
-			return false
-		}
 		if value == target {
 			return true
 		}
 		load, ok := value.(*ssa.UnOp)
 		return ok && load.Op == token.MUL && walk.Any(load.X, leaf)
 	}
-	return target != nil && NewReachingWalk(forms).Any(value, leaf)
+	return target != nil && NewReachingWalk(forms).Within(budget).Any(value, leaf)
 }

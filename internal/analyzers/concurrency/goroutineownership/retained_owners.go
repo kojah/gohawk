@@ -66,7 +66,7 @@ func (analysis *spawnAnalysis) observesOpaqueWorkerContextWithin(channel ssa.Val
 		if !budget.Spend() {
 			return false
 		}
-		if ssaflow.NewReachingWalk(carryForms).Any(pair.Supplied, retained) &&
+		if ssaflow.NewReachingWalk(carryForms).Within(budget).Any(pair.Supplied, retained) &&
 			evidence.ClosureHandsValueToUnreadableCalleeWithin(closure, pair.Supplied, budget) {
 			return true
 		}
@@ -124,7 +124,7 @@ func (analysis *spawnAnalysis) closesRetainedWorkerOwnerWithin(
 			if !budget.Spend() {
 				return false
 			}
-			if ssaflow.NewReachingWalk(carryForms).Any(pair.Supplied, retained) {
+			if ssaflow.NewReachingWalk(carryForms).Within(budget).Any(pair.Supplied, retained) {
 				return true
 			}
 		}
@@ -219,9 +219,6 @@ func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value, budget *s
 	}
 	var retained func(ssaflow.ReachingWalk, ssa.Value) bool
 	retained = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
-		if !budget.Spend() {
-			return false
-		}
 		if heapmodel.MayAlias(value, identity) || heapmodel.CapturedBindingMatches(value, receiver) {
 			return true
 		}
@@ -262,9 +259,6 @@ func (analysis *spawnAnalysis) spawnedPipePeers(budget *ssaflow.SearchBudget) []
 	storage := heapmodel.NewStorage(budget)
 	var find func(ssaflow.ReachingWalk, ssa.Value) bool
 	find = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
-		if !budget.Spend() {
-			return false
-		}
 		// Resolve an endpoint at its own read and require stability for a
 		// captured cell. This supplies only a possible peer witness; opaque
 		// storage never proves the absence of a communicating owner.
@@ -293,7 +287,7 @@ func (analysis *spawnAnalysis) spawnedPipePeers(budget *ssaflow.SearchBudget) []
 		if !budget.Spend() {
 			return peers
 		}
-		ssaflow.NewReachingWalk(carryForms).Any(pair.Supplied, find)
+		ssaflow.NewReachingWalk(carryForms).Within(budget).Any(pair.Supplied, find)
 	}
 	return peers
 }

@@ -374,3 +374,19 @@ Joins are recognized through helpers in this or other packages, through
 worker. When the completion signal reaches code the analyzer cannot see
 through, nothing is reported. A worker launched once by `main.main` of package
 `main` is not reported, because program exit stops it.
+
+### Reaching-value visit allowance
+
+Possible spawned load mapping and retained-owner/pipe discovery attach their
+existing allowance to `ssaflow.NewReachingWalk(forms).Within(budget)`. The fold
+charges transparent wrappers, phi alternatives and revisits before inspecting
+them. Independent must-branches retain separate visited sets and share the
+allowance. Leaf queries that exhaust it cannot return positive fold evidence;
+callers retain the existing authoritative unknown outcome at cutoff. Leaf-only
+charges are removed from these routes to avoid charging one visit twice.
+
+`internal/ssaflow/reaching_budget_test.go` uses actual SSA wrappers and phis to
+check branch sharing, candidate-pool cutoffs, early possible witnesses,
+unchanged opaque forms and nested-leaf exhaustion. This bounds value visits;
+it does not bound visited-map cloning, all heap queries, metadata scans or
+flow setup. Those remain the transitive-cost review in `gohawk-dho.44.11.5`.

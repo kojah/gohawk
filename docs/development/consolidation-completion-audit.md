@@ -1965,3 +1965,40 @@ transitive identity, metadata and flow-setup costs. Other body/selected-block
 census sites are outside the nine migrated routes. The broader goal and
 15-site production FP queue remain open. No full precision-regression,
 local race run or candidate tests, generators or applications are performed.
+
+
+## Shared reaching-value visit budget (dho.44.11.5.1)
+
+At parent `0c4b5b6`, wrapper traversal and phi fan-out in `ReachingWalk`
+were outside leaf-only allowances. The existing fold now accepts
+`Within(budget)` and charges value visits, including wrappers and revisits.
+Must-branches retain independent visited sets and share the allowance;
+possible folds stop at the first witness. A nested leaf that exhausts the
+allowance cannot return positive fold evidence. Nil budgets retain default
+traversal policy and caller-selected opaque forms stay opaque.
+
+Possible spawned load mapping and retained-owner/pipe discovery use the shared
+fold allowance; duplicate leaf charges are removed. Their existing availability
+checks retain authoritative unknown cutoffs. Actual SSA tests cover wrappers,
+phi branches, independent must-branches sharing one pool, early witnesses,
+manual marks and nested-leaf cutoff. Both affected packages pass in
+`.build/goal-fold-budget-focused.log`. Canonical `make verify` passes in
+`.build/goal-fold-budget-verify.log`, including ordinary tests, formatting,
+vet, lint, generated inventory, dead-code and local dogfood.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-census-current` has
+SHA-256 `c345ce4f0df143928c8a1fb9280e224ab52d8a0f35c1e5c5f95253558e9cf6ca`;
+current `.build/goal-fold-budget-current` has SHA-256
+`38b02d28c1703ee204c070fc37df7bcd32891a92fb4ec7d3b98ebc6875a5b60f`.
+Fresh `.build/goal-fold-budget-stargz-{census,fold-budget}.{json,err}` scans
+both exit 3 with identical 827-byte JSON, empty stderr and the reviewed TP
+at `store/manager.go:193:2`. These hashes identify immutable pre-commit binaries.
+
+This bounds value visits, not map-clone costs, nested heap identity, metadata
+allocation or initial flow setup. Parent `gohawk-dho.44.11.5` remains active
+for that transitive scope. Graph tools remain unavailable; evidence uses scoped
+source and actual SSA rather than an exhaustive graph audit. No production FP
+correction is credited; the 15-site queue and broader goal remain open. No full
+precision-regression, local race or candidate tests/generators/apps are run.

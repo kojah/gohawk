@@ -25,6 +25,7 @@ that fans out over phi edges or threads its own visited set.
 | helper | answers |
 |---|---|
 | `NewReachingWalk(forms)` with `Any`, `Every`, and `EveryOf` | does some / every value reaching here satisfy the predicate? |
+| `NewReachingWalk(forms).Within(budget)` | charge wrappers, phi alternatives and revisits to a shared allowance; cutoff supplies no fold evidence |
 | `ResolveReachingValue` | do all paths agree on one leaf, or is it ambiguous? |
 | `ValueDerivesFrom`, `MayAliasThroughLoads` | is this value a wrapped, loaded, or merged form of that one? (possible identity) |
 | `DefinitelySameValue` | definite value identity; does not infer equality from mutable storage history |

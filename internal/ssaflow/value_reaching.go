@@ -21,8 +21,9 @@ import (
 
 // ReachingWalk carries the transparent forms and the visited set of one fold.
 type ReachingWalk struct {
-	forms TransparentValueForm
-	seen  map[ssa.Value]bool
+	forms  TransparentValueForm
+	seen   map[ssa.Value]bool
+	budget *SearchBudget
 }
 
 // NewReachingWalk starts a fold that looks through forms.
@@ -30,9 +31,18 @@ func NewReachingWalk(forms TransparentValueForm) ReachingWalk {
 	return ReachingWalk{forms: forms, seen: map[ssa.Value]bool{}}
 }
 
+// Within attaches a shared allowance to value visits, including transparent
+// wrappers, phi edges and revisits. Branches inherit it. A cutoff contributes
+// no evidence; callers inspect availability before interpreting a false or
+// unresolved result. A nil budget retains the unbounded default policy.
+func (walk ReachingWalk) Within(budget *SearchBudget) ReachingWalk {
+	walk.budget = budget
+	return walk
+}
+
 // Any reports whether some value reaching value satisfies leaf.
 func (walk ReachingWalk) Any(value ssa.Value, leaf func(ReachingWalk, ssa.Value) bool) bool {
-	if value == nil || walk.seen[value] {
+	if !walk.budget.Spend() || value == nil || walk.seen[value] {
 		return false
 	}
 	walk.seen[value] = true
@@ -44,17 +54,21 @@ func (walk ReachingWalk) Any(value ssa.Value, leaf func(ReachingWalk, ssa.Value)
 			if walk.Any(edge, leaf) {
 				return true
 			}
+			if walk.budget.Exhausted() {
+				return false
+			}
 		}
 		return false
 	}
-	return leaf(walk, value)
+	matched := leaf(walk, value)
+	return matched && !walk.budget.Exhausted()
 }
 
 // Every reports whether every value reaching value satisfies leaf. A phi with
 // no edges proves nothing, and each edge is judged with its own visited set so
 // one edge's walk cannot hide evidence from a sibling.
 func (walk ReachingWalk) Every(value ssa.Value, leaf func(ReachingWalk, ssa.Value) bool) bool {
-	if value == nil || walk.seen[value] {
+	if !walk.budget.Spend() || value == nil || walk.seen[value] {
 		return false
 	}
 	walk.seen[value] = true
@@ -64,7 +78,8 @@ func (walk ReachingWalk) Every(value ssa.Value, leaf func(ReachingWalk, ssa.Valu
 	if phi, ok := value.(*ssa.Phi); ok {
 		return walk.EveryOf(phi.Edges, leaf)
 	}
-	return leaf(walk, value)
+	matched := leaf(walk, value)
+	return matched && !walk.budget.Exhausted()
 }
 
 // EveryOf reports whether every value in values satisfies leaf, judging each
@@ -85,7 +100,7 @@ func (walk ReachingWalk) EveryOf(values []ssa.Value, leaf func(ReachingWalk, ssa
 // Leaves use it for values they examine without folding over them, such as
 // the sibling element addresses of one slice.
 func (walk ReachingWalk) Mark(value ssa.Value) bool {
-	if walk.seen[value] {
+	if !walk.budget.Spend() || walk.seen[value] {
 		return false
 	}
 	walk.seen[value] = true
@@ -104,7 +119,7 @@ func ResolveReachingValue[T any, K comparable](
 	key func(T) K,
 ) (T, bool) {
 	var zero T
-	if value == nil || walk.seen[value] {
+	if !walk.budget.Spend() || value == nil || walk.seen[value] {
 		return zero, false
 	}
 	walk.seen[value] = true
@@ -113,7 +128,11 @@ func ResolveReachingValue[T any, K comparable](
 	}
 	phi, ok := value.(*ssa.Phi)
 	if !ok {
-		return leaf(walk, value)
+		resolved, found := leaf(walk, value)
+		if walk.budget.Exhausted() {
+			return zero, false
+		}
+		return resolved, found
 	}
 	if len(phi.Edges) == 0 {
 		return zero, false
@@ -132,5 +151,5 @@ func ResolveReachingValue[T any, K comparable](
 
 // branch copies the visited set so sibling phi edges are judged independently.
 func (walk ReachingWalk) branch() ReachingWalk {
-	return ReachingWalk{forms: walk.forms, seen: maps.Clone(walk.seen)}
+	return ReachingWalk{forms: walk.forms, seen: maps.Clone(walk.seen), budget: walk.budget}
 }

@@ -1671,7 +1671,7 @@ so callers use it to find a candidate binding, never to credit an action.
 func MayAliasThroughLoadsWithin(value, target ssa.Value, budget *SearchBudget) bool
 ```
 
-MayAliasThroughLoadsWithin charges reaching leaves to budget. A cutoff
+MayAliasThroughLoadsWithin charges reaching-value visits to budget. A cutoff
 cannot prove that value does not possibly originate at target.
 
 ## NamedResultCell
@@ -2312,6 +2312,19 @@ func (walk ReachingWalk) Mark(value ssa.Value) bool
 Mark records value as visited and reports whether this was its first visit.
 Leaves use it for values they examine without folding over them, such as
 the sibling element addresses of one slice.
+
+## ReachingWalk.Within
+
+[Source](../../../../internal/ssaflow/value_reaching.go)
+
+```go
+func (walk ReachingWalk) Within(budget *SearchBudget) ReachingWalk
+```
+
+Within attaches a shared allowance to value visits, including transparent
+wrappers, phi edges and revisits. Branches inherit it. A cutoff contributes
+no evidence; callers inspect availability before interpreting a false or
+unresolved result. A nil budget retains the unbounded default policy.
 
 ## RecordExhaustions
 
