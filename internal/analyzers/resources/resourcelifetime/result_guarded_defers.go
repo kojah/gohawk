@@ -94,7 +94,7 @@ func (analysis *resourceAnalysis) resultGuardedReturn(returned *ssa.Return) (res
 	uncertain := false
 	budget := analysis.budget(releaseSearchBudget)
 	outcomeOf := func(value ssa.Value) (ssaflow.Outcome, bool) {
-		return analysis.outcomeOfWithin(value, budget)
+		return analysis.summaries.OutcomeOf(value, budget)
 	}
 	for _, guard := range analysis.guardedDefers {
 		reaching := guard.ProveReachesReturn(returned, budget)
@@ -116,13 +116,4 @@ func (analysis *resourceAnalysis) resultGuardedReturn(returned *ssa.Return) (res
 		return actionUnknown, resourceReasonResultGuardedUnknown, true
 	}
 	return actionNone, resourceReasonNone, false
-}
-
-// outcomeOfWithin says what a returned value is: a literal, a value never nil, or
-// a call whose summary proves it always nil, never nil, true, or false.
-func (analysis *resourceAnalysis) outcomeOfWithin(value ssa.Value, budget *ssaflow.SearchBudget) (ssaflow.Outcome, bool) {
-	if outcome, ok := ssaflow.ValueOutcome(value); ok {
-		return outcome, true
-	}
-	return analysis.summaries.ResultOf(value, budget).Outcome()
 }

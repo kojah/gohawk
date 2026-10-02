@@ -114,8 +114,12 @@ component does not replace its semantics.
 `Guarantee.Outcome` projects an already-obtained unconditional guarantee into
 the flow outcome vocabulary. Unknown and invalid guarantees remain unconstrained.
 The conversion performs no query or binding and establishes no cleanup.
-Cancellation and resource result guards share it after their existing literal
-evidence and broker query; their query order and budgets remain unchanged.
+`Provider.OutcomeOf` first recognizes literal/construction outcomes, then queries
+`ResultOf` and projects its guarantee. Cancellation and resource result guards
+share this lookup; guard retention and completion remain analyzer policy. Nil
+providers and unavailable components still recognize literals, while call results
+remain unknown. Boxing stays observable, and the caller supplies the existing
+summary-query allowance. Arguments never strengthen an unconditional guarantee.
 
 ## Result cases
 

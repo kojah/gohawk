@@ -150,6 +150,19 @@ LifecycleEvidence provides existing exact call-site binding and local proof
 machinery under the selected lifecycle component. It does not equate a
 formal parameter guarantee with an instantiated caller obligation.
 
+## Provider.OutcomeOf
+
+[Source](../../../../internal/summaries/results.go)
+
+```go
+func (provider *Provider) OutcomeOf(value ssa.Value, budget *ssaflow.SearchBudget) (ssaflow.Outcome, bool)
+```
+
+OutcomeOf combines a value's literal or construction outcome with an
+unconditional result guarantee. A nil provider still recognizes literals;
+missing or unselected result knowledge remains unknown. This establishes no
+ownership or cleanup, and arguments never strengthen a callee's guarantee.
+
 ## Provider.ProveCallReturnsViewWithin
 
 [Source](../../../../internal/summaries/provider.go)

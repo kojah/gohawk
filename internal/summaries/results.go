@@ -9,6 +9,20 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// OutcomeOf combines a value's literal or construction outcome with an
+// unconditional result guarantee. A nil provider still recognizes literals;
+// missing or unselected result knowledge remains unknown. This establishes no
+// ownership or cleanup, and arguments never strengthen a callee's guarantee.
+func (provider *Provider) OutcomeOf(value ssa.Value, budget *ssaflow.SearchBudget) (ssaflow.Outcome, bool) {
+	if outcome, known := ssaflow.ValueOutcome(value); known {
+		return outcome, true
+	}
+	if provider == nil {
+		return ssaflow.OutcomeAny, false
+	}
+	return provider.ResultOf(value, budget).Outcome()
+}
+
 // ResultOf maps a direct result to its function-summary slot. This is not
 // context-sensitive inference: arguments do not strengthen the guarantee.
 func (provider *Provider) ResultOf(value ssa.Value, budget *ssaflow.SearchBudget) resultfacts.Guarantee {

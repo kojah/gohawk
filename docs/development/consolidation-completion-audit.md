@@ -4592,3 +4592,26 @@ byte-identical across ten successful scans. No production FP reduction is
 credited. The typed location ledger identifies 71 broker references in 28
 analyzer files; semantic dispositions remain pending in parent .24. The overall
 goal, ten production FP sites and Rune remain open.
+
+
+## Finite summary-consumer dispositions
+
+Beads `gohawk-dho.44.11.5.27.24.2` moves literal-first unconditional
+result-outcome lookup into `summaries.Provider.OutcomeOf`, removing the two
+cancellation/resource adapters. Literal knowledge survives unavailable
+components; unknown calls, typed-nil boxing and existing allowances retain
+their meanings. Guard retention and lifecycle decisions remain analyzer policy.
+
+The [consumer review](../../benchmarks/precision/audits/summary-consumer-review-2026-10-02.md)
+disposes all 71 typed references in 28 analyzer files across eight families.
+It closes the finite consumer inventory, not every transitive proof or every
+build configuration. Graph tools were unavailable; source/type information was
+used. Independent cost boundaries remain explicit. No production FP reduction
+is credited; ten production FP sites and Rune and the broader completion audit
+remain open.
+
+Focused compiled-SSA controls and three assertion-failing counterfactuals pin
+the outcome boundary. Final canonical validation passes all eight targets;
+four scoped comparisons preserve all 355 affected fixture diagnostics with
+empty stderr. The final architecture check passes. This gives parent .24 a
+finite disposition without expanding its claim to a global architecture proof.

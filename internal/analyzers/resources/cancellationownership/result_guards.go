@@ -147,7 +147,7 @@ func (classifier *cancellationClassifier) resultGuardedReturn(returned *ssa.Retu
 	uncertain := false
 	budget := classifier.budget()
 	outcomeOf := func(value ssa.Value) (ssaflow.Outcome, bool) {
-		return classifier.outcomeOfWithin(value, budget)
+		return classifier.knowledge.OutcomeOf(value, budget)
 	}
 	for _, guard := range classifier.guards {
 		reaching := guard.ProveReachesReturn(returned, budget)
@@ -168,16 +168,6 @@ func (classifier *cancellationClassifier) resultGuardedReturn(returned *ssa.Retu
 		return labelled(cancellationActionUnknown, reasonLabelResultGuardedUnknown), true
 	}
 	return cancellationLabel{}, false
-}
-
-func (classifier *cancellationClassifier) outcomeOfWithin(value ssa.Value, budget *ssaflow.SearchBudget) (ssaflow.Outcome, bool) {
-	if outcome, ok := ssaflow.ValueOutcome(value); ok {
-		return outcome, true
-	}
-	if classifier.knowledge == nil {
-		return ssaflow.OutcomeAny, false
-	}
-	return classifier.knowledge.ResultOf(value, budget).Outcome()
 }
 
 // retainResultGuardsWithin publishes the filtered census only when every

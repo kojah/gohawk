@@ -1,0 +1,5 @@
+scope	version	exit	stderr_bytes	diagnostics	binary_sha256	receipt
+resource-fixture	parent	0	0	318	d6b5ca6ca77b46e646845d0a6ca49576fd3984668118796e6579eac0466b0e28	.build/goal-outcome-broker-scoped/resource-fixture-parent-receipt.json
+resource-fixture	current	0	0	318	7ad0bd369959d64ecd648bdb7d39c5ae4795822d90571dcc682b6f13287df40f	.build/goal-outcome-broker-scoped/resource-fixture-current-receipt.json
+cancellation-fixture	parent	0	0	37	d6b5ca6ca77b46e646845d0a6ca49576fd3984668118796e6579eac0466b0e28	.build/goal-outcome-broker-scoped/cancellation-fixture-parent-receipt.json
+cancellation-fixture	current	0	0	37	7ad0bd369959d64ecd648bdb7d39c5ae4795822d90571dcc682b6f13287df40f	.build/goal-outcome-broker-scoped/cancellation-fixture-current-receipt.json
