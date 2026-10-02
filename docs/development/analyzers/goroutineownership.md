@@ -23,9 +23,17 @@ reuse that label, including when different branch states reach one return.
 `returnlabels/returns.go` pairs a merged return of the worker's completion
 channel with an unrelated returned channel; the trace regression requires one
 transfer label associated with the accepted candidate and preserves the
-unrelated channel's rejected decision. This consolidation retains the existing
-containment-based return policy; whether broad containment supplies sufficiently
-strong transfer evidence remains tracked separately in `gohawk-dho.44.2`.
+unrelated channel's rejected decision.
+`gohawk-dho.44.2` separates transfer identity from possible containment: returns
+and stores outside the function credit an exact transfer only when the shared
+storage identity proof matches a tracked value. Mixed phis, overwritten
+aggregates, captures and wrapper results remain unknown handoffs. An exact
+handle returned beside an opaque result still covers the obligation.
+`transferlabels/transfers.go` pins both proof outcomes; the reporter continues
+to accept unknown ownership. GoMock result registration likewise retains
+possible containment as unknown rather than establishing exact stream identity.
+Helper join bindings based on broad containment require the separate review in
+`gohawk-dho.44.3`.
 Caller-owned channel and stable receiver-context bounds share one receive
 search, keyed by both function and local value. Repeated calls to the same
 helper therefore retain distinct formal bindings. These are possible lifetime

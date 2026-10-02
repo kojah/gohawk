@@ -131,12 +131,7 @@ func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) (ownershipA
 	case *ssa.Return:
 		// Return ownership uses the same cache as other instructions: a merged
 		// return or a guarded re-walk must not repeat the query or its label.
-		if analysis.returnTransfers(typed) {
-			return actionTransfer, reasonLabelReturnedTracked
-		}
-		if analysis.returnMayTransfer(typed) {
-			return actionUnknown, reasonLabelReturnedProjection
-		}
+		return analysis.returnAction(typed)
 	case *ssa.MakeClosure:
 		// Capturing a value has no effect by itself. The closure's defer,
 		// return, store, launch, or opaque call is classified where it happens.
@@ -187,10 +182,24 @@ func storedTerminationReceiver(common *ssa.CallCommon) bool {
 	return ssaflow.HasLibraryContract(&copy, ssaflow.ContractTestingTermination)
 }
 
-// returnTransfers reports whether a return hands a tracked value, or an
-// aggregate or callback containing one, to the caller.
-func (analysis *spawnAnalysis) returnTransfers(returned *ssa.Return) bool {
-	return slices.ContainsFunc(returned.Results, analysis.consumes)
+// An exact returned handle covers the obligation even if another result has
+// opaque containment. A possible handle alone never establishes ownership.
+func (analysis *spawnAnalysis) returnAction(returned *ssa.Return) (ownershipAction, goroutineOwnershipReason) {
+	result := actionNone
+	for _, value := range returned.Results {
+		action := analysis.transferAction(value)
+		if action == actionTransfer {
+			return actionTransfer, reasonLabelReturnedTracked
+		}
+		result = strongerAction(result, action)
+	}
+	if result == actionUnknown {
+		return actionUnknown, reasonLabelReturnedContainment
+	}
+	if analysis.returnMayTransfer(returned) {
+		return actionUnknown, reasonLabelReturnedProjection
+	}
+	return actionNone, reasonNone
 }
 
 // A signal mapped only to its captured aggregate may leave through a field
@@ -198,9 +207,6 @@ func (analysis *spawnAnalysis) returnTransfers(returned *ssa.Return) bool {
 // field or a guaranteed join, so only the unknown-return query uses it.
 // https://github.com/mysteriumnetwork/node/blob/c45527af1ea80300ae3d9c92bd37255335b6140d/session/pingpong/hermes_promise_handler.go#L120-L140
 func (analysis *spawnAnalysis) returnMayTransfer(returned *ssa.Return) bool {
-	if analysis.returnTransfers(returned) {
-		return true
-	}
 	return slices.ContainsFunc(returned.Results, func(result ssa.Value) bool {
 		root := aggregateRoot(result)
 		return slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
@@ -209,19 +215,15 @@ func (analysis *spawnAnalysis) returnMayTransfer(returned *ssa.Return) bool {
 	})
 }
 
-// storeAction transfers the obligation when a tracked value is installed on
-// storage that outlives the function. A field of a local aggregate changes
-// nothing yet: returning or handing off that aggregate is classified there.
+// A store outside the function transfers only an exact tracked value. Possible
+// containment is opaque ownership; local storage changes nothing until handoff.
 func (analysis *spawnAnalysis) storeAction(store *ssa.Store) ownershipAction {
-	if !analysis.consumes(store.Val) {
-		return actionNone
-	}
 	switch address := store.Addr.(type) {
 	case *ssa.Global, *ssa.FreeVar:
-		return actionTransfer
+		return analysis.transferAction(store.Val)
 	case *ssa.FieldAddr:
 		if ssaflow.ExternallyOwnedValue(address.X) {
-			return actionTransfer
+			return analysis.transferAction(store.Val)
 		}
 	}
 	return actionNone
@@ -258,10 +260,10 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 		return analysis.testingCleanupAction(common), reasonLabelTestingCleanup
 	}
 	if ssaflow.HasLibraryContract(common, ssaflow.ContractGoMockReturn) && analysis.anyArgumentConsumes(common) {
-		// gomock.Return publishes these values as the configured result of the
-		// mocked call, transferring a produced stream to the code under test.
+		// gomock.Return publishes its configured results, but broad argument
+		// containment does not prove the exact stream is among those results.
 		// https://github.com/uber-go/mock/blob/539d81c0f42174d17e8f91abcb869bed37605a15/gomock/call.go#L185-L205
-		return actionTransfer, reasonLabelGoMockReturn
+		return actionUnknown, reasonLabelGoMockReturn
 	}
 	callee, closure := ssaflow.DirectCallee(common)
 	_, launched := instruction.(*ssa.Go)

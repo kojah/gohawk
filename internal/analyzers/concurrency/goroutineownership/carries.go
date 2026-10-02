@@ -12,13 +12,30 @@ import (
 // Containment evidence decides whether an SSA value is, or carries, one of the
 // worker's tracked values. It is what lets a return, store, send, or opaque
 // call consume a completion channel hidden inside a closure, a struct literal,
-// or a wrapping call result. The walk is deliberately one-directional: it
-// only ever widens what counts as consumption, so an over-approximation makes
-// an instruction opaque and suppresses a diagnostic rather than inventing one.
+// or a wrapping call result. This is possible-use evidence: past stores, mixed
+// choices and wrapping arguments can match. A transfer consumer keeps that
+// evidence opaque unless a separate identity proof establishes the handoff.
 
 // carryForms are the wrappers through which a carried value keeps its
 // identity for containment evidence.
 const carryForms = ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+
+// transferAction reserves exact ownership for one tracked value on every
+// reaching path. Containment includes old stores, mixed phis and wrapping call
+// arguments, so it establishes only a possible handoff. Budget exhaustion must
+// also stay unknown rather than turn an unfinished identity query into absence.
+func (analysis *spawnAnalysis) transferAction(value ssa.Value) ownershipAction {
+	storage := heapmodel.NewStorage(analysis.budget())
+	for _, tracked := range analysis.tracked {
+		if storage.Same(value, tracked.value).Proven() {
+			return actionTransfer
+		}
+	}
+	if storage.Budget().Exhausted() || analysis.consumes(value) {
+		return actionUnknown
+	}
+	return actionNone
+}
 
 // consumes reports whether value is a tracked value or something that carries
 // one: a closure capturing it, an aggregate holding it, a loaded composite, or
@@ -90,8 +107,8 @@ func callResultCarries(walk ssaflow.ReachingWalk, call *ssa.Call, target ssa.Val
 // and elements selected from it. Every `results[i]` expression is its own
 // IndexAddr, and every `w.field` expression its own FieldAddr, so a read
 // through one is matched against stores made through any other address of the
-// same element or field; that over-approximation only ever makes an
-// instruction opaque or a signal buffered.
+// same element or field. This over-approximation does not establish current
+// field contents or exact value identity.
 func storedCarries(walk ssaflow.ReachingWalk, address, target ssa.Value) bool {
 	if siblingSelectionCarries(walk, address, target) {
 		return true

@@ -951,3 +951,77 @@ canonical `make fmt`. Final `make verify` passes with ordinary tests, formatting
 vet, lint, dead-code, generation and local dogfood
 (`.build/goal-goroutine-return-final-verify.log`). No local race run or full
 precision-regression replay was performed.
+
+### Goroutine transfer proof strength
+
+`gohawk-dho.44.2` corrects the transfer polarity exposed by the classifier
+review. The finite source fallback covers `classify.go`, `carries.go`,
+`spawnAnalysis.prove`, the reporter and selected `Storage.Same` identity
+adapter. The reporter accepts both unknown and honored ownership; broad
+containment was nevertheless promoted to exact transfer before the flow.
+Graph tools remain unavailable, and the transitive heap engines are not fully
+reviewed by this item.
+
+Actual SSA (`.build/goal-transfer-strength.ssa.txt`) shows a phi between the
+completion channel and another channel, a copied aggregate with its channel
+field subsequently overwritten, and a wrapper that returns an empty struct
+without retaining its argument. The parent declares every one honored. Mixed
+and overwritten aggregate stores also receive `join-proven`. The focused
+proof regression fails on those five parent outcomes in 0.192 seconds
+(`.build/goal-transfer-strength-parent-test.log`). These fixtures remain
+accepted by the reporter: uncertainty is not a new diagnostic.
+
+Returns and external stores now share `transferAction`: `Storage.Same` must
+prove identity with a tracked value for exact transfer credit. Possible
+containment and incomplete budgeted identity stay unknown. Local stores remain
+non-actions until handoff. A returned exact handle dominates an opaque sibling
+result, so returning a completion handle beside an ambiguous aggregate still
+honors the obligation. GoMock publication with broad argument containment is
+also unknown: publishing configured results does not establish that they
+contain the exact stream. This uses existing identity infrastructure and adds
+no aggregate ownership solver or callee-name exception.
+
+Fixture CLI scans select goroutine ownership in the fixture GOPATH over
+`goroutineownership`, `summaryjoins`, `processexit`, `returnlabels` and
+`transferlabels`. Parent `.build/goal-transfer-strength-parent` SHA-256 is
+`82f3e4443341ad16b430b3296064057158c0608bd0ca3f3e976716f99ee63584`;
+current `.build/goal-transfer-strength-current` SHA-256 is
+`4fa348685c3a0578789ed8371299689e03f127397a4d880180cee7cc120d9978`.
+Both exit 3 with empty stderr and identical 115,686-byte JSON diagnostics.
+Both have 497 final decisions and 195 labels. Ten decisions change from
+`join-proven`/accepted to `opaque-ownership-transfer`/unknown: the five new
+controls and existing returned deferred-group, returned closure, returned
+WaitGroup callback, mutable stored callback and nested mutable returned
+callback cases. Every other decision agrees. Exact-store, merged exact-return,
+exact-with-opaque-sibling and unrelated-channel diagnostic controls retain
+their outcomes. No production FP removal or all-event equivalence is claimed.
+
+A distinct review item, `gohawk-dho.44.3`, tracks broad `bindingCarries`
+feeding helper joins and `MayAliasAny` feeding direct WaitGroup waits. Those
+joins were located in source but are not certified by transfer-only controls.
+The broader finite discovery/classifier review remains open in `gohawk-dho.44`.
+
+The supplemental GoMock fixture uses a local stub of the documented `Call.Return`
+symbol. Its scoped parent/current scans both exit zero with identical `{}`
+diagnostic JSON and empty stderr (`.build/goal-transfer-strength-*-mock.*`).
+The parent credits the configured result as an accepted transfer and ends with
+`join-proven`; the corrected label and final decision are unknown. The final
+focused proof regression, now including this contract and exact-handle-plus-
+opaque-sibling controls, passes in 0.350 seconds.
+
+Pinned production control containerd/stargz-snapshotter at
+`624678b4e421947534cbf0618f9609853cccee0f` has a clean checkout. Parent/current
+static scans of `./store`, using `CGO_ENABLED=0`, `GOFLAGS=-mod=readonly` and
+`GOWORK=off`, both exit 3 with identical nonempty 827-byte JSON and empty
+stderr (`.build/goal-transfer-strength-stargz-*.json`). The reviewed worker
+TP at `store/manager.go:193:2` is retained. Candidate tests, generators and
+applications were not run; this is a scoped control, not a corpus replay.
+
+Validation: the initial full changed-package run passes in 22.016 seconds;
+the first canonical `make verify` passes all ordinary checks, including tests
+in 108 seconds. After adding the GoMock contract control, final `make verify`
+also passes (`.build/goal-transfer-strength-final-verify.log`), covering the
+current source and fixtures with canonical formatting, vet, lint, generation,
+dead-code and local dogfood. Documentation conformance is checked separately
+again after recording these receipts. No local race or full precision corpus
+replay is run. The production FP queue remains 15 locations.
