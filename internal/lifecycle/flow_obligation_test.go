@@ -151,7 +151,7 @@ func TestEvaluateObligationUsesSuppliedSuccessors(t *testing.T) {
 		t.Fatalf("default feasibility: outcome %d, want violated", got)
 	}
 	flow.Successors = func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
-		successors := ssaflow.FeasibleSuccessors(block, predecessor)
+		successors := ssaflow.FeasibleSuccessorsWithin(block, predecessor, nil)
 		if len(successors) == 2 {
 			return successors[1:]
 		}

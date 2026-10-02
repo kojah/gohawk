@@ -10,7 +10,6 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
-	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -22,33 +21,8 @@ import (
 // feasible normal return. State records activation and release separately so
 // error-only resources and path-specific cleanup do not create false leaks.
 
-type resourceFlowState struct {
-	block       *ssa.BasicBlock
-	predecessor *ssa.BasicBlock
-	index       int
-	obligation  resourcemodel.Obligation
-	// guards are the branch outcomes this path has established. An edge
-	// that contradicts one is unknown, never pruned: a guard read from a
-	// cell could have changed through a pointer the analysis does not see,
-	// and even a stable guard's contradiction only declines to report through
-	// a path the analysis cannot rule out. Mutagen guards a profiler's
-	// creation and its finalization on one address-taken flag, and fortio a
-	// profile file's creation and its close on one option field:
-	// https://github.com/mutagen-io/mutagen/blob/6ccfeaaf4dfd261e59ef9aac56e3c157b62e605b/tools/scan_bench/main.go#L140-L172
-	// https://github.com/fortio/fortio/blob/5c19725ff61c9f7ad944b91ec32d96a399341d87/fhttp/httprunner.go#L199-L215
-	guards ssaflow.PathGuards
-}
-
-type resourceFlowKey struct {
-	block       int
-	predecessor int
-	index       int
-	obligation  resourcemodel.Obligation
-	guards      string
-}
-
-// Analyzer returns this package's configured Go analysis pass.
-
+// evaluateResourceFlow collects acquisition evidence, asks the path proof and
+// applies the bounded policy exclusions to its diagnostic witness.
 func evaluateResourceFlow(
 	pass *analysis.Pass,
 	evidence *lifecyclefacts.LifecycleEvidence,
@@ -63,10 +37,6 @@ func evaluateResourceFlow(
 		return acceptedResourceLifetime(resourceReasonMemoryWriter)
 	}
 	evidence.ForCandidate(call.Pos())
-	index := ssaflow.InstructionIndex(call)
-	if index < 0 {
-		return unknownResourceLifetime(resourceReasonAcquisitionLocationUnknown)
-	}
 	errorValue := acquisitionErrorResult(call)
 	if reason := httpAcquisitionBoundary(pass, call); reason != resourceReasonNone {
 		return unknownResourceLifetime(reason)
@@ -100,154 +70,28 @@ func evaluateResourceFlow(
 	if analysis.cleanupRegisteredBefore(call) {
 		return unknownResourceLifetime(resourceReasonOpaqueConsumption)
 	}
-	if !analysis.acquisitionReachable() {
-		return acceptedResourceLifetime(resourceReasonAcquisitionUnreachable)
+	flow := analysis.proveResourceFlow(errorValue)
+	if flow.state != ssaflow.EvidenceProven {
+		return flow
 	}
-	// The walk starts on the instruction after the acquisition and keys its
-	// states by block, predecessor, and release status, so the same block is
-	// revisited only when a different path reaches it with a different
-	// obligation state; the predecessor lets the successful branch of the
-	// acquisition be told apart from its error branch.
-	initial := []resourceFlowState{{block: call.Block(), index: index + 1, obligation: resourcemodel.Acquired(), guards: ssaflow.GuardsDominating(call)}}
-	opaque, leaks := false, false
-	ssaflow.WalkStates(initial, resourceStateKey, func(state resourceFlowState) ([]resourceFlowState, bool) {
-		state, leaks = advanceResourceState(analysis, state)
-		if leaks {
-			return nil, false
-		}
-		opaque = opaque || state.obligation.Unknown()
-		return resourceSuccessorStates(analysis, state, errorValue), true
-	})
-	if leaks {
-		// DB-prepared driver statements belong to pooled connections, whose
-		// finalClose closes their open statements. This does not settle Rows,
-		// Tx, or Conn obligations, nor claim DB.Close is identical to Stmt.Close.
-		// https://go.dev/src/database/sql/sql.go (driverConn.finalClose, DB.prepareDC)
-		// https://github.com/mariadb-operator/mariadb-operator/blob/e8ece7a8076954674e10e0381571bd80278ac35f/licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go#L2809
-		if sqlDatabaseCall(call.Common(), "Prepare", "PrepareContext") && lifecycle.ProveEnclosingCompletion(lifecycle.EnclosingCompletionRequest{
-			Function: call.Parent(), Value: ssaflow.CallReceiver(call.Common()), Methods: []string{"Close"},
-			Budget: analysis.budget(10000),
-		}).Proven() {
-			return acceptedResourceLifetime(resourceReasonParentCleanup)
-		}
-		if processExitReclaims(call, contract) {
-			return acceptedResourceLifetime(resourceReasonProcessExitReclaims)
-		}
-		result := reportedResourceLifetime(resourceReasonUnownedReturn)
-		result.leak = analysis.leak
-		return result
+	// DB-prepared driver statements belong to pooled connections, whose
+	// finalClose closes their open statements. This does not settle Rows,
+	// Tx, or Conn obligations, nor claim DB.Close is identical to Stmt.Close.
+	// https://go.dev/src/database/sql/sql.go (driverConn.finalClose, DB.prepareDC)
+	// https://github.com/mariadb-operator/mariadb-operator/blob/e8ece7a8076954674e10e0381571bd80278ac35f/licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go#L2809
+	if sqlDatabaseCall(call.Common(), "Prepare", "PrepareContext") && lifecycle.ProveEnclosingCompletion(lifecycle.EnclosingCompletionRequest{
+		Function: call.Parent(), Value: ssaflow.CallReceiver(call.Common()), Methods: []string{"Close"},
+		Budget: analysis.budget(10000),
+	}).Proven() {
+		return acceptedResourceLifetime(resourceReasonParentCleanup)
 	}
-	if opaque {
-		return unknownResourceLifetime(resourceReasonOpaqueConsumption)
+	if analysis.pool.Exhausted() {
+		return unknownResourceLifetime(resourceReasonBudgetExhausted)
 	}
-	return acceptedResourceLifetime(resourceReasonReleaseProven)
-}
-
-func resourceStateKey(state resourceFlowState) resourceFlowKey {
-	predecessor := -1
-	if state.predecessor != nil {
-		predecessor = state.predecessor.Index
+	if processExitReclaims(call, contract) {
+		return acceptedResourceLifetime(resourceReasonProcessExitReclaims)
 	}
-	return resourceFlowKey{
-		block:       state.block.Index,
-		predecessor: predecessor,
-		index:       state.index,
-		obligation:  state.obligation,
-		guards:      state.guards.Key(),
-	}
-}
-
-func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState) (resourceFlowState, bool) {
-	// A release or transfer anywhere before a return settles the path. An
-	// opaque consumption does not settle it but removes the proof: the
-	// return is then neither owned nor a defect.
-	for _, instruction := range state.block.Instrs[state.index:] {
-		state.guards = state.guards.After(instruction)
-		switch analysis.action(instruction) {
-		case actionSettled:
-			state.obligation = state.obligation.Discharged()
-		case actionUnknown:
-			state.obligation = state.obligation.Uncertain()
-		case actionNone:
-		}
-		// A call that never returns, whether os.Exit or a project's own fatal
-		// wrapper the summaries prove, ends this path with nothing to release.
-		if ssaflow.InstructionTerminatesWith(instruction, analysis.summaries.Terminates()) {
-			state.obligation = state.obligation.Absent()
-			break
-		}
-		returned, ok := instruction.(*ssa.Return)
-		if ok && analysis.probe.Enabled() {
-			analysis.probe.Evidence(analysisTrace.Step{
-				Reason: resourceReasonResourceReturnPath.String(), Outcome: analysisTrace.OutcomeObserved,
-				Pos: returned.Pos(), Function: returned.Parent().String(),
-				Details: map[string]string{
-					"active":   strconv.FormatBool(state.obligation.Active()),
-					"released": strconv.FormatBool(state.obligation.Settled()),
-					"unknown":  strconv.FormatBool(state.obligation.Unknown()),
-				},
-			})
-		}
-		if ok && state.obligation.Unsettled() &&
-			!analysis.returnedResourceOwner(returned) &&
-			!heapmodel.ReturnedMayAliasAny(returned, analysis.owners) {
-			analysis.leak = returned
-			return state, true
-		}
-	}
-	return state, false
-}
-
-func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState, errorValue ssa.Value) []resourceFlowState {
-	pass, resource, optionalAcquisition, candidate := analysis.pass, analysis.resource, analysis.optional, analysis.candidate
-	edges := analysis.successorPolicy().Edges(state.block, state.predecessor, state.guards)
-	if optionalAcquisition.Proven() && state.block == optionalAcquisition.merge && state.predecessor == optionalAcquisition.acquisitionBlock {
-		acquired := optionalAcquisition.acquiredSuccessor
-		guards, contradiction := state.guards.Extend(state.block, acquired, nil)
-		edges = []ssaflow.SuccessorEdge{{To: acquired, Guards: guards, Contradiction: contradiction}}
-		traceOptionalAcquisition(pass, optionalAcquisition, candidate)
-	}
-	result := make([]resourceFlowState, 0, len(edges))
-	for _, edge := range edges {
-		successor := edge.To
-		obligation := state.obligation
-		if success, known := resourceSuccessBranch(pass, analysis.summaries, state.block, successor, errorValue, candidate); known {
-			if !success {
-				obligation = obligation.Absent()
-			}
-		}
-		if present, known := resourcePresenceBranch(state.block, state.predecessor, successor, resource); known {
-			if !present {
-				obligation = obligation.Absent()
-			}
-		}
-		guards, contradiction := edge.Guards, edge.Contradiction
-		if contradiction != ssaflow.GuardConsistent {
-			obligation = obligation.Uncertain()
-			analysis.traceUncertainEdge(state.block, successor, resourceReasonRepeatedGuardEdgeUnknown)
-		}
-		if sqlRowsExhaustionEdge(state.block, successor, resource) {
-			obligation = obligation.Uncertain()
-			analysis.traceUncertainEdge(state.block, successor, resourceReasonRowsExhaustedEdgeUnknown)
-		}
-		if analysis.collection.releasedOnEdge(state.block, successor) {
-			obligation = obligation.Discharged()
-			analysis.traceCollectionReleased(state.block, successor)
-		}
-		// A conditional helper settles only the edge selected by its result.
-		// Optional-acquisition phis retain their own stricter cleanup policy.
-		if !obligation.Settled() && !optionalAcquisition.Proven() {
-			if analysis.evidence.CompletionOnEdge(state.block, successor, lifecycle.CompletionRequest{
-				Target: resource, Methods: analysis.contract.cleanup, Budget: analysis.budget(1000),
-			}).Proven() {
-				obligation = obligation.Discharged()
-			}
-		}
-		result = append(result, resourceFlowState{
-			block: successor, predecessor: state.block, obligation: obligation, guards: guards,
-		})
-	}
-	return result
+	return flow
 }
 
 // emitAction traces a settled or unknown label. An instruction labelled none

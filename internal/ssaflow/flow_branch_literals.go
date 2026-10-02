@@ -12,13 +12,6 @@ import (
 // enumerate callee paths. Caller exhaustion never supplies pruning evidence;
 // the independent helper census cap retains its existing undecided policy.
 
-// FeasibleSuccessors preserves constants selected by predecessor-sensitive
-// phis and literal results of bounded, source-visible helpers. This prevents
-// impossible loop exits and helper-error paths from faking leaks.
-func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
-	return FeasibleSuccessorsWithin(block, predecessor, nil)
-}
-
 // FeasibleSuccessorsWithin shares allowance through incoming phi selection
 // and literal helper return inspection. Cutoff keeps all successors; callers
 // retain availability before judging paths. A nil budget preserves defaults.

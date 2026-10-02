@@ -42,6 +42,24 @@ method-completion give-up at the call. A helper with more than the storage limit
 in actual SSA remains provably cleaned up. The pre-acquisition deferred query
 still has its own bounded allowance; this change does not move that boundary.
 
+The resource coverage walk now shares the existing candidate pool for its
+acquisition index and reachability, dominating guards, queued states, guard
+keys and invalidation, termination summaries, and successor guard extension.
+`proveResourceFlow` owns one structured outcome and witness. Exhaustion of
+either the walk child or a sibling query's parent pool yields unknown and
+discards any tentative leak witness; it cannot establish release or absence
+of an acquisition. Optional acquisition and error-edge activation retain their
+existing policy. `flow_budget_test.go` exercises actual SSA cleanup and leak
+paths, including dominating guards, at every insufficient allowance.
+
+The existing bounded guard and successor engines are exposed for this custom
+resource state machine; the generic obligation walk uses those same engines.
+Termination-summary inference receives the walk allowance, and a truncated
+literal feasibility query retains all successors. Pre-acquisition policy and
+ownership queries, resource-specific presence/error predicates, heap graph
+construction, type-system internals and custom library contracts retain
+independent costs. This is not a whole-query wall-clock bound.
+
 ## Detection boundaries
 
 Release owned resources on every path. Storing a resource in a partially

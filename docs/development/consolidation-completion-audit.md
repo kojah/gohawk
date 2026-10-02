@@ -2681,3 +2681,65 @@ acquisition states. Other lock flows, graph costs, library/custom callbacks
 and identity consumers remain open. The broader goal and production FP queue
 are still active. No full precision replay, local race or candidate tests,
 generators or applications were run.
+
+
+## Resource flow pool consolidation (2026-10-02)
+
+Beads `gohawk-dho.44.11.5.15` extracts the resource state machine into
+flow_walk.go and makes proveResourceFlow authoritative for setup, coverage,
+availability and its leak witness. Index, acquisition reachability, dominating
+guards, queued states, guard keys/invalidation, termination summaries and edge
+extension share the existing observed candidate pool. Acquisition reachability
+retains its SummaryBudget per-query cap. Activation, optional acquisition,
+error/presence edges and repeated-guard uncertainty retain their existing
+policy; this does not substitute the generic obligation state machine.
+
+The existing bounded guard and successor engines are promoted as Within APIs,
+and the generic obligation walk uses those same implementations. Termination
+summary inference receives the walk allowance; truncated broker literal
+feasibility keeps all successors. Four default APIs became test-only probes
+and moved out of production; consuming lifecycle/resource tests use the
+bounded API with nil for default-policy comparisons. The extracted successor
+function explains activation versus contradiction at its precision boundary.
+The stale evaluator responsibility comment is corrected.
+
+Actual SSA cleanup/leak and dominating-guard controls exercise every
+insufficient allowance. A sibling classifier query can exhaust the root pool
+without setting the walk child's exhausted flag; both limits now invalidate
+the proof and clear any tentative witness. Ignoring the parent reproduces the
+cutoff-witness failure at allowance 13. A selective nil walk allowance also
+fails cleanup/leak and guarded controls. Final counterfactual receipts are
+`.build/goal-resource-flow-complete-{parent-cut,unshared}-control.log`.
+No audited production FP removal is credited.
+
+The final canonical gate passes generation, module verification, vet,
+formatting, lint, dead-code, local dogfood and ordinary tests:
+`.build/goal-resource-flow-reviewed-verify.log`. Earlier gates exposed
+now-test-only APIs, dependent test references and a rationale span; those were
+fixed rather than waived. Focused commentary/helper-reference/documentation
+checks pass in `.build/goal-resource-flow-architecture-final.log`.
+
+| Pinned static resource control | Parent | Complete source |
+| --- | --- | --- |
+| ozontech/cute at 9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3, ./... | Exit 3; reviewed test.go:614:13 leak present. | Exit 3; identical 980-byte JSON; leak retained. |
+| ferro-labs/ai-gateway at d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4, ./internal/admin/repository ./mcp | Exit 0; corrected resource finding absent. | Exit 0; identical 2-byte empty-object JSON; absence retained. |
+
+All stderr is empty. Scans use -enable=resourcelifetime -json,
+CGO_ENABLED=0, GOFLAGS=-mod=readonly and GOWORK=off. Pins and original
+reviews are in indirect-destination-followup-2026-10-01.tsv; no new review is
+inferred from diagnostic presence alone. Immutable parent binary
+`.build/goal-result-fold-current` SHA-256:
+483b7ac406a7f6022d6a2375922dab961ffa89e9dcbd55318b9485c95062f7ce;
+complete binary `.build/goal-resource-flow-complete` SHA-256:
+f5212b1f6ff660717ae4e9e53502ba548e6b2d8dce4d793cc6d4669b9d48f04d.
+The complete binary precedes the final rationale-comment edits; executable
+proof behavior is unchanged. These are precommit artifacts, not clean-tree
+VCS stamps. Receipts use `.build/goal-resource-flow-{cute,ferro}-{parent,complete}`.
+
+Child `.16` records remaining pre-acquisition and resource-specific presence,
+error and owner-query costs. Graph construction, type-system/custom/library
+internals and other consumers remain independent scope. Graph MCP is
+unavailable; scoped source and actual SSA supply the evidence. No whole-query
+wall-clock bound is claimed. The broader architecture and production FP work
+remain active. No full precision replay, local race or candidate tests,
+generators or applications were run.

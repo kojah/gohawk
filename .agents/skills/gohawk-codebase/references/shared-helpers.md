@@ -62,8 +62,10 @@ that only need to know whether some return is uncovered.
 | `ProveNormalReturnWithin` | structured return reachability under shared queue/instruction/termination allowance; unknown never proves no return |
 | `lifecycle.ProveReturnedParameterWithin` | exact same-type returned parameter under shared reachability, return coverage and storage allowance; cutoff remains unknown |
 | `ReturnsOnlyNilOrErrors` | does a return contain only definitely nil values or builtin error values, including aliases? The caller decides whether this is unsuccessful construction. |
-| `SuccessorPolicy` | the one successor-feasibility view: the literal or an analyzer's view, bound constants, and a non-nil assumption, with `Edges` extending path guards |
-| `FeasibleSuccessors`, `SuccessBranch`, `BlockReachable`, `BlockInCycle` | control-flow feasibility primitives |
+| `SuccessorPolicy` | the one successor-feasibility view: the literal or an analyzer's view, bound constants, and a non-nil assumption, with `EdgesWithin` extending path guards |
+| `SuccessorPolicy.SuccessorsWithin`, `EdgesWithin` | shared successor/guard work for custom state machines; inspect exhaustion before interpreting a truncated edge set |
+| `PathGuards.ExtendWithin`, `AfterWithin`, `KeyWithin` | reuse bounded guard extension, invalidation and state keys outside the generic obligation walk |
+| `SuccessBranch`, `BlockReachable`, `BlockInCycle` | control-flow feasibility primitives |
 | `FeasibleSuccessorsWithin`, `BranchValueWithin`, `BranchBoolWithin` | share incoming-phi and literal helper-return visits; caller cutoff supplies no branch pruning |
 | `FixedValues.HoldsWithin`, `DecidedSuccessorWithin`, `NarrowWithin` | share bound negation/nil evidence and successor filtering; cutoff supplies no decided condition |
 | `InstructionDominates`, `InstructionMayFollow`, `InstructionIndex` | ordering between instructions |

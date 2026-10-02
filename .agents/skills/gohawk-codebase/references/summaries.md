@@ -207,6 +207,17 @@ Terminates adapts the result summaries to the walks' terminator hook: a
 call to a function proven never to return normally ends the caller's path
 as os.Exit does. A nil provider yields no hook.
 
+## Provider.TerminatesWithin
+
+[Source](../../../../internal/summaries/results.go)
+
+```go
+func (provider *Provider) TerminatesWithin(budget *ssaflow.SearchBudget) ssaflow.Terminator
+```
+
+TerminatesWithin shares result inference with budget. A nil budget retains
+a fresh summary allowance per call; an interrupted summary never terminates.
+
 ## Requirements
 
 [Source](../../../../internal/summaries/provider.go)

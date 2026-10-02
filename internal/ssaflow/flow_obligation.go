@@ -146,7 +146,7 @@ func (state obligationState) keyWithin(budget *SearchBudget) obligationKey {
 		predecessor = state.predecessor.Index
 	}
 	return obligationKey{
-		block: state.block.Index, predecessor: predecessor, index: state.index, covered: state.covered, guards: state.guards.keyWithin(budget),
+		block: state.block.Index, predecessor: predecessor, index: state.index, covered: state.covered, guards: state.guards.KeyWithin(budget),
 	}
 }
 
@@ -201,7 +201,7 @@ func (walk *obligationWalk) step(state obligationState) ([]obligationState, bool
 			return nil, false
 		}
 	}
-	edges := walk.policy.edgesWithin(state.block, state.predecessor, state.guards, walk.flow.Budget)
+	edges := walk.policy.EdgesWithin(state.block, state.predecessor, state.guards, walk.flow.Budget)
 	if walk.stopAtCutoff() {
 		return nil, false
 	}
@@ -227,7 +227,7 @@ func (walk *obligationWalk) step(state obligationState) ([]obligationState, bool
 }
 
 func (walk *obligationWalk) instruction(state *obligationState, instruction ssa.Instruction) bool {
-	state.guards = state.guards.afterWithin(instruction, walk.flow.Budget)
+	state.guards = state.guards.AfterWithin(instruction, walk.flow.Budget)
 	if walk.stopAtCutoff() {
 		return false
 	}

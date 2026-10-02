@@ -27,7 +27,10 @@ func (provider *Provider) ResultOf(value ssa.Value, budget *ssaflow.SearchBudget
 // with the requested result component. Unknown never eliminates a successor;
 // nilness here establishes neither resource ownership nor a cleanup duty.
 func (provider *Provider) FeasibleSuccessors(block, predecessor *ssa.BasicBlock, budget *ssaflow.SearchBudget) []*ssa.BasicBlock {
-	successors := ssaflow.FeasibleSuccessors(block, predecessor)
+	successors := ssaflow.FeasibleSuccessorsWithin(block, predecessor, budget)
+	if budget.Exhausted() {
+		return block.Succs
+	}
 	if len(successors) != 2 || len(block.Instrs) == 0 {
 		return successors
 	}
@@ -176,11 +179,21 @@ func (provider *Provider) ArgumentReturnedUnchanged(value ssa.Value, budget *ssa
 // call to a function proven never to return normally ends the caller's path
 // as os.Exit does. A nil provider yields no hook.
 func (provider *Provider) Terminates() ssaflow.Terminator {
+	return provider.TerminatesWithin(nil)
+}
+
+// TerminatesWithin shares result inference with budget. A nil budget retains
+// a fresh summary allowance per call; an interrupted summary never terminates.
+func (provider *Provider) TerminatesWithin(budget *ssaflow.SearchBudget) ssaflow.Terminator {
 	if provider == nil {
 		return nil
 	}
 	return func(call *ssa.Call) bool {
-		summary, available := provider.ForFunction(ssaflow.ResolvedCallee(call.Common())).Results(ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		query := budget
+		if query == nil {
+			query = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+		}
+		summary, available := provider.ForFunction(ssaflow.ResolvedCallee(call.Common())).Results(query)
 		return available == Available && summary.NeverReturns()
 	}
 }

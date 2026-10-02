@@ -63,26 +63,26 @@ func TestGuardStateBudgetKeepsDefaultPolicy(t *testing.T) {
 	guards := PathGuards{{Identity: identity, Value: true, Stable: false}}
 	store := InstructionsOf[*ssa.Store](function)[0]
 	zero := NewSearchBudget(0)
-	if kept := guards.afterWithin(store, zero); kept != nil || !zero.Exhausted() {
+	if kept := guards.AfterWithin(store, zero); kept != nil || !zero.Exhausted() {
 		t.Fatal("unknown store identity cannot retain an active guard")
 	}
 	fresh := NewSearchBudget(QueryBudget)
-	if kept := guards.afterWithin(store, fresh); len(kept) != 0 || len(guards.After(store)) != 0 || fresh.Exhausted() {
+	if kept := guards.AfterWithin(store, fresh); len(kept) != 0 || len(guards.After(store)) != 0 || fresh.Exhausted() {
 		t.Fatal("fresh mutation must forget the same guard")
 	}
 	zero = NewSearchBudget(0)
-	if key := guards.keyWithin(zero); key != "" || !zero.Exhausted() {
+	if key := guards.KeyWithin(zero); key != "" || !zero.Exhausted() {
 		t.Fatal("partial state-key rendering must be unavailable")
 	}
-	if guards.keyWithin(NewSearchBudget(QueryBudget)) != guards.Key() {
+	if guards.KeyWithin(NewSearchBudget(QueryBudget)) != guards.Key() {
 		t.Fatal("fresh guard key must preserve default identity")
 	}
 	zero = NewSearchBudget(0)
-	if edges := (SuccessorPolicy{}).edgesWithin(branch.Block(), nil, guards, zero); edges != nil || !zero.Exhausted() {
+	if edges := (SuccessorPolicy{}).EdgesWithin(branch.Block(), nil, guards, zero); edges != nil || !zero.Exhausted() {
 		t.Fatal("edge census must spend before successor selection")
 	}
 	// Taking the other branch contradicts the loaded guard only uncertainly.
-	_, loaded := guards.extendWithin(branch.Block(), branch.Block().Succs[1], nil, NewSearchBudget(QueryBudget))
+	_, loaded := guards.ExtendWithin(branch.Block(), branch.Block().Succs[1], nil, NewSearchBudget(QueryBudget))
 	guards[0].Stable = true
 	// Stability comes from the decoded condition, not an asserted held flag.
 	_, sameLoaded := guards.Extend(branch.Block(), branch.Block().Succs[1], nil)
@@ -95,7 +95,7 @@ func TestGuardStateBudgetKeepsDefaultPolicy(t *testing.T) {
 		t.Fatal("expected an actual stable parameter guard")
 	}
 	stableGuards := PathGuards{{Identity: stableIdentity, Value: true, Stable: true}}
-	_, contradiction := stableGuards.extendWithin(stableBranch.Block(), stableBranch.Block().Succs[1], nil, NewSearchBudget(QueryBudget))
+	_, contradiction := stableGuards.ExtendWithin(stableBranch.Block(), stableBranch.Block().Succs[1], nil, NewSearchBudget(QueryBudget))
 	if contradiction != GuardStableContradiction {
 		t.Fatal("bounded extension must preserve stable path pruning")
 	}

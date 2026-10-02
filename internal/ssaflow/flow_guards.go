@@ -210,10 +210,12 @@ func booleanValue(value ssa.Value) bool {
 // set, filters which guards are remembered; a filtered-out guard is neither
 // stored nor checked.
 func (guards PathGuards) Extend(block, successor *ssa.BasicBlock, keep func(PathGuard) bool) (PathGuards, GuardContradiction) {
-	return guards.extendWithin(block, successor, keep, nil)
+	return guards.ExtendWithin(block, successor, keep, nil)
 }
 
-func (guards PathGuards) extendWithin(
+// ExtendWithin shares guard decoding and comparison with budget. Incomplete
+// guards or contradictions are unavailable; callers must check exhaustion.
+func (guards PathGuards) ExtendWithin(
 	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *SearchBudget,
 ) (PathGuards, GuardContradiction) {
 	if len(block.Succs) != 2 || len(block.Instrs) == 0 {
@@ -284,15 +286,9 @@ func (guards PathGuards) withoutIdentityWithin(identity string, budget *SearchBu
 	return kept
 }
 
-// After returns the guards that still hold once instruction has run. A store
-// forgets the guards on its cell. Running a call again, as the next iteration
-// of a loop does, replaces its result, so the guards on the old result no
-// longer describe the new one.
-func (guards PathGuards) After(instruction ssa.Instruction) PathGuards {
-	return guards.afterWithin(instruction, nil)
-}
-
-func (guards PathGuards) afterWithin(instruction ssa.Instruction, budget *SearchBudget) PathGuards {
+// AfterWithin shares guard invalidation with budget. A cutoff cannot establish
+// that the remaining guards hold; callers must check exhaustion.
+func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *SearchBudget) PathGuards {
 	switch typed := instruction.(type) {
 	case *ssa.Store:
 		return guards.forgetWithin(typed, budget)
@@ -305,10 +301,12 @@ func (guards PathGuards) afterWithin(instruction ssa.Instruction, budget *Search
 
 // Key renders the guards for a walk's state key.
 func (guards PathGuards) Key() string {
-	return guards.keyWithin(nil)
+	return guards.KeyWithin(nil)
 }
 
-func (guards PathGuards) keyWithin(budget *SearchBudget) string {
+// KeyWithin charges guard entries before rendering. An exhausted partial key
+// must not enter a visited set; a nil budget retains the default policy.
+func (guards PathGuards) KeyWithin(budget *SearchBudget) string {
 	parts := make([]string, 0, len(guards))
 	for _, guard := range guards {
 		if !budget.Spend() {

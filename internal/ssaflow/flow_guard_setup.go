@@ -12,14 +12,6 @@ import (
 // decoding and order checks. Interrupted setup supplies no seed; the flow must
 // remain uncertain instead of judging paths from incomplete guard evidence.
 
-// GuardsDominating collects the guards every path to target passed through:
-// dominating branches one of whose arms dominates target's block. A store to
-// the guarded cell inside that arm, before target, means the guard may no
-// longer hold there and is not kept.
-func GuardsDominating(target ssa.Instruction) PathGuards {
-	return GuardsDominatingWithin(target, nil)
-}
-
 // GuardsDominatingWithin shares budget across dominator visits, condition and
 // address decoding, cycle checks and invalidating-store scans. At cutoff it
 // returns no seed; callers inspect availability before judging return coverage.

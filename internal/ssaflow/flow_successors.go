@@ -30,10 +30,12 @@ type SuccessorPolicy struct {
 // Successors returns the successors of block a path arriving from
 // predecessor may take.
 func (policy SuccessorPolicy) Successors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
-	return policy.successorsWithin(block, predecessor, nil)
+	return policy.SuccessorsWithin(block, predecessor, nil)
 }
 
-func (policy SuccessorPolicy) successorsWithin(block, predecessor *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock {
+// SuccessorsWithin shares literal, bound-value and assumption work with budget.
+// Custom feasibility hooks may share it too. Cutoff leaves the edge set unknown.
+func (policy SuccessorPolicy) SuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock {
 	var successors []*ssa.BasicBlock
 	if policy.Feasible != nil {
 		successors = policy.Feasible(block, predecessor)
@@ -72,17 +74,13 @@ type SuccessorEdge struct {
 	Contradiction GuardContradiction
 }
 
-// Edges returns the feasible edges out of block for a path that arrived from
-// predecessor carrying guards.
-func (policy SuccessorPolicy) Edges(block, predecessor *ssa.BasicBlock, guards PathGuards) []SuccessorEdge {
-	return policy.edgesWithin(block, predecessor, guards, nil)
-}
-
-func (policy SuccessorPolicy) edgesWithin(block, predecessor *ssa.BasicBlock, guards PathGuards, budget *SearchBudget) []SuccessorEdge {
+// EdgesWithin shares successor selection and guard extension with budget.
+// Cutoff returns no complete edge set; callers must check exhaustion.
+func (policy SuccessorPolicy) EdgesWithin(block, predecessor *ssa.BasicBlock, guards PathGuards, budget *SearchBudget) []SuccessorEdge {
 	if !budget.Spend() {
 		return nil
 	}
-	successors := policy.successorsWithin(block, predecessor, budget)
+	successors := policy.SuccessorsWithin(block, predecessor, budget)
 	if budget.Exhausted() {
 		return nil
 	}
@@ -91,7 +89,7 @@ func (policy SuccessorPolicy) edgesWithin(block, predecessor *ssa.BasicBlock, gu
 		if !budget.Spend() {
 			return nil
 		}
-		extended, contradiction := guards.extendWithin(block, successor, nil, budget)
+		extended, contradiction := guards.ExtendWithin(block, successor, nil, budget)
 		if budget.Exhausted() {
 			return nil
 		}

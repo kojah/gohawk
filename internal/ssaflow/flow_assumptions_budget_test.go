@@ -142,10 +142,10 @@ func assumed(p *int) { if p != nil { println(1) } }
 				policy.NonNil = function.Params[0]
 			}
 			cut := NewSearchBudget(0)
-			if got := policy.successorsWithin(branch.Block(), nil, cut); got != nil || !cut.Exhausted() {
+			if got := policy.SuccessorsWithin(branch.Block(), nil, cut); got != nil || !cut.Exhausted() {
 				t.Fatal("successor policy cannot consume uncharged bound/assumption evidence")
 			}
-			if got := policy.successorsWithin(branch.Block(), nil, NewSearchBudget(QueryBudget)); !slices.Equal(got, policy.Successors(branch.Block(), nil)) {
+			if got := policy.SuccessorsWithin(branch.Block(), nil, NewSearchBudget(QueryBudget)); !slices.Equal(got, policy.Successors(branch.Block(), nil)) {
 				t.Fatal("fresh successor policy must preserve default filtering")
 			}
 		})

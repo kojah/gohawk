@@ -1242,18 +1242,6 @@ func ExternallyOwnedValue(value ssa.Value) bool
 ExternallyOwnedValue reports whether value comes from storage that outlives
 the current function invocation.
 
-## FeasibleSuccessors
-
-[Source](../../../../internal/ssaflow/flow_branch_literals.go)
-
-```go
-func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
-```
-
-FeasibleSuccessors preserves constants selected by predecessor-sensitive
-phis and literal results of bounded, source-visible helpers. This prevents
-impossible loop exits and helper-error paths from faking leaks.
-
 ## FeasibleSuccessorsWithin
 
 [Source](../../../../internal/ssaflow/flow_branch_literals.go)
@@ -1486,19 +1474,6 @@ const GuardLimit = 8
 GuardLimit bounds the guards one path carries so the state space stays
 small; a guard beyond the limit is simply not remembered, which loses a
 correlation but never invents one.
-
-## GuardsDominating
-
-[Source](../../../../internal/ssaflow/flow_guard_setup.go)
-
-```go
-func GuardsDominating(target ssa.Instruction) PathGuards
-```
-
-GuardsDominating collects the guards every path to target passed through:
-dominating branches one of whose arms dominates target's block. A store to
-the guarded cell inside that arm, before target, means the guard may no
-longer hold there and is not kept.
 
 ## GuardsDominatingWithin
 
@@ -2218,18 +2193,16 @@ type PathGuards []PathGuard
 
 PathGuards is the sorted, bounded set of guards a path carries.
 
-## PathGuards.After
+## PathGuards.AfterWithin
 
 [Source](../../../../internal/ssaflow/flow_guards.go)
 
 ```go
-func (guards PathGuards) After(instruction ssa.Instruction) PathGuards
+func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *SearchBudget) PathGuards
 ```
 
-After returns the guards that still hold once instruction has run. A store
-forgets the guards on its cell. Running a call again, as the next iteration
-of a loop does, replaces its result, so the guards on the old result no
-longer describe the new one.
+AfterWithin shares guard invalidation with budget. A cutoff cannot establish
+that the remaining guards hold; callers must check exhaustion.
 
 ## PathGuards.Extend
 
@@ -2244,6 +2217,19 @@ reports whether it contradicts a guard the path already holds. keep, when
 set, filters which guards are remembered; a filtered-out guard is neither
 stored nor checked.
 
+## PathGuards.ExtendWithin
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+func (guards PathGuards) ExtendWithin(
+	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *SearchBudget,
+) (PathGuards, GuardContradiction)
+```
+
+ExtendWithin shares guard decoding and comparison with budget. Incomplete
+guards or contradictions are unavailable; callers must check exhaustion.
+
 ## PathGuards.Key
 
 [Source](../../../../internal/ssaflow/flow_guards.go)
@@ -2253,6 +2239,17 @@ func (guards PathGuards) Key() string
 ```
 
 Key renders the guards for a walk's state key.
+
+## PathGuards.KeyWithin
+
+[Source](../../../../internal/ssaflow/flow_guards.go)
+
+```go
+func (guards PathGuards) KeyWithin(budget *SearchBudget) string
+```
+
+KeyWithin charges guard entries before rendering. An exhausted partial key
+must not enter a visited set; a nil budget retains the default policy.
 
 ## PhiEdgeCount
 
@@ -2881,16 +2878,16 @@ type SuccessorPolicy struct {
 
 SuccessorPolicy chooses the feasible successors of a block.
 
-## SuccessorPolicy.Edges
+## SuccessorPolicy.EdgesWithin
 
 [Source](../../../../internal/ssaflow/flow_successors.go)
 
 ```go
-func (policy SuccessorPolicy) Edges(block, predecessor *ssa.BasicBlock, guards PathGuards) []SuccessorEdge
+func (policy SuccessorPolicy) EdgesWithin(block, predecessor *ssa.BasicBlock, guards PathGuards, budget *SearchBudget) []SuccessorEdge
 ```
 
-Edges returns the feasible edges out of block for a path that arrived from
-predecessor carrying guards.
+EdgesWithin shares successor selection and guard extension with budget.
+Cutoff returns no complete edge set; callers must check exhaustion.
 
 ## SuccessorPolicy.Successors
 
@@ -2902,6 +2899,17 @@ func (policy SuccessorPolicy) Successors(block, predecessor *ssa.BasicBlock) []*
 
 Successors returns the successors of block a path arriving from
 predecessor may take.
+
+## SuccessorPolicy.SuccessorsWithin
+
+[Source](../../../../internal/ssaflow/flow_successors.go)
+
+```go
+func (policy SuccessorPolicy) SuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock
+```
+
+SuccessorsWithin shares literal, bound-value and assumption work with budget.
+Custom feasibility hooks may share it too. Cutoff leaves the edge set unknown.
 
 ## SummaryBodyUnavailable, SummaryRecursive, SummaryBudgetExhausted
 
