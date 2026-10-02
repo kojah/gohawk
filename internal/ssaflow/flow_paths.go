@@ -15,7 +15,14 @@ import (
 
 // InstructionIndex returns instruction position within its basic block.
 func InstructionIndex(instruction ssa.Instruction) int {
+	return instructionIndexWithin(instruction, nil)
+}
+
+func instructionIndexWithin(instruction ssa.Instruction, budget *SearchBudget) int {
 	for index, candidate := range instruction.Block().Instrs {
+		if !budget.Spend() {
+			return -1
+		}
 		if candidate == instruction {
 			return index
 		}
@@ -40,13 +47,21 @@ func InstructionDominates(before, after ssa.Instruction) bool {
 // that is earlier than, or disconnected from, the obligation it purports to
 // settle.
 func InstructionMayFollow(before, after ssa.Instruction) bool {
+	return InstructionMayFollowWithin(before, after, nil)
+}
+
+// InstructionMayFollowWithin applies the same order/reachability policy under
+// budget. A false result at exhaustion is unavailable, not disconnection.
+func InstructionMayFollowWithin(before, after ssa.Instruction, budget *SearchBudget) bool {
 	if before == nil || after == nil || before.Parent() != after.Parent() {
 		return false
 	}
 	if before.Block() == after.Block() {
-		return InstructionIndex(before) <= InstructionIndex(after)
+		first := instructionIndexWithin(before, budget)
+		last := instructionIndexWithin(after, budget)
+		return !budget.Exhausted() && first <= last
 	}
-	return blockReachableFrom(before.Block().Succs, after.Block())
+	return blockReachableFromWithin(before.Block().Succs, after.Block(), budget)
 }
 
 // BlockReachable reports whether target is reachable from within their
@@ -69,11 +84,18 @@ func BlockInCycle(start *ssa.BasicBlock) bool {
 // initial block or only its successors can count. Clone the seeds because
 // queue growth must not overwrite an SSA block's successor backing array.
 func blockReachableFrom(seeds []*ssa.BasicBlock, target *ssa.BasicBlock) bool {
+	return blockReachableFromWithin(seeds, target, nil)
+}
+
+func blockReachableFromWithin(seeds []*ssa.BasicBlock, target *ssa.BasicBlock, budget *SearchBudget) bool {
 	seen := map[*ssa.BasicBlock]bool{}
 	queue := slices.Clone(seeds)
 	for len(queue) > 0 {
 		block := queue[0]
 		queue = queue[1:]
+		if !budget.Spend() {
+			return false
+		}
 		if block == target {
 			return true
 		}
@@ -81,7 +103,12 @@ func blockReachableFrom(seeds []*ssa.BasicBlock, target *ssa.BasicBlock) bool {
 			continue
 		}
 		seen[block] = true
-		queue = append(queue, block.Succs...)
+		for _, successor := range block.Succs {
+			if !budget.Spend() {
+				return false
+			}
+			queue = append(queue, successor)
+		}
 	}
 	return false
 }

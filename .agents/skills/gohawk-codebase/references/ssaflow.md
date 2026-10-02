@@ -1507,6 +1507,17 @@ is intentionally weaker than dominance and is used only to reject evidence
 that is earlier than, or disconnected from, the obligation it purports to
 settle.
 
+## InstructionMayFollowWithin
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func InstructionMayFollowWithin(before, after ssa.Instruction, budget *SearchBudget) bool
+```
+
+InstructionMayFollowWithin applies the same order/reachability policy under
+budget. A false result at exhaustion is unavailable, not disconnection.
+
 ## InstructionTerminatesControlFlow
 
 [Source](../../../../internal/ssaflow/flow_termination.go)
@@ -1635,6 +1646,17 @@ MayAliasThroughLoads reports whether value may be target seen through
 transparent wrappers, loads, or a phi merge. It is a possible identity, not
 a proof: a load is followed without asking what the cell held at that point,
 so callers use it to find a candidate binding, never to credit an action.
+
+## MayAliasThroughLoadsWithin
+
+[Source](../../../../internal/ssaflow/call_goroutines.go)
+
+```go
+func MayAliasThroughLoadsWithin(value, target ssa.Value, budget *SearchBudget) bool
+```
+
+MayAliasThroughLoadsWithin charges reaching leaves to budget. A cutoff
+cannot prove that value does not possibly originate at target.
 
 ## NamedResultCell
 
@@ -2546,6 +2568,20 @@ func SpawnedValueAtCall(
 
 SpawnedValueAtCall resolves a spawned function value back to the value
 supplied by the parent goroutine instruction.
+
+## SpawnedValueAtCallWithin
+
+[Source](../../../../internal/ssaflow/call_goroutines.go)
+
+```go
+func SpawnedValueAtCallWithin(
+	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *SearchBudget,
+) ssa.Value
+```
+
+SpawnedValueAtCallWithin bounds possible binding selection and capture
+extraction. Exhaustion returns nil and remains distinguishable on budget;
+this query never supplies exact asynchronous identity.
 
 ## SplitAccessPath
 

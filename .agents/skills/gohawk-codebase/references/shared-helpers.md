@@ -69,6 +69,7 @@ that only need to know whether some return is uncovered.
 | `WalkStates(initial, key, step)` | a keyed work list over path-sensitive states; the caller owns the state type and transfer, the driver owns termination |
 | `InstructionsReachableAfter(start)` | every instruction reachable forward from a point |
 | `InstructionsReachableAfterWithin(start, budget)` | the same forward census with explicit cutoff availability; partial results cannot prove an instruction unreachable |
+| `InstructionMayFollowWithin(before, after, budget)` | ordered reachability under an allowance; a cutoff is unknown rather than disconnection |
 | `InstructionsOf[T](function)` | every instruction of one type in a function |
 | `HasReturnAndAction(blocks, action)` | independent normal-return and matching-action witnesses in selected blocks; does not prove ordering or path coverage |
 

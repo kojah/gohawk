@@ -47,10 +47,6 @@ type joinEdgeEvidence struct {
 	action ssaflow.ObligationAction
 }
 
-func spawnedFunction(pass *analysis.Pass, spawn *ssa.Go) (*ssa.Function, *ssa.MakeClosure) {
-	return resolveSpawnedFunction(pass, spawn, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
-}
-
 func resolveSpawnedFunction(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) (*ssa.Function, *ssa.MakeClosure) {
 	function, closure := ssaflow.DirectCallee(spawn.Common())
 	if closure != nil {

@@ -426,11 +426,18 @@ func (analysis *spawnAnalysis) testingCleanupAction(common *ssa.CallCommon) owne
 // receivesFrom reports whether instruction receives from a channel accepted by
 // matches, through a receive expression, a select case, or a channel range.
 func receivesFrom(instruction ssa.Instruction, matches func(ssa.Value) bool) bool {
+	return receivesFromWithin(instruction, matches, nil)
+}
+
+func receivesFromWithin(instruction ssa.Instruction, matches func(ssa.Value) bool, budget *ssaflow.SearchBudget) bool {
 	switch typed := instruction.(type) {
 	case *ssa.UnOp:
 		return typed.Op == token.ARROW && matches(typed.X)
 	case *ssa.Select:
 		for _, state := range typed.States {
+			if !budget.Spend() {
+				return false
+			}
 			if state.Dir == types.RecvOnly && matches(state.Chan) {
 				return true
 			}

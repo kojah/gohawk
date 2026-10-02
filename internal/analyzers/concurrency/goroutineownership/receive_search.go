@@ -55,7 +55,7 @@ func (search *workerReceiveSearch) search(function *ssa.Function, local ssa.Valu
 			if !search.budget.Spend() {
 				return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
 			}
-			if receivesFrom(instruction, func(channel ssa.Value) bool { return search.matches(function, local, channel) }) {
+			if receivesFromWithin(instruction, func(channel ssa.Value) bool { return search.matches(function, local, channel) }, search.budget) {
 				return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
 			}
 			common := ssaflow.InstructionCall(instruction)

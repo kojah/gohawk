@@ -190,7 +190,12 @@ func (analysis *spawnAnalysis) otherWorkerConsumesSignal() bool {
 // possible caller lifetime bound before local flow. A received stop signal or
 // context can explain ownership, but cannot prove the worker has been joined.
 func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
-	if analysis.relayDependencyUncertain() {
+	relayBudget := analysis.budget()
+	relay := analysis.relayDependencyUncertain(relayBudget)
+	if relayBudget.Exhausted() {
+		return analysis.lifetimeCutoff(relayBudget, "relay-dependency", reasonRelayDependencyBudgetExhausted), true
+	}
+	if relay {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonRelayDependency}, true
 	}
 	// Completion-handle ownership is independent of stop/context inputs. Keep
@@ -207,26 +212,47 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true
 		}
 	}
-	receiveBudget := analysis.budget()
-	if goroutineReceivesCallerSignal(analysis.pass, analysis.spawn, receiveBudget) {
-		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonStopLifecycle}, true
-	}
-	if goroutineReceivesCallerContext(analysis.pass, analysis.spawn, receiveBudget) {
-		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonContextLifecycle}, true
-	}
-	if goroutineReceivesLocallyCanceledContext(analysis.pass, analysis.spawn, receiveBudget) {
-		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonLocallyCanceledContext}, true
-	}
-	if goroutineReceivesReceiverContext(analysis.pass, analysis.spawn, receiveBudget) {
-		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonReceiverContext}, true
-	}
-	if receiveBudget.Exhausted() {
-		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonReceiveBudgetExhausted}, true
+	if proof, decided := analysis.callerLifetimeProof(); decided {
+		return proof, true
 	}
 	if synctestOwnsGoroutine(analysis.function) {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonSynctestBubbleOwner}, true
 	}
 	return GoroutineProof{}, false
+}
+
+// Every lifetime query shares one allowance. Check availability before naming
+// its witness: cutoff in a field-write or callback scan is not a caller bound.
+func (analysis *spawnAnalysis) callerLifetimeProof() (GoroutineProof, bool) {
+	budget := analysis.budget()
+	queries := []struct {
+		reason goroutineOwnershipReason
+		find   func() bool
+	}{
+		{reasonStopLifecycle, func() bool { return goroutineReceivesCallerSignal(analysis.pass, analysis.spawn, budget) }},
+		{reasonContextLifecycle, func() bool { return goroutineReceivesCallerContext(analysis.pass, analysis.spawn, budget) }},
+		{reasonLocallyCanceledContext, func() bool { return goroutineReceivesLocallyCanceledContext(analysis.pass, analysis.spawn, budget) }},
+		{reasonReceiverContext, func() bool { return goroutineReceivesReceiverContext(analysis.pass, analysis.spawn, budget) }},
+	}
+	for _, query := range queries {
+		found := query.find()
+		if budget.Exhausted() {
+			return analysis.lifetimeCutoff(budget, "caller-lifetime", reasonReceiveBudgetExhausted), true
+		}
+		if found {
+			return GoroutineProof{Outcome: GoroutineUnknown, Reason: query.reason}, true
+		}
+	}
+	return GoroutineProof{}, false
+}
+
+func (analysis *spawnAnalysis) lifetimeCutoff(
+	budget *ssaflow.SearchBudget, phase string, reason goroutineOwnershipReason,
+) GoroutineProof {
+	budget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
+		return map[string]string{"phase": phase}
+	})
+	return GoroutineProof{Outcome: GoroutineUnknown, Reason: reason}
 }
 
 // A channel supplied by a factory or registry may already have another owner.

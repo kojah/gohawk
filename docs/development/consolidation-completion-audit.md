@@ -1836,3 +1836,86 @@ dead-code and local dogfood. The first gate passed ordinary tests but found the
 two unused facades; the final gate verifies their removal. Child `.44.11.3`
 can close for the direct census/availability work, while its parent and the
 broader consolidation objective remain active for the recorded remaining scope.
+
+## Caller-bound and relay-dependency allowances
+
+Beads `gohawk-dho.44.11.4` follows retained-owner census work in `b888f20`.
+Caller channel/context/receiver and local-cancellation queries now use the
+supplied observed allowance for worker resolution, instruction/select and
+binding census, receiver-field store checks, storage and opaque callback scans.
+Local cancellation reuses the authoritative obligation flow with bounded
+states and instruction labels. A cancellation defer registered before launch
+still requires dominance; conditional and asynchronous cancellation cannot
+establish coverage. The now-unused standalone worker-resolution and publication
+facades are removed. Caller lifetime evidence moves into `caller_bounds.go`,
+leaving relay and lifecycle-method discovery cohesive in `lifecycle.go`.
+
+The lifecycle decision checks availability immediately after each query before
+naming a bound. Caller queries share one allowance and preserve their prior
+order/reasons; exhaustion remains `worker-receive-budget-exhausted`. Relay
+dependency resolution, group discovery and local cancellation share its own
+allowance, with `relay-dependency-budget-exhausted` and attributed phase
+evidence. Neither a partial field-write census nor a callback cutoff supplies
+a named ownership witness. Both unavailable outcomes are unknown, never joins.
+
+Shared possible spawn mapping and load-alias leaf traversal gain budgeted
+entry points; default callers delegate the same candidate-selection engine.
+Shared ordered reachability similarly preserves its exact existing direction.
+The relay filter still considers a participant that can reach the launch;
+it is not replaced with forward-only reachability. This change makes no claim
+that later participants now qualify. The direct caller receive census retains
+its existing policy; helper chains continue through the shared value-specific
+worker receive engine, whose select-state enumeration now spends the allowance.
+
+Actual SSA tests in `caller_budget_test.go` exercise fresh/cutoff channel,
+receiver, cancellation and relay decisions with attributed trace phases.
+Cancellation tests pair exact and preceding-defer coverage with conditional
+and asynchronous negatives. Shared `call_binding_budget_test.go` checks
+unavailable/fresh possible capture mapping and ordered reachability in both
+directions. Existing distinct-binding, recursive, opaque and memo-cutoff
+receive controls pass. Focused receipts are
+`.build/goal-caller-budget-focused2.log`. Initial focused lint/commentary checks
+found the unused resolver facade and missing defer rationale; corrected checks
+pass in `.build/goal-caller-budget-{lint,commentary}-corrected.log`.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is statically scanned with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-retained-budget-current`
+has SHA-256
+`f0177e838480d8bb9df73e9f68ad316f50919860bbf170382c6ec114016413b1`;
+corrected `.build/goal-caller-budget-current` has SHA-256
+`f2e58273086c499015b33354a2f1438dc8c6bf616da2b1ab13d29b42b6b095de`.
+Both are immutable pre-commit artifacts; corrected includes the query changes
+before the final unused resolver removal and rationale comment. Fresh
+`.build/goal-caller-budget-stargz-{parent,current}.{json,err}` both exit 3,
+retain byte-identical 827-byte JSON, empty stderr and the reviewed TP at
+`store/manager.go:193:2`. No candidate tests, generators or applications run.
+
+Graph tools remain unavailable; this is bounded source, SSA and trace evidence.
+`.44.11.5` now explicitly includes transitive identity, call-result/referrer,
+metadata allocation and initial flow guard/index setup costs across retained
+and caller-bound routes. No whole-engine wall-clock bound or broad completion
+is certified. The overall goal and 15-site production FP queue remain open;
+no production FP correction, full precision-regression or local race run is
+credited by this change.
+
+The first canonical `make verify` passes in
+`.build/goal-caller-budget-verify.log`. Final source review then limits relay
+reachability probes to sends and other worker launches, the only instructions
+that can supply its existing witness. This avoids repeated order/CFG queries
+for unrelated instructions while retaining the census and reachability policy.
+Focused checks pass again in `.build/goal-caller-budget-focused3.log`.
+Final immutable `.build/goal-caller-budget-final` has SHA-256
+`02ff7a5a52bc5348b4906cc6e37c866fac7eb790b9859c7a8f2844637611bf65`.
+Its fresh `.build/goal-caller-budget-stargz-final.{json,err}` retains the same
+827-byte parent diagnostic JSON, exit 3 and empty stderr. This final artifact
+includes the resolver/publication facade removals, rationale and reduced probe
+census; earlier corrected-artifact receipts remain intermediate evidence.
+
+Final `make verify` passes in `.build/goal-caller-budget-final-verify.log`,
+including ordinary tests, generated helper inventory, formatting, vet, lint,
+dead-code and local dogfood. The final receipt documentation check also passes
+in `.build/goal-caller-budget-receipt-docs.log`. Child `.44.11.4` can close for
+the supplied-allowance and immediate availability contract. Parent `.44.11`
+remains active for `.5` transitive costs and `.6` shared census consolidation;
+the broader goal is not complete.

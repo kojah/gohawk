@@ -39,6 +39,25 @@ Constructor discovery remains independently guarded. These changes bound the
 enumerated scans, not every transitive identity/alias helper or method-set
 construction; those mechanics and the remaining caller-bound routes still need
 review. No new worker-completion guarantee or published fact is introduced.
+
+Caller-bound and relay-dependency queries use supplied observed allowances for
+worker resolution, direct receive/select and binding census, receiver-field
+write checks, cancellation coverage and opaque callbacks. Local cancellation
+uses the shared obligation flow with bounded states/instructions; a preceding
+defer still requires dominance. The lifecycle proof checks availability after
+each query before naming a bound, and stops immediately on exhaustion. Relay
+cutoff is `relay-dependency-budget-exhausted`; caller cutoff retains
+`worker-receive-budget-exhausted`, with attributed phase evidence.
+`caller_budget_test.go` checks fresh/cutoff channel, receiver, cancellation and
+relay queries, plus exact, deferred, conditional and asynchronous cancellation.
+`call_binding_budget_test.go` pins budgeted possible capture mapping and the
+existing reachability direction. Relay participant filtering preserves the
+prior participant-to-launch order; this change does not broaden it to later
+participants. Caller lifetime policies live in `caller_bounds.go`; the shared
+receive engine retains value-specific memoization and possible-consumption
+semantics. Underlying identity, call-result scans, initial flow guards and
+metadata allocation remain transitive review scope, not a claimed complete
+wall-clock bound.
 Launching background work without a recognizable completion obligation is not
 itself a diagnostic, including with `-enable-all`.
 

@@ -5,7 +5,6 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -68,277 +67,40 @@ func (analysis *spawnAnalysis) relayCompletionGroup(budget *ssaflow.SearchBudget
 // never group-count arithmetic or proof that every participant completes.
 // https://github.com/buchgr/bazel-remote/blob/a69b6b5ed933234d93b489ffd216bee5bb74aa06/cache/disk/findmissing.go#L122-L143
 // https://github.com/HM2899/grokcli-2api/blob/33a106d902d7627d1cdbc3359768a029112ea808/internal/proxy/chat.go#L445-L565
-func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
+func (analysis *spawnAnalysis) relayDependencyUncertain(budget *ssaflow.SearchBudget) bool {
 	if analysis.relayGroup == nil {
 		return false
 	}
-	budget := analysis.budget()
 	for _, block := range analysis.function.Blocks {
 		for _, instruction := range block.Instrs {
 			if !budget.Spend() {
 				return false
 			}
-			if instruction == analysis.spawn || !ssaflow.InstructionMayFollow(instruction, analysis.spawn) {
+			send, sends := instruction.(*ssa.Send)
+			worker, launches := instruction.(*ssa.Go)
+			// Only a send or another worker can supply this dependency witness.
+			// Avoid spending ordered reachability on unrelated instructions.
+			participant := sends || launches
+			if instruction == analysis.spawn || !participant || !ssaflow.InstructionMayFollowWithin(instruction, analysis.spawn, budget) {
 				continue
 			}
-			if send, ok := instruction.(*ssa.Send); ok && lifecycle.MayContainValue(send.X, analysis.relayGroup) {
+			if sends && lifecycle.MayContainValue(send.X, analysis.relayGroup) {
 				return true
 			}
-			worker, ok := instruction.(*ssa.Go)
-			if !ok {
+			if !launches {
 				continue
 			}
-			function, closure := spawnedFunction(analysis.pass, worker)
+			function, closure := resolveSpawnedFunction(analysis.pass, worker, budget)
 			if function == nil {
 				continue
 			}
-			groups, _ := waitGroupCompletionValues(worker, function, closure, analysis.budget())
-			if heapmodel.MayAliasAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker, analysis.budget()) {
+			groups, _ := waitGroupCompletionValues(worker, function, closure, budget)
+			if heapmodel.MayAliasAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker, budget) {
 				return true
 			}
 		}
 	}
 	return false
-}
-
-// goroutineReceivesCallerSignal reports whether the worker receives from a
-// channel supplied by the caller, directly or through static helpers that take
-// the exact channel. Kubernetes informers express context ownership as
-// Run(ctx.Done()):
-// https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/discovery/kubernetes/kubernetes.go#L438-L458
-// Reminal passes its stop channel through several small helpers:
-// https://github.com/harshalgajjar/Reminal/blob/c4fd9e64b3b1deabaaacd5e10b9090a28792148d/internal/client/directoryhost.go#L62-L106
-func goroutineReceivesCallerSignal(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
-	function, closure := spawnedFunction(pass, spawn)
-	if function == nil {
-		return false
-	}
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if receivesFrom(instruction, func(channel ssa.Value) bool {
-				return callerSuppliedValue(spawn, function, closure, channel)
-			}) {
-				return true
-			}
-		}
-	}
-	return spawnedParameterIsReceived(spawn, function, closure, func(value ssa.Value) bool {
-		channel, ok := value.Type().Underlying().(*types.Chan)
-		return ok && channel.Dir() == types.RecvOnly
-	}, budget)
-}
-
-// goroutineReceivesCallerContext reports whether the worker, or a static helper
-// it passes the exact context to, receives from a caller-owned context.
-func goroutineReceivesCallerContext(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
-	function, closure := spawnedFunction(pass, spawn)
-	if function == nil {
-		return false
-	}
-	return spawnedParameterIsReceived(spawn, function, closure, func(value ssa.Value) bool {
-		return syntax.NamedType(value.Type(), "context", "Context")
-	}, budget)
-}
-
-var contextDoneMethod = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "context", Receiver: "Context", Name: "Done"})
-
-// goroutineReceivesReceiverContext reports whether the worker, or a static
-// helper it hands the exact value to, receives from Done on a context field of
-// a caller-owned aggregate it captured or was passed, while neither the
-// spawning function nor the worker stores that field. Whoever installed the
-// context on the receiver owns its cancellation, so the worker is bounded by
-// the caller, not by this function. This is uncertainty, never a join, and a
-// worker that publishes on a channel is excluded as with every other context
-// bound: it can still block after the context is done. my-geektime's segment
-// downloader selects on d.ctx.Done() in a helper the worker calls on its
-// captured receiver:
-// https://github.com/zkep/my-geektime/blob/a614af742806cfb10f84598c71c0dd668e96549b/libs/m3u8/downloader.go#L249-L288
-func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
-	function, closure := spawnedFunction(pass, spawn)
-	if function == nil || workerHasSend(function) || workerHandsOffOutputChannel(function) {
-		return false
-	}
-	bounded := func(local ssa.Value) bool {
-		return contextFieldReceivedAnywhere(function, local, spawn.Parent(), budget)
-	}
-	for _, binding := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		if bindingIsExternallyOwned(binding) && bounded(binding.Local) {
-			return true
-		}
-	}
-	return false
-}
-
-func contextFieldReceivedAnywhere(function *ssa.Function, local ssa.Value, spawner *ssa.Function, budget *ssaflow.SearchBudget) bool {
-	search := newWorkerReceiveSearch(budget, func(body *ssa.Function, target, channel ssa.Value) bool {
-		done, ok := channel.(*ssa.Call)
-		if !ok || !ssaflow.CallMatchesSymbol(done.Common(), contextDoneMethod) {
-			return false
-		}
-		field := loadedContextField(ssaflow.CallReceiver(done.Common()))
-		return field != nil && heapmodel.ValueDerivesFrom(field.X, target) && !fieldStoredIn(field, spawner) && !fieldStoredIn(field, body)
-	})
-	return search.prove(function, local).Proven()
-}
-
-// loadedContextField returns the field address a context value was loaded
-// from, when that field is typed as the standard Context interface.
-func loadedContextField(value ssa.Value) *ssa.FieldAddr {
-	load, ok := value.(*ssa.UnOp)
-	if !ok || load.Op != token.MUL {
-		return nil
-	}
-	field, ok := load.X.(*ssa.FieldAddr)
-	if !ok || !syntax.NamedType(field.Type().(*types.Pointer).Elem(), "context", "Context") {
-		return nil
-	}
-	return field
-}
-
-// fieldStoredIn reports a visible store to the same field of any value of the
-// same type inside function: the context may then be one this function chose,
-// not one the receiver's owner installed.
-func fieldStoredIn(field *ssa.FieldAddr, function *ssa.Function) bool {
-	for _, store := range ssaflow.InstructionsOf[*ssa.Store](function) {
-		address, ok := store.Addr.(*ssa.FieldAddr)
-		if ok && address.Field == field.Field && types.Identical(address.X.Type(), field.X.Type()) {
-			return true
-		}
-	}
-	return false
-}
-
-// A locally created context can bound a worker when its exact cancellation is
-// deferred before launch or covers every later return. Cancellation is not a join; the caller uses
-// this only to decline the default context-mode diagnostic.
-// https://github.com/c9s/bbgo/blob/4a4a18a08897579d157c8fd3b412309cd4954852/pkg/cmd/exchangetest.go#L233-L255
-// https://github.com/inbucket/inbucket/blob/94472ab496822dec612edce7988a1f953a9eafbd/pkg/msghub/hub_test.go#L361-L372
-func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
-	function, closure := spawnedFunction(pass, spawn)
-	if function == nil {
-		return false
-	}
-	storage := heapmodel.NewStorage(nil)
-	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		value := pair.Supplied
-		if _, cell := value.(*ssa.Alloc); cell {
-			content := storage.StableContent(value, spawn)
-			if !content.Proven() {
-				continue
-			}
-			value = content.Value
-		}
-		contextResult, ok := value.(*ssa.Extract)
-		if !ok || contextResult.Index != 0 {
-			continue
-		}
-		call, ok := contextResult.Tuple.(*ssa.Call)
-		if !ok || call.Parent() != spawn.Parent() ||
-			!ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageFunction("context", "WithCancel")) {
-			continue
-		}
-		cancel := ssaflow.CallResult(call, 1)
-		owned := cancelCoversSpawn(spawn, cancel, storage)
-		if owned && receivesAnywhere(function, pair.Local, budget) {
-			return true
-		}
-		// An imported or dynamic helper receiving this exact canceled context
-		// may own the worker's shutdown. Missing its body is uncertainty, not
-		// evidence that the worker ignores cancellation. This remains unknown.
-		// https://github.com/iximiuz/cdebug/blob/6c205f0b663df4dec235f42e905e94b40709159a/pkg/containerd/client.go#L98-L122
-		if owned && closure != nil {
-			evidence, _ := summaryKnowledge.Provider(pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
-			if evidence.ClosureHandsValueToUnreadableCallee(closure, value) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// Cancellation is an alternative lifetime boundary, never a join. The same
-// every-return query must cover later calls/defers; conditional cancellation
-// and an asynchronous invocation do not satisfy it.
-func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *heapmodel.Storage) bool {
-	cancels := func(instruction ssa.Instruction) bool {
-		common := ssaflow.InstructionCall(instruction)
-		if common == nil {
-			return false
-		}
-		_, called := instruction.(*ssa.Call)
-		_, deferred := instruction.(*ssa.Defer)
-		return (called || deferred) && storage.Same(common.Value, cancel).Proven()
-	}
-	if ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: spawn, Owns: cancels}) == nil {
-		return true
-	}
-	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](spawn.Parent()) {
-		if ssaflow.InstructionDominates(deferred, spawn) && cancels(deferred) {
-			return true
-		}
-	}
-	return false
-}
-
-// callerSuppliedValue maps a value used by the worker back to the parent and
-// requires that parent value to outlive the call. A channel field of a captured
-// aggregate keeps the exact field path rooted at that capture:
-// https://github.com/charmbracelet/wishlist/blob/3404a9e6f1d3e544a59e95302bfbe575bf1cf75e/server.go#L44-L51
-func callerSuppliedValue(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value) bool {
-	if supplied := ssaflow.SpawnedValueAtCall(spawn, function, closure, value); supplied != nil {
-		return ssaflow.ExternallyOwnedValue(supplied)
-	}
-	if closure == nil {
-		return false
-	}
-	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if ssaflow.ValueIsAccessPathFrom(value, captured.Free) &&
-			ssaflow.ExternallyOwnedValue(ssaflow.CapturedBindingValue(captured.Binding)) {
-			return true
-		}
-	}
-	return false
-}
-
-// spawnedParameterIsReceived reports whether a caller-owned parameter or
-// capture accepted by typed is received from by the worker or by a static
-// helper chain it hands the exact value to.
-func spawnedParameterIsReceived(
-	spawn *ssa.Go,
-	function *ssa.Function,
-	closure *ssa.MakeClosure,
-	typed func(ssa.Value) bool,
-	budget *ssaflow.SearchBudget,
-) bool {
-	for _, binding := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		if typed(binding.Local) && bindingIsExternallyOwned(binding) &&
-			receivesAnywhere(function, binding.Local, budget) {
-			return true
-		}
-	}
-	return false
-}
-
-// A captured cell supplies its contents to the worker. An ordinary argument
-// supplies the value evaluated at the launch; loading it would change which
-// value the caller-owned lifetime boundary applies to.
-func bindingIsExternallyOwned(binding ssaflow.CallBinding) bool {
-	supplied := binding.Supplied
-	if binding.Captured {
-		supplied = ssaflow.CapturedBindingValue(supplied)
-	}
-	return ssaflow.ExternallyOwnedValue(supplied)
-}
-
-// receivesAnywhere reports whether function, or a static helper it hands the
-// exact value to, receives from local on any path. A bounded worker commonly
-// selects on its stop signal inside a loop, so every-return coverage is not
-// required here; this evidence never proves a join, only a caller-owned bound.
-func receivesAnywhere(function *ssa.Function, local ssa.Value, budget *ssaflow.SearchBudget) bool {
-	search := newWorkerReceiveSearch(budget, func(_ *ssa.Function, target, channel ssa.Value) bool {
-		return heapmodel.ValueDerivesFrom(channel, target)
-	})
-	return search.prove(function, local).Proven()
 }
 
 // synctestOwnsGoroutine recognizes a worker launched from the callback passed
