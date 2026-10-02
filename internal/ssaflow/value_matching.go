@@ -46,7 +46,8 @@ func CapturedBindingValueWithin(
 func StructurallySame(value, target ssa.Value) bool {
 	// SSA removes ordinary assignments, but captured locals, embedded fields,
 	// and interface conversions still need explicit identity recovery.
-	return sameValueSeen(value, target, map[ssa.Value]bool{}) || sameValueSeen(target, value, map[ssa.Value]bool{})
+	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
+	return sameStructuralValue(NewReachingWalk(forms), value, target) || sameStructuralValue(NewReachingWalk(forms), target, value)
 }
 
 // DefinitelyNil reports whether every represented SSA value is nil.
@@ -65,63 +66,41 @@ func DefinitelyNilWithin(value ssa.Value, budget *SearchBudget) bool {
 	})
 }
 
-func sameValueSeen(value, target ssa.Value, seen map[ssa.Value]bool) bool {
+func sameStructuralValue(walk ReachingWalk, value, target ssa.Value) bool {
 	if value == nil || target == nil {
 		return false
 	}
-	if value == target {
-		return true
+	// Two directional channel conversions can be siblings of the same value:
+	// one producer receives chan<- T while its join helper receives <-chan T.
+	// Normalize the target as the shared walk peels the value's wrappers.
+	// https://github.com/Consensys/ask-o11y-plugin/blob/b74147d834cfd415caa96f087972a546238168c0/pkg/agent/loop_test.go#L111-L141
+	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
+	if inner, wrapped := UnwrapTransparentValue(target, forms); wrapped {
+		target = inner
 	}
-	if matched, wrapped := sameWrappedValue(value, target, seen); wrapped {
-		return matched
-	}
-	if seen[value] {
-		return false
-	}
-	seen[value] = true
+	return walk.AnyIncludingOrigin(value, func(value ssa.Value) bool { return value == target }, func(walk ReachingWalk, value ssa.Value) bool {
+		return structuralLeafMatches(walk, value, target)
+	})
+}
+
+func structuralLeafMatches(walk ReachingWalk, value, target ssa.Value) bool {
 	switch typed := value.(type) {
 	case *ssa.FieldAddr:
 		other, ok := target.(*ssa.FieldAddr)
-		return ok && typed.Field == other.Field && sameValueSeen(typed.X, other.X, seen)
+		return ok && typed.Field == other.Field && sameStructuralValue(walk, typed.X, other.X)
 	case *ssa.IndexAddr:
 		other, ok := target.(*ssa.IndexAddr)
-		return ok && sameValueSeen(typed.X, other.X, seen) && StructurallySame(typed.Index, other.Index)
+		return ok && sameStructuralValue(walk, typed.X, other.X) && StructurallySame(typed.Index, other.Index)
 	case *ssa.UnOp:
 		if typed.Op != token.MUL {
 			return false
 		}
-		if other, ok := target.(*ssa.UnOp); ok && other.Op == token.MUL && sameValueSeen(typed.X, other.X, seen) {
+		if other, ok := target.(*ssa.UnOp); ok && other.Op == token.MUL && sameStructuralValue(walk, typed.X, other.X) {
 			return true
 		}
-		return storedValueMatches(typed.X, target, seen)
-	case *ssa.Phi:
-		for _, edge := range typed.Edges {
-			if sameValueSeen(edge, target, seen) {
-				return true
-			}
-		}
+		return storedValueMatches(walk, typed.X, target)
 	}
 	return false
-}
-
-func sameWrappedValue(value, target ssa.Value, seen map[ssa.Value]bool) (bool, bool) {
-	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
-	left, leftWrapped := UnwrapTransparentValue(value, forms)
-	right, rightWrapped := UnwrapTransparentValue(target, forms)
-	// Two directional channel conversions can be siblings of the same value:
-	// one producer receives chan<- T while its join helper receives <-chan T.
-	// Both wrappers must be removed before comparing their shared identity.
-	// https://github.com/Consensys/ask-o11y-plugin/blob/b74147d834cfd415caa96f087972a546238168c0/pkg/agent/loop_test.go#L111-L141
-	switch {
-	case leftWrapped && rightWrapped:
-		return sameValueSeen(left, right, seen), true
-	case leftWrapped:
-		return sameValueSeen(left, target, seen), true
-	case rightWrapped:
-		return sameValueSeen(value, right, seen), true
-	default:
-		return false, false
-	}
 }
 
 // storedValueMatches reports whether a value stored at exactly this address
@@ -131,12 +110,12 @@ func sameWrappedValue(value, target ssa.Value, seen map[ssa.Value]bool) (bool, b
 // two here would make an aggregate copied by value look like a possible alias
 // of the resource it holds, and a proof that must keep aliases and containers
 // apart would then decline the container as ambiguous.
-func storedValueMatches(address, target ssa.Value, seen map[ssa.Value]bool) bool {
+func storedValueMatches(walk ReachingWalk, address, target ssa.Value) bool {
 	if address == nil || address.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *address.Referrers() {
-		if store, ok := reference.(*ssa.Store); ok && store.Addr == address && sameValueSeen(store.Val, target, seen) {
+		if store, ok := reference.(*ssa.Store); ok && store.Addr == address && sameStructuralValue(walk, store.Val, target) {
 			return true
 		}
 	}

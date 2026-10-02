@@ -14,8 +14,9 @@ import (
 // operand the fold does not peel (a load, a tuple extraction, a call result)
 // recurses through the walk it is handed so cycles stay bounded.
 //
-// A revisited value contributes no evidence in any fold: Any and Every treat
-// it as false and Resolve treats it as unresolved. That keeps every fold
+// A revisited alternative contributes no evidence: Any and Every treat it as
+// false and Resolve treats it as unresolved. AnyIncludingOrigin can accept an
+// independent direct witness before consulting alternatives. That keeps the folds
 // conservative in the direction its callers rely on, because a proof that
 // depends on a value already under proof would be circular.
 
@@ -62,16 +63,37 @@ func (walk ReachingWalk) revisited(value ssa.Value) bool {
 
 // Any reports whether some value reaching value satisfies leaf.
 func (walk ReachingWalk) Any(value ssa.Value, leaf func(ReachingWalk, ssa.Value) bool) bool {
-	if !walk.budget.Spend() || value == nil || walk.revisited(value) {
+	return walk.any(value, nil, leaf)
+}
+
+// AnyIncludingOrigin also asks origin before expanding wrappers or phi edges,
+// including before the cycle guard. A direct identity witness can therefore
+// match a phi itself without relying on its alternatives. False from origin
+// supplies no evidence; the ordinary reaching fold continues. The allowance is
+// checked first, so an exhausted request cannot accept even a direct witness.
+func (walk ReachingWalk) AnyIncludingOrigin(
+	value ssa.Value, origin func(ssa.Value) bool, leaf func(ReachingWalk, ssa.Value) bool,
+) bool {
+	return walk.any(value, origin, leaf)
+}
+
+func (walk ReachingWalk) any(value ssa.Value, origin func(ssa.Value) bool, leaf func(ReachingWalk, ssa.Value) bool) bool {
+	if !walk.budget.Spend() || value == nil {
+		return false
+	}
+	if origin != nil && origin(value) {
+		return !walk.budget.Exhausted()
+	}
+	if walk.revisited(value) {
 		return false
 	}
 	walk.seen[value] = true
 	if inner, ok := UnwrapTransparentValue(value, walk.forms); ok {
-		return walk.Any(inner, leaf)
+		return walk.any(inner, origin, leaf)
 	}
 	if phi, ok := value.(*ssa.Phi); ok {
 		for _, edge := range phi.Edges {
-			if walk.Any(edge, leaf) {
+			if walk.any(edge, origin, leaf) {
 				return true
 			}
 			if walk.budget.Exhausted() {

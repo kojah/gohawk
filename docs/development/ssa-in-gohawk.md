@@ -54,6 +54,24 @@ statement to find; it is a `defer` instruction whose callee is a method value
 on a specific SSA value. The analyzers accept that cost because it removes
 ambiguity, and this page exists so a reader can pay it too.
 
+## Possible identity through reaching values
+
+The structural fallback for possible identity uses `ReachingWalk` for wrapper
+and phi traversal and its cycle guard. `AnyIncludingOrigin` checks a caller's
+direct witness before expansion or a revisit, after charging the visit. This
+preserves identity of a phi with itself without requiring an alternative to
+prove the same value. An unmatched origin continues the ordinary existential
+fold; `Any`, `Every` and resolution retain their existing behavior.
+
+`StructurallySame` normalizes the target's selected wrappers while the shared
+walk peels the value's wrappers. Its leaf policy compares field/index addresses,
+loads and every exact-address store, independent of store order. Descendant
+storage is containment rather than identity; opaque call operands are derivation
+rather than alias evidence. These possible answers cannot replace the universal
+`StructurallyIdentical` proof or establish cleanup. `structural_same_test.go`
+pins the boundaries with compiled SSA; `reaching_origin_test.go` checks direct
+origin witnesses, revisits and cutoff polarity.
+
 ## Reading a dump as an analyzer does
 
 The walkthrough below refers to the generated `CopyHeader` dump on the public

@@ -2537,6 +2537,22 @@ func (walk ReachingWalk) Any(value ssa.Value, leaf func(ReachingWalk, ssa.Value)
 
 Any reports whether some value reaching value satisfies leaf.
 
+## ReachingWalk.AnyIncludingOrigin
+
+[Source](../../../../internal/ssaflow/value_reaching.go)
+
+```go
+func (walk ReachingWalk) AnyIncludingOrigin(
+	value ssa.Value, origin func(ssa.Value) bool, leaf func(ReachingWalk, ssa.Value) bool,
+) bool
+```
+
+AnyIncludingOrigin also asks origin before expanding wrappers or phi edges,
+including before the cycle guard. A direct identity witness can therefore
+match a phi itself without relying on its alternatives. False from origin
+supplies no evidence; the ordinary reaching fold continues. The allowance is
+checked first, so an exhausted request cannot accept even a direct witness.
+
 ## ReachingWalk.Every
 
 [Source](../../../../internal/ssaflow/value_reaching.go)

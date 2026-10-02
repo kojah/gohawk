@@ -4556,3 +4556,21 @@ No production FP reduction is credited. The bounded alias/path/type inventory
 identifies possible structural identity's independent recursion for follow-up
 in `gohawk-dho.44.11.5.27.23`. Other fact-consumer review, ten production FP
 sites and Rune still prevent overall completion.
+
+## Possible structural identity traversal
+
+Beads `gohawk-dho.44.11.5.27.23` replaces possible identity's private phi fan-out
+and visited set with `ReachingWalk`. One shared Any implementation supports a
+direct origin witness before expansion, preserving phi reflexivity. Wrapper
+normalization, exact-address stores, field/index matching and the two search
+directions retain the possible-identity policy; exact identity stays separate.
+
+The [structural identity review](../../benchmarks/precision/audits/structural-identity-consolidation-2026-10-02.md)
+records fifteen parent/current compiled-SSA controls, origin/cutoff tests,
+6,067 agreeing differential comparisons in an extended compiled corpus, three
+assertion-failing counterfactuals and successful canonical validation. All 552
+fixture diagnostics and pinned production output remain byte-identical across
+twelve successful scoped scans. No production FP reduction is credited.
+`gohawk-dho.44.11.5.27.24` bounds the remaining summary-consumer review to a
+candidate source inventory that still requires verification. The overall
+architecture/easy-FP goal, ten production sites and Rune remain open.

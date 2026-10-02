@@ -25,6 +25,7 @@ that fans out over phi edges or threads its own visited set.
 | helper | answers |
 |---|---|
 | `NewReachingWalk(forms)` with `Any`, `Every`, and `EveryOf` | does some / every value reaching here satisfy the predicate? |
+| `ReachingWalk.AnyIncludingOrigin` | accept a direct origin witness before wrapper/phi expansion or a revisit, under the same allowance |
 | `NewReachingWalk(forms).Within(budget)` | charge wrappers, phi alternatives and revisits to a shared allowance; cutoff supplies no fold evidence |
 | `StructurallyIdenticalWithin`, `AccessPathStepsWithin`, `ValueIsAccessPathFromWithin` | structural identity/projection with one allowance; cutoff is unproved, not unrelated |
 | `ProveIdentityWithin` | exact corresponding-path proof; cutoff returns structured unknown with budget reason |
