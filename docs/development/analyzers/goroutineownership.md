@@ -24,6 +24,16 @@ receiver semantics. Synchronous and deferred waits retain exact coverage.
 `asyncobservers/waits.go` pairs direct/helper launches with those exact forms
 and an unrelated observer whose worker still requires a join. Trace controls
 require one label per observer with the corresponding proof strength.
+`gohawk-dho.44.8` keeps recursive helper cutoffs unknown too. A helper that
+forwards the tracked completion value into a recursive call may wait before
+returning, even when the bounded search cannot establish that coverage. The
+cutoff therefore cannot prove absence of a handoff. This intentionally misses
+some omissions behind recursion; it does not infer a recursion count or promise
+termination. Independent exact observations still win when they cover every
+normal return. `recursivehelpers/waits.go` pairs direct/mutual forwarding with
+an explicit final Wait and an unrelated-group diagnostic. A retry test enters
+the same helper on an active path, gets unknown, then proves its receive on a
+fresh path, checking that the cutoff does not poison the memo.
 Return ownership is classified through the same cached instruction path as
 receives, waits, stores and calls. The ordinary flow and guarded non-nil retry
 reuse that label, including when different branch states reach one return.

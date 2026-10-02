@@ -18,6 +18,7 @@ reported, and neither is a worker launched once by `main.main`, since program
 exit stops it. Cleaning up a captured resource or its field can replace the
 join when the worker has no later blocking work. Workers using helper-supplied
 groups are left alone when their ownership cannot be determined.
+Workers handed to recursive cleanup helpers are also left alone.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [goroutineownership design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/goroutineownership.md).

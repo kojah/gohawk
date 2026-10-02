@@ -30,3 +30,23 @@ func forward(first, second chan struct{}) { receive(first, second) }
 		}
 	}
 }
+
+func TestHelperRecursiveCutDoesNotPoisonRetry(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "helpers", `package helpers
+func receive(ch chan struct{}) { <-ch }
+`)
+	function := pkg.Func("receive")
+	search := newHelperSearch()
+	var shortened ownershipAction
+	if !search.memo.WithFunction(function, func() {
+		shortened = search.use(function, function.Params[0], trackedSignal)
+	}) {
+		t.Fatal("could not enter helper")
+	}
+	if shortened != actionUnknown {
+		t.Errorf("recursive cut = %v, want unknown", shortened)
+	}
+	if got := search.use(function, function.Params[0], trackedSignal); got != actionJoin {
+		t.Errorf("fresh call path = %v, want join; recursive answer must not be cached", got)
+	}
+}

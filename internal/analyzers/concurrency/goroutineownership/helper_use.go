@@ -51,12 +51,15 @@ func (search *helperSearch) use(function *ssa.Function, local ssa.Value, kind tr
 	return search.memo.Summarize(key, function, search.budget, func() ownershipAction {
 		return search.searchUse(function, local, kind)
 	}, func(reason ssaflow.SummaryUnavailable, _ ownershipAction) ownershipAction {
-		// Exhaustion cannot establish either a join or the absence of an
-		// opaque handoff. Unknown suppresses an unjoined-worker diagnostic.
-		if reason == ssaflow.SummaryBudgetExhausted {
+		// A recursive or exhausted search cannot establish the absence of a
+		// completion handoff. Its caller supplied the tracked value, so the
+		// cutoff is opaque consumption, never a missing-join proof. A later
+		// independent exact observation can still cover every return.
+		if reason == ssaflow.SummaryBudgetExhausted || reason == ssaflow.SummaryRecursive {
 			return actionUnknown
 		}
-		// No join or escape witness was established by the cut itself.
+		// Body availability is handled by the call classifier before asking
+		// for helper coverage; no positive cleanup witness is supplied here.
 		return actionNone
 	})
 }

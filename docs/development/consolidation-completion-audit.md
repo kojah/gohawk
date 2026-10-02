@@ -1417,3 +1417,74 @@ is performed; the unresolved production FP queue remains 15 sites.
 The original helper/direct identity scope is now covered by the exact binding,
 internal identity, owner participation and launch-polarity corrections. The
 wider obligation discovery and architecture completion claims remain unproven.
+
+### Recursive completion handoffs and cache cutoffs
+
+`gohawk-dho.44.8` reviews `helperSearch.use`, recursive coverage and escape
+consumers, `CallGraphMemo.Summarize`/`Compose`/`WithFunction`, and the final
+helper binding projection. Graph tools remain unavailable, so the evidence is
+finite source fallback, actual SSA and focused behavioral controls. It does
+not certify every transitive summary consumer or solve recursive execution.
+
+Actual `.build/goal-recursive-observer.ssa.txt` shows `recursiveWait` calling
+itself with the same group on one branch and waiting on that group on the base
+branch. Its caller supplies one and has a worker settling that group. The
+immutable parent reports the worker as unjoined
+(`.build/goal-recursive-observer.trace.jsonl`). The parent fixture test fails
+in 4.619 seconds for direct and mutual forwarding, and for a recursive cutoff
+whose answer was incorrectly `actionNone`
+(`.build/goal-recursive-helper-parent-test.log`).
+
+The helper's unavailability policy now returns unknown for recursion as well
+as budget exhaustion. The nested call positively carries the tracked value;
+an unsupported recursive body cannot establish absence of a completion
+handoff. Existing body-unavailable handling remains in the call classifier,
+and no positive cleanup witness is invented at that boundary. Shared memo
+mechanics remain unchanged: recursive cuts invalidate dependent answers,
+which are not retained for future paths. Independent exact observations can
+still cover every normal return and yield a join despite an earlier opaque
+call. No recursion count, unrolling, new summary component or proof engine is
+introduced. This conservative boundary can miss actual omissions behind
+recursive forwarding, recorded in the fixture header and design note.
+
+`recursivehelpers/waits.go` pairs direct/mutual forwarding with an explicit
+final Wait and an unrelated-group diagnostic. The classifier trace requires
+one unknown helper label for each forwarding form and a positive label for
+the independent exact Wait. The retry test enters a receive helper on an
+active call path, gets unknown, then reaches it on a fresh path and proves its
+receive, testing that the cutoff answer is not cached. Focused recursive
+proof/trace, retry, helper budget/memo and concurrency controls pass in
+14.219 seconds (`.build/goal-recursive-helper-focused.log`). The public page
+records the new recursive-helper acceptance; implementation limits stay in
+the development design note.
+
+Fresh fixture CLI receipts cover `goroutineownership`, `summaryjoins`,
+`processexit`, `returnlabels`, `transferlabels`, `joinbindings`,
+`ownerparticipation`, `callerbounds`, `receiveidentity`, `asyncobservers` and
+`recursivehelpers`. Parent binary SHA-256:
+`ab171dbbe8ce66e54cf309e2ff2dc677ac6275237da74e5e8f9e1a23f5cbe295`;
+current binary SHA-256:
+`92ea3cd85637cec8be471c26efc0d4a57c51c133d6b93c65b0b732e7670b47c1`.
+Both exit 3 with empty stderr. Parent JSON is 124,660 bytes with 134 diagnostic
+locations; current is 123,080 bytes with 132. Only the two new recursive
+fixture reports disappear; no diagnostics are added, and every other complete
+diagnostic agrees (`.build/goal-recursive-helper-*-receipt.json`). Parent has
+562 final decision events and 232 labels; current has 560 and 234. Comparing
+decision multisets by function, check, candidate and position finds the two
+forwarding proofs becoming unknown instead of rejected, with their two
+diagnostic-report events removed. Every other final decision agrees. This is
+a demonstrated synthetic FP correction, not a removal from the frozen
+15-site production queue or an all-event equivalence claim.
+
+`make verify` passes all gates on its first run, including ordinary tests in
+72 seconds, canonical formatting, generation, vet, lint, dead-code and local
+dogfood (`.build/goal-recursive-helper-verify.log`). Documentation conformance
+passes after recording the evidence. The clean stargz checkout at
+`624678b4e421947534cbf0618f9609853cccee0f` retains identical nonempty
+827-byte parent/current `./store` diagnostics, exit 3 and empty stderr. The
+reviewed TP at `store/manager.go:193:2` remains
+(`.build/goal-recursive-helper-stargz-*.json`). Static scans disable CGO and
+workspace and use read-only module mode; candidate tests, applications and
+generators are not run. No full precision corpus replay or local race run is
+performed. The wider architecture and obligation-discovery review is still
+incomplete; this closes the demonstrated recursive helper-availability gap.
