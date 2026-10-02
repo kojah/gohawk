@@ -42,7 +42,7 @@ func tooDeep(p, other *resource) *owner { return wrap(wrap(wrap(wrap(wrap(p)))))
 			fn := pkg.Func(test.name)
 			query := &resourceAnalysis{function: fn, resource: fn.Params[0], summaries: provider, evidence: evidence}
 			returned := ssaflow.InstructionsOf[*ssa.Return](fn)[0]
-			if got := query.returnedWrapperPosition(returned); got != test.want {
+			if got := query.returnedWrapperPositionWithin(returned, nil); got != test.want {
 				t.Fatalf("default wrapper result = %d, want %d", got, test.want)
 			}
 			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {

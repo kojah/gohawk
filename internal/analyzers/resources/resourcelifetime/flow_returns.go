@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
@@ -16,6 +17,73 @@ import (
 // allowance, including wrapper decoding and view binding. Graph construction,
 // alias-query internals and type queries retain independent costs. Cutoff
 // cannot admit the uncovered-return witness.
+
+type resourceReturnedWrapperProof struct {
+	resourceProof
+	Position int // Direct retaining result, or -1 for a nested or absent wrapper.
+}
+
+func (analysis *resourceAnalysis) returnedWrapperWithin(returned *ssa.Return, budget *ssaflow.SearchBudget) resourceReturnedWrapperProof {
+	if proof, known := analysis.wrappers[returned]; known {
+		return proof
+	}
+	proof := analysis.proveReturnedWrapperWithin(returned, budget)
+	if proof.State == ssaflow.EvidenceUnknown {
+		return proof
+	}
+	if analysis.wrappers == nil {
+		analysis.wrappers = make(map[*ssa.Return]resourceReturnedWrapperProof)
+	}
+	analysis.wrappers[returned] = proof
+	return proof
+}
+
+// proveReturnedWrapperWithin widens the possible handoff to a constructor
+// result returned inside an aggregate. The constructor must dominate the
+// return; a dropped wrapper on an earlier error path supplies no boundary.
+// Positive evidence establishes possible retention only, so the classifier
+// labels it unknown rather than settled. All census, dominance and containment
+// visits share budget; graph and alias-query internals remain independent.
+func (analysis *resourceAnalysis) proveReturnedWrapperWithin(returned *ssa.Return, budget *ssaflow.SearchBudget) resourceReturnedWrapperProof {
+	position := analysis.returnedWrapperPositionWithin(returned, budget)
+	found := position >= 0
+	if !found && !resourceFlowExhausted(budget) {
+		for instruction := range ssaflow.InstructionsWithin(analysis.function, budget) {
+			call, ok := instruction.(*ssa.Call)
+			if !ok || !ssaflow.InstructionDominatesWithin(call, returned, budget) ||
+				!analysis.provenWrapperOfWithin(call, maxWrapperChain, budget) {
+				continue
+			}
+			found = returnedContainsWrapperWithin(returned, call, budget)
+			if found || resourceFlowExhausted(budget) {
+				break
+			}
+		}
+	}
+	if resourceFlowExhausted(budget) {
+		return resourceReturnedWrapperProof{
+			resourceProof: resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}, Position: -1,
+		}
+	}
+	if found {
+		return resourceReturnedWrapperProof{
+			resourceProof: resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonReturnedWrapperRetains}, Position: position,
+		}
+	}
+	return resourceReturnedWrapperProof{resourceProof: resourceProof{State: ssaflow.EvidenceDisproven}, Position: -1}
+}
+
+func returnedContainsWrapperWithin(returned *ssa.Return, call *ssa.Call, budget *ssaflow.SearchBudget) bool {
+	for _, result := range returned.Results {
+		if !budget.Spend() {
+			return false
+		}
+		if lifecycle.ProveMayContainValueWithin(result, call, budget).Proven() {
+			return true
+		}
+	}
+	return false
+}
 
 func (analysis *resourceAnalysis) proveResourceReturn(returned *ssa.Return, budget *ssaflow.SearchBudget) resourceLifetimePolicyResult {
 	owner := analysis.returnedResourceOwner(returned, budget)
@@ -44,7 +112,14 @@ func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return, bu
 	if lifecycle.ProveReturnedOwnershipWithin(returned, resource, nil, budget).Proven() {
 		return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonReturnedMayTransfer}
 	}
-	if position := analysis.returnedWrapperPositionWithin(returned, budget); position >= 0 &&
+	if resourceFlowExhausted(budget) {
+		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	}
+	wrapper := analysis.returnedWrapperWithin(returned, budget)
+	if wrapper.State == ssaflow.EvidenceUnknown {
+		return wrapper.resourceProof
+	}
+	if position := wrapper.Position; position >= 0 &&
 		analysis.evidence.RetainingResultClaimed(analysis.function, position) {
 		analysis.traceReturnedResult(returned, returned.Results[position], resourceReasonReturnedRetainingWrapper, analysisTrace.OutcomeAccepted)
 		return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonReturnedMayTransfer}
@@ -118,6 +193,58 @@ func (analysis *resourceAnalysis) proveReturnedProjection(returned *ssa.Return, 
 	}
 	analysis.traceReturnedResult(returned, result, resourceReasonReturnedProjectionLacksCleanup, analysisTrace.OutcomeRejected)
 	return resourceProof{State: ssaflow.EvidenceDisproven}
+}
+
+// returnedWrapperPositionWithin reports the result position at which a return hands
+// back a chain of wrappers over the resource, each proven by its summary to
+// hold its argument on every return, as slog.New(slog.NewTextHandler(file,
+// nil)) holds the file. The result has no method that releases the resource,
+// but the caller receives it and can keep it for as long as it needs the
+// wrapper. When the constructor's own summary claims that result as a
+// retaining result, the caller owes the obligation and the return is a
+// handover; otherwise the chain is only an uncertain boundary. A later error
+// return that discards the wrapper still abandons the resource. A may-hold
+// wrapper, such as bufio.NewWriter, is not a chain step and stays reported.
+// https://github.com/datolabs-io/opsy/blob/8c588e1c17da76db92351ccaf9b1fdd5793ab5f5/internal/config/config.go#L186-L209
+func (analysis *resourceAnalysis) returnedWrapperPositionWithin(returned *ssa.Return, budget *ssaflow.SearchBudget) int {
+	for position, result := range returned.Results {
+		if !budget.Spend() {
+			return -1
+		}
+		if analysis.provenWrapperOfWithin(result, maxWrapperChain, budget) && !resourceFlowExhausted(budget) {
+			return position
+		}
+	}
+	return -1
+}
+
+func (analysis *resourceAnalysis) provenWrapperOfWithin(value ssa.Value, depth int, budget *ssaflow.SearchBudget) bool {
+	if !budget.Spend() {
+		return false
+	}
+	call, ok := unwrapWrapperWithin(value, budget).(*ssa.Call)
+	if !ok || depth == 0 {
+		return false
+	}
+	for index, argument := range call.Common().Args {
+		if !budget.Spend() {
+			return false
+		}
+		inner := unwrapWrapperWithin(argument, budget)
+		if resourceFlowExhausted(budget) {
+			return false
+		}
+		if !heapmodel.MayAlias(inner, analysis.resource) && !analysis.provenWrapperOfWithin(inner, depth-1, budget) {
+			continue
+		}
+		if !budget.Spend() {
+			return false
+		}
+		if owner, _ := analysis.evidence.CalleeClaims(call, index, lifecyclefacts.ClaimReturnsOwner); owner && !resourceFlowExhausted(budget) {
+			return true
+		}
+	}
+	return false
 }
 
 func (analysis *resourceAnalysis) traceReturnedResult(returned *ssa.Return, result ssa.Value, reason resourceLifetimeReason, outcome analysisTrace.Outcome) {

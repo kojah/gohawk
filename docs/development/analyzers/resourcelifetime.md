@@ -165,6 +165,19 @@ arguments, fresh recovery, and an actual SSA conversion chain exceeding the
 storage cap without exhausting its caller. Broker tests distinguish absent
 knowledge from an available declaration with no view claim.
 
+Return opacity now shares one completed wrapper proof with owner disposition,
+including the direct result position. It uses the shared instruction census,
+bounded dominance checks, wrapper-chain proof and recursive containment under
+one caller allowance. A nested wrapper must be constructed before every path to
+that return; a constructor confined to a sibling branch cannot cover it. A
+positive possibility still labels opaque ownership, never settlement. Cutoff
+labels `budget-exhausted`/unknown and is not memoized; completed negatives and
+positives are reused. `returned_wrapper_test.go` covers direct/nested wrappers,
+unrelated and discarded values, non-dominating construction, every insufficient
+allowance, fresh classifier recovery and reuse without another search. The
+obsolete Boolean/default facades are removed, and the return-specific chain
+mechanics live with this proof in `flow_returns.go`.
+
 The resource projection decision propagates view-binding and storage-projection
 cutoff rather than treating it as missing evidence. A known non-cleaning view
 still cannot discharge its resource merely because it has a Close method;

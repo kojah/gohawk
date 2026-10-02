@@ -68,6 +68,8 @@ type resourceAnalysis struct {
 	pool *ssaflow.SearchBudget
 	// stores reuses one destination proof between release and opacity labels.
 	stores map[*ssa.Store]resourceStorageProof
+	// wrappers shares return classification evidence with owner disposition.
+	wrappers map[*ssa.Return]resourceReturnedWrapperProof
 	// leak is the return at which the flow walk found the resource owed.
 	leak *ssa.Return
 }
@@ -250,7 +252,8 @@ func (analysis *resourceAnalysis) compressionOutputAbandoned(instruction ssa.Ins
 func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction) (resourceLifetimeReason, bool) {
 	switch typed := instruction.(type) {
 	case *ssa.Return:
-		return resourceReasonReturnedWrapperRetains, analysis.returnedMayCarryWrapper(typed)
+		proof := analysis.returnedWrapperWithin(typed, analysis.budget(ssaflow.SummaryBudget))
+		return proof.Reason, proof.State != ssaflow.EvidenceDisproven
 	case *ssa.Store:
 		proof := analysis.resourceStorage(typed)
 		if proof.State == ssaflow.EvidenceUnknown {
@@ -449,87 +452,6 @@ func (analysis *resourceAnalysis) pathWithin(aggregate ssa.Value, observation ss
 		return ""
 	}
 	return ssaflow.JoinAccessPath(relation.Relation.Path())
-}
-
-// returnedWrapperPosition reports the result position at which a return hands
-// back a chain of wrappers over the resource, each proven by its summary to
-// hold its argument on every return, as slog.New(slog.NewTextHandler(file,
-// nil)) holds the file. The result has no method that releases the resource,
-// but the caller receives it and can keep it for as long as it needs the
-// wrapper. When the constructor's own summary claims that result as a
-// retaining result, the caller owes the obligation and the return is a
-// handover; otherwise the chain is only an uncertain boundary. A later error
-// return that discards the wrapper still abandons the resource. A may-hold
-// wrapper, such as bufio.NewWriter, is not a chain step and stays reported.
-// https://github.com/datolabs-io/opsy/blob/8c588e1c17da76db92351ccaf9b1fdd5793ab5f5/internal/config/config.go#L186-L209
-func (analysis *resourceAnalysis) returnedWrapperPosition(returned *ssa.Return) int {
-	return analysis.returnedWrapperPositionWithin(returned, nil)
-}
-
-func (analysis *resourceAnalysis) returnedWrapperPositionWithin(returned *ssa.Return, budget *ssaflow.SearchBudget) int {
-	for position, result := range returned.Results {
-		if !budget.Spend() {
-			return -1
-		}
-		if analysis.provenWrapperOfWithin(result, maxWrapperChain, budget) && !resourceFlowExhausted(budget) {
-			return position
-		}
-	}
-	return -1
-}
-
-// returnedMayCarryWrapper widens the handover to a wrapper returned inside an
-// aggregate, such as a struct with a Logger field. The caller receives it, but
-// no summary claims the aggregate as a retaining result, so this return is
-// only an uncertain boundary.
-func (analysis *resourceAnalysis) returnedMayCarryWrapper(returned *ssa.Return) bool {
-	if analysis.returnedWrapperPosition(returned) >= 0 {
-		return true
-	}
-	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
-		if !ssaflow.InstructionDominates(call, returned) || !analysis.provenWrapperOf(call, maxWrapperChain) {
-			continue
-		}
-		for _, result := range returned.Results {
-			if lifecycle.MayContainValue(result, call) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (analysis *resourceAnalysis) provenWrapperOf(value ssa.Value, depth int) bool {
-	return analysis.provenWrapperOfWithin(value, depth, nil)
-}
-
-func (analysis *resourceAnalysis) provenWrapperOfWithin(value ssa.Value, depth int, budget *ssaflow.SearchBudget) bool {
-	if !budget.Spend() {
-		return false
-	}
-	call, ok := unwrapWrapperWithin(value, budget).(*ssa.Call)
-	if !ok || depth == 0 {
-		return false
-	}
-	for index, argument := range call.Common().Args {
-		if !budget.Spend() {
-			return false
-		}
-		inner := unwrapWrapperWithin(argument, budget)
-		if resourceFlowExhausted(budget) {
-			return false
-		}
-		if !heapmodel.MayAlias(inner, analysis.resource) && !analysis.provenWrapperOfWithin(inner, depth-1, budget) {
-			continue
-		}
-		if !budget.Spend() {
-			return false
-		}
-		if owner, _ := analysis.evidence.CalleeClaims(call, index, lifecyclefacts.ClaimReturnsOwner); owner && !resourceFlowExhausted(budget) {
-			return true
-		}
-	}
-	return false
 }
 
 // Retaining a callback also retains its captured resource. A known test
