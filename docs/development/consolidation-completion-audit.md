@@ -4840,3 +4840,20 @@ records actual SSA, publication, capture and uncertainty controls, assertion
 counterfactuals, scoped diagnostics and validation. No recorded production FP
 correction is credited; seven production sites plus Rune and overall completion
 remain open.
+
+
+## Builtin execution and snapshot invalidation
+
+Beads `gohawk-dho.23.9` removes the deferred builtin bypass and prevents
+asynchronous builtins from publishing synchronous storage evidence. Clear now
+uses the existing selected-slot invalidation, preserving sibling and former
+pointee storage. A reproduced aggregate-copy gap corrects whole-value cache
+invalidation and carries unknown writes into later snapshots. Possible element
+writes share ancestor whole-value invalidation. Backing identities
+and unknown stamps share one metadata-copy mechanism; contents retain their
+separate detachment/history contract.
+
+The [builtin storage review](../../benchmarks/precision/audits/builtin-execution-storage-2026-10-03.md)
+records parent failures, compiled SSA controls, counterfactuals, scoped output
+and canonical validation. No recorded production FP removal is credited;
+seven sites plus Rune and the overall consolidation goal remain open.

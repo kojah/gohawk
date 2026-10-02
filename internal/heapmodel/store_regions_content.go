@@ -192,17 +192,26 @@ func (graph *regionGraph) copySubtree(state *regionState, source, destination sl
 		state.contents[copied] = set.clone()
 		graph.remember(copied, set)
 	}
-	for target, backing := range state.backing {
-		if target.region != source.region || !slotBeneath(target.path, source.path) {
-			continue
-		}
-		rest := target.path[len(source.path):]
-		state.backing[slot{region: destination.region, path: joinSlotPath(destination.path, trimSlash(rest))}] = backing
-	}
+	copySlotMetadata(state.backing, source, destination)
+	// Unknown writes beneath the copied aggregate stay unknown in its
+	// snapshot. Otherwise an old backing copy can restore overwritten fields.
+	copySlotMetadata(state.clobbered, source, destination)
 	if backing, rest, ok := graph.backingOf(state, source); ok {
 		if _, direct := state.backing[destination]; !direct {
 			state.backing[destination] = graph.snapshotBeneath(backing, rest)
 		}
+	}
+}
+
+// copySlotMetadata rebases backing-copy identities or unknown-write stamps.
+// Contents use their own copy path because pointee sets must be detached.
+func copySlotMetadata[T any](entries map[slot]T, source, destination slot) {
+	for target, value := range entries {
+		if target.region != source.region || !slotBeneath(target.path, source.path) {
+			continue
+		}
+		rest := target.path[len(source.path):]
+		entries[slot{region: destination.region, path: joinSlotPath(destination.path, trimSlash(rest))}] = value
 	}
 }
 
@@ -312,6 +321,9 @@ func (graph *regionGraph) remember(target slot, value pointees) {
 // weakElementStore unions the value into the wildcard element slot and
 // every constant element beneath the same array.
 func (graph *regionGraph) weakElementStore(state *regionState, target slot, value pointees) {
+	// A possible element write still invalidates an exact cached aggregate
+	// above it. Keeping that whole value would hide the updated element set.
+	graph.forgetWholeAbove(state, target)
 	graph.remember(target, value)
 	star := state.contents[target]
 	if star == nil {

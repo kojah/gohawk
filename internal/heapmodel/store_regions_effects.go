@@ -40,9 +40,6 @@ func (graph *regionGraph) deferCall(state *regionState, deferred *ssa.Defer) {
 func (graph *regionGraph) runDefers(state *regionState, run *ssa.RunDefers) {
 	unresolved := false
 	for _, deferred := range slices.Backward(state.calls) {
-		if _, builtin := deferred.Common().Value.(*ssa.Builtin); builtin {
-			continue
-		}
 		// Joined states include registrations from either predecessor. A
 		// possibly registered or repeated defer cannot establish a must write.
 		// Exact registrations run in reverse order, just like Go's defer stack.
@@ -379,45 +376,6 @@ func (graph *regionGraph) unresolvedCall(state *regionState, arguments []ssa.Val
 	}
 }
 
-// builtin applies the builtins that touch memory. Append may share the
-// backing array with its first argument and stores the rest into it; copy
-// stores the source's elements into the destination.
-func (graph *regionGraph) builtin(state *regionState, builtin *ssa.Builtin, common *ssa.CallCommon, instruction ssa.Instruction) {
-	switch builtin.Name() {
-	case "append":
-		value, _ := instruction.(ssa.Value)
-		if len(common.Args) == 0 || value == nil {
-			return
-		}
-		result := graph.pointees(common.Args[0]).clone()
-		result.add(slot{region: graph.opaque(value)}, false)
-		graph.setValue(value, result)
-		for _, argument := range common.Args[1:] {
-			elements := graph.pointees(argument)
-			if _, ok := argument.Type().Underlying().(*types.Slice); ok {
-				// The spread slice's elements are copied into a collection
-				// the function may hand on, so the array behind it has
-				// escaped as far as its contents are concerned.
-				graph.escape(state, elements, HeapEscapedField, instruction)
-				elements = graph.load(state, graph.selectStep(elements, pathStar), argument)
-			}
-			for target := range result {
-				graph.weakElementStore(state, slot{region: target.region, path: joinSlotPath(target.path, pathStar)}, elements)
-			}
-			graph.escape(state, elements, HeapEscapedField, instruction)
-		}
-	case "copy":
-		if len(common.Args) < 2 {
-			return
-		}
-		elements := graph.load(state, graph.selectStep(graph.pointees(common.Args[1]), pathStar), common.Args[1])
-		for target := range graph.pointees(common.Args[0]) {
-			graph.weakElementStore(state, slot{region: target.region, path: joinSlotPath(target.path, pathStar)}, elements)
-		}
-	case "delete", "len", "cap", "print", "println", "close", "recover", "min", "max", "clear", "panic", "real", "imag", "complex", "new":
-	}
-}
-
 // mapUpdate stores the value at the map's element slot and the key at its
 // key slot. A key is kept as surely as a value: a range over the map hands
 // it back, so an object used as a key has been stored, not merely compared.
@@ -448,6 +406,11 @@ func (graph *regionGraph) lookup(state *regionState, lookup *ssa.Lookup) {
 // Direct and exactly registered deferred calls consume this same dispatcher.
 func (graph *regionGraph) definedCall(state *regionState, common *ssa.CallCommon, instruction ssa.Instruction, started bool) bool {
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
+		// A goroutine can still be using these arguments after the caller
+		// returns. Its writes cannot establish synchronous storage evidence.
+		if started {
+			return false
+		}
 		graph.builtin(state, builtin, common, instruction)
 		return true
 	}

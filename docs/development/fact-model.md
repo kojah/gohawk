@@ -1095,8 +1095,9 @@ Exactly registered deferred calls use the same known-call dispatcher at
 `RunDefers`, in reverse registration order, with the receiver and arguments
 evaluated at registration. Conditional or repeated registrations remain opaque;
 the known contract cannot bypass that boundary. Unmodeled calls retain the
-existing summary lookup and conservative invalidation. Deferred builtins retain
-their existing separate policy.
+existing summary lookup and conservative invalidation. Builtins use the same
+execution boundary: exact defers apply their storage effects at `RunDefers`,
+while asynchronous calls cannot establish synchronous contents or exclusivity.
 
 For `sync/atomic.Pointer` and `sync/atomic.Value`, `Store` and `Swap` replace
 contents on normal completion. `CompareAndSwap` retains both the prior contents
@@ -1107,6 +1108,20 @@ Asynchronous atomic calls and project-defined lookalikes remain opaque.
 Compiled SSA controls in `store_atomic_calls_test.go`,
 `store_atomic_boundaries_test.go`, and `store_deferred_contracts_test.go` cover
 direct/deferred updates, publication, captured values and uncertain execution.
+
+Synchronous `clear` forgets the selected collection storage through the existing
+summary invalidation path. It neither exposes the collection nor recursively
+clobbers objects formerly held in its elements, and it establishes no exact
+zero value or view extent. `copy` retains its existing possible-element writes;
+deferred copy uses the slices evaluated at registration. Deletion retains
+possible map-content history rather than establishing exact element absence.
+
+Invalidating a sub-slot also drops whole-aggregate content above it. A later
+aggregate load cannot reuse the pre-write value. Subtree copies carry unknown
+write stamps as well as content and backing copies, so later snapshots preserve
+unknown fields while earlier snapshots and untouched siblings remain intact.
+`store_builtin_calls_test.go` covers these boundaries and asynchronous,
+conditional and repeated builtin execution.
 
 `ExclusiveAt` asks whole-object identity rather than exact content identity.
 Different or unknown selections of one non-stale object can still be private;

@@ -282,6 +282,9 @@ func (substitution *heapSubstitution) forget(at HeapSlot) {
 
 func (substitution *heapSubstitution) forgetSlots(set pointees) {
 	for target := range set {
+		// A later whole-aggregate load must not reuse a copy from before
+		// this selected field was changed. Earlier snapshots stay intact.
+		substitution.graph.forgetWholeAbove(substitution.state, target)
 		if target.region.kind == regionSite {
 			substitution.graph.clearSubtree(substitution.state, target)
 			substitution.state.clobbered[target] = substitution.graph.id(substitution.instruction)
