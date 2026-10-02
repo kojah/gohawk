@@ -189,21 +189,16 @@ func conditionIdentity(value ssa.Value) (string, bool) {
 	// Do not correlate a loop instruction across iterations: its next dynamic
 	// evaluation may differ even though its SSA node is the same.
 	// https://github.com/pb33f/libopenapi/blob/07795ddc2c097af8581138ef290d6cf964110d74/index/extract_refs_lookup.go#L199-L220
+	// Bare Boolean parameters are stable for the invocation too. Only exact
+	// SSA identities are correlated: other loads or iterations remain distinct.
+	_, parameter := value.(*ssa.Parameter)
 	_, comparisonValue := value.(*ssa.BinOp)
-	if instruction, ok := value.(ssa.Instruction); ok && !comparisonValue && !ssaflow.BlockInCycle(instruction.Block()) {
+	instruction, computed := value.(ssa.Instruction)
+	stableComputed := computed && !comparisonValue && !ssaflow.BlockInCycle(instruction.Block())
+	if parameter || stableComputed {
 		basic, boolean := value.Type().Underlying().(*types.Basic)
 		if boolean && basic.Info()&types.IsBoolean != 0 {
 			return "boolean:" + conditionOperandIdentity(value), true
-		}
-	}
-	if parameter, ok := value.(*ssa.Parameter); ok {
-		basic, boolean := parameter.Type().Underlying().(*types.Basic)
-		if boolean && basic.Info()&types.IsBoolean != 0 {
-			// A bare Boolean parameter is stable for the function invocation, so
-			// repeated branches on that exact SSA value cannot disagree. Keep this
-			// narrower than general derivation: loads and phis may change between
-			// the acquisition and release checks.
-			return "boolean:" + conditionOperandIdentity(parameter), true
 		}
 	}
 	comparison, ok := value.(*ssa.BinOp)

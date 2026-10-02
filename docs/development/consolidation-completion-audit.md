@@ -538,10 +538,10 @@ finite set:
 | 56 | Spawn/resource classifier caches | Both invoke their authoritative classifier once and trace that result; actions, reasons and trace details belong to different evidence families. No parallel acceptance decision is introduced. |
 | 55 | Field/global/enclosing-scope stores | Field/global transfers ask possible alias; captured-scope transfer asks derivation and a distinct destination. Shared provenance already supplies those queries. |
 | 52 and 41 | Callback address / aggregate root | Callback locality walks only index/slice forms, with an eight-step bound; aggregate ownership follows field/index addresses without that bound and returns a root for exact access-path queries. A shared unconditional unwrap would change their precision boundaries. The inner 41-token match is part of the same comparison. |
-| 51 | Stable Boolean identity arms | Same Boolean type and identity construction repeated for two stability sources. Actionable consolidation is tracked in `gohawk-dho.39`; computed values must retain cycle restrictions and comparisons must retain their separate policy. |
+| 51 | Stable Boolean identity arms | The Boolean type and identity construction for two stability sources is consolidated in `gohawk-dho.39`; computed values retain cycle restrictions and comparisons retain their separate policy. |
 | 44 | Spawn/resource budget adapters | Candidate pool ownership, domain limits and observers differ; charging and exhaustion already use the shared search budget. |
 | 42 | Lock handoff / returned ownership | Argument alias/derivation differs from result alias/aggregate ownership. Their traversal inputs and proof polarity cannot be exchanged. |
-| 40 | Unproven completion results | Distinct unknown reasons share proof construction. Actionable consolidation is tracked in `gohawk-dho.39`; unavailable provenance and budget/cycle/incomplete priority must stay exact. |
+| 40 | Unproven completion results | Distinct unknown reasons now share one proof construction in `gohawk-dho.39`; unavailable provenance and budget/cycle/incomplete priority stay exact. |
 | 38 | Deferred command capture/argument waits | Capture matching precedes argument alias matching intentionally: unknown captured completion must not be reordered behind argument success. Positional mapping and completion machinery are already shared. |
 | 36 | HTTP error/nil claims | Error claims use derivation of the paired error; nil claims use alias of the resource. These are different assertion contracts, with repeated argument matches retained. |
 | 36 | Parameter/result heap truncation | Two disjoint root inventories are explicitly marked truncated on unavailable projection. Parameter count and result count are different schema contracts. |
@@ -569,7 +569,78 @@ Proving registry-guarded first acquisition needs participant and publication
 relationships not supplied by that query. This source assessment makes no new
 latest-binary replay or correction claim; the issue remains open.
 
+## Stable-identity and completion-result construction
+
+Beads `gohawk-dho.39` consolidates the two same-policy construction groups
+identified in the finite review at `ea057f8`. Lock `conditionIdentity` now
+collects the two existing stability sources before one Boolean type/identity
+construction. Parameters remain stable for the invocation; computed values
+must be outside a control-flow cycle and cannot be comparisons. Equality and
+inequality retain their separately formatted operand identity, while other
+comparisons remain unknown. This does not change branch feasibility or infer
+that a mutable field stays unchanged across distinct loads.
+
+`CompletionRequest.unprovenCompletion` now initializes one unknown proof and
+selects its reason/state before observing it once. An unavailable search retains
+empty provenance even when its budget was exhausted. A searched body has local
+SSA provenance; exhaustion takes priority over a completion inside a cycle,
+which takes priority over incomplete nested work. Only a fully searched body
+with no such uncertainty produces `EvidenceDisproven`/`EvidenceNotFound`.
+The existing cycle rationale and pinned source link remain at that decision.
+
+The new controls exercise actual public completion searches rather than
+inventing combinations of internal flags. They cover missing/unavailable bodies,
+recursive work, a cleanup loop followed by recursion, searched-body exhaustion,
+and exhaustion before an unavailable body is visited. Each checks the complete
+proof, no path claim, final reason/position/details and exactly one final
+observation at the request. Lock controls cover Boolean and named-Boolean
+parameters, stored NOT, load, call and phi results, excluded loop computation,
+non-Boolean values and the separate equality/inequality policy. Actual SSA is
+`.build/goal-{lock,completion}-construction.ssa.txt`; both dumps exit 0 with empty
+stderr. The focused controls pass on the parent-source overlay (0.004/0.005
+seconds), while current full lifecycle and lock packages pass (0.725/6.589
+seconds) before the final observation-count assertion; the canonical gate
+covers that retained assertion.
+
+The nested-block scan covers the same 271 production files and 2,001 functions,
+with 11 groups (`.build/goal-duplicate-blocks-after-proof-construction.json`).
+Both construction matches are absent; the remaining finite groups retain the
+source-backed contract dispositions above. This resolves the selected copies,
+not differently structured or smaller classifier logic outside that scan.
+
+Parent/current all-check lock fixture scans (`lockorder`, `orderedhelpers`,
+`helperstate`) have identical nonempty diagnostic JSON (132,023 bytes), exit 3
+and empty stderr. Their 1,179 lock trace events, including 221 decisions, match
+as exact event multisets: reasons, outcomes, positions and details are retained,
+without asserting concurrent event-file order. The resource/cancellation fixture
+scan also retains identical nonempty diagnostic JSON (370,210 bytes), exit 3 and
+empty stderr. Its baseline reuses the unchanged executable hash and successful
+receipt from the preceding negation consolidation; it was not rerun solely to
+produce a new filename.
+
+Receipts are `.build/goal-proof-construction-lock-{parent,current}.{json,stderr}`
+and the corresponding `.trace.jsonl` files. Resource receipts are
+`.build/goal-negation-current.json/.stderr` (baseline) and
+`.build/goal-proof-construction-resource-current.json/.stderr` (corrected).
+The baseline production source is `ea057f8`; exact executable SHA-256 is
+`1250bd66cbbe9c083182bb25f0566e557413393269a0ceba290f0431eb714a28`.
+The corrected hash is
+`5bf8c6ab4018268fb4a36c31200e7c3c2a6bb71e56e655e12de88b25304c099c`.
+These identify immutable pre-commit executables, not clean Git stamps. The
+canonical `make verify` gate passes every local target
+(`.build/goal-proof-construction-verify.log`), including ordinary tests
+(109 seconds), formatting, vet, lint, dead-code and local dogfood. No precision
+FP removal, fact-schema change,
+full precision-regression replay or local race run is credited; the production
+queue remains 15 sites, and Rune publication and the broader classification
+review remain open.
+
 ## Next verification
+
+Beads `gohawk-dho.40` owns the next bounded source review: resource and
+cancellation instruction classifiers, their local helper and return/edge routes,
+and the shared lifecycle/storage/completion queries they select. The finite
+11-group review does not cover all differently structured transitive policy.
 
 After the catalog reporting-boundary consolidations, the architecture audit
 must inspect partial duplication

@@ -92,35 +92,29 @@ func ProveCompletion(request CompletionRequest) ssaflow.CompletionProof {
 }
 
 func (request CompletionRequest) unprovenCompletion(searched, incomplete, inCycle bool) ssaflow.CompletionProof {
-	if !searched {
-		return request.giveUp(ssaflow.CompletionProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}})
+	proof := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
+	if searched {
+		proof.Provenance = ssaflow.EvidenceFromLocalSSA
+		switch {
+		case request.Budget.Exhausted():
+			// The walk stopped early, so a missing completion is not evidence
+			// that the callee fails to complete the target.
+			proof.Reason = ssaflow.EvidenceBudgetExhausted
+		case inCycle:
+			// A helper that releases every element of what it was handed inside
+			// a loop, as slackdump's Destroy closes each stored handle, is not
+			// covered on every return: the loop's exit edge skips the body, and
+			// which element an iteration settles is decided by iteration. That
+			// is uncertainty about the element, not a missing completion.
+			// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/chunk/filemgr.go#L66-L73
+			proof.Reason = ssaflow.EvidenceCompletionInCycle
+		case incomplete:
+			// Unresolved nested work cannot establish missing completion.
+		default:
+			proof.State, proof.Reason = ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
+		}
 	}
-	if request.Budget.Exhausted() {
-		// The walk stopped early, so a missing completion is not evidence that
-		// the callee fails to complete the target.
-		return request.giveUp(ssaflow.CompletionProof{Proof: ssaflow.Proof{
-			State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted, Provenance: ssaflow.EvidenceFromLocalSSA,
-		}})
-	}
-	if inCycle {
-		// A helper that releases every element of what it was handed inside
-		// a loop, as slackdump's Destroy closes each stored handle, is not
-		// covered on every return: the loop's exit edge skips the body, and
-		// which element an iteration settles is decided by iteration. That
-		// is uncertainty about the element, not a missing completion.
-		// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/chunk/filemgr.go#L66-L73
-		return request.giveUp(ssaflow.CompletionProof{Proof: ssaflow.Proof{
-			State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceCompletionInCycle, Provenance: ssaflow.EvidenceFromLocalSSA,
-		}})
-	}
-	if incomplete {
-		return request.giveUp(ssaflow.CompletionProof{Proof: ssaflow.Proof{
-			State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable, Provenance: ssaflow.EvidenceFromLocalSSA,
-		}})
-	}
-	return request.giveUp(ssaflow.CompletionProof{Proof: ssaflow.Proof{
-		State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound, Provenance: ssaflow.EvidenceFromLocalSSA,
-	}})
+	return request.giveUp(ssaflow.CompletionProof{Proof: proof})
 }
 
 // giveUp reports a completion search that proved nothing to the budget's

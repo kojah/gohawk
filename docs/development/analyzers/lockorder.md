@@ -151,6 +151,12 @@ and computed loop values are not treated as stable parameters. A checked error
 returned unchanged also counts as successful when its exact nil branch dominates
 that return, preserving held-for-caller contracts without guessing from names.
 
+The Boolean type check and identity construction use one branch for parameters
+and computed SSA values outside cycles; comparisons retain their own operand
+identity. `condition_identity_test.go` keeps named Boolean parameters,
+loads/calls/phis, cyclic computations and comparison boundaries separate.
+This consolidation changes no branch policy.
+
 Return evidence distinguishes possible retention from retention on every
 visited path to the same SSA return. A held-for-caller contract requires definite
 retention, so merged held and released paths cannot establish it. A helper that
