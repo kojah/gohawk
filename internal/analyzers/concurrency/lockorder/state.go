@@ -28,17 +28,6 @@ type lockReturnState struct {
 	definite []string
 }
 
-func mergeLockReturnState(previous lockReturnState, held []string, seen bool) lockReturnState {
-	if !seen {
-		return lockReturnState{possible: slices.Clone(held), definite: slices.Clone(held)}
-	}
-	for _, identity := range held {
-		previous.possible = appendUniqueString(previous.possible, identity)
-	}
-	previous.definite = slices.DeleteFunc(previous.definite, func(identity string) bool { return !slices.Contains(held, identity) })
-	return previous
-}
-
 func lockStateKey(state lockFlowState, budget *ssaflow.SearchBudget) string {
 	for _, values := range [][]string{state.readHeld, state.deferred} {
 		for range values {

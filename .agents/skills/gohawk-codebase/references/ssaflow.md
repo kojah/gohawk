@@ -2525,6 +2525,19 @@ Mark records value as visited and reports whether this was its first visit.
 Leaves use it for values they examine without folding over them, such as
 the sibling element addresses of one slice.
 
+## ReachingWalk.OnRevisit
+
+[Source](../../../../internal/ssaflow/value_reaching.go)
+
+```go
+func (walk ReachingWalk) OnRevisit(observe func()) ReachingWalk
+```
+
+OnRevisit observes an origin rejected by the shared cycle guard. Callers
+composing a fold inside a memoized proof may invalidate the enclosing answer
+because a revisited origin is not a completed absence proof. The callback
+changes no fold result and propagates through recursive and sibling walks.
+
 ## ReachingWalk.Within
 
 [Source](../../../../internal/ssaflow/value_reaching.go)

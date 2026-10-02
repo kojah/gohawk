@@ -39,28 +39,6 @@ type lockFlowContext struct {
 	releaseAttempts *releaseAttempts
 }
 
-func recordUnreleasedLocks(
-	instruction ssa.Instruction,
-	held, deferred []string,
-	lockValues map[string][]ssa.Value,
-	unreleased map[string][]token.Pos,
-	heldAtReturn map[*ssa.Return]lockReturnState,
-) {
-	returned, ok := instruction.(*ssa.Return)
-	if !ok {
-		return
-	}
-	retained := make([]string, 0, len(held))
-	for _, identity := range held {
-		if !slices.Contains(deferred, identity) && !returnedUnlockOwner(returned, lockValues[identity]) {
-			unreleased[identity] = appendUniquePosition(unreleased[identity], returned.Pos())
-			retained = append(retained, identity)
-		}
-	}
-	previous, seen := heldAtReturn[returned]
-	heldAtReturn[returned] = mergeLockReturnState(previous, retained, seen)
-}
-
 func appendUniqueInstruction(instructions []ssa.Instruction, instruction ssa.Instruction) []ssa.Instruction {
 	if slices.Contains(instructions, instruction) {
 		return instructions
@@ -199,15 +177,22 @@ func transferOpaqueUnlocks(
 	guards map[string]lockGuard,
 	lockValues map[string][]ssa.Value,
 	released map[string]bool,
+	budget *ssaflow.SearchBudget,
 ) []string {
 	common := ssaflow.InstructionCall(instruction)
 	if _, _, _, direct := mutexAction(instruction); direct {
 		return held
 	}
 	for _, identity := range slices.Clone(held) {
+		if !budget.Spend() {
+			return held
+		}
 		for _, value := range lockValues[identity] {
+			if !budget.Spend() {
+				return held
+			}
 			opaqueArgument := common != nil && opaqueCallee(common) && lockHandedTo(common, value)
-			if !opaqueArgument && !handedUnlockCallback(instruction, value) {
+			if !opaqueArgument && !handedUnlockCallback(instruction, value, budget) {
 				continue
 			}
 			if opaqueArgument {
@@ -229,7 +214,7 @@ func transferOpaqueUnlocks(
 // asynchronously; that makes the previous held-lock state unknown. A local
 // callback merely created or saved in a local variable establishes no handoff.
 // https://github.com/Control-D-Inc/ctrld/blob/37c33315591632c5f08df8062d1c77e07b3a465f/resolver_test.go#L348-L364
-func handedUnlockCallback(instruction ssa.Instruction, lock ssa.Value) bool {
+func handedUnlockCallback(instruction ssa.Instruction, lock ssa.Value, budget *ssaflow.SearchBudget) bool {
 	var values []ssa.Value
 	switch typed := instruction.(type) {
 	case *ssa.Store:
@@ -243,10 +228,14 @@ func handedUnlockCallback(instruction ssa.Instruction, lock ssa.Value) bool {
 		return false
 	}
 	return slices.ContainsFunc(values, func(value ssa.Value) bool {
+		if !budget.Spend() {
+			return false
+		}
 		if _, callback := value.Type().Underlying().(*types.Signature); !callback {
 			return false
 		}
-		return lifecycle.ValueCallsMethod(value, "Unlock", lock) || lifecycle.ValueCallsMethod(value, "RUnlock", lock)
+		return lifecycle.ProveValueCallsMethodWithin(value, "Unlock", lock, budget).Proven() ||
+			lifecycle.ProveValueCallsMethodWithin(value, "RUnlock", lock, budget).Proven()
 	})
 }
 

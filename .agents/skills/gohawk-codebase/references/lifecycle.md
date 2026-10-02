@@ -539,6 +539,20 @@ ProveSpawnedInvocation observes the launched wrapper's body and requires
 synchronous invocation of target before every normal return. The caller's
 budget bounds this query; a cutoff stays unknown and proves no invocation.
 
+## ProveValueCallsMethodWithin
+
+[Source](../../../../internal/lifecycle/completion_callback_values.go)
+
+```go
+func ProveValueCallsMethodWithin(value ssa.Value, method string, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+```
+
+ProveValueCallsMethodWithin asks whether value may carry a callback whose
+body completes method on target. It retains ValueCallsMethod's any-origin
+and callback-preserving wrapper policies; it proves neither invocation nor
+that every possible callback completes. Value, referrer and callee queries
+share budget. A cutoff is unknown; nil retains the default unbounded search.
+
 ## ResultGuard
 
 [Source](../../../../internal/lifecycle/completion_result_guards.go)
@@ -838,7 +852,7 @@ const (
 
 ## ValueCallsMethod
 
-[Source](../../../../internal/lifecycle/completion_search.go)
+[Source](../../../../internal/lifecycle/completion_callback_values.go)
 
 ```go
 func ValueCallsMethod(value ssa.Value, method string, target ssa.Value) bool

@@ -124,7 +124,11 @@ func (walk *lockStateWalk) expand(state lockFlowState) ([]lockFlowState, bool) {
 
 func (walk *lockStateWalk) transfer(instruction ssa.Instruction, state lockFlowState) lockFlowState {
 	flow := &walk.flow
-	recordUnreleasedLocks(instruction, state.held, state.deferred, flow.lockValues, walk.unreleasedReturns, walk.heldAtReturn)
+	query := lockReturnQueries{setup: walk.setup, budget: walk.budget}
+	query.recordUnreleasedLocks(instruction, state.held, state.deferred, flow.lockValues, walk.unreleasedReturns, walk.heldAtReturn)
+	if walk.incomplete() {
+		return state
+	}
 	// A complete sequence replaces fallback release evidence: a helper that
 	// releases and reacquires must leave the lock held.
 	if effects, complete := walk.setup.summaries[instruction]; complete {
@@ -152,7 +156,10 @@ func (walk *lockStateWalk) transfer(instruction ssa.Instruction, state lockFlowS
 		return state
 	}
 	// Opaque owner handoffs make release uncertain rather than prove a defect.
-	state.held = transferOpaqueUnlocks(instruction, state.held, state.guards, flow.lockValues, flow.released)
+	state.held = transferOpaqueUnlocks(instruction, state.held, state.guards, flow.lockValues, flow.released, walk.budget)
+	if walk.incomplete() {
+		return state
+	}
 	// A deferred closure may handle only the earlier returns before an explicit
 	// unlock; retain that existing return-path cleanup boundary.
 	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/integration/nri_test.go#L1287-L1300

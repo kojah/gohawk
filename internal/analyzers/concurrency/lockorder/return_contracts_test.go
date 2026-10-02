@@ -116,33 +116,7 @@ func TestLockHeldContractCutoffAndGuardedError(t *testing.T) {
 }
 
 func TestLockFinalMetadataCutoffDiscardsReportsAndOrders(t *testing.T) {
-	fixture := newLockWalkFixture(lockReturnPackage(t).Func("witness"))
-	complete, baseline, edges := fixture.run(ssaflow.NewSearchBudget(lockStateWorkBudget))
-	if !complete || len(baseline) < 2 || edges == 0 {
-		t.Fatalf("baseline complete=%v reports=%v edges=%d", complete, baseline, edges)
-	}
-	finished := false
-	for limit := range ssaflow.SummaryBudget {
-		pool := ssaflow.NewSearchBudget(lockStateWorkBudget)
-		child := pool.Within(limit)
-		ok, reports, orders := fixture.run(child)
-		if ok {
-			if child.Exhausted() || len(reports) != len(baseline) || orders != edges {
-				t.Fatalf("accepted partial final evidence at%d: reports=%v orders=%d", limit, reports, orders)
-			}
-			finished = true
-			break
-		}
-		if !child.Exhausted() || pool.Exhausted() || len(reports) != 0 || orders != 0 {
-			t.Fatalf("cut%d reports=%v orders=%d exhausted=%v/%v", limit, reports, orders, child.Exhausted(), pool.Exhausted())
-		}
-		if recovered, reports, orders := fixture.run(pool.Within(lockStateWorkBudget / 2)); !recovered || len(reports) != len(baseline) || orders != edges {
-			t.Fatalf("fresh%d complete=%v reports=%v orders=%d", limit, recovered, reports, orders)
-		}
-	}
-	if !finished {
-		t.Fatal("final metadata never completes")
-	}
+	assertLockWalkCutoffs(t, newLockWalkFixture(lockReturnPackage(t).Func("witness")), 2)
 }
 
 func TestLockCallerCoverageChargesAllowance(t *testing.T) {

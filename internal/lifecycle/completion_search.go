@@ -252,11 +252,9 @@ type completionSearch struct {
 	bindings *callbackBindings
 	method   string
 	coverage CompletionCoverage
-	// seenValues holds the callback values already examined. A recursive
-	// literal captures the variable that holds itself, so this guard is
-	// needed alongside the memo's callee guard to terminate. It only ever
-	// marks, so an answer that depends on it is recorded as incomplete.
-	seenValues map[ssa.Value]bool
+	// Callback origins share one reaching fold across mappings in this request.
+	// Revisit invalidates its enclosing memo answer, never proving absence.
+	callbackValues ssaflow.ReachingWalk
 	// invokeTarget marks a nested search whose target is a callback already
 	// known to call the method: invoking a local mapped exactly to it is
 	// then the completion, wherever the invocation sits.
@@ -284,16 +282,19 @@ func (search *completionSearch) forCallback() *completionSearch {
 }
 
 func newCompletionSearch(method string, coverage CompletionCoverage, budget *ssaflow.SearchBudget) *completionSearch {
-	return &completionSearch{
+	search := &completionSearch{
 		incomplete:   new(bool),
 		inCycle:      new(bool),
 		method:       method,
 		coverage:     coverage,
 		budget:       budget,
-		seenValues:   map[ssa.Value]bool{},
 		memo:         ssaflow.NewCallGraphMemo[completionKey, completionAnswer](),
 		returnedMemo: ssaflow.NewCallGraphMemo[returnedCleanupKey, bool](),
 	}
+	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType |
+		ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+	search.callbackValues = ssaflow.NewReachingWalk(forms).Within(budget).OnRevisit(search.memo.Incomplete)
+	return search
 }
 
 func (search *completionSearch) calleeCoverage(callee completionCallee, target ssa.Value, invocation ssa.Instruction) bool {
@@ -451,64 +452,4 @@ func (search *completionSearch) startsTarget(candidate ssa.Instruction, locals [
 	return ok && slices.ContainsFunc(locals, func(local mappedLocal) bool {
 		return search.invokesTargetLocal(started.Common().Value, local.local)
 	})
-}
-
-// ValueCallsMethod reports whether value is, or carries, a callback that
-// calls method on target when invoked: a function literal whose body
-// completes the target, a bound method value, or such a callback held in a
-// local, passed through a call result, or merged by a phi.
-func ValueCallsMethod(value ssa.Value, method string, target ssa.Value) bool {
-	return newCompletionSearch(method, CoverageEveryReturn, nil).valueCallsMethod(value, target)
-}
-
-func (search *completionSearch) valueCallsMethod(value, target ssa.Value) bool {
-	if value == nil {
-		return false
-	}
-	if search.seenValues[value] {
-		search.memo.Incomplete()
-		return false
-	}
-	search.seenValues[value] = true
-	if inner, ok := ssaflow.UnwrapTransparentValue(
-		value, ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	); ok {
-		return search.valueCallsMethod(inner, target)
-	}
-	switch typed := value.(type) {
-	case *ssa.MakeClosure:
-		callees, ok := closureCallees(typed, launchCallback)
-		if !ok {
-			return false
-		}
-		return search.calleeCompletes(callees[0], target, nil).proven
-	case *ssa.Alloc:
-		return search.storedValueCallsMethod(typed, target)
-	case *ssa.UnOp:
-		return search.storedValueCallsMethod(typed.X, target)
-	case *ssa.Call:
-		// A wrapper that receives the callback is assumed to preserve it, so
-		// the wrapped result still counts as carrying the cleanup.
-		return slices.ContainsFunc(typed.Common().Args, func(argument ssa.Value) bool {
-			return search.valueCallsMethod(argument, target)
-		})
-	case *ssa.Phi:
-		return slices.ContainsFunc(typed.Edges, func(edge ssa.Value) bool {
-			return search.valueCallsMethod(edge, target)
-		})
-	}
-	return false
-}
-
-func (search *completionSearch) storedValueCallsMethod(address, target ssa.Value) bool {
-	if address == nil || address.Referrers() == nil {
-		return false
-	}
-	for _, reference := range *address.Referrers() {
-		store, ok := reference.(*ssa.Store)
-		if ok && store.Addr == address && search.valueCallsMethod(store.Val, target) {
-			return true
-		}
-	}
-	return false
 }

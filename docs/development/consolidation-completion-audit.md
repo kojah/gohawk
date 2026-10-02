@@ -4257,3 +4257,22 @@ Return retention/merging, returned-owner inference, named-result storage,
 identity/heap/type/alias and callee-order/package exclusivity remain distinct
 work. No production FP correction or whole-query cost claim is credited.
 The broader architecture audit and remaining easy-FP assessment remain open.
+
+## Lock return-retention and callback-origin consolidation, October 2
+
+Return retention, detached masks, possible/definite merges and returned unlock
+owners now share the function allowance. Callback handoffs use the same bounded
+capability projection of the lifecycle engine. Its wrapper/phi traversal moved
+to the shared reaching fold, keeping one origin history per completion request
+and the original memo invalidation on revisit. The legacy Boolean helper
+delegates to that structured proof. Flow cutoff assertions across traversal,
+final metadata and return retention share one test helper.
+
+The [retention follow-up](../../benchmarks/precision/audits/lock-return-retention-followup-2026-10-02.md)
+records the controls, repaired request-scope regression and scoped production
+evidence for Beads `gohawk-dho.44.11.5.27.4`. Callee ordering, package
+caller/exclusivity inventory, named-result storage and transitive identity/heap/
+type/alias costs remain open. Rune's map reader passes the gate into a returned
+iterator before later use; the existing confinement query does not establish
+that guarded publication contract. It remains unresolved, as do the eleven
+recorded production FP locations and the wider completion requirements.

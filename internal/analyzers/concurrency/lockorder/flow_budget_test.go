@@ -13,34 +13,38 @@ import (
 )
 
 func TestLockWalkCutoffDiscardsReportsAndOrders(t *testing.T) {
-	// The read-lock write and order witnesses precede the padded tail.
-	// A later cutoff must discard already buffered evidence, not just stop
-	// discovering further findings. Every cutoff is followed by a fresh query.
-	pkg := lockWalkBudgetPackage(t)
-	fixture := newLockWalkFixture(pkg.Func("witness"))
-	complete, diagnostics, edges := fixture.run(ssaflow.NewSearchBudget(lockStateWorkBudget))
-	if !complete || len(diagnostics) == 0 || edges == 0 {
-		t.Fatalf("baseline complete=%v reports=%v edges=%d", complete, diagnostics, edges)
+	// Findings precede a padded tail; a later cutoff discards all function
+	// evidence. The same contract also covers final metadata and retention.
+	assertLockWalkCutoffs(t, newLockWalkFixture(lockWalkBudgetPackage(t).Func("witness")), 1)
+}
+
+func assertLockWalkCutoffs(t *testing.T, fixture *lockWalkFixture, minReports int) {
+	t.Helper()
+	complete, baseline, edges := fixture.run(ssaflow.NewSearchBudget(lockStateWorkBudget))
+	if !complete || len(baseline) < minReports || edges == 0 {
+		t.Fatalf("baseline complete=%v reports=%v edges=%d", complete, baseline, edges)
 	}
-	reachedCompletion := false
+	finished := false
 	for limit := range ssaflow.SummaryBudget {
 		pool := ssaflow.NewSearchBudget(lockStateWorkBudget)
 		child := pool.Within(limit)
 		ok, reports, orders := fixture.run(child)
 		if ok {
-			reachedCompletion = true
+			if child.Exhausted() || len(reports) != len(baseline) || orders != edges {
+				t.Fatalf("accepted partial final evidence at%d: reports=%v orders=%d", limit, reports, orders)
+			}
+			finished = true
 			break
 		}
 		if !child.Exhausted() || pool.Exhausted() || len(reports) != 0 || orders != 0 {
-			t.Fatalf("cut%d exhausted=%v/%v reports=%v edges=%d", limit, child.Exhausted(), pool.Exhausted(), reports, orders)
+			t.Fatalf("cut%d reports=%v orders=%d exhausted=%v/%v", limit, reports, orders, child.Exhausted(), pool.Exhausted())
 		}
-		recovered, reports, orders := fixture.run(pool.Within(lockStateWorkBudget / 2))
-		if !recovered || len(reports) != len(diagnostics) || orders != edges {
-			t.Fatalf("fresh after cut%d complete=%v reports=%v edges=%d", limit, recovered, reports, orders)
+		if recovered, reports, orders := fixture.run(pool.Within(lockStateWorkBudget / 2)); !recovered || len(reports) != len(baseline) || orders != edges {
+			t.Fatalf("fresh%d complete=%v reports=%v orders=%d", limit, recovered, reports, orders)
 		}
 	}
-	if !reachedCompletion {
-		t.Fatal("walk never completed")
+	if !finished {
+		t.Fatal("final metadata never completes")
 	}
 }
 

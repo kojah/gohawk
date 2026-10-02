@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
-	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -70,38 +69,11 @@ func conditionalCallerSets(functions []*ssa.Function) map[*ssa.Function]conditio
 	return callers
 }
 
-func appendUniquePosition(positions []token.Pos, candidate token.Pos) []token.Pos {
-	if !slices.Contains(positions, candidate) {
-		return append(positions, candidate)
-	}
-	return positions
-}
-
 func appendUniqueString(values []string, candidate string) []string {
 	if !slices.Contains(values, candidate) {
 		return append(values, candidate)
 	}
 	return values
-}
-
-func returnedUnlockOwner(returned *ssa.Return, values []ssa.Value) bool {
-	for _, result := range returned.Results {
-		for _, value := range values {
-			if lifecycle.ValueCallsMethod(result, "Unlock", value) || lifecycle.ValueCallsMethod(result, "RUnlock", value) {
-				return true
-			}
-			// Returning the object containing a held mutex exposes its release to
-			// the caller. This is unknown ownership, not proof that any method
-			// named Unlock releases it. Kube-vip returns such an owner on success:
-			// https://github.com/kube-vip/kube-vip/blob/be536eaaf73c80fa5161e757ac18b472498f986e/pkg/iptables/lock.go#L54-L67
-			if ssaflow.NewReachingWalk(mutexForms).Any(result, func(_ ssaflow.ReachingWalk, owner ssa.Value) bool {
-				return ssaflow.ValueIsAccessPathFrom(value, owner)
-			}) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // optionalLoadedGuard identifies an acquisition whose guard tests mutable

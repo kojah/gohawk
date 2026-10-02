@@ -21,9 +21,10 @@ import (
 
 // ReachingWalk carries the transparent forms and the visited set of one fold.
 type ReachingWalk struct {
-	forms  TransparentValueForm
-	seen   map[ssa.Value]bool
-	budget *SearchBudget
+	forms     TransparentValueForm
+	seen      map[ssa.Value]bool
+	budget    *SearchBudget
+	onRevisit func()
 }
 
 // NewReachingWalk starts a fold that looks through forms.
@@ -40,9 +41,28 @@ func (walk ReachingWalk) Within(budget *SearchBudget) ReachingWalk {
 	return walk
 }
 
+// OnRevisit observes an origin rejected by the shared cycle guard. Callers
+// composing a fold inside a memoized proof may invalidate the enclosing answer
+// because a revisited origin is not a completed absence proof. The callback
+// changes no fold result and propagates through recursive and sibling walks.
+func (walk ReachingWalk) OnRevisit(observe func()) ReachingWalk {
+	walk.onRevisit = observe
+	return walk
+}
+
+func (walk ReachingWalk) revisited(value ssa.Value) bool {
+	if !walk.seen[value] {
+		return false
+	}
+	if walk.onRevisit != nil {
+		walk.onRevisit()
+	}
+	return true
+}
+
 // Any reports whether some value reaching value satisfies leaf.
 func (walk ReachingWalk) Any(value ssa.Value, leaf func(ReachingWalk, ssa.Value) bool) bool {
-	if !walk.budget.Spend() || value == nil || walk.seen[value] {
+	if !walk.budget.Spend() || value == nil || walk.revisited(value) {
 		return false
 	}
 	walk.seen[value] = true
@@ -68,7 +88,7 @@ func (walk ReachingWalk) Any(value ssa.Value, leaf func(ReachingWalk, ssa.Value)
 // no edges proves nothing, and each edge is judged with its own visited set so
 // one edge's walk cannot hide evidence from a sibling.
 func (walk ReachingWalk) Every(value ssa.Value, leaf func(ReachingWalk, ssa.Value) bool) bool {
-	if !walk.budget.Spend() || value == nil || walk.seen[value] {
+	if !walk.budget.Spend() || value == nil || walk.revisited(value) {
 		return false
 	}
 	walk.seen[value] = true
@@ -100,7 +120,7 @@ func (walk ReachingWalk) EveryOf(values []ssa.Value, leaf func(ReachingWalk, ssa
 // Leaves use it for values they examine without folding over them, such as
 // the sibling element addresses of one slice.
 func (walk ReachingWalk) Mark(value ssa.Value) bool {
-	if !walk.budget.Spend() || walk.seen[value] {
+	if !walk.budget.Spend() || walk.revisited(value) {
 		return false
 	}
 	walk.seen[value] = true
@@ -119,7 +139,7 @@ func ResolveReachingValue[T any, K comparable](
 	key func(T) K,
 ) (T, bool) {
 	var zero T
-	if !walk.budget.Spend() || value == nil || walk.seen[value] {
+	if !walk.budget.Spend() || value == nil || walk.revisited(value) {
 		return zero, false
 	}
 	walk.seen[value] = true
@@ -151,5 +171,5 @@ func ResolveReachingValue[T any, K comparable](
 
 // branch copies the visited set so sibling phi edges are judged independently.
 func (walk ReachingWalk) branch() ReachingWalk {
-	return ReachingWalk{forms: walk.forms, seen: maps.Clone(walk.seen), budget: walk.budget}
+	return ReachingWalk{forms: walk.forms, seen: maps.Clone(walk.seen), budget: walk.budget, onRevisit: walk.onRevisit}
 }
