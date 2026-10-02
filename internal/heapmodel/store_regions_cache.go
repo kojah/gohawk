@@ -123,11 +123,7 @@ func cacheRegionGraph(entry *regionGraphEntry, graph *regionGraph) {
 	defer regionGraphs.Unlock()
 	defer entry.finishLocked()
 	if entry.stale || !consultedStillCurrent(graph) {
-		entry.stale = true
-		if element, ok := regionGraphs.entries[entry.function]; ok && element.Value == entry {
-			delete(regionGraphs.entries, entry.function)
-			regionGraphs.order.Remove(element)
-		}
+		removeIndexedEntryLocked(entry)
 		return
 	}
 	entry.graph = graph
@@ -201,16 +197,24 @@ func invalidateDependents(function *ssa.Function) {
 // evictLocked removes an entry from the cache and its index. The caller
 // holds the cache lock.
 func evictLocked(entry *regionGraphEntry) {
-	entry.stale = true
-	if element, ok := regionGraphs.entries[entry.function]; ok && element.Value == entry {
-		delete(regionGraphs.entries, entry.function)
-		regionGraphs.order.Remove(element)
-	}
+	removeIndexedEntryLocked(entry)
 	if entry.graph == nil {
 		return
 	}
 	for key := range entry.graph.consulted {
 		delete(regionGraphs.dependents[key], entry)
+	}
+}
+
+// removeIndexedEntryLocked marks an entry stale and unlinks only its own
+// cache slot. An older build must not remove its replacement. The caller holds
+// the cache lock and separately owns dependency cleanup and build notification:
+// eviction does not finish a build that is still running.
+func removeIndexedEntryLocked(entry *regionGraphEntry) {
+	entry.stale = true
+	if element, ok := regionGraphs.entries[entry.function]; ok && element.Value == entry {
+		delete(regionGraphs.entries, entry.function)
+		regionGraphs.order.Remove(element)
 	}
 }
 

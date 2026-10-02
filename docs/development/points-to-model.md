@@ -135,6 +135,16 @@ binary and not others. A build never needs its own function's graph, and a
 graph applies no summary from its own call cycle, so neither wait can be
 reached from the goroutine doing the work.
 
+Failed publication and eviction share `removeIndexedEntryLocked`: mark the
+entry stale and unlink only the cache slot still naming that exact entry.
+A finishing old build cannot delete its replacement. Dependency cleanup stays
+with eviction; completion notification stays with publication under the cache
+lock. Removing a running build does not wake its waiters before the build
+finishes. A consulted summary generation that changed during construction
+rejects publication before the graph enters the dependency index.
+`store_regions_cache_test.go` covers replacement preservation, stale completion
+notification, changed-summary rejection and concurrent publication/lookup.
+
 ## Heap summaries
 
 An instantiation of a generic function is usually a synthetic wrapper that

@@ -77,3 +77,74 @@ func TestRegionGraphLookupWaitsForBuild(t *testing.T) {
 		t.Fatalf("lookup returned %+v, want the published graph", graph)
 	}
 }
+
+func TestRegionGraphStaleBuildKeepsReplacement(t *testing.T) {
+	function := &ssa.Function{Blocks: []*ssa.BasicBlock{{}}}
+	entry := &regionGraphEntry{function: function, done: make(chan struct{})}
+	regionGraphs.Lock()
+	regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
+	evictLocked(entry)
+	regionGraphs.Unlock()
+	select {
+	case <-entry.done:
+		t.Fatal("eviction finished a build that is still running")
+	default:
+	}
+	replacement := &regionGraphEntry{function: function, graph: &regionGraph{available: true}}
+	regionGraphs.Lock()
+	element := regionGraphs.order.PushFront(replacement)
+	regionGraphs.entries[function] = element
+	regionGraphs.Unlock()
+	t.Cleanup(func() {
+		regionGraphs.Lock()
+		evictLocked(replacement)
+		regionGraphs.Unlock()
+	})
+	cacheRegionGraph(entry, &regionGraph{available: true})
+	select {
+	case <-entry.done:
+	default:
+		t.Fatal("rejected publication did not finish its build")
+	}
+	regionGraphs.Lock()
+	kept := regionGraphs.entries[function] == element && element.Value == replacement && !replacement.stale
+	rejected := entry.stale && entry.graph == nil
+	regionGraphs.Unlock()
+	if !kept || !rejected {
+		t.Fatalf("stale publication changed replacement: kept=%v rejected=%v", kept, rejected)
+	}
+}
+
+func TestRegionGraphRejectsChangedSummary(t *testing.T) {
+	function, callee := &ssa.Function{}, &ssa.Function{}
+	entry := &regionGraphEntry{function: function, done: make(chan struct{})}
+	graph := &regionGraph{available: true, consulted: map[*ssa.Function]int{callee: heapSummaryGeneration(callee)}}
+	regionGraphs.Lock()
+	regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
+	regionGraphs.Unlock()
+	t.Cleanup(func() {
+		regionGraphs.Lock()
+		evictLocked(entry)
+		delete(regionGraphs.dependents, callee)
+		regionGraphs.Unlock()
+		heapSummaries.Lock()
+		delete(heapSummaries.entries, callee)
+		delete(heapSummaries.generations, callee)
+		heapSummaries.Unlock()
+	})
+	RegisterHeapSummary(callee, HeapSummary{})
+	cacheRegionGraph(entry, graph)
+	select {
+	case <-entry.done:
+	default:
+		t.Fatal("changed-summary rejection did not finish its build")
+	}
+	regionGraphs.Lock()
+	_, cached := regionGraphs.entries[function]
+	indexed := regionGraphs.dependents[callee][entry]
+	rejected := entry.stale && entry.graph == nil
+	regionGraphs.Unlock()
+	if cached || indexed || !rejected {
+		t.Fatalf("changed-summary build was published: cached=%v indexed=%v rejected=%v", cached, indexed, rejected)
+	}
+}
