@@ -180,21 +180,7 @@ func (graph *regionGraph) allocate(state *regionState, alloc *ssa.Alloc) {
 	if ssaflow.BlockInCycle(alloc.Block()) && state.escaped[site] {
 		return
 	}
-	for target := range state.contents {
-		if target.region == site {
-			delete(state.contents, target)
-		}
-	}
-	for target := range state.backing {
-		if target.region == site {
-			delete(state.backing, target)
-		}
-	}
-	for target := range state.clobbered {
-		if target.region == site {
-			delete(state.clobbered, target)
-		}
-	}
+	graph.clearSubtree(state, slot{region: site})
 }
 
 // selectStep returns the slots one step beneath each of the bases.

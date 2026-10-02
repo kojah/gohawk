@@ -1,0 +1,7 @@
+case	revision	scope	scan_exit	comparison	diagnostics	stdout_bytes	parent_receipt	current_receipt	bead
+lock-fixture	local-fixtures	lockorder	0	byte-identical	108	122985	.build/goal-region-reset-final/lock-fixture-parent.json	.build/goal-region-reset-final/lock-fixture-current.json	gohawk-dho.44.11.5.27.20
+skywalking	e83d5925500a7e63dd55c080a9b1542d6cedaefb	./pkg/tools/buffer	0	byte-identical	4	3095	.build/goal-region-reset-final/skywalking-parent.json	.build/goal-region-reset-final/skywalking-current.json	gohawk-dho.44.11.5.27.20
+resource-fixture	local-fixtures	resourcelifetime	0	byte-identical	318	335148	.build/goal-region-reset-final/resource-fixture-parent.json	.build/goal-region-reset-final/resource-fixture-current.json	gohawk-dho.44.11.5.27.20
+goroutine-fixture	local-fixtures	goroutineownership	0	byte-identical	126	116184	.build/goal-region-reset-final/goroutine-fixture-parent.json	.build/goal-region-reset-final/goroutine-fixture-current.json	gohawk-dho.44.11.5.27.20
+xd	b905a14ecfeceaa21a5dde82b52f164d075002ab	./lib/configparser	0	byte-identical	2	838	.build/goal-region-reset-final/xd-parent.json	.build/goal-region-reset-final/xd-current.json	gohawk-dho.44.11.5.27.20
+goiardi	937cae400a92d8036b88ae2f65d93506271c292e	./datastore ./indexer	0	byte-identical	2	1476	.build/goal-region-reset-final/goiardi-parent.json	.build/goal-region-reset-final/goiardi-current.json	gohawk-dho.44.11.5.27.20

@@ -276,16 +276,7 @@ func (graph *regionGraph) clobber(state *regionState, set pointees, stamp int) {
 		}
 		if object.kind == regionSite {
 			state.clobbered[slot{region: object}] = stamp
-			for target := range state.contents {
-				if target.region == object {
-					delete(state.contents, target)
-				}
-			}
-			for target := range state.backing {
-				if target.region == object {
-					delete(state.backing, target)
-				}
-			}
+			state.forgetStoredSubtree(slot{region: object})
 		}
 	}
 }

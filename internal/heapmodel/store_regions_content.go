@@ -335,16 +335,7 @@ func (graph *regionGraph) weakElementStore(state *regionState, target slot, valu
 
 // clearSubtree forgets everything beneath a slot before it is overwritten.
 func (graph *regionGraph) clearSubtree(state *regionState, target slot) {
-	for other := range state.contents {
-		if other.region == target.region && slotBeneath(other.path, target.path) {
-			delete(state.contents, other)
-		}
-	}
-	for other := range state.backing {
-		if other.region == target.region && slotBeneath(other.path, target.path) {
-			delete(state.backing, other)
-		}
-	}
+	state.forgetStoredSubtree(target)
 	for other := range state.clobbered {
 		if other.region == target.region && slotBeneath(other.path, target.path) {
 			delete(state.clobbered, other)

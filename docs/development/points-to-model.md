@@ -175,6 +175,7 @@ summary registration and concurrent publication.
 
 Failed publication and eviction share `removeIndexedEntryLocked`: mark the
 entry stale and unlink only the cache slot still naming that exact entry.
+
 A finishing old build cannot delete its replacement. Dependency cleanup stays
 with eviction; completion notification stays with publication under the cache
 lock. Removing a running build does not wake its waiters before the build
@@ -182,6 +183,14 @@ finishes. A consulted summary generation that changed during construction
 rejects publication before the graph enters the dependency index.
 `store_regions_cache_test.go` covers replacement preservation, stale completion
 notification, changed-summary rejection and concurrent publication/lookup.
+
+Allocation reset and full overwrites share `clearSubtree`; that operation clears
+stored contents, backing snapshots and clobber stamps beneath the exact target.
+Opaque clobbering shares only `regionState.forgetStoredSubtree`, after collecting
+reachable children, and retains its effect stamps. Removing those stamps would
+turn uncertain unwritten contents into known zero values. The escaped-loop
+allocation bailout still precedes clearing, and resetting a site does not erase
+the graph's may-only history or another site's state.
 
 ## Heap summaries
 

@@ -4507,3 +4507,21 @@ lock fixture diagnostic added, none lost, and resource/goroutine fixtures plus
 production controls unchanged. The earlier two-view disposition is superseded.
 Ten production FP sites and Rune remain unresolved; graph/alias/type and other
 fact-consumer reviews still prevent an overall completion claim.
+
+## Region reset and graph core dispositions
+
+Beads `gohawk-dho.44.11.5.27.20` removes repeated allocation reset and
+contents/backing deletion from opaque clobbering. One state operation forgets
+stored subtrees; allocation/full overwrites separately clear stamps, while
+opaque effects retain them. Escaped-loop bailout, prefix boundaries, children
+collected before forgetting and may-only history remain unchanged.
+
+The [graph core inventory](../../benchmarks/precision/audits/region-reset-consolidation-2026-10-02.md)
+disposes construction/replay/state-join/copy/reset families by their contracts
+and records validation scope. Actual SSA and three counterfactuals verify reset,
+stamp and sibling boundaries. Scoped scans preserve all 552 fixture diagnostics
+and pinned production output. A separate parent-failing nested backing path
+probe identifies the next concrete correction, `gohawk-dho.44.11.5.27.21`.
+Structural alias/type and remaining summary-consumer review stay open, as do ten
+production FP sites and Rune. Independent cost boundaries are documented rather
+than claimed as one request-owned time bound.

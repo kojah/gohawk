@@ -306,3 +306,19 @@ func renderPointees(set pointees) string {
 	}
 	return strings.Join(names, ", ")
 }
+
+// forgetStoredSubtree removes concrete contents and backing copies. It retains
+// clobber stamps: forgetting after an opaque effect must not restore zero-value
+// certainty. A full overwrite or allocation reset clears stamps separately.
+func (state *regionState) forgetStoredSubtree(target slot) {
+	for other := range state.contents {
+		if other.region == target.region && slotBeneath(other.path, target.path) {
+			delete(state.contents, other)
+		}
+	}
+	for other := range state.backing {
+		if other.region == target.region && slotBeneath(other.path, target.path) {
+			delete(state.backing, other)
+		}
+	}
+}
