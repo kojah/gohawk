@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -96,21 +97,33 @@ func walkLockOrder(
 	callers map[*ssa.Function]conditionalCallerSet,
 	exclusive *exclusiveCallers,
 ) {
+	probe := analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), function.Pos())
+	walkLockOrderWithin(pass, function, relations, calleeLocks, evidence, callers, exclusive,
+		ssaflow.NewSearchBudget(lockStateWorkBudget).Observed(probe.Observer()))
+}
+
+func walkLockOrderWithin(
+	pass *analysis.Pass, function *ssa.Function, relations *lockOrders,
+	calleeLocks *calleeLockSearch, evidence *lifecycle.LocalEvidence,
+	callers map[*ssa.Function]conditionalCallerSet, exclusive *exclusiveCallers, budget *ssaflow.SearchBudget,
+) bool {
 	summaries := summarizedMutexEffects(pass, function)
 	if !hasMutexAcquisition(function, summaries) {
-		return
+		return true
 	}
 	// A partial walk cannot establish an all-return contract. Keep diagnostics
 	// and new order edges private until the bounded function walk completes.
 	buffered, commit := check.BufferReports(pass)
 	localRelations := newLockOrders()
 	localRelations.collectOnly = true
-	if !walkLockOrderBounded(buffered, function, localRelations, calleeLocks, evidence, callers, exclusive, summaries) {
+	walk := lockStateWalk{summaries: summaries, budget: budget}
+	if !walk.run(buffered, function, localRelations, calleeLocks, evidence, callers, exclusive) {
 		traceLockStateBudget(pass, function)
-		return
+		return false
 	}
 	commit()
 	for _, edge := range localRelations.staged {
 		relations.record(pass, edge.held, edge.acquired, edge.guards...)
 	}
+	return true
 }

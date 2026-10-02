@@ -169,9 +169,21 @@ remain reported. Boolean held-result contracts likewise decline mixed states.
 
 Functions without a recognized direct or summarized mutex acquisition do not
 need lock-state exploration. Each remaining function is limited to 4,096
-distinct states. Exhaustion makes the whole function inconclusive: its buffered
+distinct states and a shared 200,000-step traversal allowance. Queued visits,
+state keys and copies, phi selection, guard/cycle queries, successor selection
+and result-backed termination consume that same allowance. Exhaustion makes
+the whole function inconclusive: its buffered
 diagnostics and order edges are discarded, rather than treating a partial walk
 as a complete release contract. Complex lock protocols can therefore be missed.
+
+`flow_walk.go` owns expansion and the publication barrier; `state_copy.go`
+detaches mutable predecessor collections before transfer. `flow_budget_test.go`,
+`state_budget_test.go` and `branch_budget_test.go` cover late cutoff after buffered
+findings/order edges, child versus parent exhaustion, fresh retries, phi/cycle
+availability and nested result inference. Prewalk effect/caller/defer setup,
+helper completion, heap queries, final contract metadata and order publication
+retain independent costs. This is a traversal bound, not a whole-query time
+bound; Beads `gohawk-dho.44.11.5.27` tracks the next request boundary.
 
 For a private non-escaping helper, an exact Boolean result can also describe
 which return still owns a package-global `sync.Mutex`. This is accepted only

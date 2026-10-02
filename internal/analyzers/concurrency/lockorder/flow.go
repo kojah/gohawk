@@ -3,7 +3,6 @@ package lockorder
 import (
 	"go/token"
 	"go/types"
-	"maps"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -56,131 +55,6 @@ type lockFlowContext struct {
 	// search could not prove releases a held lock, so a reported return can
 	// say which helpers were asked and why each did not count.
 	releaseAttempts *releaseAttempts
-}
-
-func walkLockOrderBounded(
-	pass *analysis.Pass,
-	function *ssa.Function,
-	relations *lockOrders,
-	calleeLocks *calleeLockSearch,
-	evidence *lifecycle.LocalEvidence,
-	callers map[*ssa.Function]conditionalCallerSet,
-	exclusive *exclusiveCallers,
-	summaries map[ssa.Instruction][]mutexEffect,
-) bool {
-	if len(function.Blocks) == 0 {
-		return true
-	}
-	// The walk is a work list over (block, held locks, deferred releases,
-	// guards); a state is revisited only when that tuple is new, which bounds
-	// the walk on loops while still separating the path that acquired a lock
-	// from the path that did not.
-	released := map[string]bool{}
-	acquiredAt := map[string]token.Pos{}
-	lockValues := map[string][]ssa.Value{}
-	unreleasedReturns := map[string][]token.Pos{}
-	heldAtReturn := map[*ssa.Return]lockReturnState{}
-	acquisitions := map[string][]ssa.Instruction{}
-	uncertainGuards := map[string]bool{}
-	possibleWriters := possibleDeferredWriters(function, summaries)
-	callerOwned := callerOwnedLocks(function, summaries)
-	functionDefers := ssaflow.InstructionsOf[*ssa.Defer](function)
-	flow := lockFlowContext{
-		pass:         pass,
-		function:     function,
-		exclusive:    exclusive,
-		evidence:     evidence,
-		relations:    relations,
-		calleeLocks:  calleeLocks,
-		lockValues:   lockValues,
-		acquiredAt:   acquiredAt,
-		released:     released,
-		acquisitions: acquisitions, uncertainGuards: uncertainGuards,
-		unprovenRelease: map[string]bool{},
-		callerOwned:     callerOwned,
-		defers:          functionDefers,
-		releaseAttempts: newReleaseAttempts(),
-	}
-	// Each predecessor selects its own phi values before any instruction runs.
-	// Clone the lock collections so one successor's release cannot discharge
-	// another successor's obligation; the immutable branch facts travel with it.
-	remaining := 4096
-	terminates := summaryKnowledge.Provider(pass).Terminates()
-	ssaflow.WalkStates([]lockFlowState{{block: function.Blocks[0]}}, lockStateKey, func(state lockFlowState) ([]lockFlowState, bool) {
-		remaining--
-		if remaining < 0 {
-			return nil, false
-		}
-		state.constants = lockPhiConstants(state)
-		held := slices.Clone(state.held)
-		readHeld := slices.Clone(state.readHeld)
-		deferred := slices.Clone(state.deferred)
-		guards := cloneLockGuards(state.guards)
-		origins := maps.Clone(state.origins)
-		if origins == nil {
-			origins = map[string]lockAcquisition{}
-		}
-		condition := state.condition
-		if len(state.block.Preds) > 1 {
-			condition = ""
-		}
-		for _, instruction := range state.block.Instrs {
-			// A call that never returns, whether os.Exit or a project's own
-			// fatal wrapper the summaries prove, ends this path: no return
-			// with the lock held follows it.
-			if ssaflow.InstructionTerminatesWith(instruction, terminates) {
-				return nil, true
-			}
-			recordUnreleasedLocks(instruction, held, deferred, lockValues, unreleasedReturns, heldAtReturn)
-			// A complete call sequence replaces the fallback release search:
-			// releasing and reacquiring within one helper must leave the lock
-			// held, not erase it as a may-release witness would.
-			if effects, complete := summaries[instruction]; complete {
-				actionState := lockFlowState{
-					held: held, readHeld: readHeld, deferred: deferred, guards: guards,
-					origins: origins, condition: condition, conditionValue: state.conditionValue,
-				}
-				for _, effect := range effects {
-					actionState = flow.applyMutexAction(instruction, effect, actionState)
-				}
-				flow.releaseAttempts.recordSummarized(instruction, effects, held, actionState.held)
-				held, readHeld, deferred, guards = actionState.held, actionState.readHeld, actionState.deferred, actionState.guards
-				continue
-			}
-			held = transferCalledUnlocks(evidence, instruction, held, guards, lockValues, released, flow.unprovenRelease, flow.releaseAttempts)
-			// An unconditional unlock at the start of a spawned closure transfers
-			// the held lock to that goroutine. Requiring it before any branch keeps
-			// conditional handoffs from hiding a genuinely unreleased return path.
-			held = transferSpawnedUnlocks(evidence, instruction, held, guards, lockValues, released)
-			// A lock whose owner is handed to something the analysis cannot see
-			// through may be released there, so a later return proves nothing.
-			held = transferOpaqueUnlocks(instruction, held, guards, lockValues, released)
-			// Treat an Unlock inside a deferred closure as return-path cleanup even
-			// when guarded by state. This supports early-unlock patterns where the
-			// defer handles only earlier returns:
-			// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/integration/nri_test.go#L1287-L1300
-			deferred = flow.recordDeferredUnlocks(instruction, held, deferred)
-			effect, ok := directMutexEffect(instruction)
-			if !ok {
-				flow.recordCalledOrder(instruction, held, origins)
-				reportReadLockWrites(flow, instruction, held, readHeld, lockValues, possibleWriters)
-				continue
-			}
-			actionState := lockFlowState{
-				held: held, readHeld: readHeld, deferred: deferred, guards: guards, origins: origins,
-				condition: condition, conditionValue: state.conditionValue,
-			}
-			actionState = flow.applyMutexAction(instruction, effect, actionState)
-			held, readHeld, guards = actionState.held, actionState.readHeld, actionState.guards
-			deferred = actionState.deferred
-		}
-		return lockSuccessorStates(pass, state, held, readHeld, deferred, guards, origins), true
-	})
-	if remaining < 0 {
-		return false
-	}
-	flow.reportMissingReleases(function, unreleasedReturns, heldAtReturn, callers[function])
-	return true
 }
 
 func recordUnreleasedLocks(

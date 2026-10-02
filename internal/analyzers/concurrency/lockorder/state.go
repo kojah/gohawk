@@ -5,7 +5,6 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
-	"maps"
 	"slices"
 	"strings"
 
@@ -40,25 +39,47 @@ func mergeLockReturnState(previous lockReturnState, held []string, seen bool) lo
 	return previous
 }
 
-func lockStateKey(state lockFlowState) string {
+func lockStateKey(state lockFlowState, budget *ssaflow.SearchBudget) string {
+	for _, values := range [][]string{state.readHeld, state.deferred} {
+		for range values {
+			if !budget.Spend() {
+				return ""
+			}
+		}
+	}
 	predecessor := -1
 	if state.predecessor != nil {
 		predecessor = state.predecessor.Index
 	}
 	var origins strings.Builder
 	for _, identity := range state.held {
+		if !budget.Spend() {
+			return ""
+		}
 		origin := state.origins[identity]
 		fmt.Fprintf(&origins, "%s:%d:%t;", identity, origin.position, origin.read)
 	}
+	// Map iteration must not distinguish equivalent paths. Canonical guard
+	// order keeps revisits finite; a cutoff key cannot stand for this state.
 	guards := make([]string, 0, len(state.guards))
 	for identity, guard := range state.guards {
+		if !budget.Spend() {
+			return ""
+		}
 		guards = append(guards, fmt.Sprintf("%s:%s=%t", identity, guard.condition, guard.value))
 	}
 	slices.Sort(guards)
 	for _, binding := range state.constants {
+		if !budget.Spend() {
+			return ""
+		}
 		fmt.Fprintf(&origins, "phi:%p=%s;", binding.value, binding.literal.Value.ExactString())
 	}
-	fmt.Fprintf(&origins, "stable:%s;", state.constraints.Key())
+	stable := state.constraints.KeyWithin(budget)
+	if budget.Exhausted() {
+		return ""
+	}
+	fmt.Fprintf(&origins, "stable:%s;", stable)
 	return fmt.Sprintf(
 		"%d:%d:%s:%s:%s:%s:%s=%t:%s",
 		state.block.Index,
@@ -82,16 +103,27 @@ func lockStateKey(state lockFlowState) string {
 // A loop phase can retain a literal while a lock is held and become unknown
 // after release. This tracks that exact value, not arithmetic or loop counts:
 // https://github.com/tidwall/uhaha/blob/5ea77162763891837176b90e111fcac74678143e/uhaha.go#L4173-L4217
-func lockPhiConstants(state lockFlowState) []lockScalarConstant {
+func lockPhiConstants(state lockFlowState, budget *ssaflow.SearchBudget) []lockScalarConstant {
 	const maxConstants = 4
+	for range state.constants {
+		if !budget.Spend() {
+			return nil
+		}
+	}
 	next := slices.Clone(state.constants)
 	for _, instruction := range state.block.Instrs {
+		if !budget.Spend() {
+			return nil
+		}
 		phi, ok := instruction.(*ssa.Phi)
 		if !ok {
 			break
 		}
 		next = slices.DeleteFunc(next, func(binding lockScalarConstant) bool { return binding.value == phi })
 		for predecessor, incoming := range ssaflow.PhiIncoming(phi) {
+			if !budget.Spend() {
+				return nil
+			}
 			if predecessor != state.predecessor {
 				continue
 			}
@@ -144,7 +176,7 @@ func constantFalse(value ssa.Value) bool {
 // uncertainty rather than infeasibility, and never excludes a path on it.
 // Exceeding the guard limit forgets the new fact, never excludes a path.
 // https://github.com/yandex-cloud/geesefs/blob/dd847771b29b26f3246edaf3227acbc430f4548d/core/file.go#L1901-L1972
-func extendLockConstraints(constraints ssaflow.PathGuards, block *ssa.BasicBlock, truth bool) (ssaflow.PathGuards, bool) {
+func extendLockConstraints(constraints ssaflow.PathGuards, block *ssa.BasicBlock, truth bool, budget *ssaflow.SearchBudget) (ssaflow.PathGuards, bool) {
 	if len(block.Succs) != 2 {
 		return constraints, true
 	}
@@ -152,18 +184,15 @@ func extendLockConstraints(constraints ssaflow.PathGuards, block *ssa.BasicBlock
 	if truth {
 		successor = block.Succs[0]
 	}
-	next, contradiction := constraints.Extend(block, successor, func(guard ssaflow.PathGuard) bool { return guard.Stable })
+	next, contradiction := constraints.ExtendWithin(block, successor, func(guard ssaflow.PathGuard) bool { return guard.Stable }, budget)
 	return next, contradiction != ssaflow.GuardStableContradiction
 }
 
-func cloneLockGuards(source map[string]lockGuard) map[string]lockGuard {
-	result := make(map[string]lockGuard, len(source))
-	maps.Copy(result, source)
-	return result
-}
-
-func guardConflicts(held []string, guards map[string]lockGuard, condition string, value bool) bool {
+func guardConflicts(held []string, guards map[string]lockGuard, condition string, value bool, budget *ssaflow.SearchBudget) bool {
 	for _, identity := range held {
+		if !budget.Spend() {
+			return false
+		}
 		guard, ok := guards[identity]
 		if ok && guard.condition == condition && guard.value != value {
 			return true
@@ -172,7 +201,7 @@ func guardConflicts(held []string, guards map[string]lockGuard, condition string
 	return false
 }
 
-func blockCondition(block *ssa.BasicBlock) (string, bool) {
+func blockCondition(block *ssa.BasicBlock, budget *ssaflow.SearchBudget) (string, bool) {
 	if len(block.Instrs) == 0 {
 		return "", false
 	}
@@ -180,10 +209,13 @@ func blockCondition(block *ssa.BasicBlock) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	return conditionIdentity(branch.Cond)
+	return conditionIdentity(branch.Cond, budget)
 }
 
-func conditionIdentity(value ssa.Value) (string, bool) {
+func conditionIdentity(value ssa.Value, budget *ssaflow.SearchBudget) (string, bool) {
+	if !budget.Spend() {
+		return "", false
+	}
 	// A computed Boolean outside a cycle is evaluated once. Repeating that
 	// exact SSA value cannot change its truth, including a short-circuit phi.
 	// Do not correlate a loop instruction across iterations: its next dynamic
@@ -194,7 +226,10 @@ func conditionIdentity(value ssa.Value) (string, bool) {
 	_, parameter := value.(*ssa.Parameter)
 	_, comparisonValue := value.(*ssa.BinOp)
 	instruction, computed := value.(ssa.Instruction)
-	stableComputed := computed && !comparisonValue && !ssaflow.BlockInCycle(instruction.Block())
+	stableComputed := computed && !comparisonValue && !ssaflow.BlockInCycleWithin(instruction.Block(), budget)
+	if budget.Exhausted() {
+		return "", false
+	}
 	if parameter || stableComputed {
 		basic, boolean := value.Type().Underlying().(*types.Basic)
 		if boolean && basic.Info()&types.IsBoolean != 0 {

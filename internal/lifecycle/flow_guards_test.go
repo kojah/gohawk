@@ -40,32 +40,32 @@ func loaded(o *options) int {
 `)
 	stableFn := pkg.Func("stable")
 	branches := branchBlocks(stableFn)
-	guards, contradiction := ssaflow.PathGuards(nil).Extend(branches[0], branches[0].Succs[0], nil)
+	guards, contradiction := ssaflow.PathGuards(nil).ExtendWithin(branches[0], branches[0].Succs[0], nil, nil)
 	if contradiction != ssaflow.GuardConsistent || len(guards) != 1 || !guards[0].Stable || !guards[0].Value {
 		t.Fatalf("first branch: %+v %v", guards, contradiction)
 	}
 	last := branches[len(branches)-1]
-	if _, contradiction := guards.Extend(last, last.Succs[1], nil); contradiction != ssaflow.GuardStableContradiction {
+	if _, contradiction := guards.ExtendWithin(last, last.Succs[1], nil, nil); contradiction != ssaflow.GuardStableContradiction {
 		t.Errorf("the other arm of a stable guard should contradict, got %v", contradiction)
 	}
-	if _, contradiction := guards.Extend(last, last.Succs[0], nil); contradiction != ssaflow.GuardConsistent {
+	if _, contradiction := guards.ExtendWithin(last, last.Succs[0], nil, nil); contradiction != ssaflow.GuardConsistent {
 		t.Errorf("the same arm of a stable guard is consistent, got %v", contradiction)
 	}
-	if _, contradiction := guards.Extend(branches[1], branches[1].Succs[1], nil); contradiction != ssaflow.GuardConsistent {
+	if _, contradiction := guards.ExtendWithin(branches[1], branches[1].Succs[1], nil, nil); contradiction != ssaflow.GuardConsistent {
 		t.Errorf("an unrelated branch is consistent, got %v", contradiction)
 	}
 	keepLoaded := func(guard ssaflow.PathGuard) bool { return !guard.Stable }
-	if kept, _ := ssaflow.PathGuards(nil).Extend(branches[0], branches[0].Succs[0], keepLoaded); len(kept) != 0 {
+	if kept, _ := ssaflow.PathGuards(nil).ExtendWithin(branches[0], branches[0].Succs[0], keepLoaded, nil); len(kept) != 0 {
 		t.Errorf("a filtered-out guard must not be remembered: %+v", kept)
 	}
 
 	loadedFn := pkg.Func("loaded")
 	branches = branchBlocks(loadedFn)
-	guards, _ = ssaflow.PathGuards(nil).Extend(branches[0], branches[0].Succs[0], nil)
+	guards, _ = ssaflow.PathGuards(nil).ExtendWithin(branches[0], branches[0].Succs[0], nil, nil)
 	if len(guards) != 1 || guards[0].Stable {
 		t.Fatalf("a field load is a loaded guard: %+v", guards)
 	}
-	if _, contradiction := guards.Extend(branches[1], branches[1].Succs[1], nil); contradiction != ssaflow.GuardLoadedContradiction {
+	if _, contradiction := guards.ExtendWithin(branches[1], branches[1].Succs[1], nil, nil); contradiction != ssaflow.GuardLoadedContradiction {
 		t.Errorf("the other arm of a loaded guard is uncertain, got %v", contradiction)
 	}
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](loadedFn) {

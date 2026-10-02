@@ -4186,3 +4186,21 @@ The seven scoped children of `gohawk-dho.44.11.5.25` account for that family's
 migration and follow-ups. This completion is limited to the recorded consumer
 family: the broader transitive heap/type/flow/setup review and eleven unresolved
 production FP sites remain open, and the overall consolidation is unproven.
+
+## Lock-state traversal consolidation, October 2
+
+The lock work list now shares one allowance across expansion, keys, detached
+collections, phi/guard/cycle queries and nested result-backed branch/termination
+queries while retaining its distinct-state cap. Function diagnostics and order
+edges remain unpublished when any of that traversal is interrupted. Expansion
+and transfer were extracted from the outlying flow file; successor selection
+consumes the same state, and obsolete test-only default guard wrappers were
+removed in favor of the authoritative `Within` engines.
+
+The [lock-state allowance follow-up](../../benchmarks/precision/audits/lock-state-allowance-followup-2026-10-02.md)
+records actual SSA cutoff/fresh controls, six failing counterfactuals and four
+retained production lock TPs in pinned XD/goiardi package scopes. No FP removal
+or corpus-wide claim is credited. Beads `gohawk-dho.44.11.5.26` covers this
+traversal stage; `.27` retains setup, nested completion and final metadata costs.
+Heap/type/graph internals remain separate. The eleven recorded production FP
+sites, Rune publication issue and wider consolidation goal remain unproven.

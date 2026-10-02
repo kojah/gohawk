@@ -74,7 +74,7 @@ func TestGuardStateBudgetKeepsDefaultPolicy(t *testing.T) {
 	if key := guards.KeyWithin(zero); key != "" || !zero.Exhausted() {
 		t.Fatal("partial state-key rendering must be unavailable")
 	}
-	if guards.KeyWithin(NewSearchBudget(QueryBudget)) != guards.Key() {
+	if guards.KeyWithin(NewSearchBudget(QueryBudget)) != guards.KeyWithin(nil) {
 		t.Fatal("fresh guard key must preserve default identity")
 	}
 	zero = NewSearchBudget(0)
@@ -85,7 +85,7 @@ func TestGuardStateBudgetKeepsDefaultPolicy(t *testing.T) {
 	_, loaded := guards.ExtendWithin(branch.Block(), branch.Block().Succs[1], nil, NewSearchBudget(QueryBudget))
 	guards[0].Stable = true
 	// Stability comes from the decoded condition, not an asserted held flag.
-	_, sameLoaded := guards.Extend(branch.Block(), branch.Block().Succs[1], nil)
+	_, sameLoaded := guards.ExtendWithin(branch.Block(), branch.Block().Succs[1], nil, nil)
 	if loaded != GuardLoadedContradiction || sameLoaded != loaded {
 		t.Fatal("bounded extension must preserve loaded contradiction semantics")
 	}

@@ -107,7 +107,7 @@ func cellCopiesWithin(cell *ssa.Alloc, store *ssa.Store, budget *SearchBudget) (
 		case *ssa.UnOp:
 			if InstructionDominatesWithin(store, typed, budget) {
 				copies = append(copies, typed)
-			} else if !InstructionDominatesWithin(typed, store, budget) || blockInCycleWithin(typed.Block(), budget) {
+			} else if !InstructionDominatesWithin(typed, store, budget) || BlockInCycleWithin(typed.Block(), budget) {
 				return nil, false
 			}
 		case *ssa.MakeClosure:

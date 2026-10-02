@@ -134,6 +134,17 @@ func BlockInCycle(start *ssa.BasicBlock) bool
 
 BlockInCycle reports whether control flow can return to start.
 
+## BlockInCycleWithin
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func BlockInCycleWithin(start *ssa.BasicBlock, budget *SearchBudget) bool
+```
+
+BlockInCycleWithin shares queued CFG visits with budget. False at cutoff
+is unavailable, not proof of acyclic execution; callers check the allowance.
+
 ## BlockReachable
 
 [Source](../../../../internal/ssaflow/flow_paths.go)
@@ -2232,19 +2243,6 @@ func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *Search
 AfterWithin shares guard invalidation with budget. A cutoff cannot establish
 that the remaining guards hold; callers must check exhaustion.
 
-## PathGuards.Extend
-
-[Source](../../../../internal/ssaflow/flow_guards.go)
-
-```go
-func (guards PathGuards) Extend(block, successor *ssa.BasicBlock, keep func(PathGuard) bool) (PathGuards, GuardContradiction)
-```
-
-Extend records the guard the edge from block to successor establishes and
-reports whether it contradicts a guard the path already holds. keep, when
-set, filters which guards are remembered; a filtered-out guard is neither
-stored nor checked.
-
 ## PathGuards.ExtendWithin
 
 [Source](../../../../internal/ssaflow/flow_guards.go)
@@ -2257,16 +2255,6 @@ func (guards PathGuards) ExtendWithin(
 
 ExtendWithin shares guard decoding and comparison with budget. Incomplete
 guards or contradictions are unavailable; callers must check exhaustion.
-
-## PathGuards.Key
-
-[Source](../../../../internal/ssaflow/flow_guards.go)
-
-```go
-func (guards PathGuards) Key() string
-```
-
-Key renders the guards for a walk's state key.
 
 ## PathGuards.KeyWithin
 

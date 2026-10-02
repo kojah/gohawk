@@ -44,7 +44,7 @@ func TestConditionIdentityStableBooleanSources(t *testing.T) {
 	} {
 		fn := pkg.Func(test.name)
 		value := ssaflow.InstructionsOf[*ssa.Return](fn)[0].Results[0]
-		identity, known := conditionIdentity(value)
+		identity, known := conditionIdentity(value, nil)
 		if known != (test.kind != "") || !strings.HasPrefix(identity, test.kind) {
 			t.Errorf("%s: identity %q, known=%t", test.name, identity, known)
 		}
@@ -54,15 +54,15 @@ func TestConditionIdentityStableBooleanSources(t *testing.T) {
 	}
 	fn := pkg.Func("repeated")
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](fn) {
-		if identity, known := conditionIdentity(call); known || identity != "" {
+		if identity, known := conditionIdentity(call, nil); known || identity != "" {
 			t.Errorf("cyclic computation became stable: %q/%t", identity, known)
 		}
 	}
 	// The parameter stays stable even when an instruction using it is in a loop.
-	if identity, known := conditionIdentity(fn.Params[0]); !known || !strings.HasPrefix(identity, "boolean:") {
+	if identity, known := conditionIdentity(fn.Params[0], nil); !known || !strings.HasPrefix(identity, "boolean:") {
 		t.Errorf("loop parameter: %q/%t", identity, known)
 	}
-	if identity, known := conditionIdentity(nil); known || identity != "" {
+	if identity, known := conditionIdentity(nil, nil); known || identity != "" {
 		t.Errorf("nil condition: %q/%t", identity, known)
 	}
 }

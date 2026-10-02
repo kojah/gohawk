@@ -99,10 +99,12 @@ func BlockReachableWithin(from, target *ssa.BasicBlock, budget *SearchBudget) bo
 
 // BlockInCycle reports whether control flow can return to start.
 func BlockInCycle(start *ssa.BasicBlock) bool {
-	return blockInCycleWithin(start, nil)
+	return BlockInCycleWithin(start, nil)
 }
 
-func blockInCycleWithin(start *ssa.BasicBlock, budget *SearchBudget) bool {
+// BlockInCycleWithin shares queued CFG visits with budget. False at cutoff
+// is unavailable, not proof of acyclic execution; callers check the allowance.
+func BlockInCycleWithin(start *ssa.BasicBlock, budget *SearchBudget) bool {
 	// Starting at successors requires at least one edge. Starting at the block
 	// itself would incorrectly classify every acyclic block as a cycle.
 	return blockReachableFromWithin(start.Succs, start, budget)

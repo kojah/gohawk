@@ -153,7 +153,7 @@ func TestPathGuardsContradictionPerEdge(t *testing.T) {
 		}
 		first, second := branches[0].Block(), branches[1].Block()
 		// Take the first branch's else arm, then reach the second branch.
-		guards, contradiction := ssaflow.PathGuards(nil).Extend(first, first.Succs[1], nil)
+		guards, contradiction := ssaflow.PathGuards(nil).ExtendWithin(first, first.Succs[1], nil, nil)
 		if contradiction != ssaflow.GuardConsistent {
 			t.Fatalf("%s: first edge %d", name, contradiction)
 		}
@@ -161,11 +161,11 @@ func TestPathGuardsContradictionPerEdge(t *testing.T) {
 		// swapped, so the second branch's first successor is the b-true arm,
 		// which contradicts the b-false arm already taken, and its second
 		// successor agrees with it.
-		_, contradiction = guards.Extend(second, second.Succs[0], nil)
+		_, contradiction = guards.ExtendWithin(second, second.Succs[0], nil, nil)
 		if contradiction != want {
 			t.Errorf("%s: contradiction %d, want %d", name, contradiction, want)
 		}
-		if _, consistent := guards.Extend(second, second.Succs[1], nil); consistent != ssaflow.GuardConsistent {
+		if _, consistent := guards.ExtendWithin(second, second.Succs[1], nil, nil); consistent != ssaflow.GuardConsistent {
 			t.Errorf("%s: the agreeing arm reported %d", name, consistent)
 		}
 	}

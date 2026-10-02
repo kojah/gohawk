@@ -38,7 +38,7 @@ func merge(choose, unknown bool) bool {
 			block: phi.Block(), predecessor: predecessor,
 			constants: []lockScalarConstant{{value: phi, literal: ssa.NewConst(constant.MakeBool(true), types.Typ[types.Bool])}},
 		}
-		got := lockPhiConstants(state)
+		got := lockPhiConstants(state, nil)
 		_, literal := incoming.(*ssa.Const)
 		truth, known := lockBooleanValue(phi, got)
 		if known != literal || truth {

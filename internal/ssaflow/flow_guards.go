@@ -91,7 +91,7 @@ func guardConditionSource(condition ssa.Value, budget *SearchBudget) (identity s
 	// evaluation may differ even though its SSA node is the same.
 	// https://github.com/pb33f/libopenapi/blob/07795ddc2c097af8581138ef290d6cf964110d74/index/extract_refs_lookup.go#L199-L220
 	if instruction, ok := condition.(ssa.Instruction); ok && booleanValue(condition) {
-		cyclic := blockInCycleWithin(instruction.Block(), budget)
+		cyclic := BlockInCycleWithin(instruction.Block(), budget)
 		if !cyclic && !budget.Exhausted() {
 			return fmt.Sprintf("value:%p", condition), false, true, true
 		}
@@ -177,10 +177,10 @@ func stableOperandWithin(value ssa.Value, budget *SearchBudget) bool {
 	case *ssa.Parameter, *ssa.Const:
 		return true
 	case *ssa.Call:
-		return !blockInCycleWithin(value.Block(), budget) && !budget.Exhausted()
+		return !BlockInCycleWithin(value.Block(), budget) && !budget.Exhausted()
 	case *ssa.Extract:
 		call, ok := value.Tuple.(*ssa.Call)
-		return ok && !blockInCycleWithin(call.Block(), budget) && !budget.Exhausted()
+		return ok && !BlockInCycleWithin(call.Block(), budget) && !budget.Exhausted()
 	}
 	return false
 }
@@ -203,14 +203,6 @@ func guardOperandIdentity(value ssa.Value) string {
 func booleanValue(value ssa.Value) bool {
 	basic, ok := value.Type().Underlying().(*types.Basic)
 	return ok && basic.Info()&types.IsBoolean != 0
-}
-
-// Extend records the guard the edge from block to successor establishes and
-// reports whether it contradicts a guard the path already holds. keep, when
-// set, filters which guards are remembered; a filtered-out guard is neither
-// stored nor checked.
-func (guards PathGuards) Extend(block, successor *ssa.BasicBlock, keep func(PathGuard) bool) (PathGuards, GuardContradiction) {
-	return guards.ExtendWithin(block, successor, keep, nil)
 }
 
 // ExtendWithin shares guard decoding and comparison with budget. Incomplete
@@ -297,11 +289,6 @@ func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *Search
 		return guards.withoutIdentityWithin(identity, budget)
 	}
 	return guards
-}
-
-// Key renders the guards for a walk's state key.
-func (guards PathGuards) Key() string {
-	return guards.KeyWithin(nil)
 }
 
 // KeyWithin charges guard entries before rendering. An exhausted partial key

@@ -14,13 +14,7 @@ import (
 // and stable-guard evidence the state holds. Infeasibility here is always
 // a proof about the branch, never a guess about a mutable field.
 
-func lockSuccessorStates(
-	pass *analysis.Pass,
-	state lockFlowState,
-	held, readHeld, deferred []string,
-	guards map[string]lockGuard,
-	origins map[string]lockAcquisition,
-) []lockFlowState {
+func lockSuccessorStates(pass *analysis.Pass, state lockFlowState, budget *ssaflow.SearchBudget) []lockFlowState {
 	block := state.block
 	states := make([]lockFlowState, 0, len(block.Succs))
 	// A local release flag can merge true and false after only one branch
@@ -29,14 +23,17 @@ func lockSuccessorStates(
 	// Carried constants and stable parameter constraints are applied separately.
 	// https://github.com/enetx/surf/blob/7da0502899af06f8318f95e632797cb2ac0c6c20/pkg/connectproxy/connectproxy.go#L256-L294
 	feasible := ssaflow.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
-		return summaryKnowledge.Provider(pass).FeasibleSuccessors(block, predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
-	}}.Successors(block, state.predecessor)
+		return summaryKnowledge.Provider(pass).FeasibleSuccessors(block, predecessor, budget)
+	}}.SuccessorsWithin(block, state.predecessor, budget)
 	for index, successor := range block.Succs {
+		if !budget.Spend() {
+			return nil
+		}
 		if !slices.Contains(feasible, successor) {
 			traceInfeasibleLockBranch(pass, block, lockReasonPredecessorConstantBranchInfeasible)
 			continue
 		}
-		constraints, compatible := extendLockConstraints(state.constraints, block, index == 0)
+		constraints, compatible := extendLockConstraints(state.constraints, block, index == 0, budget)
 		if !compatible {
 			traceInfeasibleLockBranch(pass, block, lockReasonStableParameterBranchInfeasible)
 			continue
@@ -47,20 +44,26 @@ func lockSuccessorStates(
 				continue
 			}
 		}
+		// Correlate only the exact condition identity accepted by the guard
+		// policy. A cycle query cut short cannot make a computed value stable.
 		nextCondition, nextValue := "", false
-		if condition, ok := blockCondition(block); ok && len(block.Succs) == 2 {
+		if condition, ok := blockCondition(block, budget); ok && len(block.Succs) == 2 {
 			nextCondition, nextValue = condition, index == 0
-			if guardConflicts(held, guards, condition, nextValue) {
+			if guardConflicts(state.held, state.guards, condition, nextValue, budget) {
 				traceInfeasibleLockBranch(pass, block, lockReasonRepeatedConditionInfeasible)
 				continue
 			}
 		}
 		states = append(states, lockFlowState{
-			block: successor, predecessor: block, held: held, readHeld: readHeld, deferred: deferred, guards: guards, origins: origins,
+			block: successor, predecessor: block, held: state.held, readHeld: state.readHeld,
+			deferred: state.deferred, guards: state.guards, origins: state.origins,
 			condition: nextCondition, conditionValue: nextValue,
 			constants:   state.constants,
 			constraints: constraints,
 		})
+	}
+	if budget.Exhausted() {
+		return nil
 	}
 	return states
 }
