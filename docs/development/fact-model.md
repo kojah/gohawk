@@ -130,6 +130,13 @@ inherit that callee's case. Both need a return witness on the assumed side;
 a missing case says nothing about the opposite implication. The symmetric
 "true when the parameter is non-nil" case had no consumer and is not proved.
 
+Conditional inference shares its summary allowance with queued block visits,
+assumption value folds, bound-condition decoding and successor pruning. Direct
+forwarded result-slot decoding charges one dispatch before requesting a callee
+summary; it performs no wrapper or referrer search. Cutoff cannot retain a case
+from an interrupted walk, even if an earlier return supplied its witness.
+The summary memo discards interrupted answers and permits a fresh query.
+
 A returned parameter is not a case: the result is the exact parameter, under
 the same static type, on every normal return. `resourcelifetime` resolves a
 cleanup receiver through such a call, so `wrap(file).Close()` settles `file`

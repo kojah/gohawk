@@ -133,7 +133,7 @@ func (engine *Engine) parameterRelation(
 		assumed[parameter] = ssaflow.OutcomeNil
 	}
 	valid, witness := true, false
-	ssaflow.WalkStates([]*ssa.BasicBlock{function.Blocks[0]}, func(block *ssa.BasicBlock) *ssa.BasicBlock { return block },
+	ssaflow.WalkStatesWithin([]*ssa.BasicBlock{function.Blocks[0]}, func(block *ssa.BasicBlock) *ssa.BasicBlock { return block },
 		func(block *ssa.BasicBlock) ([]*ssa.BasicBlock, bool) {
 			for _, instruction := range block.Instrs {
 				if !budget.Spend() {
@@ -150,8 +150,8 @@ func (engine *Engine) parameterRelation(
 					return nil, false
 				}
 			}
-			return assumed.Narrow(block.Succs, block), true
-		})
+			return assumed.NarrowWithin(block.Succs, block, budget), true
+		}, budget)
 	return valid && witness && !budget.Exhausted()
 }
 
@@ -160,13 +160,16 @@ func (engine *Engine) parameterRelation(
 // assumption, and anything else falls back to the unconditional guarantee.
 func (engine *Engine) assumedValue(value ssa.Value, assumed ssaflow.FixedValues, budget *ssaflow.SearchBudget) Guarantee {
 	result, ok := ssaflow.ResolveReachingValue(
-		ssaflow.NewReachingWalk(ssaflow.TransparentChangeType), value,
+		ssaflow.NewReachingWalk(ssaflow.TransparentChangeType).Within(budget), value,
 		func(_ ssaflow.ReachingWalk, leaf ssa.Value) (Guarantee, bool) {
-			if holds, decided := assumed.Holds(leaf); decided {
+			if holds, decided := assumed.HoldsWithin(leaf, budget); decided {
 				if holds {
 					return AlwaysTrue, true
 				}
 				return AlwaysFalse, true
+			}
+			if budget.Exhausted() {
+				return Unknown, false
 			}
 			guarantee := engine.leaf(leaf, budget)
 			return guarantee, guarantee != Unknown
@@ -231,7 +234,7 @@ func (engine *Engine) returnHolds(resultValue, errorValue ssa.Value, kind paired
 	if resultSatisfies(engine.value(resultValue, budget), kind) {
 		return true, true
 	}
-	callee, resultIndex, operandIndex, forwarded := forwardedPair(resultValue, errorValue)
+	callee, resultIndex, operandIndex, forwarded := forwardedPair(resultValue, errorValue, budget)
 	if !forwarded || !engine.function(callee, budget).Implies(errorOutcome(operandIndex, kind.errorOutcome), resultIndex, kind.resultOutcome) {
 		return false, false
 	}
@@ -246,7 +249,12 @@ func resultSatisfies(guarantee Guarantee, kind pairedCase) bool {
 
 // forwardedPair resolves a return that passes two results of one call
 // through unchanged, so the callee's relation between them carries over.
-func forwardedPair(resultValue, errorValue ssa.Value) (*ssa.Function, int, int, bool) {
+func forwardedPair(resultValue, errorValue ssa.Value, budget *ssaflow.SearchBudget) (*ssa.Function, int, int, bool) {
+	// Source-slot decoding is constant work, with no wrapper or referrer walk.
+	// Charge the dispatch once and stop before requesting a callee summary.
+	if !budget.Spend() {
+		return nil, 0, 0, false
+	}
 	resultCall, resultIndex, ok := ssaflow.CallResultSource(resultValue)
 	if !ok {
 		return nil, 0, 0, false

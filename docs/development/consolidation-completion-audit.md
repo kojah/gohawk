@@ -2583,3 +2583,48 @@ other consumers and allocation costs remain independent scope. Graph MCP
 is unavailable; claims use scoped source and actual SSA. The broader goal
 and 15-site production FP queue remain open. No full precision replay,
 local race or candidate tests/generators/applications were run.
+
+
+## Conditional result allowance consolidation (2026-10-02)
+
+Beads `gohawk-dho.44.11.5.13` adopts shared bounded state, reaching-value,
+condition and successor APIs in conditional result inference. The caller
+summary allowance now covers queued block visits, assumption folds and
+pruning. Exhausted assumptions stop before leaf fallback. Forwarded result
+slots are decoded in constant work without wrappers/referrers, so one
+charged dispatch precedes the existing callee summary request; no additional
+metadata traversal facade is introduced. Existing exact nilness, witness,
+paired-return and forwarding policy is retained.
+
+Actual SSA predicate, branching side-effect and forwarded-pair controls
+cover every insufficient allowance and fresh-query cache recovery. Explicit
+zero allowance and exhausted-parent-pool tests cannot decide an assumed
+literal. Restoring parent relations.go fails the zero-allowance control.
+The publication harness now includes a large conditional predicate: an
+interrupted summary cannot publish, while a fresh wider query recovers its
+case. That harness is extracted into publication_budget_test.go with focused
+control checks after crossing the lint complexity threshold. The larger
+publication case also cuts off under the parent; no differential publication
+correction is claimed for it.
+
+Focused result tests, lint and canonical make verify pass, including ordinary
+tests, local dogfood, generation, module verification, vet, formatting and
+dead-code. Receipts use `.build/goal-conditional-results-*.log`; the final
+counterfactual is `counterfactual-final.log`. At stargz pin
+624678b4e421947534cbf0618f9609853cccee0f, both store-only static controls exit
+3 with identical 827-byte diagnostic JSON and empty stderr, retaining the
+reviewed abandoned-worker report. Immutable parent binary
+`.build/goal-returned-identity-current` SHA-256:
+45d9beaf864df89248c0a8f9b807e82089329b489615fe3c5870a19a60cb0663;
+current `.build/goal-conditional-results-current` SHA-256:
+6a318282e23fc31713c62c6eacee77ec01915fec3a0bba5cc611d481584ae009.
+These are precommit artifacts, not clean-tree VCS stamps.
+
+Child `.14` records storedResultQuery.resolve passing a reaching walk without
+its budget for unconditional and nested stored-value results. It includes a
+review of remaining result consumers. Other resource/lock walks, graph costs,
+type-system and custom/library internals remain open. Graph MCP tools are
+unavailable; scoped source and actual SSA supply the evidence. No whole-query
+wall-clock bound or production FP removal is claimed; the 15-site queue and
+broader goal remain active. No full precision replay, local race or candidate
+tests/generators/applications were run.
