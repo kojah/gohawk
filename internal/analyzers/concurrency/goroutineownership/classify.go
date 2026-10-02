@@ -246,6 +246,12 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	if common == nil {
 		return actionNone, reasonNone
 	}
+	// A launched observer runs independently of the caller. Handle it before
+	// receiver, summary and library contracts that describe synchronous calls.
+	if _, launched := instruction.(*ssa.Go); launched {
+		_, closure := ssaflow.DirectCallee(common)
+		return analysis.opaqueCallAction(common, closure, reasonLabelLaunchedHelper)
+	}
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
 		// append retains its arguments in a slice the caller keeps; the other
 		// builtins only observe a channel or its capacity.
@@ -279,23 +285,25 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 		return actionUnknown, reasonLabelGoMockReturn
 	}
 	callee, closure := ssaflow.DirectCallee(common)
-	_, launched := instruction.(*ssa.Go)
-	if callee == nil || len(callee.Blocks) == 0 || launched {
-		// An opaque callee may retain the value. A launched helper may be a
-		// relay or waiter, but it observes completion on its own goroutine, so
-		// the parent has not joined anything here either.
-		if !analysis.anyArgumentConsumes(common) && !analysis.closureConsumes(closure) {
-			return actionNone, reasonNone
+	if callee == nil || len(callee.Blocks) == 0 {
+		// An opaque callee may retain the value.
+		if callee == nil {
+			return analysis.opaqueCallAction(common, closure, reasonLabelDynamicCallee)
 		}
-		switch {
-		case launched:
-			return actionUnknown, reasonLabelLaunchedHelper
-		case callee == nil:
-			return actionUnknown, reasonLabelDynamicCallee
-		}
-		return actionUnknown, reasonLabelCalleeWithoutBody
+		return analysis.opaqueCallAction(common, closure, reasonLabelCalleeWithoutBody)
 	}
 	return analysis.helperAction(common, callee, closure, analysis.tracked), reasonLabelHelper
+}
+
+// Opaque and launched calls share the same handoff boundary. Only positive
+// argument or capture consumption makes the tracked worker uncertain.
+func (analysis *spawnAnalysis) opaqueCallAction(
+	common *ssa.CallCommon, closure *ssa.MakeClosure, reason goroutineOwnershipReason,
+) (ownershipAction, goroutineOwnershipReason) {
+	if analysis.anyArgumentConsumes(common) || analysis.closureConsumes(closure) {
+		return actionUnknown, reason
+	}
+	return actionNone, reasonNone
 }
 
 // Wait observes completion only on the exact settling group. A lifecycle

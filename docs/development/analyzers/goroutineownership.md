@@ -17,6 +17,13 @@ imported helpers and local wrappers that call them. Existing branch-aware
 helper and ownership proofs remain in use when an ordered summary is
 unavailable; missing summaries are never treated as evidence of no join.
 An asynchronously launched waiter does not join the worker in its parent.
+`gohawk-dho.44.7` applies that boundary before receiver, library and helper
+completion contracts. A launched WaitGroup observer is unknown handoff in both
+the caller classifier and helper-body search; it cannot borrow synchronous
+receiver semantics. Synchronous and deferred waits retain exact coverage.
+`asyncobservers/waits.go` pairs direct/helper launches with those exact forms
+and an unrelated observer whose worker still requires a join. Trace controls
+require one label per observer with the corresponding proof strength.
 Return ownership is classified through the same cached instruction path as
 receives, waits, stores and calls. The ordinary flow and guarded non-nil retry
 reuse that label, including when different branch states reach one return.

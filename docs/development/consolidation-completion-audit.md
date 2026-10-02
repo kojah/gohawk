@@ -1347,3 +1347,73 @@ production FP queue remains 15 sites; the broader architecture and
 obligation-discovery completion claims remain unproven. In particular,
 receiver matching before asynchronous launch guards requires a separate
 completion-contract review, beyond the identity correction recorded here.
+
+### Launched observers versus caller completion
+
+`gohawk-dho.44.7` reviews launch polarity in `callAction`, `directJoinAction`,
+helper `instructionJoins`/`callEscapes`, `proveSummaryJoin` and returned-waiter
+composition. Graph tools remain unavailable; this is finite source fallback,
+not certification of every transitive lifecycle or concurrency engine.
+Actual SSA in `.build/goal-async-wait.ssa.txt` shows the parent launching
+`(*sync.WaitGroup).Wait` and returning without observing it. The helper
+`launchWait` likewise launches Wait and returns. Both parent traces credit
+the worker as `join-proven`; the parent proof test fails for both in
+5.315 seconds (`.build/goal-async-observer-parent-test.log`). Exact receiver
+identity does not make either observer run in its caller's invocation.
+
+The caller classifier now handles launches before synchronous receiver,
+summary or library contracts. Positive argument/capture consumption yields
+unknown `launched-helper`; an unrelated launched call yields no worker action.
+`opaqueCallAction` consolidates the identical consumption boundary for launched
+and unreadable calls. The helper search rejects launches before receiver
+coverage, and tests their handoff before read-only receiver bookkeeping. Its
+`helperCallCarries` shares the argument/capture query for launched and opaque
+callees. The existing summary join rejects Go instructions already; its
+synchronous/deferred contract remains unchanged. No new search, scheduling
+heuristic or completion mode is added.
+
+`asyncobservers/waits.go` pairs direct/helper-launched group observers with
+synchronous, deferred and helper-deferred waits, a launched visible helper, and
+an unrelated observer whose worker still reports. Focused observer, helper and
+concurrency controls pass in 9.608 seconds. Expanded observer/receiver trace,
+helper memo/budget and concurrency controls pass in 18.318 seconds. One shared
+`assertClassifierLabels` assertion replaces the repeated receiver/observer
+trace loop, requiring exact reason, outcome, label, candidate, position and one
+label per selected instruction. Proof outcomes remain independently asserted
+through `assertSpawnProofs`.
+
+Fresh fixture CLI receipts cover `goroutineownership`, `summaryjoins`,
+`processexit`, `returnlabels`, `transferlabels`, `joinbindings`,
+`ownerparticipation`, `callerbounds`, `receiveidentity` and `asyncobservers`.
+Parent binary SHA-256:
+`fb26673f17560128f30dedc7818e677dc1458f5c61dec34e083a7c84b54c9114`;
+current binary SHA-256:
+`f12ff6813a6b5b847415f2640c5c7b93fc0cefebbe755914c8fe29e529da9458`.
+Both exit 3 with empty stderr and identical 122,234-byte diagnostic JSON
+(`.build/goal-async-observer-*-receipt.json`). Each has 555 final decisions
+and 231 labels. Comparing decision multisets by function, check, candidate and
+position finds only two changed keys: direct/helper asynchronous Wait controls
+become unknown `opaque-ownership-transfer` instead of accepted `join-proven`.
+All other final decisions agree. No all-event equivalence or production FP
+removal is credited.
+
+The first gate passes ordinary tests in 78 seconds but catches classifier
+cyclomatic complexity at 21. Consolidating opaque-call consumption removes
+that duplicated branch. The next gate catches three accidentally qualified
+names in the proof-case table after the trace assertion refactor; those names
+are restored to the short names expected by the proof helper. Corrected
+`make verify` passes all gates, including ordinary tests in 50 seconds,
+canonical formatting, generation, vet, lint, dead-code and local dogfood
+(`.build/goal-async-observer-corrected-verify.log`). Documentation conformance
+is checked after recording these receipts.
+
+The clean stargz checkout at `624678b4e421947534cbf0618f9609853cccee0f`
+has identical nonempty 827-byte parent/current `./store` diagnostics, exit 3
+and empty stderr. The reviewed TP at `store/manager.go:193:2` remains
+(`.build/goal-async-observer-stargz-*.json`). Static scans disable CGO and
+workspace and use read-only module mode; candidate tests, generators and
+applications are not run. No full precision corpus replay or local race run
+is performed; the unresolved production FP queue remains 15 sites.
+The original helper/direct identity scope is now covered by the exact binding,
+internal identity, owner participation and launch-polarity corrections. The
+wider obligation discovery and architecture completion claims remain unproven.

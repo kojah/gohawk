@@ -148,6 +148,9 @@ func (search *helperSearch) instructionJoins(instruction ssa.Instruction, kind t
 	if !search.budget.Spend() {
 		return false
 	}
+	if _, launched := instruction.(*ssa.Go); launched {
+		return false
+	}
 	if kind == trackedSignal && guaranteedReceive(instruction, derives) {
 		return true
 	}
@@ -159,7 +162,7 @@ func (search *helperSearch) instructionJoins(instruction ssa.Instruction, kind t
 		return true
 	}
 	callee, closure := ssaflow.DirectCallee(common)
-	if _, launched := instruction.(*ssa.Go); launched || callee == nil {
+	if callee == nil {
 		return false
 	}
 	return slices.ContainsFunc(ssaflow.CallBindings(common, callee, closure), func(pair ssaflow.CallBinding) bool {
@@ -225,6 +228,13 @@ func (search *helperSearch) instructionEscapes(
 
 func (search *helperSearch) callEscapes(instruction ssa.Instruction, kind trackedKind, derives func(ssa.Value) bool) bool {
 	common := ssaflow.InstructionCall(instruction)
+	// Receiver bookkeeping is transparent only in the caller's invocation.
+	// A launched Wait/cleanup may own shutdown on another goroutine; it is
+	// opaque handoff, never positive completion or a read-only receiver use.
+	if _, launched := instruction.(*ssa.Go); launched {
+		_, closure := ssaflow.DirectCallee(common)
+		return helperCallCarries(common, closure, derives)
+	}
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
 		return builtin.Name() == "append" && slices.ContainsFunc(common.Args, derives)
 	}
@@ -237,13 +247,18 @@ func (search *helperSearch) callEscapes(instruction ssa.Instruction, kind tracke
 		return false
 	}
 	callee, closure := ssaflow.DirectCallee(common)
-	_, launched := instruction.(*ssa.Go)
-	if launched || callee == nil || len(callee.Blocks) == 0 {
-		return slices.ContainsFunc(common.Args, derives) || closure != nil && slices.ContainsFunc(closure.Bindings, derives)
+	if callee == nil || len(callee.Blocks) == 0 {
+		return helperCallCarries(common, closure, derives)
 	}
 	return slices.ContainsFunc(ssaflow.CallBindings(common, callee, closure), func(pair ssaflow.CallBinding) bool {
 		return !search.budget.Spend() || derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionUnknown
 	})
+}
+
+// Opaque and launched calls expose the same possible handoff through their
+// evaluated arguments or lexical captures. No completion is implied.
+func helperCallCarries(common *ssa.CallCommon, closure *ssa.MakeClosure, derives func(ssa.Value) bool) bool {
+	return slices.ContainsFunc(common.Args, derives) || closure != nil && slices.ContainsFunc(closure.Bindings, derives)
 }
 
 // receiverCallRetainsNothing recognizes the documented sync.WaitGroup methods

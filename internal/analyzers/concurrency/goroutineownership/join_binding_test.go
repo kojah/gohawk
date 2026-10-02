@@ -1,9 +1,6 @@
 package goroutineownership
 
 import (
-	"encoding/json"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/analyzertest"
@@ -26,38 +23,13 @@ func TestJoinBindingStrength(t *testing.T) {
 func TestJoinReceiverTrace(t *testing.T) {
 	path := enableSummaryJoinTrace(t)
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "joinbindings", "ownerparticipation")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
 	want := map[string][3]string{
-		"mixedWait":                        {"possible-join-receiver", "unknown", "opaque-use"},
-		"mixedOwner":                       {"owner-lifecycle-participation", "unknown", "opaque-use"},
-		"exactWait":                        {"direct-join", "accepted", "join"},
+		"joinbindings.mixedWait":           {"possible-join-receiver", "unknown", "opaque-use"},
+		"joinbindings.mixedOwner":          {"owner-lifecycle-participation", "unknown", "opaque-use"},
+		"joinbindings.exactWait":           {"direct-join", "accepted", "join"},
 		"ownerparticipation.directClose":   {"owner-lifecycle-participation", "unknown", "opaque-use"},
 		"ownerparticipation.deferredClose": {"owner-lifecycle-participation", "unknown", "opaque-use"},
 		"ownerparticipation.helperClose":   {"helper-use", "unknown", "opaque-use"},
 	}
-	counts := map[string]int{}
-	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
-		var event followupTraceEvent
-		if err := json.Unmarshal([]byte(line), &event); err != nil {
-			t.Fatal(err)
-		}
-		name := strings.TrimPrefix(event.Function, "joinbindings.")
-		expected, ok := want[name]
-		if !ok || event.Phase != "label" {
-			continue
-		}
-		counts[name]++
-		if event.Reason != expected[0] || event.Outcome != expected[1] || event.Details["label"] != expected[2] ||
-			event.Candidate == "" || event.Position == "" {
-			t.Errorf("invalid join receiver label: %+v", event)
-		}
-	}
-	for name := range want {
-		if counts[name] != 1 {
-			t.Errorf("%s: got %d labels, want one per receiver", name, counts[name])
-		}
-	}
+	assertClassifierLabels(t, path, want)
 }
