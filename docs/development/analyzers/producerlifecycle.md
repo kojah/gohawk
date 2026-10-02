@@ -23,6 +23,16 @@ balanced branch send, balanced pairs, a true excess second send, and distinct
 competing workers. The count proof runs once per operation; reporting and
 tracing retain each branch position.
 
+Distinct contributing launches must form a dominance chain before their sends
+can share a total. Unordered launches leave the count unknown, including
+mutually exclusive branches followed by a common worker: each branch can
+reach the common worker without both alternatives executing. This deliberately
+misses some real excess production in independent conditional branches.
+`helpers/launch_choices.go` pairs those accepted forms with serial and nested
+ordered-worker diagnostics. The most recent launch is the dominance frontier;
+all earlier members are its ordered ancestors. Shared instruction dominance
+also orders launches in the same block.
+
 Loop-based send counts remain unknown: a repeated statement does not prove
 multiple sends are feasible. This deliberately misses unbounded producer loops
 until their excess production can be established without a cardinality guess.

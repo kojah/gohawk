@@ -4910,3 +4910,21 @@ The [scoped audit](../../benchmarks/precision/audits/producer-branch-attribution
 records the binaries and receipts. Seven recorded production sites plus Rune,
 the remaining semantic/partial-duplication review and overall consolidation
 completion remain open; this correction earns no production FP credit.
+
+## Producer counts across alternative launches
+
+Beads `gohawk-dho.23.13` widens the existing producer-count unknown boundary
+when contributing launches do not form a dominance chain. Mutually exclusive
+workers cannot be added into one total; even when each can reach a common later
+worker, both alternatives need not execute. A latest-launch dominance frontier
+checks the complete set through the shared instruction-order helper. Serial
+and nested ordered workers retain their diagnostic controls. Trace fixture
+assertions now share the source-position expectation helper.
+
+Actual SSA and parent-failing controls reproduce five false alerts. Full
+all-check fixture payloads remove precisely those five, preserve every other
+finding and add none. The [scoped audit](../../benchmarks/precision/audits/producer-launch-order-2026-10-03.md)
+records validation and the conservative loss of coverage for unordered workers.
+This does not settle all producer protocol paths or the broader semantic and
+partial-duplication review. Seven recorded production FP sites plus Rune remain
+open; no production FP credit or full precision replay is claimed.

@@ -113,7 +113,19 @@ func producerTrace(t *testing.T, pkg string) []producerTraceEvent {
 }
 
 func TestFoldedBranchSourcesKeepTheirDecisions(t *testing.T) {
-	source, err := os.ReadFile(filepath.Join(analysistest.TestData(), "src", "helpers", "branch_sources.go"))
+	assertProducerSourceDecisions(t, "branch_sources.go", "accepted")
+}
+
+func TestUnorderedLaunchCountIsUnknown(t *testing.T) {
+	assertProducerSourceDecisions(t, "launch_choices.go", "unknown")
+}
+
+// Both count boundaries keep decisions at every send source. Diagnostic
+// expectations select rejected outcomes; other sources use the boundary's
+// accepted or unknown outcome.
+func assertProducerSourceDecisions(t *testing.T, filename, nonDiagnosticOutcome string) {
+	t.Helper()
+	source, err := os.ReadFile(filepath.Join(analysistest.TestData(), "src", "helpers", filename))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,11 +134,11 @@ func TestFoldedBranchSourcesKeepTheirDecisions(t *testing.T) {
 		if !strings.Contains(text, "ch <-") {
 			continue
 		}
-		outcome := "accepted"
+		outcome := nonDiagnosticOutcome
 		if strings.Contains(text, "// want") {
 			outcome = "rejected"
 		}
-		want["branch_sources.go:"+strconv.Itoa(index+1)+":"] = outcome
+		want[filename+":"+strconv.Itoa(index+1)+":"] = outcome
 	}
 	for _, event := range producerTrace(t, "helpers") {
 		if event.Phase != "decision" || strings.HasPrefix(event.Reason, "diagnostic-") {
@@ -143,6 +155,6 @@ func TestFoldedBranchSourcesKeepTheirDecisions(t *testing.T) {
 		}
 	}
 	if len(want) != 0 {
-		t.Errorf("missing branch-source decisions: %v", want)
+		t.Errorf("missing send-source decisions: %v", want)
 	}
 }

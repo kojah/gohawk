@@ -136,11 +136,20 @@ func abandonedProducerSend(
 	// many times the goroutine body itself sends.
 	// https://github.com/hashicorp/go-metrics/blob/5a9e5caa3d2779bca6a8ae2218b8f884194855e7/inmem_endpoint_test.go#L157-L177
 	sendCount := 0
+	var latestLaunch *ssa.Go
 	for _, candidate := range sends {
 		if !heapmodel.MayAlias(candidate.channel, send.channel) {
 			continue
 		}
 		if candidate.repeated || ssaflow.BlockInCycle(candidate.spawn.Block()) {
+			return producerProof{Reason: reasonProducerCountUnknown}
+		}
+		// Contributing launches must form one dominance chain. Otherwise
+		// alternative workers can inflate a total, even when each reaches a
+		// later common worker. Keep the latest launch as the chain frontier.
+		if latestLaunch == nil || ssaflow.InstructionDominates(latestLaunch, candidate.spawn) {
+			latestLaunch = candidate.spawn
+		} else if !ssaflow.InstructionDominates(candidate.spawn, latestLaunch) {
 			return producerProof{Reason: reasonProducerCountUnknown}
 		}
 		if producerSendMayPrecede(candidate, send) {
