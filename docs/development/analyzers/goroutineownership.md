@@ -17,6 +17,15 @@ imported helpers and local wrappers that call them. Existing branch-aware
 helper and ownership proofs remain in use when an ordered summary is
 unavailable; missing summaries are never treated as evidence of no join.
 An asynchronously launched waiter does not join the worker in its parent.
+Return ownership is classified through the same cached instruction path as
+receives, waits, stores and calls. The ordinary flow and guarded non-nil retry
+reuse that label, including when different branch states reach one return.
+`returnlabels/returns.go` pairs a merged return of the worker's completion
+channel with an unrelated returned channel; the trace regression requires one
+transfer label associated with the accepted candidate and preserves the
+unrelated channel's rejected decision. This consolidation retains the existing
+containment-based return policy; whether broad containment supplies sufficiently
+strong transfer evidence remains tracked separately in `gohawk-dho.44.2`.
 Caller-owned channel and stable receiver-context bounds share one receive
 search, keyed by both function and local value. Repeated calls to the same
 helper therefore retain distinct formal bindings. These are possible lifetime

@@ -897,3 +897,57 @@ larger audit's open scope. The 15 production FP locations and separate Rune
 publication issue remain unresolved. Closing dho.40 certifies this finite
 inventory and its child fixes, not complete architecture consolidation or the
 absence of differently structured duplication elsewhere.
+
+### Goroutine return classification consolidation
+
+`gohawk-dho.44.1` follows the finite spawn-classifier review. Source fallback
+found that `returnObligation` ran outside the cached instruction classifier in
+both `spawnAnalysis.prove` and its guarded non-nil retry. The shared obligation
+walk visits return instructions before its optional return callback
+(`internal/ssaflow/flow_obligation.go`); therefore return ownership can use the
+ordinary classifier without introducing another flow query or acceptance rule.
+The selected source scope is those two flow calls, `classify.go`, its
+containment adapters in `carries.go`, reason definitions and local tracing tests.
+Graph tools remain unavailable; this is not a complete transitive-engine audit.
+
+Actual SSA for `returnlabels.mergedReturn` has two predecessors at its shared
+return, loading the captured channel and changing its direction before return
+(`.build/goal-goroutine-return.ssa.txt`). The parent proof accepts that handoff
+but emits no return label. The new trace regression fails on the parent with
+zero labels while both final decisions remain present
+(`.build/goal-goroutine-return-parent-test.log`, 0.124 seconds). Returning an
+unrelated channel remains a diagnostic control. Return policy now runs through
+`spawnAnalysis.action`, sharing its query cache and one label per instruction
+across branch states and the guarded retry. Existing aggregate-projection
+opacity is traced as `returned-signal-projection`; containment transfers are
+traced as `returned-tracked-value`. The existing final outcomes are retained.
+
+Scoped CLI scans of `goroutineownership`, `summaryjoins`, `processexit` and
+`returnlabels` use the fixture GOPATH and select the goroutine check. Parent
+binary `.build/goal-goroutine-return-parent` has SHA-256
+`3649e54a79ab7af23aed663eb22a5094b104aa2aab2f70ffbbb7fe9ef24d282c`;
+current binary `.build/goal-goroutine-return-current` has SHA-256
+`04c6709f19705c176f2b6b9e8793112037cb853ac3cd8adcbd95901c711aa979`.
+Their JSON diagnostics are byte-identical (115,686 bytes), both exit 3 with
+empty stderr, and all 490 decision events agree as a multiset. Labels increase
+from 175 to 188 as previously untraced returns become visible. This establishes
+fixture diagnostic and final-decision preservation, not all-event equivalence
+or production FP removal. No full precision corpus replay is run.
+
+The same review found a separate proof-strength question: broad `consumes`
+containment is promoted to exact transfer by returns and some stores, while
+`carries.go` describes over-approximation as opacity-only. `gohawk-dho.44.2`
+tracks the actual-SSA and consumer assessment needed before changing that
+policy. The broader discovery/classifier review remains open in
+`gohawk-dho.44`; the 15 production FP locations receive no credit from this
+mechanical consolidation.
+
+Validation: the focused merged-return regression passes in 0.292 seconds.
+The first ordinary package run exposed the missing stable reason assertions;
+they now cover both new labels. The first repository gate passed ordinary tests
+in 70 seconds but failed the new test's complexity limit; extracting its label
+assertion fixes that. A subsequent formatting failure was corrected with the
+canonical `make fmt`. Final `make verify` passes with ordinary tests, formatting,
+vet, lint, dead-code, generation and local dogfood
+(`.build/goal-goroutine-return-final-verify.log`). No local race run or full
+precision-regression replay was performed.

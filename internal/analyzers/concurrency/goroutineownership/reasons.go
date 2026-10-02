@@ -50,6 +50,8 @@ const (
 	reasonLabelDynamicCallee
 	reasonLabelCalleeWithoutBody
 	reasonLabelLaunchedHelper
+	reasonLabelReturnedTracked
+	reasonLabelReturnedProjection
 	goroutineOwnershipReasonCount
 )
 
@@ -99,6 +101,8 @@ var ownershipReasonCodes = [...]string{
 	reasonLabelDynamicCallee:          "dynamic-callee",
 	reasonLabelCalleeWithoutBody:      "callee-without-body",
 	reasonLabelLaunchedHelper:         "launched-helper",
+	reasonLabelReturnedTracked:        "returned-tracked-value",
+	reasonLabelReturnedProjection:     "returned-signal-projection",
 }
 
 func (reason goroutineOwnershipReason) String() string {

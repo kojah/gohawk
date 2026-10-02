@@ -124,6 +124,7 @@ func assertLabelTrace(t *testing.T, path string) {
 		"opaque_worker_fields.go:19:20": {"closes-retained-owner", "unknown"},
 		"completion_tails.go:16:13":     {"direct-join", "accepted"},
 		"cleanup_results.go:21:2":       {"closes-retained-owner", "unknown"},
+		"factory_signals.go:19:2":       {"returned-signal-projection", "unknown"},
 	}
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event followupTraceEvent
@@ -135,6 +136,9 @@ func assertLabelTrace(t *testing.T, path string) {
 		}
 		for position, expected := range want {
 			if strings.HasSuffix(event.Position, position) && event.Reason == expected[0] && event.Outcome == expected[1] {
+				if event.Candidate == "" {
+					t.Errorf("label missing candidate association: %+v", event)
+				}
 				delete(want, position)
 			}
 		}

@@ -60,19 +60,6 @@ func (analysis *spawnAnalysis) obligation(instruction ssa.Instruction) ssaflow.O
 	return analysis.action(instruction).obligation()
 }
 
-// returnObligation is exact only for a returned tracked value; a returned
-// aggregate that may carry the signal is an opaque handoff, so it can hide a
-// diagnostic but never prove a join.
-func (analysis *spawnAnalysis) returnObligation(returned *ssa.Return) ssaflow.ObligationAction {
-	if analysis.returnTransfers(returned) {
-		return ssaflow.ObligationExact
-	}
-	if analysis.returnMayTransfer(returned) {
-		return ssaflow.ObligationUnknown
-	}
-	return ssaflow.ObligationNone
-}
-
 // edgeObligation credits a selected receive of a tracked signal as an exact
 // join on that arm alone, and a selected receive of an opaque worker's
 // context as an opaque observation on that arm alone. The exit of a counted
@@ -141,6 +128,15 @@ func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) (ownershipA
 		return actionJoin, reasonLabelSignalReceived
 	}
 	switch typed := instruction.(type) {
+	case *ssa.Return:
+		// Return ownership uses the same cache as other instructions: a merged
+		// return or a guarded re-walk must not repeat the query or its label.
+		if analysis.returnTransfers(typed) {
+			return actionTransfer, reasonLabelReturnedTracked
+		}
+		if analysis.returnMayTransfer(typed) {
+			return actionUnknown, reasonLabelReturnedProjection
+		}
 	case *ssa.MakeClosure:
 		// Capturing a value has no effect by itself. The closure's defer,
 		// return, store, launch, or opaque call is classified where it happens.

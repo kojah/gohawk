@@ -80,7 +80,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	// reached with no action at all. Opacity on one path never excuses an
 	// unrelated early return.
 	outcome, witness := ssaflow.EvaluateObligationWitness(ssaflow.ObligationFlow{
-		Start: analysis.spawn, Instruction: analysis.obligation, Return: analysis.returnObligation, Edge: analysis.edgeObligation,
+		Start: analysis.spawn, Instruction: analysis.obligation, Edge: analysis.edgeObligation,
 		Successors: summaryKnowledge.Provider(analysis.pass).Successors(), Terminates: summaryKnowledge.Provider(analysis.pass).Terminates(),
 	})
 	if outcome == ssaflow.ObligationHonored {
@@ -335,7 +335,7 @@ func (analysis *spawnAnalysis) guardedLocalJoin() bool {
 		// asks only whether the non-nil fact lets ordinary exact actions
 		// cover every return.
 		honored := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
-			Start: analysis.spawn, NonNil: created, Instruction: analysis.obligation, Return: analysis.returnObligation,
+			Start: analysis.spawn, NonNil: created, Instruction: analysis.obligation,
 			Successors: summaryKnowledge.Provider(analysis.pass).Successors(), Terminates: summaryKnowledge.Provider(analysis.pass).Terminates(),
 		}) == ssaflow.ObligationHonored
 		if honored {
