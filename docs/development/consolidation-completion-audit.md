@@ -1552,3 +1552,76 @@ at `store/manager.go:193:2` remains. Receipts are
 `.build/goal-notification-stargz-{parent,current}.{json,err}`. No candidate tests,
 generators or applications, full precision-regression corpus or local race run
 were executed.
+
+
+## Exact and stable completion bindings
+
+`gohawk-dho.44.10` follows discovery into worker-to-caller mappings. Source
+`9ec8367` pilot SSA and trace demonstrate two false obligations: a terminal
+send through a phi of two channel parameters picks the first possible actual,
+and a channel reassigned inside a worker maps to its first initializer. The
+callers receive the actual signaled channel, yet the parent reports both.
+The minimized fixture adds a third demonstrated FP: a capture reassigned before
+launch is also mapped to its old initializer. Its latest value is stable and
+its caller receives that exact channel. Parent focused tests fail all three;
+the corrected test passes, as does the ordinary analyzer package suite
+(72.853 seconds on the first implementation).
+
+`completionValueAtCall` now asks existing exact storage identity for worker
+bindings. A captured scalar/pointer cell requires read-only worker effects and
+`Storage.StableContent` at the spawn; a raw captured struct address retains
+object identity. Direct signal and group discovery, deferred group alternatives
+and aggregate-root fallback share that mapping. The nested notification route
+requires exact read-only capture identity and retains the cell until the outer
+launch maps its stable contents. Possible binding identity cannot establish an
+obligation; aggregate ownership/element observation remains unknown. No shared
+possible-binding helper changes contract, no caller branch specialization is
+added, and uncertain forms deliberately permit false negatives.
+
+Caller mapping and aggregate projections now live in `completion_bindings.go`,
+a focused evidence family distinct from notification and group promise
+selection in `obligation.go`. This also resolves the first local gate's
+file-length failure. Its other failure was the public detection paragraph's
+ninth line, corrected by shortening that paragraph. Nine new proof-strength
+cases cover mixed channel/group parameters, replaced captures, stable snapshots,
+exact parameter/capture/nested signal diagnostics and receives, and a group
+control. Existing fixtures retain their diagnostics.
+
+The parent executable `.build/goal-discovery-mapping-parent` has SHA-256
+`b838817e69f7c7e0fd422f1be14a208ddf5afca3bf0c128ff362e72355f98280`;
+actual pilot IR is `.build/goal-discovery-mapping.ssa.txt`, trace
+`.build/goal-discovery-mapping.trace.jsonl`. The final executable
+`.build/goal-binding-final` has SHA-256
+`5a24c7abba52ed7bb374941ec22dcbd1433ec544ca91ebf6537e412d28ef72eb`.
+Fresh 13-package fixture receipts are
+`.build/goal-binding-{parent,final}-receipt.{json,trace.jsonl,err}`.
+Both scans exit 3 with empty stderr, 130,569/128,139 bytes of JSON and 141/138
+diagnostics. Decisions change from 589 to 586; classifier labels remain 238.
+Three new reporting events disappear. Mixed/replaced signals become unknown
+without an obligation; the stable snapshot becomes join-proven. The mixed group
+remains unknown with no obligation, and one existing nested-worker transfer
+remains unknown while losing uncertain signal/group discovery. All other final
+decisions agree as multisets. Final JSON, decision and label multisets also
+agree with the pre-extraction implementation; no all-event equivalence is
+claimed.
+
+Graph tools remain unavailable: evidence is bounded source inspection and
+actual SSA/trace, not exhaustive transitive coverage. Production FP queue and
+frozen verdicts remain unchanged at 15 unresolved sites. `dho.44.11` records
+the next concrete source gap: discovery budgets are standalone or absent, and
+constructor discovery runs before the probe/observer setup. The new mapping's
+queries are bounded but not yet charged to the candidate pool. Parent `dho.44`
+and the overall architecture objective therefore remain active, along with
+broader process/defer/producer/lock and Rune publication work. No production
+FP credit is claimed for these synthetic regressions.
+
+
+Final `make verify` passes after the focused extraction and prose correction;
+`.build/goal-binding-final-verify.log` retains all local target receipts.
+Documentation checks pass after the inventory update. Pinned clean stargz
+`624678b4e421947534cbf0618f9609853cccee0f`, `./store`, scanned statically with
+`CGO_ENABLED=0`, `GOFLAGS=-mod=readonly`, `GOWORK=off`, yields byte-identical
+827-byte JSON, exit 3 and empty stderr in
+`.build/goal-binding-stargz-{parent,final}.{json,err}`. Its reviewed
+`store/manager.go:193:2` true positive remains. No candidate tests, generators
+or applications, full precision-regression corpus or local race run were run.

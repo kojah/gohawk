@@ -122,10 +122,28 @@ than inferring caller/worker guard relationships. `notificationpromises` pairs
 those accepted forms and inner/outer progress work with unconditional deferred
 and synchronous missing-join diagnostics and exact receive controls. The same
 return-coverage query requires a return witness rather than a vacuous proof
-from a body with no returns. No application-specific contract is added. A close-or-send worker whose send
+from a body with no returns. No application-specific contract is added.
+A close-or-send worker whose send
 is followed by arbitrary deferred cleanup is also outside coverage; the
 previous diagnostic fixture was removed as an accepted false negative. A
 close-or-send worker with no later work retains its missing-join diagnostic.
+
+Completion binding at a launch requires exact worker-local identity, rather
+than selecting the first parameter or capture that may alias a notification.
+Captured scalar/pointer cells must be read-only in the worker and have stable
+contents at the spawn; a raw captured struct address already identifies its
+object. The existing storage and callback-effect queries supply this evidence.
+Reassignment inside the worker yields no unconditional caller obligation;
+reassignment before the spawn can map the latest stable value. Nested closure
+notifications preserve an exact read-only cell binding until the outer launch
+maps its stable contents. Aggregate roots retain possible-owner acceptance,
+with exact root mapping and unknown element observation rather than exact join.
+`completionbindings/bindings.go` pairs mixed parameter and replaced capture
+acceptance with stable snapshots, exact argument/capture/nested signal
+missing-join diagnostics, exact receives and group controls. Uncertain bindings
+can hide genuine missing joins; choosing one possible caller value would create
+false obligations. No body is specialized for a caller's branch condition.
+
 
 These summaries do not introduce new worker obligations: a close or `Done`
 inside a helper may be an early readiness signal rather than completion.

@@ -2,7 +2,6 @@ package goroutineownership
 
 import (
 	"go/constant"
-	"go/token"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
@@ -201,7 +200,7 @@ func spawnedCompletionValues(
 func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure) []ssa.Value {
 	var groups []ssa.Value
 	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		group := ssaflow.CapturedBindingValue(pair.Supplied)
+		group := completionValueAtCall(spawn, function, closure, pair.Local)
 		// A typed nil actual satisfies the parameter's static WaitGroup type,
 		// but the callee's guarded deferred Done cannot run for this launch.
 		if group == nil || ssaflow.DefinitelyNil(group) || !syntax.NamedType(group.Type(), "sync", "WaitGroup") {
@@ -325,67 +324,6 @@ func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value) boo
 	}, Assume: ssaflow.EntryAssumptions{NonNil: channel}}) == nil
 }
 
-// signalSuppliedAtCall maps a worker-side channel back to the parent's value.
-// A selection from a captured aggregate resolves to the aggregate itself.
-// Its possible element observations and handoffs supply unknown ownership,
-// never an exact join of the worker's channel.
-// https://github.com/nacos-group/nacos-sdk-go/blob/002486583df5ad370ab809cd19dfd97e71b2ef6d/clients/cache/concurrent_map.go#L199-L219
-func signalSuppliedAtCall(
-	spawn *ssa.Go,
-	function *ssa.Function,
-	closure *ssa.MakeClosure,
-	channel ssa.Value,
-) ssa.Value { //nolint:ireturn // Completion signals retain their concrete SSA value types.
-	if supplied := ssaflow.SpawnedValueAtCall(spawn, function, closure, channel); supplied != nil {
-		return supplied
-	}
-	root := aggregateRoot(channel)
-	if root == channel {
-		return nil
-	}
-	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		if ssaflow.MayAliasThroughLoads(root, pair.Local) {
-			return ssaflow.CapturedBindingValue(pair.Supplied)
-		}
-	}
-	return nil
-}
-
-// aggregateRoot strips element, field, and map selections and the loads
-// between them, returning the aggregate a projected value was read from. The
-// index operands are deliberately not followed: a loop counter used to select
-// an element is not the aggregate that owns it.
-func aggregateRoot(value ssa.Value) ssa.Value { //nolint:ireturn // Roots retain their concrete SSA forms.
-	for {
-		if inner, ok := ssaflow.UnwrapTransparentValue(
-			value,
-			ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-		); ok {
-			value = inner
-			continue
-		}
-		switch typed := value.(type) {
-		case *ssa.UnOp:
-			if typed.Op != token.MUL {
-				return value
-			}
-			value = typed.X
-		case *ssa.IndexAddr:
-			value = typed.X
-		case *ssa.FieldAddr:
-			value = typed.X
-		case *ssa.Index:
-			value = typed.X
-		case *ssa.Field:
-			value = typed.X
-		case *ssa.Lookup:
-			value = typed.X
-		default:
-			return value
-		}
-	}
-}
-
 // nestedClosureSignal returns the worker-level value that a synchronously
 // invoked inner closure sends on or closes. A deferred inner closure is the
 // common shape: `defer func() { done <- recover() }()`.
@@ -400,9 +338,16 @@ func nestedClosureSignal(nested *ssa.MakeClosure) ssa.Value { //nolint:ireturn /
 			if channel == nil || !notifiesChannelOnEveryReturn(function, channel) {
 				continue
 			}
+			budget := ssaflow.NewSearchBudget(spawnQueryBudget)
+			storage := heapmodel.NewStorage(budget)
+			source := channel
+			if identity, ok := ssaflow.IdentitySource(channel); ok {
+				source = identity
+			}
 			for _, captured := range ssaflow.ClosureBindingPairs(function, nested) {
-				if ssaflow.MayAliasThroughLoads(channel, captured.Free) {
-					return ssaflow.CapturedBindingValue(captured.Binding)
+				if storage.Same(source, captured.Free).Proven() &&
+					ssaflow.CallbackCaptureReadOnly(nested, captured.Binding, budget) {
+					return captured.Binding
 				}
 			}
 		}
@@ -437,7 +382,7 @@ func waitGroupCompletionValues(
 				continue
 			}
 			receiver := ssaflow.CallReceiver(common)
-			group := ssaflow.SpawnedValueAtCall(spawn, function, closure, receiver)
+			group := completionValueAtCall(spawn, function, closure, receiver)
 			// A callee's nil-guarded Done is not a promise when this launch passes
 			// nil. OpenIM's fire-and-forget branch uses the same worker as its
 			// counted branch but supplies a nil group:
