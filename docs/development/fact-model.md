@@ -1019,7 +1019,27 @@ Complete positive field identities remain reusable.
 The actual SSA and child/fresh controls are in
 [spill_paths_budget_test.go](../../internal/passes/concurrencyfacts/spill_paths_budget_test.go).
 Existing imported formal-field guarantees and the fact schema remain unchanged.
-Fact publication's metadata validation, package write-once inventory setup,
-heap graph and type-system internals retain their separate costs. Beads
-`gohawk-dho.44.11.5.25.5` tracks sharing the publication allowance through field
-metadata; this engine-path correction does not certify that separate boundary.
+
+### Concurrency publication allowance
+
+Export inference, linear publication validation, and a branch-alternative retry
+share one 2,000-step allowance per exported function. Local `Declaration` queries
+likewise retain the supplied allowance through publication. Cached summaries save
+inference work but do not bypass validation. Formal-parameter searches, embedded
+field paths, field copies, worker metadata, path conditions and their context
+positions, and returned entries spend that allowance. The schema remains version 9;
+no caller-specific identity or application target set becomes a declaration fact.
+
+Any failed publication returns only the version marker, never earlier effects,
+cancellation requirements, workers or path alternatives. A pre-inferred projection
+cannot rescue an interrupted field-path search. Actual SSA cold/cache queries,
+child/parent/fresh controls, cancellation requirements, a padded spill path, and
+an alternative cut after an earlier path are covered in
+[publication_budget_test.go](../../internal/passes/concurrencyfacts/publication_budget_test.go).
+
+Imported declaration cloning is a separate boundary tracked by Beads
+`gohawk-dho.44.11.5.25.6`: nested alternatives still need mutation isolation and
+all clone loops need the caller allowance. Package write-once inventory setup,
+heap graph and type-system internals, constant/string formatting, fact encoding
+and decoding retain their independent costs. These bounds count evidence steps;
+they are not a wall-time or memory guarantee.

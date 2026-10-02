@@ -52,7 +52,7 @@ func root() {
 func assertReceiverWorkerFact(t *testing.T, engine *Engine, function *ssa.Function) {
 	t.Helper()
 	declaration := engine.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
-	fact, exported := exportSummary(function, declaration)
+	fact, exported := exportSummary(function, declaration, nil)
 	if !exported || len(fact.Workers) != 1 || len(fact.Workers[0].Effects) != 3 {
 		t.Fatalf("receiver declaration was not exported: %+v (%+v)", fact, declaration)
 	}

@@ -7,6 +7,8 @@ import (
 	"go/types"
 	"strconv"
 
+	"github.com/kojah/gohawk/internal/ssaflow"
+
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -64,19 +66,26 @@ type FactConstant struct {
 }
 
 // exportAlternatives publishes every path alternative, or none.
-func exportAlternatives(function *ssa.Function, paths []Summary) (Fact, bool) {
+func exportAlternatives(function *ssa.Function, paths []Summary, budget *ssaflow.SearchBudget) (Fact, bool) {
 	fact := Fact{Version: factVersion}
 	internal := map[string]int{}
 	for _, path := range paths {
-		body, ok := exportSummary(function, path)
+		body, ok := exportSummary(function, path, budget)
 		if !ok {
 			return Fact{Version: factVersion}, false
 		}
 		alternative := FactAlternative{Effects: body.Effects, Workers: body.Workers, CancellationInputs: body.CancellationInputs}
 		for _, condition := range path.Conditions {
-			alternative.Conditions = append(alternative.Conditions, exportCondition(function, condition, internal))
+			published, ok := exportCondition(function, condition, internal, budget)
+			if !ok {
+				return Fact{Version: factVersion}, false
+			}
+			alternative.Conditions = append(alternative.Conditions, published)
 		}
 		for _, returned := range path.Returned {
+			if !budget.Spend() {
+				return Fact{Version: factVersion}, false
+			}
 			published, ok := exportConstant(returned.Constant)
 			if returned.Constant != nil && !ok {
 				continue
@@ -88,24 +97,35 @@ func exportAlternatives(function *ssa.Function, paths []Summary) (Fact, bool) {
 	return fact, true
 }
 
-func exportCondition(function *ssa.Function, condition Condition, internal map[string]int) FactCondition {
+func exportCondition(function *ssa.Function, condition Condition, internal map[string]int, budget *ssaflow.SearchBudget) (FactCondition, bool) {
+	if !budget.Spend() {
+		return FactCondition{}, false
+	}
 	published, exact := exportConstant(condition.Compared)
 	if len(condition.Context) == 0 && (condition.Compared == nil || exact) {
 		for index, parameter := range function.Params {
+			if !budget.Spend() {
+				return FactCondition{}, false
+			}
 			if parameter == condition.Value {
-				return FactCondition{Parameter: index, Constant: published, Holds: condition.Holds, Implied: condition.Implied}
+				return FactCondition{Parameter: index, Constant: published, Holds: condition.Holds, Implied: condition.Implied}, true
 			}
 		}
 	}
 	// Two tests of one inner condition must share a number, so the key keeps
 	// what makes them the same test: the value, its context, and the constant.
+	for range condition.Context {
+		if !budget.Spend() {
+			return FactCondition{}, false
+		}
+	}
 	key := fmt.Sprintf("%p#%v#%v", condition.Value, condition.Context, condition.Compared)
 	number, seen := internal[key]
 	if !seen {
 		number = len(internal)
 		internal[key] = number
 	}
-	return FactCondition{Parameter: -1, Internal: number, Holds: condition.Holds, Implied: condition.Implied}
+	return FactCondition{Parameter: -1, Internal: number, Holds: condition.Holds, Implied: condition.Implied}, true
 }
 
 func exportConstant(value *ssa.Const) (FactConstant, bool) {

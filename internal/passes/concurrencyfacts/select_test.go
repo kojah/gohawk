@@ -53,7 +53,7 @@ func TestSelectAlternativesRemainExclusive(t *testing.T) {
 			(choice.Arms[1].Operation.Kind != Receive && !choice.Arms[1].Default) {
 			t.Errorf("%s choice = %+v", name, choice)
 		}
-		if _, exported := exportSummary(function, result); exported {
+		if _, exported := exportSummary(function, result, nil); exported {
 			t.Errorf("%s exported conditional effects as a linear fact", name)
 		}
 	}

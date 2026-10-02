@@ -28,7 +28,7 @@ func (engine *Engine) Declaration(function *ssa.Function, budget *ssaflow.Search
 		return Fact{}, false
 	}
 	if len(function.Blocks) != 0 {
-		return exportSummary(function, engine.summaries.Function(function, budget))
+		return exportSummary(function, engine.summaries.Function(function, budget), budget)
 	}
 	object, _ := function.Object().(*types.Func)
 	fact, ok := engine.facts[object]

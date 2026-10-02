@@ -92,7 +92,7 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 		probe := trace.For(pass, "concurrencyfacts", "", function.Pos())
 		probe.Candidate(trace.Step{Reason: ReasonSummarizing.String(), Outcome: trace.OutcomeObserved})
-		fact, ok := engine.exportFunction(function)
+		fact, ok := engine.exportFunction(function, ssaflow.NewSearchBudget(exportBudget))
 		outcome, reason := trace.OutcomeUnknown, ReasonExportUnknown
 		if ok {
 			pass.ExportObjectFact(object, &publishedFact{factcodec.Wrap(fact)})
@@ -106,16 +106,16 @@ func run(pass *analysis.Pass) (any, error) {
 // exportFunction publishes the linear summary, or the path alternatives of a
 // function whose branches differ. The linear cache stays separate so a path
 // query never widens what linear consumers see.
-func (engine *Engine) exportFunction(function *ssa.Function) (Fact, bool) {
-	result := engine.linear.Function(function, ssaflow.NewSearchBudget(exportBudget))
-	if fact, ok := exportSummary(function, result); ok || result.Reason != ReasonBranchEffectsDiffer {
+func (engine *Engine) exportFunction(function *ssa.Function, budget *ssaflow.SearchBudget) (Fact, bool) {
+	result := engine.linear.Function(function, budget)
+	if fact, ok := exportSummary(function, result, budget); ok || result.Reason != ReasonBranchEffectsDiffer {
 		return fact, ok
 	}
-	paths := engine.summaries.Function(function, ssaflow.NewSearchBudget(exportBudget))
+	paths := engine.summaries.Function(function, budget)
 	if len(paths.Paths) == 0 {
 		return Fact{Version: factVersion}, false
 	}
-	return exportAlternatives(function, paths.Paths)
+	return exportAlternatives(function, paths.Paths, budget)
 }
 
 // A conditional cancellation summary is publishable, but not yet usable as
@@ -124,38 +124,55 @@ func (engine *Engine) exportFunction(function *ssa.Function) (Fact, bool) {
 // merely by crossing a package boundary. Local origins cannot be exported.
 // publishableShape reports whether a summary is one linear sequence a fact
 // can carry: no paths, pending defers, or replicated workers, within limits.
-func publishableShape(result Summary) bool {
-	return composableLinear(result) && !result.hasReplicatedWorkers() && len(result.Paths) == 0 &&
-		len(result.Workers) <= maxWorkers && len(result.deferred) == 0 && result.operationCount() <= maxOperations
+func publishableShape(result Summary, budget *ssaflow.SearchBudget) bool {
+	if !budget.Spend() || !composableLinear(result) || len(result.Paths) != 0 ||
+		len(result.Workers) > maxWorkers || len(result.deferred) != 0 {
+		return false
+	}
+	count := len(result.Operations) + len(result.CancellationInputs)
+	for _, worker := range result.Workers {
+		if !budget.Spend() || worker.Replicated || len(worker.Alternatives) != 0 {
+			return false
+		}
+		count += len(worker.Operations)
+	}
+	return count <= maxOperations
 }
 
-func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
-	fact := Fact{Version: factVersion}
-	if !publishableShape(result) {
+func exportSummary(function *ssa.Function, result Summary, budget *ssaflow.SearchBudget) (fact Fact, ok bool) {
+	fact = Fact{Version: factVersion}
+	// Publication is exhaustive. A later failure cannot retain earlier effects
+	// or cancellation requirements, including when inference came from cache.
+	defer func() {
+		if !ok {
+			fact = Fact{Version: factVersion}
+		}
+	}()
+	if !publishableShape(result, budget) {
 		return fact, false
 	}
 	for _, input := range result.CancellationInputs {
-		effect, ok := exportEffect(function, Operation{Resource: input})
+		effect, ok := exportEffect(function, Operation{Resource: input}, budget)
 		if !ok || len(effect.Fields) != 0 || !input.Cancellation {
 			return Fact{Version: factVersion}, false
 		}
 		fact.CancellationInputs = append(fact.CancellationInputs, effect.Parameter)
 	}
 	for _, operation := range result.Operations {
-		effect, ok := exportEffect(function, operation)
+		effect, ok := exportEffect(function, operation, budget)
 		if !ok {
 			return fact, false
 		}
 		fact.Effects = append(fact.Effects, effect)
 	}
 	for _, worker := range result.Workers {
-		if len(worker.Alternatives) != 0 || worker.Prefix < 0 || worker.Prefix > len(fact.Effects) ||
+		if !budget.Spend() || worker.Prefix < 0 || worker.Prefix > len(fact.Effects) ||
 			worker.Spawn == nil && !worker.Site.IsValid() {
 			return Fact{Version: factVersion}, false
 		}
 		entry := WorkerEffect{Prefix: worker.Prefix}
 		for _, operation := range worker.Operations {
-			effect, ok := exportEffect(function, operation)
+			effect, ok := exportEffect(function, operation, budget)
 			if !ok {
 				return Fact{Version: factVersion}, false
 			}
@@ -166,20 +183,34 @@ func exportSummary(function *ssa.Function, result Summary) (Fact, bool) {
 	return fact, true
 }
 
-func exportEffect(function *ssa.Function, operation Operation) (Effect, bool) {
+func exportEffect(function *ssa.Function, operation Operation, budget *ssaflow.SearchBudget) (Effect, bool) {
+	if !budget.Spend() {
+		return Effect{}, false
+	}
 	resource := operation.Resource
-	path, projected := embeddedPath(resource.Value)
+	path, projected := embeddedPathWithin(resource.Value, budget)
+	if budget.Exhausted() {
+		return Effect{}, false
+	}
 	if resource.Projection.Depth > 0 {
 		path, projected = resource.Projection, true
 	}
 	for index, parameter := range function.Params {
+		if !budget.Spend() {
+			return Effect{}, false
+		}
 		if resource.Indirect || parameter != resource.Value &&
 			(!projected || parameter != path.Root || !MutexPointer(resource.Value.Type())) {
 			continue
 		}
 		effect := Effect{Kind: operation.Kind, Parameter: index}
 		if projected && path.Depth > 0 {
-			effect.Fields = append([]int(nil), path.Fields[:path.Depth]...)
+			for _, field := range path.Fields[:path.Depth] {
+				if !budget.Spend() {
+					return Effect{}, false
+				}
+				effect.Fields = append(effect.Fields, field)
+			}
 		}
 		if operation.Method != nil {
 			if !operation.Method.Exported() {

@@ -21,10 +21,6 @@ import (
 // builder spills it to a cell and reads it back: such a read is the parameter
 // itself while the heap model proves the cell still holds it, which a write by
 // the closure or a later reassignment breaks.
-func embeddedPath(value ssa.Value) (ssaflow.EmbeddedFieldPath, bool) {
-	return embeddedPathWithin(value, nil)
-}
-
 func embeddedPathWithin(value ssa.Value, budget *ssaflow.SearchBudget) (ssaflow.EmbeddedFieldPath, bool) {
 	return pathFromWithin(value, nil, budget)
 }
