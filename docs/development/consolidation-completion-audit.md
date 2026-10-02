@@ -870,7 +870,7 @@ resource exhaustion labels (`dho.42`) and ordinary completion budget ownership
 | Guarded captured HTTP cleanup | `guardedCapturedBodyCleanup` requires current stable content equal to this acquisition, and both caller/callee exposure checks must pass under one candidate allowance. `guardedBodyCoverage` uses Body-load identity and every-normal-return coverage with a nonnil assumption. Exhaustion cannot make that narrower positive witness succeed. This differs from cancellation's written-once cell/direct-defer ownership proof; a common broad capture traversal would erase the distinction. |
 | Selected coverage adapter | `lifecycle/completion_search.go:MethodCallCoverage` delegates every-return coverage to the existing return/action witness and shared obligation walk, while anywhere coverage is an existential instruction witness. Captured-cell callers request anywhere coverage only for unknown classification; the guarded Body proof requests every-return coverage. These polarities remain explicit at their callers. |
 | `resourcelifetime/optional_acquisition.go` | `proveOptionalAcquisition` requires one acyclic diamond, exact resource and paired-error phis, nil alternate edges and a repeated equality of the same operands. It pairs phi values with predecessor blocks through the shared adapter. Only the acquired merge successor is selected, and cleanup must target the exact resource phi through the selected transparent wrappers. Generic existential derivation and helper/edge completion remain excluded. |
-| SQL parent/context classifier boundaries | `contracts.go:closesStatementDatabase/finishesRowsTransaction/cancelsTransactionContext` require known database/sql symbols and the exact receiver or paired context-constructor cancel. They yield uncertainty about parent-owned/asynchronous cleanup, never synchronous child release. `statementParentIdentity` uses shared storage identity at the loads; its nil budget selects NewStorage's bounded default, not an unbounded search. Resource SQL lifetime and cancellation-owner policy remain separate. |
+| SQL parent/context classifier boundaries | `sql_parents.go:proveSQLParentCleanupWithin` and `contracts.go:cancelsTransactionContext` require known database/sql symbols and the exact receiver or paired context-constructor cancel. They yield uncertainty about parent-owned/asynchronous cleanup, never synchronous child release. `proveSQLParentIdentityWithin` uses shared point-in-time storage identity under the caller allowance, retaining the storage child cap. Resource SQL lifetime and cancellation-owner policy remain separate. |
 | Constant comparison boundaries | Optional acquisition's `sameExactOperand` accepts SSA identity or equal nonnil constants of identical static types. `ssaflow/flow_paths.go:sameLiteral` compares return literals within one declared result and accepts nil literals; lock scalar comparison additionally requires equal constant kinds and its own bindings. These are different input/precision contracts, not a candidate for a universal equality predicate. The optional nil-constant boundary is retained, not silently widened. |
 
 The local collection origin query accepts nil or a local MakeSlice; the code
@@ -2918,3 +2918,58 @@ keeps the prior owner-discovery Cute/Ferro JSON byte-identical, terminal exits
 Cute TP remains; Ferro's corrected storage report stays absent. These scoped
 receipts credit no new FP correction or full-corpus precision result. No full
 precision replay ran.
+
+## SQL parent identity consolidation
+
+`gohawk-dho.44.11.5.17.3` extracts DB statement-parent and Tx rows-parent
+contracts into `sql_parents.go`. One structured proof supplies prior deferred
+registration and ordinary classification. The original symbol and exact-parent
+policies remain: DB.Close gives uncertain pooled-statement retirement, and
+finishing the exact Tx gives uncertain asynchronous rows cleanup. Neither is
+synchronous child release. Tx-prepared statements must resolve to the exact
+constructor result; replaced or sibling statements retain their obligations.
+Durable contract rationale and motivating pinned links moved with this policy.
+
+Point-in-time identity and Stmt receiver resolution retain separate QueryBudget
+child caps but spend their caller's allowance. Child cutoff propagates unknown
+before either consumer can continue; a complete unmatched storage query means
+no contract recognized, not proof that parents differ. The prior-defer helper
+keeps captured-cell, SQL parent and paired-context reason precedence without
+repeating the parent decision. Paired-context cancellation remains its separate
+mechanical contract. Graph/type costs and earlier acquisition predicates remain
+independent. Child `.17.4` tracks the pre-acquisition defer census, which still
+allocates a fresh completion allowance for each dominating defer.
+
+`sql_parents_test.go` covers twelve exact/sibling/mixed/replaced/saved parent
+cases, captured DB cells, direct Tx rows and Tx-prepared statements at every
+insufficient allowance. Actual SSA in `.build/goal-sql-parent-fixture.ssa.txt`
+shows distinct loads before/after captured-cell reassignment and exact Prepare
+result extraction. Both consumers have cutoff/fresh reason controls. A long
+actual conversion chain exhausts the storage child while the parent remains
+available; the short chain succeeds. Focused SQL controls pass in 0.197 seconds.
+The ignored-allowance overlay fails all twelve proof controls and both ordinary
+classifier controls. A second overlay ignoring child availability fails the
+storage-cap control with an incorrect completed negative while the parent is
+still available. Existing conditional SQL-parent regression fixtures remain.
+
+Immutable `.build/goal-sql-parent-current`, SHA-256
+`ef1f9413166b880e192b38f7e7bfa71a3348fd7e1e473c9876dd58bd04c4aa5c`,
+keeps the pinned Cute/Ferro resource JSON byte-identical to the prior-cleanup
+binary, terminal exits 3/0 and empty stderr. Pins/scopes remain those recorded
+above. Cute's known TP remains and Ferro's corrected storage FP stays absent.
+No new production FP correction or full precision replay is credited.
+
+The first canonical gate failed the existing candidate-observed helper
+completion test: spending SQL allowance before symbol applicability intercepted
+an unrelated helper's exhaustion event. Applicability now precedes the query,
+so unrelated calls retain their authoritative completion path. The focused
+SQL/prior/helper controls pass in 0.278 seconds; the ignored-allowance overlay
+still fails the same twelve proof and two classifier controls on final source.
+The final immutable `.build/goal-sql-parent-final-current`, SHA-256
+`6198b1062b66d2d456fea3ffd623346606f8d5a8019eaef33863d9e3cb745910`,
+was built separately and its terminal pinned Cute/Ferro results remain
+byte-identical to the prior-cleanup baseline, exits 3/0 and empty stderr.
+
+The final canonical gate passes, including ordinary tests (86 seconds) and
+repository dogfood (44 seconds). Final documentation/architecture checks pass.
+The bounded SQL parent task is complete; earlier acquisition work remains open.

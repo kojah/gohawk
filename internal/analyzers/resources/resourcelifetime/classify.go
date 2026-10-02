@@ -115,11 +115,9 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if analysis.compressionOutputAbandoned(instruction) {
 		return actionUnknown, resourceReasonCompressionOutputMayBeAbandoned
 	}
-	if closesStatementDatabase(analysis.acquisition, instruction) {
-		return actionUnknown, resourceReasonStatementParentClosed
-	}
-	if finishesRowsTransaction(analysis.acquisition, instruction) {
-		return actionUnknown, resourceReasonRowsTransactionFinished
+	parent := proveSQLParentCleanupWithin(analysis.acquisition, instruction, analysis.budget(ssaflow.SummaryBudget))
+	if parent.State != ssaflow.EvidenceDisproven {
+		return actionUnknown, parent.Reason
 	}
 	if cancelsTransactionContext(analysis.acquisition, instruction) {
 		return actionUnknown, resourceReasonTransactionContextCanceled

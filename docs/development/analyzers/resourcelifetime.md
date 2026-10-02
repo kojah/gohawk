@@ -974,11 +974,31 @@ The same captured-cell proof supplies the ordinary deferred-closure classifier,
 so that path cannot treat interrupted evidence as transparent consumption.
 Tracing uses the returned witness rather than repeating the cleanup decision.
 
-The callback recognizer retains its single transparent wrapper step. Database
-statement-parent, rows-transaction and paired transaction-context contracts keep
-their existing independent identity queries; graph/alias/type internals and
-earlier acquisition predicates remain separate cost work. Deferred witnesses
+The callback recognizer retains its single transparent wrapper step. SQL statement-parent and rows-transaction contracts now share their bounded
+identity proof with ordinary classification. Paired transaction-context
+contracts, graph/alias/type internals and earlier acquisition predicates remain
+separate cost work. Deferred witnesses
 keep precedence over callback registrations. `prior_cleanup_test.go` covers
 mutable captured cleanup, exact testing registration, unrelated captures,
 by-value defers, later registration, all insufficient allowances, child/pool
 cutoff, fresh recovery and full-flow leak/release controls using actual SSA.
+
+### SQL parent identity allowance
+
+`sql_parents.go` owns one exact parent-cleanup proof consumed by prior deferred
+cleanup and ordinary classification. DB-prepared statements and rows on the
+exact finished transaction retain their uncertainty policy. A transaction-
+prepared statement must resolve to that exact constructor before its rows can
+inherit the transaction parent. Sibling parents, replaced statements and mixed
+receiver alternatives establish no match; unknown storage never establishes
+exact release. Point-in-time storage identity preserves saved receivers across
+later local reassignment and rejects a shared cell whose values differ.
+
+Storage identity and statement resolution keep their separate 1,000-step child
+caps while charging the candidate allowance. Child cutoff returns budget
+uncertainty even when the caller pool remains available. Context/cancel pairing
+retains its distinct contract and graph/type internals remain independent costs.
+`sql_parents_test.go` covers exact, sibling, mixed and replaced receivers,
+captured cells, saved values, Tx-prepared statements, all insufficient allowances
+and cutoff/fresh recovery in both consumers. Existing SQL parent fixtures retain
+conditional cleanup diagnostics and accepted exact-parent cleanup forms.

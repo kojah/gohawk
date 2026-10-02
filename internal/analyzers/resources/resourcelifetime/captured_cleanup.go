@@ -123,23 +123,12 @@ func (analysis *resourceAnalysis) provePriorCleanupWithin(acquisition *ssa.Call,
 		if !ok || !ssaflow.InstructionDominates(deferred, acquisition) {
 			continue
 		}
-		proof := analysis.proveCapturedCellCleanupWithin(deferred, budget)
+		proof := analysis.provePriorDeferredWithin(acquisition, deferred, budget)
 		if proof.State == ssaflow.EvidenceUnknown {
 			return priorCleanupProof{resourceProof: proof}
 		}
-		reason := resourceReasonNone
-		switch {
-		case proof.Proven():
-			reason = resourceReasonPriorDeferMayCleanCapturedCell
-		case closesStatementDatabase(acquisition, deferred):
-			reason = resourceReasonStatementParentClosed
-		case finishesRowsTransaction(acquisition, deferred):
-			reason = resourceReasonRowsTransactionFinished
-		case cancelsTransactionContext(acquisition, deferred):
-			reason = resourceReasonTransactionContextCanceled
-		}
-		if reason != resourceReasonNone {
-			return priorCleanupProof{resourceProof: carriedValueProof(true, reason, budget), Instruction: deferred}
+		if proof.Proven() {
+			return priorCleanupProof{resourceProof: proof, Instruction: deferred}
 		}
 	}
 	if resourceFlowExhausted(budget) {
@@ -167,6 +156,23 @@ func (analysis *resourceAnalysis) provePriorCleanupWithin(acquisition *ssa.Call,
 		}
 	}
 	return priorCleanupProof{resourceProof: carriedValueProof(false, resourceReasonUntouched, budget)}
+}
+
+// Preserve captured-cell, SQL parent and paired-context reason precedence.
+// Each witness supplies possible cleanup; none is an exact release guarantee.
+func (analysis *resourceAnalysis) provePriorDeferredWithin(acquisition *ssa.Call, deferred *ssa.Defer, budget *ssaflow.SearchBudget) resourceProof {
+	proof := analysis.proveCapturedCellCleanupWithin(deferred, budget)
+	if proof.State == ssaflow.EvidenceUnknown {
+		return proof
+	}
+	if proof.Proven() {
+		return carriedValueProof(true, resourceReasonPriorDeferMayCleanCapturedCell, budget)
+	}
+	parent := proveSQLParentCleanupWithin(acquisition, deferred, budget)
+	if parent.State != ssaflow.EvidenceDisproven {
+		return parent
+	}
+	return carriedValueProof(cancelsTransactionContext(acquisition, deferred), resourceReasonTransactionContextCanceled, budget)
 }
 
 // A defer observes the captured cell at return, not at registration.
