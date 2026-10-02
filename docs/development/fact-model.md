@@ -541,6 +541,11 @@ clear `Retained` bit is not a read-only guarantee. This query requires a visible
 body and does not synthesize effects from missing lifecycle-summary bits; see
 [Local storage model](storage-model.md).
 
+`CallEffectsWithin` charges the same effect visits to a caller allowance while
+retaining the local query cap. A shortened query remains unknown even when
+the caller has budget left. The default method delegates to this path with an
+independent allowance; fact encoding and effect polarity do not change.
+
 `ClaimAsynchronouslyExposes` reads positive `HeapEscapedAsync` effects for an
 exact parameter object from the existing heap projection. It is a may-claim:
 the asynchronous handoff need not happen on every return. A child-field effect,

@@ -312,3 +312,37 @@ func proveCallResultMayTransferWithin(instruction ssa.Instruction, budget *ssafl
 	}
 	return carriedValueProof(false, resourceReasonUntouched, budget)
 }
+
+// Imported heap summaries retain the same positive asynchronous exposure as
+// local call effects. A may-exposure makes ownership unknown; synchronous
+// borrowing remains transparent. No missing claim proves an absence of escape.
+// https://github.com/golang/debug/blob/ac862fd6552b739f50ba812382eed75745a129b1/cmd/viewcore/main.go#L820-L829
+func (analysis *resourceAnalysis) proveAsynchronousExposureWithin(
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+) resourceProof {
+	for index, argument := range common.Args {
+		if !budget.Spend() {
+			return carriedValueProof(false, resourceReasonUntouched, budget)
+		}
+		derived := heapmodel.ValueDerivesFromWithin(argument, analysis.resource, budget)
+		if resourceFlowExhausted(budget) {
+			return carriedValueProof(false, resourceReasonUntouched, budget)
+		}
+		if !derived {
+			continue
+		}
+		if !budget.Spend() {
+			return carriedValueProof(false, resourceReasonUntouched, budget)
+		}
+		if exposed, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimAsynchronouslyExposes); exposed {
+			return carriedValueProof(true, resourceReasonCallEffectsAsynchronousExposure, budget)
+		}
+	}
+	effects := analysis.evidence.CallEffectsWithin(instruction, analysis.resource, budget)
+	// A shortened local effect query cannot establish the absence of async use.
+	// Preserve its child-cap cutoff even when the caller allowance is available.
+	if effects.Reason == ssaflow.EvidenceBudgetExhausted {
+		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	}
+	return carriedValueProof(effects.Proven() && effects.Effects&ssaflow.EffectAsync != 0, resourceReasonCallEffectsAsynchronousExposure, budget)
+}

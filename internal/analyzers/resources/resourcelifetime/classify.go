@@ -313,8 +313,11 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	// being launched. That is opaque ownership, not proven cleanup. Conversely,
 	// preserving an address does not prove that a resource loaded through it
 	// stays owned here: the lifecycle-specific rules below still decide that.
-	if carried && analysis.asynchronouslyExposesResource(instruction, common) {
-		return resourceReasonCallEffectsAsynchronousExposure, true
+	if carried {
+		exposure := analysis.proveAsynchronousExposureWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
+		if exposure.State != ssaflow.EvidenceDisproven {
+			return exposure.Reason, true
+		}
 	}
 	if common.IsInvoke() {
 		// The receiver of an interface method is not consumed by being the
@@ -329,23 +332,6 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 		return analysis.opaqueClosureCall(instruction, closure, carried)
 	}
 	return analysis.opaqueFunctionCall(instruction, common, carried)
-}
-
-// Imported heap summaries retain the same positive asynchronous exposure as
-// local call effects. A may-exposure makes ownership unknown; synchronous
-// borrowing remains transparent. No missing claim proves an absence of escape.
-// https://github.com/golang/debug/blob/ac862fd6552b739f50ba812382eed75745a129b1/cmd/viewcore/main.go#L820-L829
-func (analysis *resourceAnalysis) asynchronouslyExposesResource(instruction ssa.Instruction, common *ssa.CallCommon) bool {
-	for index, argument := range common.Args {
-		if !heapmodel.ValueDerivesFrom(argument, analysis.resource) {
-			continue
-		}
-		if exposed, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimAsynchronouslyExposes); exposed {
-			return true
-		}
-	}
-	effects := analysis.evidence.CallEffects(instruction, analysis.resource)
-	return effects.Proven() && effects.Effects&ssaflow.EffectAsync != 0
 }
 
 // Named and dynamically selected functions share the argument-level boundary;

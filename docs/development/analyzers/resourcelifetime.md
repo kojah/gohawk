@@ -324,6 +324,38 @@ retains the same pinned Cute/Ferro scopes: exits 3/0, empty stderr and
 byte-identical JSON against the closure/callback binary. This records scoped
 stability, no new FP removal and no full precision replay.
 
+Asynchronous exposure now uses `ownership.go:proveAsynchronousExposureWithin`.
+Argument visits, derivation and imported async-claim dispatch share the caller
+allowance. The local fallback requests `LifecycleEvidence.CallEffectsWithin`,
+which retains its existing query cap while charging the caller. An interrupted
+effect query is unknown even when the resource's caller allowance remains
+available; it cannot complete a negative exposure result. Positive imported
+async claims and complete local async effects retain the existing opacity
+reason. Complete read-only helpers, unrelated arguments and unavailable bodies
+retain their earlier exposure-policy result; other classifier stages still
+decide opaque calls. No exposure result proves cleanup.
+
+The default `CallEffects` API delegates to the same implementation with an
+independent allowance, preserving its cap and trace. Other resource effect
+consumers still use that default API; this does not claim a transitive bound
+over graph/alias/type or call-binding construction internals.
+`call_effects_budget_test.go` checks exact read/async/unavailable effects, every
+insufficient allowance and the local child cap. `asynchronous_exposure_test.go`
+covers imported and local exposure, accepted borrowing/unrelated forms, and
+unknown at the classifier when the effect child exhausts while the candidate
+pool remains available. An overlay ignoring effect-cutoff propagation fails
+that consumer control. This step owns `gohawk-dho.44.11.5.18.1.5.6`; captured
+owner and access-path availability remain parent work.
+
+The async-exposure local gate passed; its immutable executable is
+`.build/goal-async-exposure-current`, SHA-256
+`d27280a620970129ca0cc05e5f1967b426bd5accb107e5449d838691c7877d03`.
+The same pinned Cute/Ferro scopes exit 3/0 with empty stderr and byte-identical
+JSON against the result-publication binary. Ignoring effect-cutoff propagation
+fails both the independent proof and authoritative classifier controls. These
+receipts establish scoped stability, with no production FP removal credited
+and no full precision replay.
+
 The resource projection decision propagates view-binding and storage-projection
 cutoff rather than treating it as missing evidence. A known non-cleaning view
 still cannot discharge its resource merely because it has a Close method;
