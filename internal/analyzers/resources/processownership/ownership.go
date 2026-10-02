@@ -196,7 +196,7 @@ func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, comm
 }
 
 func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
-	if possibleWaitHandoff(instruction, command, proof.budget()) {
+	if handoff := provePossibleWaitHandoff(instruction, command, proof.budget()); handoff.State == ssaflow.EvidenceUnknown {
 		return ssaflow.EvidenceUnknown
 	}
 	if deferred := deferredClosureWaitsForCommand(instruction, command, proof.budget()); deferred != ssaflow.EvidenceDisproven {
@@ -264,52 +264,6 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 		return ssaflow.EvidenceUnknown
 	}
 	return ssaflow.EvidenceDisproven
-}
-
-// A callback supplied to an opaque runner may own the wait. This is a reason
-// to decline loss, not evidence that the runner invokes or joins the callback.
-// A started worker with no normal return also remains opaque when it contains
-// a positive Wait witness: every-return completion deliberately excludes it.
-// https://github.com/la5nta/pat/blob/2e6a8d14baf0268f4e2aa4d01784a54ca935cf52/internal/prehook/prehook.go#L109-L114
-func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget *ssaflow.SearchBudget) bool {
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	// A merged receiver may select the successfully started command. The
-	// flow does not retain acquisition-error/receiver correlation, so possible
-	// identity makes this action unknown, never a guaranteed Wait. An earlier
-	// return that bypasses the action is still checked by the ordinary flow.
-	// https://github.com/raskrebs/sonar/blob/9c963b8447d6ca08dd4a3c0bc6c0bf27527cd793/internal/runs/runs_test.go#L117-L130
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
-		receiver := ssaflow.CallReceiver(common)
-		_, merged := receiver.(*ssa.Phi)
-		return merged && heapmodel.MayAlias(receiver, command) &&
-			!heapmodel.NewStorage(nil).Same(receiver, command).Proven()
-	}
-	callee, _ := ssaflow.DirectCallee(common)
-	if _, spawned := instruction.(*ssa.Go); spawned && callee != nil && len(callee.Blocks) != 0 {
-		if ssaflow.NormalReturnReachableFrom(callee.Blocks[0]) {
-			return false
-		}
-		return lifecycle.ProveCompletion(lifecycle.CompletionRequest{
-			Instruction: instruction, Target: command, Methods: []string{"Wait"},
-			Coverage: lifecycle.CoverageAnywhere, Budget: budget,
-		}).Proven()
-	}
-	if callee != nil && len(callee.Blocks) != 0 {
-		return false
-	}
-	// Imported and unresolved runners can retain the same callback whether
-	// called synchronously or launched. The launch does not make their missing
-	// invocation guarantee evidence that the captured command stays local.
-	// https://github.com/unstablebuild/rune/blob/3e2165f8983280542c985947378dfa740a397d03/internal/workspace/file_scheme.go#L458-L467
-	for _, argument := range common.Args {
-		if _, callback := argument.(*ssa.MakeClosure); callback && lifecycle.MayContainValue(argument, command) {
-			return true
-		}
-	}
-	return false
 }
 
 func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa.Value) bool {

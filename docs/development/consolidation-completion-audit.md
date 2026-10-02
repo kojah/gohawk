@@ -4721,3 +4721,23 @@ SQL helper requires stability through Begin and, for the stream helper, Get and
 GetRun. Current private-call and unconditional summary helpers do not supply
 that guarantee. This remains a caller-precondition question rather than an easy
 name-based cleanup exception; no new production scan or correction is claimed.
+
+
+## Process callback choices and structured handoff proof
+
+Beads `gohawk-dho.23.3` verifies a process-specific gap using actual SSA:
+a chosen capturing closure passed to an opaque runner, or dynamically launched,
+was reported even though the existing literal handoff boundary is uncertain.
+One shared reaching fold now traverses phi alternatives and requests bounded
+possible containment. Conversions and loads stay opaque. The structured handoff
+proof retains merged receiver and nonreturning worker policies; normal-return
+and anywhere-completion queries now share its candidate allowance.
+
+The [callback-choice review](../../benchmarks/precision/audits/process-callback-choices-2026-10-02.md)
+records capture and cutoff controls, three assertion-failing counterfactuals and
+eight scoped receipts. All 37 existing process findings and pinned production
+outputs stay identical. The new fixture removes two opaque choice findings
+while retaining unrelated, bypass and converted-callable diagnostics. Explicit
+final decision tracing distinguishes opaque ownership from budget silence.
+No recorded production FP correction is credited: seven sites plus Rune remain,
+and broader architecture completion is unproven.
