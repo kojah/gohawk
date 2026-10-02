@@ -14,7 +14,7 @@ import (
 
 func (search *completionSearch) mappedLocals(callee completionCallee, target ssa.Value, invocation ssa.Instruction) []mappedLocal {
 	var result []mappedLocal
-	for _, binding := range ssaflow.CallBindings(callee.common, callee.function, callee.closure) {
+	for binding := range ssaflow.CallBindingsWithin(callee.common, callee.function, callee.closure, search.budget) {
 		var local mappedLocal
 		var ok bool
 		if binding.Captured {
@@ -22,9 +22,17 @@ func (search *completionSearch) mappedLocals(callee completionCallee, target ssa
 		} else {
 			local, ok = search.argumentLocal(binding.Local, binding.Supplied, target, invocation)
 		}
+		if search.budget.Exhausted() || search.budget.PoolExhausted() {
+			return nil
+		}
 		if ok {
 			result = append(result, local)
 		}
+	}
+	// A completed prefix says nothing about an unvisited binding. Never let
+	// metadata or mapping cutoff publish locals to the coverage proof.
+	if search.budget.Exhausted() || search.budget.PoolExhausted() {
+		return nil
 	}
 	return result
 }
@@ -49,8 +57,14 @@ func (search *completionSearch) capturedLocal(
 		}
 		return mappedLocal{local: free, supplied: value, kind: localExact}, value == target
 	}
-	value := ssaflow.CapturedBindingValue(binding)
-	exact := heapmodel.CapturedBindingMatches(binding, target)
+	value := ssaflow.CapturedBindingValueWithin(binding, search.budget)
+	bindingMatches := heapmodel.CapturedBindingMatchesWithin(binding, target, search.budget)
+	if search.budget.Exhausted() || search.budget.PoolExhausted() {
+		return mappedLocal{}, false
+	}
+	// Deferred stability may replace exact with a different alias question;
+	// retain the original binding match for the later containment boundary.
+	exact := bindingMatches
 	if callee.launch == launchDeferred && invocation != nil {
 		if cell, ok := binding.(*ssa.Alloc); ok && valueHasDirectStore(cell) {
 			// A deferred literal reads its captured cell when the deferred
@@ -68,13 +82,13 @@ func (search *completionSearch) capturedLocal(
 		return mappedLocal{local: free, supplied: value, kind: localExact}, true
 	case search.valueCallsMethod(value, target):
 		return mappedLocal{local: free, supplied: value, kind: localCallback}, true
-	case heapmodel.ValueDerivesFrom(value, target):
+	case heapmodel.ValueDerivesFromWithin(value, target, search.budget):
 		// The closure captured a projection of the target, such as a body
 		// selected from a response before the literal was created.
 		return mappedLocal{local: free, supplied: value, kind: localExact}, true
-	case ssaflow.ValueIsAccessPathFrom(target, value):
+	case ssaflow.ValueIsAccessPathFromWithin(target, value, search.budget):
 		return mappedLocal{local: free, supplied: value, kind: localOwner}, true
-	case ssaflow.ValueIsAccessPathFrom(target, binding):
+	case ssaflow.ValueIsAccessPathFromWithin(target, binding, search.budget):
 		// Keep the captured cell as the root on both sides of the field
 		// mapping. Peeling just one side would require a may-alias match.
 		cell, ok := binding.(*ssa.Alloc)
@@ -83,7 +97,7 @@ func (search *completionSearch) capturedLocal(
 		}
 		stored := heapmodel.NewStorage(search.budget).StableContent(cell, invocation)
 		return mappedLocal{local: free, supplied: binding, kind: localOwner}, stored.Proven()
-	case !heapmodel.CapturedBindingMatches(binding, target) && MayContainValue(binding, target):
+	case !bindingMatches && ProveMayContainValueWithin(binding, target, search.budget).Proven():
 		// The closure captured an aggregate that stores the target, such as a
 		// local closer slice the target was appended to; a lifecycle call on
 		// anything selected from that local reaches the target. A cell that

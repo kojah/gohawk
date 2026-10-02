@@ -49,6 +49,13 @@ for each; these times include each check's prerequisite passes.
   and target materialization share the request allowance, preserving origin
   order and requiring every alternative to resolve. Cutoff discards the whole
   target set; an early dispatch cutoff has no body-evidence provenance.
+  Completion local mapping uses `CallBindingsWithin` and discards its entire
+  local map when metadata or a mapping query exhausts the request allowance.
+  Captured-value selection, binding matching, derivation, static paths and
+  aggregate containment reuse their bounded owning-layer queries. Original
+  capture identity is evaluated once and kept separate from deferred stable-
+  value identity. Deferred storage-path censuses and graph/alias internals
+  retain separate costs; this is not a whole-query bound.
   Named-result identity uses one shared all-return cell census. Deferred
   result-guard discovery builds it lazily at the first captured cell and
   reuses only a completed census within that discovery. First-slot direct
