@@ -1155,3 +1155,23 @@ budget unknown without a leak. Ignoring child availability emits a leak on that
 actual-SSA fixture. HEAD and local-server tests share fixture construction and
 cutoff-flow controls in `http_allowance_test.go`; each keeps its own protocol
 source and policy expectations. No production-audit FP correction is claimed.
+
+## Acquisition error-result availability
+
+The acquisition's paired error is decoded after constructing the observed
+candidate pool. `proveAcquisitionErrorResultWithin` preserves the existing
+last-result rule, including three-result APIs such as Pty, and delegates exact
+extract selection to `ssaflow.CallResultWithin` under a candidate child.
+A child or shared-parent cutoff returns structured unknown with no value;
+the entry stops before HTTP boundaries, optional acquisition or owned-path
+flow can reinterpret an unavailable error as an absent one. Scalar calls,
+non-error final results and concrete error implementations remain outside this
+paired-error contract and require no referrer search.
+
+`acquisition_result_test.go` checks two- and three-result identity, blank and
+unused error assignments, a discarded tuple call with no extracts, scalar and
+non-last/concrete errors, every insufficient lookup allowance, child and
+shared-parent cuts, fresh recovery, and full-flow cleanup/leak controls. Actual
+SSA retains an error extract for a blank assignment; only the discarded call
+has no result extracts. These are lookup and flow controls, not new production
+FP corrections or a measurement of global call-target analysis.

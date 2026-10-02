@@ -34,9 +34,16 @@ func evaluateResourceFlow(
 		return acceptedResourceLifetime(resourceReasonMemoryWriter)
 	}
 	evidence.ForCandidate(call.Pos())
-	errorValue := acquisitionErrorResult(call)
 	probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos())
 	pool := ssaflow.NewSearchBudget(resourcePoolBudget).Observed(probe.Observer())
+	// The paired error restricts the edges on which acquisition creates an
+	// obligation. A shortened lookup must stop here, before missing evidence
+	// can activate ownership on a failed acquisition edge.
+	errorResult := proveAcquisitionErrorResultWithin(call, pool.Within(releaseSearchBudget))
+	if errorResult.proof.State == ssaflow.EvidenceUnknown {
+		return unknownResourceLifetime(errorResult.proof.Reason)
+	}
+	errorValue := errorResult.value
 	if reason := httpAcquisitionBoundary(pass, call, pool.Within(releaseSearchBudget)); reason != resourceReasonNone {
 		return unknownResourceLifetime(reason)
 	}

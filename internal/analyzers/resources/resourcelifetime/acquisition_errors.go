@@ -20,19 +20,31 @@ import (
 // callbacks use bounded shared flow and storage evidence; opaque or mutable
 // dispatch cannot establish this implication.
 
-func acquisitionErrorResult(call *ssa.Call) ssa.Value {
+type acquisitionErrorResultProof struct {
+	proof resourceProof
+	value ssa.Value
+}
+
+func proveAcquisitionErrorResultWithin(call *ssa.Call, budget *ssaflow.SearchBudget) acquisitionErrorResultProof {
 	results, ok := call.Type().(*types.Tuple)
 	if !ok || results.Len() < 2 {
-		return nil
+		return acquisitionErrorResultProof{proof: resourceProof{State: ssaflow.EvidenceDisproven}}
 	}
 	last := results.Len() - 1
 	if !types.Identical(results.At(last).Type(), types.Universe.Lookup("error").Type()) {
-		return nil
+		return acquisitionErrorResultProof{proof: resourceProof{State: ssaflow.EvidenceDisproven}}
 	}
 	// The success guard must track the error paired with the acquisition, not
 	// assume it occupies slot one. termios.Pty returns (master, slave, err):
 	// https://github.com/89luca89/lilipod/blob/872755a7cef33c238ea2d11b2310b3116944eb48/ptyagent/pty.go#L134-L146
-	return ssaflow.CallResult(call, last)
+	value := ssaflow.CallResultWithin(call, last, budget)
+	proof := carriedValueProof(value != nil, resourceReasonNone, budget)
+	// An unavailable error lookup cannot activate ownership on the failed
+	// acquisition edge. Only a completed search may supply an absent extract.
+	if proof.State == ssaflow.EvidenceUnknown {
+		value = nil
+	}
+	return acquisitionErrorResultProof{proof: proof, value: value}
 }
 
 func resourceSuccessBranch(

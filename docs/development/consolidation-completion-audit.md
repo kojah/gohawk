@@ -3287,3 +3287,67 @@ and availability before the broader `.17` can close. MemoryWriterExempt remains
 its explicit one-wrapper/symbol/type policy exclusion. Graph/type/alias and list
 materialization internals plus cleanup uncertainty `.19` remain broader work;
 the overall consolidation objective is not complete.
+
+## Acquisition error-result lookup and pre-flow completion review
+
+`gohawk-dho.44.11.5.17.9` replaces the last unbudgeted input lookup found in
+`evaluateResourceFlow`'s scoped pre-acquisition review. The memory-writer policy
+exclusion stays first. The observed candidate pool is then constructed before
+`proveAcquisitionErrorResultWithin`, which retains the last-error tuple/type
+contract and delegates exact extract selection to `ssaflow.CallResultWithin`.
+Child or shared-parent cutoff produces unknown with no value and stops the
+entry before feasible owned paths are selected. A completed absent extract is
+still permitted; no-error metadata exclusions do not start a query.
+
+Nine actual-SSA lookup families cover pair/triple results, blank and unused
+error bindings, a discarded call, scalar calls, non-error final slots, non-last
+errors and concrete error implementations. Child/fresh and shared-parent
+controls pass, along with full-flow cleanup and leak controls. An unbudgeted
+counterfactual fails four queried families and the child control; unchecked
+availability fails those families and both child and parent controls. A
+separate overlay limits only the entry decoder to one visit and supplies a
+three-result acquisition with an unknown global error. Its integration control
+returns budget unknown. Removing the entry's availability check produces a
+leak witness on the failed acquisition return (`state:2`, reason70), failing
+the control. Overlay artifacts are `.build/goal-acquisition-result-*`.
+
+The first completion gate found integer-range test lint and missing model
+rationale in the enlarged entry. Both are corrected. The final canonical
+`make verify VERIFY_TIMINGS=1` passes ordinary tests (53s), repository dogfood
+(25s), vet, lint, deadcode, formatter, module verification and generation;
+receipt `.build/goal-acquisition-result-completion-verify.log`. No local race
+or full precision-regression audit was run.
+
+The parent review matches each explicitly scoped pre-acquisition family to its
+current authoritative decision and closed child receipts:
+
+| Family | Current decision | Receipt owner |
+| --- | --- | --- |
+| Owner discovery | `discoverResourceOwnersWithin` publishes only complete owner/storage candidates | `.17.1` |
+| Prior cleanup registration | `provePriorCleanupWithin` returns structured availability before consumption | `.17.2` |
+| SQL parent identity | Exact parent proof uses bounded selection | `.17.3` |
+| Prior deferred completion | `proveDeferredBeforeAcquisitionWithin` charges census and completion and preserves anywhere may-release uncertainty | `.17.4` |
+| Canceled acquisition | `proveAcquisitionContextCanceledWithin` bounds the standard paired-cancel census | `.17.5` |
+| Optional acquisition | `proveOptionalAcquisitionWithin` clears interrupted correlation | `.17.6` |
+| Acquisition assertions | `proveAcquisitionErrorWithin` bounds fatal/nonfatal error evidence | `.17.7` |
+| HTTP boundary | HEAD/local/default-effect proofs share caller allowance and check child availability | `.17.8` |
+| Paired-error decode | `proveAcquisitionErrorResultWithin` distinguishes unavailable from absent input | `.17.9` |
+
+The scoped `.17` requirement is now covered; this does not complete the broader
+transitive-cost or consolidation objective. In particular, post-construction
+`findResultGuardedDefers` consumes `lifecycle.ResultGuards`, whose defer/capture
+census is independent of the completion request allowance. New `.44.11.5.21`
+records that discovery and partial-list availability review. Cleanup uncertainty
+`.44.11.5.19`, graph/type/alias/list internals and the remaining production FP
+families remain outstanding. Graph MCP tools were unavailable; this review uses
+scoped source reads and makes no graph coverage or repository-wide absence claim.
+
+Immutable `.build/goal-acquisition-result-current` has SHA-256
+`8c996b7bd11e1959b414e28bd3ce7607d670e699ae1b44cb462ab0a7ef77ffab`.
+Pins were confirmed before scoped scans: Cute
+`9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3` (`./...`, exit 3) and Ferro
+`d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4`
+(`./internal/admin/repository ./mcp`, exit 0). Resource-only JSON is byte-identical
+to the preceding local-HTTP receipts (980/2 bytes), and both stderr files are
+empty. Cute's known TP remains; Ferro's corrected storage FP stays absent.
+These controls credit no production FP removal; the frozen queue remains at 15 sites.
