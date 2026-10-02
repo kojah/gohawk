@@ -116,6 +116,20 @@ captured-owner and delegated-constructor fixtures retain the possible-owner
 policy and every-successful-return guarantee; containment still proves no
 cleanup. Beads `gohawk-dho.44.11.5.18.1.1` records this consolidation.
 
+Aggregate store enumeration now lives in `lifecycle.StoredIntoWithin` and
+uses the shared keyed work driver rather than a recursive address visited set.
+It follows only field/index addresses and pointer loads, yielding possible
+stores with no ordering or observation-time guarantee. All existing consumers
+ask an any-value containment question; none relies on store order. Address
+visits and referrers spend the optional caller allowance, including revisits.
+Consumer early stopping preserves availability; cutoff can leave a partial
+sequence and cannot establish missing ownership. Actual SSA controls cover
+fields, indexes, loaded callback slots, cyclic owners, early stopping and
+callback pool exhaustion. Existing callers still use an unbounded allowance;
+the enclosing recursive-owner and classifier proofs must propagate unknown
+before attaching their budgets. Beads `gohawk-dho.44.11.5.18.1.2` records the
+shared traversal, while `.18.1` retains that consumer integration.
+
 The scoped resource controls above were repeated with immutable
 `.build/goal-return-owner-complete`, SHA-256
 `bb25d0ed5e66acc1cca3184f761876caf2ca591177f3a90b7b5f799ea54b9e39`.

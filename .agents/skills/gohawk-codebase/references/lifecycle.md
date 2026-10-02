@@ -643,7 +643,7 @@ SendsValue reports whether instruction hands value to a channel receiver.
 
 ## StoredInto
 
-[Source](../../../../internal/lifecycle/store_returns.go)
+[Source](../../../../internal/lifecycle/store_values.go)
 
 ```go
 func StoredInto(address ssa.Value) iter.Seq[ssa.Value]
@@ -652,7 +652,20 @@ func StoredInto(address ssa.Value) iter.Seq[ssa.Value]
 StoredInto yields every value stored into address, into a field or element
 selected from it, or through a pointer loaded from it. It is the one walk
 for asking what an aggregate holds; callers supply the question about each
-stored value.
+stored value. No ordering or observation-time identity is promised.
+
+## StoredIntoWithin
+
+[Source](../../../../internal/lifecycle/store_values.go)
+
+```go
+func StoredIntoWithin(address ssa.Value, budget *ssaflow.SearchBudget) iter.Seq[ssa.Value]
+```
+
+StoredIntoWithin shares address visits and referrer inspection with budget.
+Cutoff may leave a partial sequence; callers inspect exhaustion before using
+its absence as evidence. Consumer early stopping does not exhaust the budget.
+Graph, callback and allocation costs remain independent. Nil is unbounded.
 
 ## StoresOwnerOfValueInExternalField
 

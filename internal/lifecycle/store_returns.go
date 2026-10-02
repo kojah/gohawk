@@ -2,7 +2,6 @@ package lifecycle
 
 import (
 	"go/token"
-	"iter"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -354,43 +353,6 @@ func LoadedAggregateMayHold(value, target ssa.Value) bool {
 		}
 		return false
 	})
-}
-
-// StoredInto yields every value stored into address, into a field or element
-// selected from it, or through a pointer loaded from it. It is the one walk
-// for asking what an aggregate holds; callers supply the question about each
-// stored value.
-func StoredInto(address ssa.Value) iter.Seq[ssa.Value] {
-	return func(yield func(ssa.Value) bool) {
-		storedInto(address, yield, map[ssa.Value]bool{})
-	}
-}
-
-func storedInto(address ssa.Value, yield func(ssa.Value) bool, seen map[ssa.Value]bool) bool {
-	if address == nil || seen[address] || address.Referrers() == nil {
-		return true
-	}
-	seen[address] = true
-	for _, reference := range *address.Referrers() {
-		switch typed := reference.(type) {
-		case *ssa.Store:
-			if typed.Addr == address && !yield(typed.Val) {
-				return false
-			}
-		case *ssa.FieldAddr, *ssa.IndexAddr:
-			if !storedInto(typed.(ssa.Value), yield, seen) {
-				return false
-			}
-		case *ssa.UnOp:
-			// A returned owner may contain a pointer to a callback slot rather
-			// than the callback directly. Follow the load so `*owner.cancel =
-			// cancel` transfers the same obligation as `owner.cancel = cancel`.
-			if typed.Op == token.MUL && !storedInto(typed, yield, seen) {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 // ReturnedResult returns the value a return statement hands back at index.
