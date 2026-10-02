@@ -267,7 +267,11 @@ func (analysis *resourceAnalysis) proveAggregateOwnerEscapeWithin(
 		// Dependence on the resource alone does not establish that a returned
 		// wrapper is an owning aggregate. Require a proven store by this callee
 		// before treating such a value as published through the next helper.
-		if analysis.carriesDirectly(argument) {
+		direct := analysis.proveCarriedDirectlyWithin(argument, budget)
+		if direct.State == ssaflow.EvidenceUnknown {
+			return direct
+		}
+		if direct.Proven() {
 			stored, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimStores)
 			if !stored {
 				continue

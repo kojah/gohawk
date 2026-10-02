@@ -4,6 +4,9 @@ import "testing"
 
 // resourceReasonSpellings is every reason's code as a trace prints it.
 var resourceReasonSpellings = map[resourceLifetimeReason]string{
+	resourceReasonDirectMayCarry:                           "direct-value-may-carry-resource",
+	resourceReasonAggregateMayCarry:                        "aggregate-may-carry-resource",
+	resourceReasonWrapperMayCarry:                          "wrapper-may-carry-resource",
 	resourceReasonMemoryWriter:                             "memory-writer-no-external-resource",
 	resourceReasonAcquisitionLocationUnknown:               "acquisition-location-unknown",
 	resourceReasonPriorDeferMayRelease:                     "prior-defer-may-release",

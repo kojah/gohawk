@@ -200,6 +200,32 @@ classifier recovery after cutoff. Closure/wrapper/effect/path queries and
 external-origin, graph/alias/type internals retain separate cost and availability
 reviews under `gohawk-dho.44.11.5.18.1.5`.
 
+Carried payloads now share `carried_values.go`'s structured direct/nested proof
+with aggregate-escape argument binding. Sends, map updates, select sends and
+call arguments propagate interrupted searches as unknown rather than a
+negative carry result. Direct evidence combines possible alias/derivation with
+exact local storage; storage keeps its independent query cap, whose exhaustion
+remains unknown even when the caller has allowance left. Nested evidence keeps
+object containment separate from the analyzer's derived stored-value fallback:
+a pointer to a resource's field can be carried without containing the resource
+object. Both families supply possible consumption, never cleanup.
+
+`carried_values_test.go` exercises actual SSA for direct and loaded values,
+aggregates, captures, unrelated inputs and derived field pointers, all
+insufficient allowances, payload classifier recovery, and a conversion chain
+exceeding the storage child cap. An overlay ignoring that child cutoff fails
+the control despite the caller remaining available. Legacy closure/callee
+consumers retain default adapters; possible-constructor execution, graph,
+alias/type and effect internals still have separate costs. This closes only
+`gohawk-dho.44.11.5.18.1.5.4.1`, not the parent classifier integration.
+
+The carried-value local gate passed with tests at 74 seconds and repository
+dogfood at 29 seconds. Immutable `.build/goal-carried-values-current`, SHA-256
+`8a9bb5172a2d94ad79773a35459dcc61214ba88bdc579fd867b0bc8dcce4f85c`,
+retains the pinned Cute/Ferro scopes above: exits 3/0, empty stderr, and
+byte-identical JSON against the observed-containment binary. This records
+stable scoped controls, not additional FP corrections or a full audit replay.
+
 The resource projection decision propagates view-binding and storage-projection
 cutoff rather than treating it as missing evidence. A known non-cleaning view
 still cannot discharge its resource merely because it has a Close method;

@@ -271,9 +271,9 @@ func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction)
 		if proof := analysis.responseBodyAggregateHandoff(typed.X, typed); proof.State == ssaflow.EvidenceUnknown {
 			return proof.Reason, true
 		}
-		return resourceReasonSentToChannel, analysis.carries(typed.X)
+		return analysis.carriedPayload(typed.X, resourceReasonSentToChannel)
 	case *ssa.MapUpdate:
-		return resourceReasonStoredInMap, analysis.carries(typed.Value)
+		return analysis.carriedPayload(typed.Value, resourceReasonStoredInMap)
 	case *ssa.Select:
 		for _, state := range typed.States {
 			if state.Send != nil {
@@ -281,8 +281,10 @@ func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction)
 					return proof.Reason, true
 				}
 			}
-			if state.Send != nil && analysis.carries(state.Send) {
-				return resourceReasonSentToChannel, true
+			if state.Send != nil {
+				if reason, opaque := analysis.carriedPayload(state.Send, resourceReasonSentToChannel); opaque {
+					return reason, true
+				}
 			}
 		}
 		return resourceReasonNone, false
@@ -296,7 +298,11 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	if common == nil {
 		return resourceReasonNone, false
 	}
-	carried := slices.ContainsFunc(common.Args, analysis.carries)
+	carriedProof := analysis.proveCarriedArgumentsWithin(common, analysis.budget(ssaflow.SummaryBudget))
+	if carriedProof.State == ssaflow.EvidenceUnknown {
+		return carriedProof.Reason, true
+	}
+	carried := carriedProof.Proven()
 	if analysis.possiblyRetainedCallback(instruction, common) {
 		return resourceReasonCapturedByPossiblyRetainedCallback, true
 	}
@@ -470,15 +476,6 @@ func callResultMayTransfer(instruction ssa.Instruction) bool {
 	return false
 }
 
-// carries reports whether value is the resource, derives from it, or is an
-// aggregate holding it or a projection of it. A struct literal wrapping a
-// type-asserted response body and handed to a function value is such an
-// aggregate; kandev upgrades an SPDY response this way:
-// https://github.com/kdlbs/kandev/blob/17da0aafe33df01828e21fc79cc9dd156dc088dc/apps/backend/internal/agent/kubernetes/portforward.go#L464-L491
-func (analysis *resourceAnalysis) carries(value ssa.Value) bool {
-	return analysis.carriesDirectly(value) || analysis.carriesWithin(value) || analysis.possibleAggregateWrapper(value)
-}
-
 func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool {
 	return analysis.wrapsResource(value, 0, false)
 }
@@ -492,38 +489,6 @@ func (analysis *resourceAnalysis) chainKept(instruction ssa.Instruction, common 
 		}
 	}
 	return false
-}
-
-// carriesDirectly reports whether value is the resource itself or is produced
-// from it by a transparent value step, so a callee receives the resource as an
-// argument in its own right.
-func (analysis *resourceAnalysis) carriesDirectly(value ssa.Value) bool {
-	// A load resolves to what its cell held at that point, so a field or
-	// element read back out of a local aggregate is the resource itself.
-	return heapmodel.MayAlias(value, analysis.resource) ||
-		heapmodel.ValueDerivesFrom(value, analysis.resource) ||
-		heapmodel.NewStorage(analysis.budget(ssaflow.QueryBudget)).Same(value, analysis.resource).Proven()
-}
-
-// carriesWithin reports whether value is an aggregate that holds the resource
-// in one of its fields, so a callee receives the resource only nested inside a
-// parameter.
-func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
-	if lifecycle.MayContainValue(value, analysis.resource) {
-		return true
-	}
-	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
-	return ssaflow.NewReachingWalk(forms).Any(value, func(_ ssaflow.ReachingWalk, value ssa.Value) bool {
-		if _, ok := value.(*ssa.Alloc); !ok {
-			return false
-		}
-		for stored := range lifecycle.StoredInto(value) {
-			if heapmodel.ValueDerivesFrom(stored, analysis.resource) {
-				return true
-			}
-		}
-		return false
-	})
 }
 
 func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool {

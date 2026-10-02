@@ -15,6 +15,9 @@ const (
 	resourceReasonAppended
 	resourceReasonBudgetExhausted
 	resourceReasonCallEffectsAsynchronousExposure
+	resourceReasonDirectMayCarry
+	resourceReasonAggregateMayCarry
+	resourceReasonWrapperMayCarry
 	resourceReasonParentCleanup
 	resourceReasonCapturedAggregateOwner
 	resourceReasonCapturedBodyGuardedCleanup
@@ -100,6 +103,9 @@ const (
 // particular, unset ("") and an inspected-but-untouched instruction ("none")
 // stay distinct. Numeric ordinals can change without changing that contract.
 var resourceReasonCodes = [...]string{
+	resourceReasonDirectMayCarry:                           "direct-value-may-carry-resource",
+	resourceReasonAggregateMayCarry:                        "aggregate-may-carry-resource",
+	resourceReasonWrapperMayCarry:                          "wrapper-may-carry-resource",
 	resourceReasonMemoryWriter:                             "memory-writer-no-external-resource",
 	resourceReasonAcquisitionLocationUnknown:               "acquisition-location-unknown",
 	resourceReasonPriorDeferMayRelease:                     "prior-defer-may-release",
