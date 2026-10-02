@@ -1,13 +1,10 @@
 package resourcelifetime
 
 import (
-	"go/token"
 	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
-	"github.com/kojah/gohawk/internal/lifecycle"
-	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -29,7 +26,7 @@ func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction,
 			return proof.Reason, true
 		}
 	}
-	if proof := analysis.guardedCapturedBodyCleanup(instruction, closure); proof.State == ssaflow.EvidenceUnknown {
+	if proof := analysis.proveGuardedCapturedBodyWithin(instruction, closure, analysis.budget(1000)); proof.State == ssaflow.EvidenceUnknown {
 		return proof.Reason, true
 	}
 	// A captured aggregate can be populated after closure creation. The
@@ -212,111 +209,4 @@ func (analysis *resourceAnalysis) proveCapturedCellCleanupWithin(deferred *ssa.D
 	}
 
 	return carriedValueProof(false, resourceReasonUntouched, budget)
-}
-
-// A called literal may own HTTP body cleanup while guarding a distinct load
-// of the captured response's Body. Repeated loads do not establish equality,
-// so this is uncertainty, not completion. Require the exact unchanged capture
-// and a body-nil guard alone; Boolean conditions and visible pointer escapes
-// or replacement cannot establish even this narrow boundary.
-// https://github.com/openkruise/kruise-game/blob/16a0418780d8abd3ee871448116bbc5dc1e98d48/test/e2e/framework/framework.go#L549-L570
-func (analysis *resourceAnalysis) guardedCapturedBodyCleanup(instruction ssa.Instruction, closure *ssa.MakeClosure) resourceProof {
-	missing := resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonEvidenceNotFound}
-	if _, called := instruction.(*ssa.Call); !called || analysis.contract.family != "http" {
-		return missing
-	}
-	function, _ := closure.Fn.(*ssa.Function)
-	budget := analysis.budget(1000)
-	for _, binding := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !budget.Spend() {
-			return missing
-		}
-		stored := heapmodel.NewStorage(budget).StableContent(binding.Binding, instruction)
-		if !stored.Proven() || stored.Value != analysis.resource {
-			continue
-		}
-		if !responseCaptureUnmodified(analysis.function, analysis.resource, binding.Binding, closure, budget) ||
-			!responseCaptureUnmodified(function, binding.Free, binding.Free, nil, budget) {
-			continue
-		}
-		if guardedBodyCoverage(function, binding.Free, budget) {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonCapturedBodyGuardedCleanup}
-		}
-	}
-	return missing
-}
-
-func guardedBodyCoverage(function *ssa.Function, captured ssa.Value, budget *ssaflow.SearchBudget) bool {
-	for _, load := range ssaflow.InstructionsOf[*ssa.UnOp](function) {
-		if !budget.Spend() || !capturedResponseBody(load, captured) {
-			continue
-		}
-		covered := lifecycle.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
-			common := ssaflow.InstructionCall(instruction)
-			return budget.Spend() && common != nil && ssaflow.CallName(common) == "Close" &&
-				capturedResponseBody(ssaflow.CallReceiver(common), captured)
-		}, lifecycle.CoverageEveryReturn, load)
-		if covered && !budget.Exhausted() {
-			return true
-		}
-	}
-	return false
-}
-
-func capturedResponseBody(value, captured ssa.Value) bool {
-	field := lifecyclefacts.ResponseBodyField(value)
-	if field == nil {
-		return false
-	}
-	response, ok := field.X.(*ssa.UnOp)
-	return ok && response.Op == token.MUL && response.X == captured
-}
-
-// Account for pointer uses before relying on a captured cell's original value.
-// A local spill of that value is permitted only for the proved capture itself.
-// Other closures, pointer arguments and stores can hide Body replacement; even
-// a read-only-looking helper is outside this local uncertainty contract.
-func responseCaptureUnmodified(
-	function *ssa.Function, resource, cell ssa.Value, allowed *ssa.MakeClosure, budget *ssaflow.SearchBudget,
-) bool {
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() || responseCaptureExposed(instruction, resource, cell, allowed) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func responseCaptureExposed(instruction ssa.Instruction, resource, cell ssa.Value, allowed *ssa.MakeClosure) bool {
-	switch typed := instruction.(type) {
-	case *ssa.Store:
-		if typed.Addr == cell && typed.Val == resource && cell != resource {
-			return false
-		}
-		return responsePointerUse(typed.Addr, resource, cell) || responsePointerUse(typed.Val, resource, cell)
-	case *ssa.MakeClosure:
-		return typed != allowed && slices.ContainsFunc(typed.Bindings, func(value ssa.Value) bool {
-			return responsePointerUse(value, resource, cell)
-		})
-	case *ssa.MapUpdate, *ssa.Send, *ssa.Select:
-		return slices.ContainsFunc(instruction.Operands(nil), func(value *ssa.Value) bool {
-			return value != nil && responsePointerUse(*value, resource, cell)
-		})
-	}
-	common := ssaflow.InstructionCall(instruction)
-	return common != nil && slices.ContainsFunc(common.Args, func(value ssa.Value) bool {
-		return responsePointerUse(value, resource, cell)
-	})
-}
-
-func responsePointerUse(value, resource, cell ssa.Value) bool {
-	return ssaflow.NewReachingWalk(
-		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
-	).Any(value, func(_ ssaflow.ReachingWalk, value ssa.Value) bool {
-		_, pointer := value.Type().Underlying().(*types.Pointer)
-		return pointer && (heapmodel.ValueDerivesFrom(value, resource) ||
-			heapmodel.ValueDerivesFrom(value, cell))
-	})
 }

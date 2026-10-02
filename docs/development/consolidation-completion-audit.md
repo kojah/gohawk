@@ -867,7 +867,7 @@ resource exhaustion labels (`dho.42`) and ordinary completion budget ownership
 | `resourcelifetime/local_collections.go` | `resourceAppends` requires an explicit appended acquisition (with only the selected interface boxing); `findLocalCollection` requires all append results to belong to one `SliceVersions` closure, a fresh origin and every version use to be understood. Whole-slice returns transfer; exact whole-slice helpers and complete element-release loops settle at their call/exit edge. Any other use declines the entire model and leaves ordinary append uncertainty. This is collection coverage, not scalar identity or a guessed loop count. |
 | Selected collection adapters | `ssaflow/slice_elements.go:AppendedValues/SliceVersions/RangeElementLoop/ReadsElement` supply SSA append/version/index mechanics. `lifecycle/completion_element_releases.go:ElementLoopReleasesEach` is already shared by caller collections and summary inference: release must dominate every backedge, and element uses must match the cleanup receiver. `lifecyclefacts/element_discharges.go:ReleasesEachElement` selects an unconditional each-element discharge or a local same-package inference. No second per-element policy was introduced downstream. |
 | `resourcelifetime/captured_cleanup.go` | `opaqueClosureCall` combines possible captured-cell cleanup, narrowly guarded HTTP Body cleanup, aggregate capture, asynchronous invocation and unreadable/retaining callees. `provePriorCleanupWithin` supplies the same uncertain cell/parent-cleanup boundaries before acquisition. A cleanup witness for a cell proves possible cleanup, never which stored acquisition was released. Deferred by-value arguments and read-only captures remain outside this cell contract. |
-| Guarded captured HTTP cleanup | `guardedCapturedBodyCleanup` requires current stable content equal to this acquisition, and both caller/callee exposure checks must pass under one candidate allowance. `guardedBodyCoverage` uses Body-load identity and every-normal-return coverage with a nonnil assumption. Exhaustion cannot make that narrower positive witness succeed. This differs from cancellation's written-once cell/direct-defer ownership proof; a common broad capture traversal would erase the distinction. |
+| Guarded captured HTTP cleanup | `proveGuardedCapturedBodyWithin` requires current stable content equal to this acquisition, and both caller/callee exposure checks must pass under one candidate allowance. `proveGuardedBodyCoverageWithin` uses Body-load identity and every-normal-return coverage with a nonnil assumption. Exhaustion cannot make that narrower positive witness succeed. This differs from cancellation's written-once cell/direct-defer ownership proof; a common broad capture traversal would erase the distinction. |
 | Selected coverage adapter | `lifecycle/completion_search.go:MethodCallCoverage` delegates every-return coverage to the existing return/action witness and shared obligation walk, while anywhere coverage is an existential instruction witness. Captured-cell callers request anywhere coverage only for unknown classification; the guarded Body proof requests every-return coverage. These polarities remain explicit at their callers. |
 | `resourcelifetime/optional_acquisition.go` | `proveOptionalAcquisitionWithin` requires one acyclic diamond, exact resource and paired-error phis, nil alternate edges and a repeated equality of the same operands. It pairs phi values with predecessor blocks through the shared adapter. Only the acquired merge successor is selected, and cleanup must target the exact resource phi through the selected transparent wrappers. Generic existential derivation and helper/edge completion remain excluded. |
 | SQL parent/context classifier boundaries | `sql_parents.go:proveSQLParentCleanupWithin` and `contracts.go:cancelsTransactionContext` require known database/sql symbols and the exact receiver or paired context-constructor cancel. They yield uncertainty about parent-owned/asynchronous cleanup, never synchronous child release. `proveSQLParentIdentityWithin` uses shared point-in-time storage identity under the caller allowance, retaining the storage child cap. Resource SQL lifetime and cancellation-owner policy remain separate. |
@@ -3574,3 +3574,75 @@ module and generated checks. Final documentation/commentary validation also
 passes in `.build/goal-correlated-cleanup-docs-final.log`. No broader completion
 claim is made; `.19.3` captured HTTP Body uncertainty and the other architecture
 and production FP items remain open.
+
+## Guarded captured HTTP Body allowance
+
+`.44.11.5.19.3` extracts called-response capture stability and guarded Body
+coverage from prior/deferred cleanup into `guarded_body_cleanup.go`. Its one
+structured request requires exact stable cell contents and excludes caller/callee
+pointer exposure. Binding visits, storage stability, pointer reaching folds,
+derivation, instruction census and guarded-return coverage share the request
+allowance. Storage/coverage cutoff is explicit unknown; a positive guarded
+witness also means unknown may-cleanup, never exact release.
+
+`lifecycle.ProveMethodCallCoverageWithin` shares the independent return/action
+witness census and the ordinary obligation flow. Default MethodCallCoverage
+and assumed-argument coverage delegate to that same engine. Every-return and
+anywhere semantics retain no-return and nonnil boundaries; no second CFG flow
+is introduced. Existing internal completion-search callers still select the
+legacy nil coverage allowance, and constant block selection/type-conditioned
+coverage has independent work. `.44.11.5.24` records that remaining integration
+rather than claiming the entire lifecycle engine bounded. Type/alias and graph
+construction costs remain independent.
+
+Eight actual-SSA capture families retain stable, replaced, opaque cell/owner,
+map exposure, Boolean guard, unrelated Body and field-replacement boundaries.
+Fresh per-limit queries distinguish completed absence from cutoff unknown;
+a child cut leaves the parent available and a fresh retry recovers. Four full
+resource-flow controls retain unknown guarded cleanup and three leak witnesses.
+Ten shared coverage cases under both modes preserve exact, conditional, absent,
+no-return and nonnil-guarded answers, with their own child/fresh control. Actual
+caller/closure SSA is retained in `.build/goal-guarded-body-ssa.log`.
+
+Ignoring capture budgeting fails all eight families and the child control;
+ignoring coverage budgeting fails all ten cases and its child control. Limiting
+only the opaque-literal capture request to one visit retains unknown/budget with
+an available pool. Ignoring that unknown gives an incorrect transparent literal
+and fails the same assertion. Receipts are
+`.build/goal-guarded-body-{unbudgeted,coverage-unbudgeted,class-cut,class-unchecked}.log`.
+The first gate's behavior tests pass but the architecture requires lifecycle
+filenames to name their completion family. The shared implementation and test
+are moved to `completion_coverage.go` and `completion_coverage_test.go`;
+the focused layering/commentary/documentation gate is rechecked.
+
+Immutable `.build/goal-guarded-body-current` implements parent `1ac2d44` plus
+this production change, before the later completion-family filename correction.
+Its SHA-256 is
+`a8ff5b4df608c638c01ff9306b94384c7a18a45e1a08793c2bd7f5e434485bfb`;
+it is never replaced during scans. Cute pin
+`9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3` (`./...`, resource-only, exit 3)
+and Ferro pin `d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4`
+(`./internal/admin/repository ./mcp`, resource-only, exit 0) retain byte-identical
+JSON to the preceding correlated-cleanup controls (980/2 bytes), with empty
+stderr. Cute's known TP remains and Ferro's corrected statement-storage FP
+stays absent. No new production FP credit is claimed; queue 11 and frozen
+batch totals are unchanged. Scoped source fallback is used because graph MCP
+tools remain unavailable. No full precision-regression or local race run is
+part of this iteration.
+
+A sibling-analyzer control also retains both reviewed Openase cancellation TPs:
+pin `e530faf137e764337d5beaaf68af3be159eb17aa`, `./internal/orchestrator`,
+all checks, exit 3, empty stderr and byte-identical JSON to the program-entry
+control. Receipts are `.build/goal-guarded-body-openase.{json,err}`.
+Every static scan uses `CGO_ENABLED=0`, `GOFLAGS=-mod=readonly`, `GOWORK=off`;
+candidate tests, applications and generators are not run. These pinned scopes
+are controls, not an exhaustive latest corpus measurement.
+
+Final `make verify VERIFY_TIMINGS=1` passes in
+`.build/goal-guarded-body-verify-final.log`: ordinary tests 78s, local dogfood 45s,
+vet, lint, deadcode, formatter, generation and module verification. Focused
+layering/commentary/documentation validation passes in
+`.build/goal-guarded-body-docs-final.log`. The generated lifecycle helper reference
+moves with the exported bounded API. The three classifier cleanup families are
+now implemented; the separately recorded shared completion-engine request work
+and broader consolidation/FP goals remain unachieved.

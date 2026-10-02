@@ -58,15 +58,7 @@ func methodCallCoverageAssuming(
 	if len(assumptions.Constants) != 0 {
 		blocks = ssaflow.ReachableBlocksAssuming(function, assumptions.Constants)
 	}
-	switch coverage {
-	case CoverageEveryReturn:
-		return ssaflow.HasReturnAndAction(blocks, calls) &&
-			ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Assume: assumptions, Owns: calls}) == nil
-	case CoverageAnywhere:
-	}
-	return slices.ContainsFunc(blocks, func(block *ssa.BasicBlock) bool {
-		return slices.ContainsFunc(block.Instrs, calls)
-	})
+	return proveMethodCoverageWithin(function, blocks, calls, coverage, assumptions, nil).Proven()
 }
 
 // launchKind is how an instruction runs its callee.

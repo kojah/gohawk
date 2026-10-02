@@ -461,6 +461,20 @@ ProveMayContainValueWithin shares value, aggregate and capture traversal with
 budget. Graph construction, graph-query and type internals remain separate.
 Cutoff is unknown; a negative means no modeled containment, not actual absence.
 
+## ProveMethodCallCoverageWithin
+
+[Source](../../../../internal/lifecycle/completion_coverage.go)
+
+```go
+func ProveMethodCallCoverageWithin(
+	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, nonNil ssa.Value, budget *ssaflow.SearchBudget,
+) ssaflow.Proof
+```
+
+ProveMethodCallCoverageWithin shares witness and normal-return coverage work
+with budget. A cutoff supplies unknown, never completed coverage or its absence.
+Callbacks should use the same budget. Nil retains the default unbounded walk.
+
 ## ProveResultGuards
 
 [Source](../../../../internal/lifecycle/completion_result_guards.go)

@@ -1221,7 +1221,7 @@ unknown for ambiguous cleanup, completed cleanup for the exact direct call,
 and retained leaks for conditional, read-only, overwritten and unrelated forms.
 Graph/type/alias internals and fact-selection callback resolution remain
 independent costs; this change bounds the shared derivation/completion request.
-Correlated-error helper cleanup and guarded captured HTTP Body cleanup remain
+Guarded captured HTTP Body cleanup remains
 separate contracts tracked in `.44.11.5.19.2` and `.44.11.5.19.3`.
 
 ## Correlated-error cleanup request allowance
@@ -1253,3 +1253,35 @@ retry, and six full-flow controls for unknown cleanup and retained leak witnesse
 The existing `paired_error_cleanup.go` reporting fixtures retain generic
 forwarding and conditional cleanup controls. This is consolidation and bounded
 uncertainty handling, not a credited production FP removal.
+
+## Guarded captured Body request allowance
+
+`guarded_body_cleanup.go` owns the called HTTP-response literal boundary
+previously mixed with prior deferred cleanup. `proveGuardedCapturedBodyWithin`
+requires stable current cell content equal to the exact acquisition, no visible
+caller/callee pointer exposure or replacement, and Body-nil-only guard coverage.
+Repeated Body loads supply may-cleanup uncertainty, never exact settlement.
+Stable-content selection, binding and instruction visits, exposure reaching folds,
+derivation and the return-coverage search share one request allowance. A cut
+produces budget unknown; it cannot be mistaken for a completed missing witness.
+Non-HTTP and non-call exclusions still precede the query.
+
+`lifecycle.ProveMethodCallCoverageWithin` exposes bounded structured coverage;
+ordinary `MethodCallCoverage` and its assumed-argument path delegate to the same
+witness/obligation engine. The independent return/action witness remains required
+for every-return coverage, preventing vacuous completion in no-return bodies.
+The ordinary obligation flow owns feasible-path ordering and the nonnil assumption.
+Default constant-bound block selection retains its existing independent costs;
+the guarded Body request supplies only a nonnil assumption. Graph construction,
+type-system and alias mechanics retain their independent costs.
+
+Eight actual-SSA capture families test stable, replaced, opaque cell/owner,
+map exposure, extra Boolean guard, another response and replaced Body. Fresh
+queries per allowance retain the exact completed boundary and explicit cutoff
+unknown. Child cutoff leaves the parent available and a fresh retry succeeds.
+Four full resource-flow controls retain guarded cleanup uncertainty and the
+Boolean/other-response/replaced-Body leak witnesses. Ten shared coverage cases
+cover exact/conditional/absent/no-return/nonnil-guarded actions under both coverage
+modes, with a separate child/fresh control. Existing HTTP reporting fixtures and
+[the kruise-game callback](https://github.com/openkruise/kruise-game/blob/16a0418780d8abd3ee871448116bbc5dc1e98d48/test/e2e/framework/framework.go#L549-L570)
+retain the precision rationale. This change earns no new production FP credit.
