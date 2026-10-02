@@ -27,39 +27,48 @@ import (
 // literal within a plausible fan-out.
 const maxDrainIterations = 64
 
-// countedDrainEdge reports whether leaving a counted loop proves that every
+// countedDrainAction reports whether leaving a counted loop proves that every
 // channel of its select, including one of this worker's signals, was drained.
 // go-quests drains five single-send workers this way:
 // https://github.com/lite-quests/go-quests/blob/792cb31674bd8349b1c0407208823a51f39692ea/solutions/solution-017.select_timeout/select_timeout.go#L8-L55
-func (analysis *spawnAnalysis) countedDrainEdge(from, to *ssa.BasicBlock) bool {
+func (analysis *spawnAnalysis) countedDrainAction(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
 	if len(analysis.signals) == 0 {
-		return false
+		return ssaflow.ObligationNone
 	}
 	loop := ssaflow.ProveCountedRegion(from, maxDrainIterations, analysis.budget())
 	if !loop.Proven() || loop.Exit != to {
-		return false
+		return ssaflow.ObligationNone
 	}
 	choice := blockingReceiveSelect(loop.Body)
 	if choice == nil {
-		return false
+		return ssaflow.ObligationNone
 	}
 	var channels []*ssa.MakeChan
 	joined := false
+	possible := false
 	for _, state := range choice.States {
 		made := analysis.singleSendChannel(state.Chan, choice)
 		if made == nil {
-			return false
+			return ssaflow.ObligationNone
 		}
 		if !slices.Contains(channels, made) {
 			channels = append(channels, made)
 		}
 		joined = joined || analysis.isSignal(state.Chan)
+		possible = possible || analysis.possibleSignal(state.Chan)
 	}
-	if !joined || loop.Count < len(channels) {
-		return false
+	if loop.Count < len(channels) {
+		return ssaflow.ObligationNone
 	}
-	analysis.recordEdge(from, to, reasonCountedDrainEdge)
-	return true
+	if joined {
+		analysis.recordEdge(from, to, reasonCountedDrainEdge, ssaflow.ObligationExact)
+		return ssaflow.ObligationExact
+	}
+	if possible {
+		analysis.recordEdge(from, to, reasonCountedPossibleDrainEdge, ssaflow.ObligationUnknown)
+		return ssaflow.ObligationUnknown
+	}
+	return ssaflow.ObligationNone
 }
 
 // blockingReceiveSelect returns the select that the loop body's entry block

@@ -29,7 +29,7 @@ func (analysis *spawnAnalysis) selectedOwnershipEdge(from, to *ssa.BasicBlock) b
 	if !selected || !analysis.observesOpaqueWorkerContext(channel) {
 		return false
 	}
-	analysis.recordEdge(from, to, reasonSelectedContextEdge)
+	analysis.recordEdge(from, to, reasonSelectedContextEdge, ssaflow.ObligationUnknown)
 	return true
 }
 

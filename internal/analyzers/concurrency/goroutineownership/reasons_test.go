@@ -54,6 +54,9 @@ func TestGoroutineOwnershipReasonCodes(t *testing.T) {
 		reasonLabelReturnedContainment:    "returned-possible-owner",
 		reasonLabelPossibleJoin:           "possible-join-receiver",
 		reasonLabelOwnerLifecycle:         "owner-lifecycle-participation",
+		reasonLabelPossibleSignalReceive:  "possible-signal-receive",
+		reasonSelectedPossibleReceiveEdge: "selected-possible-receive-edge",
+		reasonCountedPossibleDrainEdge:    "counted-possible-drain-edge",
 	}
 	if len(want) != int(goroutineOwnershipReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

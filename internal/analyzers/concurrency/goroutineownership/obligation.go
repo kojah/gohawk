@@ -44,6 +44,11 @@ type trackedValue struct {
 	kind  trackedKind
 }
 
+type joinEdgeEvidence struct {
+	reason goroutineOwnershipReason
+	action ssaflow.ObligationAction
+}
+
 type spawnAnalysis struct {
 	pass          *analysis.Pass
 	function      *ssa.Function
@@ -57,7 +62,7 @@ type spawnAnalysis struct {
 	tracked       []trackedValue
 	unsettledDone ssa.Instruction
 	actions       map[ssa.Instruction]ownershipAction
-	edgeReasons   map[[2]int]goroutineOwnershipReason
+	edgeEvidence  map[[2]int]joinEdgeEvidence
 	// tracing gates the record of ruled-out steps, which is worth keeping only
 	// when a reader will see it.
 	tracing    bool

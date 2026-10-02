@@ -65,8 +65,15 @@ func (analysis *spawnAnalysis) obligation(instruction ssa.Instruction) ssaflow.O
 // context as an opaque observation on that arm alone. The exit of a counted
 // select drain is an exact join on that edge alone.
 func (analysis *spawnAnalysis) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
-	if analysis.selectedJoinEdge(from, to) || analysis.countedDrainEdge(from, to) {
+	if analysis.selectedJoinEdge(from, to) {
 		return ssaflow.ObligationExact
+	}
+	if drain := analysis.countedDrainAction(from, to); drain != ssaflow.ObligationNone {
+		return drain
+	}
+	if channel, selected := ssaflow.SelectedReceiveOnEdge(from, to); selected && analysis.possibleSignal(channel) {
+		analysis.recordEdge(from, to, reasonSelectedPossibleReceiveEdge, ssaflow.ObligationUnknown)
+		return ssaflow.ObligationUnknown
 	}
 	if analysis.selectedOwnershipEdge(from, to) {
 		return ssaflow.ObligationUnknown
@@ -127,6 +134,9 @@ func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) (ownershipA
 	if selectedReceiveAtEntry(instruction, analysis.isSignal) {
 		return actionJoin, reasonLabelSignalReceived
 	}
+	if selectedReceiveAtEntry(instruction, analysis.possibleSignal) {
+		return actionUnknown, reasonLabelPossibleSignalReceive
+	}
 	switch typed := instruction.(type) {
 	case *ssa.Return:
 		// Return ownership uses the same cache as other instructions: a merged
@@ -139,6 +149,9 @@ func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) (ownershipA
 	case *ssa.UnOp, *ssa.Select, *ssa.Range:
 		if guaranteedReceive(instruction, analysis.isSignal) {
 			return actionJoin, reasonLabelSignalReceived
+		}
+		if guaranteedReceive(instruction, analysis.possibleSignal) {
+			return actionUnknown, reasonLabelPossibleSignalReceive
 		}
 		if receivesFrom(instruction, analysis.signalAggregateCarries) {
 			return actionUnknown, reasonLabelSignalAggregateReceive
@@ -445,20 +458,21 @@ func (analysis *spawnAnalysis) selectedJoinEdge(from, to *ssa.BasicBlock) bool {
 	channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
 	joined := selected && analysis.isSignal(channel)
 	if joined {
-		analysis.recordEdge(from, to, reasonSelectedReceiveEdge)
+		analysis.recordEdge(from, to, reasonSelectedReceiveEdge, ssaflow.ObligationExact)
 	}
 	return joined
 }
 
-// recordEdge keeps the reason an edge was credited, for the trace only.
-func (analysis *spawnAnalysis) recordEdge(from, to *ssa.BasicBlock, reason goroutineOwnershipReason) {
+// recordEdge keeps the authoritative reason and action for the trace. Tracing
+// projects the action instead of reconstructing proof strength from reason names.
+func (analysis *spawnAnalysis) recordEdge(from, to *ssa.BasicBlock, reason goroutineOwnershipReason, action ssaflow.ObligationAction) {
 	if !analysis.tracing {
 		return
 	}
-	if analysis.edgeReasons == nil {
-		analysis.edgeReasons = make(map[[2]int]goroutineOwnershipReason)
+	if analysis.edgeEvidence == nil {
+		analysis.edgeEvidence = make(map[[2]int]joinEdgeEvidence)
 	}
-	analysis.edgeReasons[[2]int{from.Index, to.Index}] = reason
+	analysis.edgeEvidence[[2]int{from.Index, to.Index}] = joinEdgeEvidence{reason: reason, action: action}
 }
 
 // selectSends reports whether a select statement offers a tracked value on a
@@ -473,12 +487,19 @@ func (analysis *spawnAnalysis) selectSends(instruction ssa.Instruction) bool {
 	})
 }
 
-// isSignal matches a received channel against the tracked signals, including
-// an element or field selected from a signal aggregate. A receive from any
-// element of the slice a signal element was loaded from also counts: element
-// addresses are not distinguished by index, and the over-approximation can
-// only make a join unproven or accepted, never reported.
+// isSignal requires exact channel identity. An aggregate root or a phi with
+// one matching alternative explains possible completion, never an exact join.
 func (analysis *spawnAnalysis) isSignal(value ssa.Value) bool {
+	storage := heapmodel.NewStorage(analysis.budget())
+	return slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
+		return ssaflow.ChannelType(signal) && storage.Same(value, signal).Proven()
+	})
+}
+
+// possibleSignal retains the previous broad receive boundary for unknown
+// ownership and guarded joins. Matching sibling fields/indexes does not show
+// that the caller observed this worker's completion handle.
+func (analysis *spawnAnalysis) possibleSignal(value ssa.Value) bool {
 	if heapmodel.MayAliasAny(value, analysis.signals) {
 		return true
 	}

@@ -77,13 +77,13 @@ func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutinePro
 		outcome = analysisTrace.OutcomeRejected
 	case GoroutineUnknown:
 	}
-	for edge, reason := range analysis.edgeReasons {
+	for edge, evidence := range analysis.edgeEvidence {
 		edgeOutcome := analysisTrace.OutcomeAccepted
-		if reason == reasonSelectedContextEdge {
+		if evidence.action == ssaflow.ObligationUnknown {
 			edgeOutcome = analysisTrace.OutcomeUnknown
 		}
 		probe.Evidence(analysisTrace.Step{
-			Reason: reason.String(), Outcome: edgeOutcome,
+			Reason: evidence.reason.String(), Outcome: edgeOutcome,
 			Pos: analysis.spawn.Pos(), Function: analysis.function.String(),
 			Details: map[string]string{"from_block": strconv.Itoa(edge[0]), "to_block": strconv.Itoa(edge[1])},
 		})

@@ -38,9 +38,18 @@ that previously contained the channel keeps the helper use unknown. Direct
 WaitGroup acceptance likewise requires the exact receiver; possible group
 receivers are labelled `possible-join-receiver` and stay unknown.
 `joinbindings/joins.go` pairs those uncertain forms with exact helper and
-WaitGroup joins and an unrelated-channel diagnostic. Internal helper-body
-derivation and aggregate receive selection remain under review in
-`gohawk-dho.44.4`; the call-site correction does not certify them.
+WaitGroup joins and an unrelated-channel diagnostic.
+`gohawk-dho.44.4` also requires exact storage identity for direct receives,
+selected receive edges and helper-internal completion observations. A mixed
+phi, sibling aggregate selection or possible nested binding supplies unknown
+ownership, never an exact join. Counted drains retain their sender/count proof
+and distinguish exact completion handles from possible ones. Guarded joins
+keep the broader matcher because their result is only unknown. Owner helper
+coverage still identifies possible lifecycle participation, which its worker
+consumer projects as unknown. `receiveidentity/receives.go` pairs mixed direct,
+selected and helper/group observations with exact receives, nested forwarding
+and unrelated/default-arm diagnostics; the trace pins unknown selected edges
+and one cached label per direct or helper observation.
 `gohawk-dho.44.5` keeps lifecycle methods on tracked owners as unknown shutdown
 participation even when the receiver is exact. Calling or deferring a project's
 Close, Stop, Shutdown, Wait or Kill method does not establish a worker join.

@@ -1260,3 +1260,90 @@ dogfood (`.build/goal-caller-bound-final-verify.log`). Documentation conformance
 also passes after recording these receipts. No full precision corpus replay
 or local race run is performed. The production FP queue remains 15 locations
 and the wider `gohawk-dho.44` review remains incomplete.
+
+### Exact and possible completion observations
+
+`gohawk-dho.44.4` covers the direct/selected receive classifier, every source
+consumer of `isSignal`, counted drains, guarded joins and helper-internal
+receive/Wait/recursive binding. Graph tools remain unavailable. Source fallback
+reads those functions, the shared storage identity and may-derivation contracts,
+and the edge trace projection. This is a finite consumer review; it does not
+recertify the entire points-to graph or every obligation-discovery engine.
+
+Actual SSA in `.build/goal-receive-identity-pilot.ssa.txt` shows a receive phi
+choosing the worker's completion channel or a separate closed channel. The
+helper receive and WaitGroup controls make the same choice inside the callee,
+after an exact call-site binding. The parent calls all three `join-proven`.
+Expanded storage SSA shows the worker sending through field zero while the
+parent receives from field one, and a helper storing its supplied channel into
+a cell before overwriting that cell with a different channel
+(`.build/goal-receive-identity-storage.ssa.txt`). Both also have parent accepted
+join decisions. Selected-edge SSA shows distinct return arms for the mixed
+handle and the exact handle (`.build/goal-receive-identity-edge.ssa.txt`).
+
+Direct positive receive queries now require `Storage.Same` for a channel-valued
+tracked signal. The previous may-alias/aggregate-root matcher remains separate
+as `possibleSignal`, yielding unknown observations on the same direct or
+selected paths. A default or unrelated arm never inherits that observation.
+The counted drain retains its single-sender/count proof and returns exact,
+unknown or no edge action according to handle identity. Guarded-join queries
+retain the possible matcher because their result supplies only uncertainty.
+
+Helper coverage similarly distinguishes exact storage identity from possible
+derivation for completion channels and groups. One `instructionJoins` query
+accepts the caller-selected match policy for direct observations and nested
+bindings. A possible completion witness keeps the helper unknown; only exact
+coverage of every normal return yields a join. One `receiveEdgeAction` supplies
+both the initial scan and every-return coverage. Owner-method coverage remains
+possible lifecycle participation, projected as unknown by worker consumers;
+it is not upgraded into completion. Existing memoization, recursion, search
+allowances and summary coverage contracts remain in place.
+
+Edge evidence now stores the authoritative action together with its reason.
+The emitter projects that action, removing its independent list of reasons
+that should be traced as unknown. The receive trace checks one classifier label
+per direct/helper control and the candidate-associated unknown selected edge.
+`receiveidentity/receives.go` pairs mixed, sibling, overwritten and nested forms
+with exact direct/helper observations and unrelated/default-arm diagnostics.
+
+Initial parent proof controls fail in 4.441 seconds for four mixed forms.
+The initial corrected analyzer package suite passes in 42.624 seconds. Final
+focused proof, edge/label trace, helper budget/memo and concurrency-summary
+controls pass in 13.438 seconds. A trace test initially counted two separate
+proof instances because the proof assertion intentionally creates a fresh
+analysis after the normal run; it now uses one normal analyzer run to verify
+the cache, independently of the proof-strength test.
+
+Final fresh-path CLI receipts cover `goroutineownership`, `summaryjoins`,
+`processexit`, `returnlabels`, `transferlabels`, `joinbindings`,
+`ownerparticipation`, `callerbounds` and `receiveidentity`. Parent SHA-256:
+`09e1e0ab02000f5f98f657b2746cec6034d6a47f76dc3d29d726a2537099dcf4`;
+current SHA-256:
+`897c21854dea7c485b40bf700c22f7c2d00c2d3a4d2f732af32d187639d826a2`.
+Both exit 3 with empty stderr and identical 121,398-byte diagnostic JSON
+(`.build/goal-receive-identity-*-receipt.json`). Each has 543 final decisions
+and 225 labels. Comparing decision multisets by function, check, candidate and
+position finds ten changed keys: eight new uncertain observations change from
+accepted to unknown; two existing slice controls remain unknown, now with
+`shared-storage-signal` rather than `loop-join-unproven`. All other final
+decisions agree. Earlier reused `*-final.trace.jsonl` paths appended events
+from multiple runs and are superseded by the fresh `*-receipt.trace.jsonl`
+artifacts; they are not comparison evidence. No all-event equivalence or
+production FP removal is claimed.
+
+The first validation gate catches helper-search cyclomatic complexity at 25;
+the consolidated selected-edge action removes the duplicated matching query.
+Final `make verify` passes all gates, including ordinary tests in 104 seconds,
+canonical formatting, generation, vet, lint, dead-code and local dogfood
+(`.build/goal-receive-identity-final-verify.log`). Documentation conformance
+also passes after recording the evidence. The clean pinned stargz checkout at
+`624678b4e421947534cbf0618f9609853cccee0f` has identical nonempty 827-byte
+parent/current `./store` diagnostics, exit 3 and empty stderr. The reviewed TP
+at `store/manager.go:193:2` remains
+(`.build/goal-receive-identity-stargz-*.json`). Scans disable CGO and workspace
+and use read-only module mode. Candidate tests, generators and applications are
+not run. No full precision corpus replay or local race run is performed. The
+production FP queue remains 15 sites; the broader architecture and
+obligation-discovery completion claims remain unproven. In particular,
+receiver matching before asynchronous launch guards requires a separate
+completion-contract review, beyond the identity correction recorded here.

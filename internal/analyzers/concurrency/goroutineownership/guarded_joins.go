@@ -132,7 +132,7 @@ func (analysis *spawnAnalysis) branchGuardsJoin(branch *ssa.If) bool {
 			// count, not a join. A selectable receive still supplies that
 			// possible completion action even when another arm can win.
 			if instruction != analysis.spawn &&
-				(analysis.action(instruction) != actionNone || receivesFrom(instruction, analysis.isSignal)) {
+				(analysis.action(instruction) != actionNone || receivesFrom(instruction, analysis.possibleSignal)) {
 				return true
 			}
 		}

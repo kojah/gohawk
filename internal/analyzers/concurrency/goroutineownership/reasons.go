@@ -55,6 +55,9 @@ const (
 	reasonLabelReturnedContainment
 	reasonLabelPossibleJoin
 	reasonLabelOwnerLifecycle
+	reasonLabelPossibleSignalReceive
+	reasonSelectedPossibleReceiveEdge
+	reasonCountedPossibleDrainEdge
 	goroutineOwnershipReasonCount
 )
 
@@ -109,6 +112,9 @@ var ownershipReasonCodes = [...]string{
 	reasonLabelReturnedContainment:    "returned-possible-owner",
 	reasonLabelPossibleJoin:           "possible-join-receiver",
 	reasonLabelOwnerLifecycle:         "owner-lifecycle-participation",
+	reasonLabelPossibleSignalReceive:  "possible-signal-receive",
+	reasonSelectedPossibleReceiveEdge: "selected-possible-receive-edge",
+	reasonCountedPossibleDrainEdge:    "counted-possible-drain-edge",
 }
 
 func (reason goroutineOwnershipReason) String() string {

@@ -65,18 +65,22 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 	derives := func(value ssa.Value) bool {
 		return heapmodel.ValueDerivesFrom(value, local)
 	}
+	storage := heapmodel.NewStorage(search.budget)
+	exact := func(value ssa.Value) bool { return storage.Same(value, local).Proven() }
+	// Owner coverage identifies possible lifecycle participation only. Its
+	// consumers already project it as unknown worker ownership. Completion
+	// channels and groups require exact identity inside the helper as well.
+	if kind == trackedOwner {
+		exact = derives
+	}
 	joins := func(instruction ssa.Instruction) bool {
 		proof := proveSummaryJoin(search.concurrency, instruction, local, kind, search.budget)
-		return proof.joined || search.instructionJoins(instruction, kind, derives)
+		return proof.joined || search.instructionJoins(instruction, kind, exact)
 	}
 	// A select case can lead directly into a shared return block. Carry the
 	// receive on its edge instead of lending it to other incoming paths.
 	joinsEdge := func(from, to *ssa.BasicBlock) bool {
-		if kind != trackedSignal || !search.budget.Spend() {
-			return false
-		}
-		channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
-		return selected && derives(channel)
+		return search.receiveEdgeAction(from, to, kind, exact, derives) == actionJoin
 	}
 	joined, escaped, joinedInCycle := false, false, false
 	for _, block := range function.Blocks {
@@ -84,14 +88,21 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 			if !search.budget.Spend() {
 				return actionUnknown
 			}
-			if joins(instruction) {
+			joinedHere := joins(instruction)
+			if joinedHere {
 				joined = true
 				joinedInCycle = joinedInCycle || ssaflow.BlockInCycle(block)
 			}
+			// A possible receive/Wait or nested binding cannot establish a
+			// join. Preserve its former acceptance as uncertainty, including
+			// overwritten storage and mixed phi alternatives.
+			escaped = escaped || !joinedHere && search.instructionJoins(instruction, kind, derives)
 			escaped = escaped || search.instructionEscapes(instruction, local, kind, derives)
 		}
 		for _, successor := range block.Succs {
-			joined = joinsEdge(block, successor) || joined
+			action := search.receiveEdgeAction(block, successor, kind, exact, derives)
+			joined = action == actionJoin || joined
+			escaped = action == actionUnknown || escaped
 		}
 	}
 	joinProven := joined && ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: joins, OwnsEdge: joinsEdge}) == nil
@@ -105,6 +116,27 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 	// covered on every return, and which worker an iteration joins is
 	// decided by iteration: uncertainty, not a missing join.
 	if escaped || joinedInCycle {
+		return actionUnknown
+	}
+	return actionNone
+}
+
+// A selected arm observes only the handle selected on that edge. Possible
+// identity keeps the helper opaque without lending completion to other arms.
+func (search *helperSearch) receiveEdgeAction(
+	from, to *ssa.BasicBlock, kind trackedKind, exact, possible func(ssa.Value) bool,
+) ownershipAction {
+	if kind != trackedSignal || !search.budget.Spend() {
+		return actionNone
+	}
+	channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
+	if !selected {
+		return actionNone
+	}
+	if exact(channel) {
+		return actionJoin
+	}
+	if possible(channel) {
 		return actionUnknown
 	}
 	return actionNone
