@@ -25,7 +25,7 @@ func TestExactCallbackAlternatives(t *testing.T) {
 		{"missing value", nil, 0},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			closures, ok := exactCallbacks(test.value, nil, false)
+			closures, ok := exactCallbacks(test.value, nil, false, nil)
 			if ok != (test.count > 0) || len(closures) != test.count {
 				t.Fatalf("exactCallbacks() returned %d callbacks, resolved=%t; want %d", len(closures), ok, test.count)
 			}

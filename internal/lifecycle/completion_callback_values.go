@@ -46,7 +46,7 @@ func (search *completionSearch) callbackCapability(walk ssaflow.ReachingWalk, va
 	return walk.Any(value, func(next ssaflow.ReachingWalk, leaf ssa.Value) bool {
 		switch typed := leaf.(type) {
 		case *ssa.MakeClosure:
-			callees, ok := closureCallees(typed, launchCallback)
+			callees, ok := closureCallees(typed, launchCallback, search.budget)
 			return ok && search.calleeCompletes(callees[0], target, nil).proven
 		case *ssa.Alloc:
 			return search.storedValueCallsMethod(next, typed, target)

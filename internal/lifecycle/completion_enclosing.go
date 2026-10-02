@@ -202,7 +202,7 @@ func (search *enclosingSearch) testingCallback(frame *enclosingFrame, instructio
 	if !ok {
 		return false
 	}
-	callees, ok := calleesOf(&ssa.CallCommon{Value: value.value}, launchCallback, instruction, false)
+	callees, ok := calleesOf(&ssa.CallCommon{Value: value.value}, launchCallback, instruction, false, search.request.Budget)
 	if !ok {
 		return false
 	}

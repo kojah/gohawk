@@ -4276,3 +4276,30 @@ type/alias costs remain open. Rune's map reader passes the gate into a returned
 iterator before later use; the existing confinement query does not establish
 that guarded publication contract. It remains unresolved, as do the eleven
 recorded production FP locations and the wider completion requirements.
+
+
+## Completion callee resolution
+
+Beads `gohawk-dho.44.11.5.27.5` moves the launch dispatch and exact callback
+resolution out of the completion body engine into `completion_callees.go`.
+Those queries previously used unbounded reaching and storage searches inside
+an otherwise budgeted request. Dispatch, wrapper/phi origins, stable storage
+and target materialization now share that request's allowance. Origin order,
+all-alternative resolution and direct/OnceFunc/testing/WaitGroup contracts
+remain unchanged; a cut supplies no partial target set. An early cutoff now
+reports budget exhaustion before claiming any local-body provenance.
+
+Actual SSA controls compare target identities/order at every cold cutoff and
+fresh child, distinguish mixed and opaque callbacks, and cover stored or
+reassigned function cells. A 41-target fixture isolates origin cutoff and
+fresh target resolution; later body coverage has its own larger costs. This
+step earns no FP correction and is not a whole-query time/memory bound. The
+remaining identity/alias/heap/type, named-result and package inventory reviews
+remain open, alongside the eleven recorded production FP sites and Rune.
+
+The final canonical local gate passes. Four assertion-failing counterfactuals
+pin origin charging, stable-storage charging, all-origin polarity and discarded
+partial results. Clean pinned XD/goiardi scans retain the four reviewed lock
+findings with byte-identical JSON; no production FP correction is credited.
+Receipts and limitations are in
+[the callee resolution follow-up](../../benchmarks/precision/audits/completion-callee-resolution-followup-2026-10-02.md).

@@ -40,9 +40,9 @@ func TestCompletionUnknownReasonPriority(t *testing.T) {
 		{"callRecursive", ssaflow.QueryBudget, ssaflow.EvidenceUnknown, ssaflow.EvidenceUnavailable, true},
 		{"callCyclic", ssaflow.QueryBudget, ssaflow.EvidenceUnknown, ssaflow.EvidenceCompletionInCycle, true},
 		{"callMixed", ssaflow.QueryBudget, ssaflow.EvidenceUnknown, ssaflow.EvidenceCompletionInCycle, true},
-		{"callMissing", 1, ssaflow.EvidenceUnknown, ssaflow.EvidenceBudgetExhausted, true},
-		{"callMixed", 1, ssaflow.EvidenceUnknown, ssaflow.EvidenceBudgetExhausted, true},
-		{"callOpaque", 0, ssaflow.EvidenceUnknown, ssaflow.EvidenceUnavailable, false},
+		{"callMissing", 1, ssaflow.EvidenceUnknown, ssaflow.EvidenceBudgetExhausted, false},
+		{"callMixed", 1, ssaflow.EvidenceUnknown, ssaflow.EvidenceBudgetExhausted, false},
+		{"callOpaque", 0, ssaflow.EvidenceUnknown, ssaflow.EvidenceBudgetExhausted, false},
 	} {
 		fn := pkg.Func(test.name)
 		instruction := findLaunch(t, fn)

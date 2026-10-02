@@ -44,6 +44,11 @@ for each; these times include each check's prerequisite passes.
   Both share binding, coverage, recursion and budget rules. A body promise
   never makes an asynchronous launch complete its caller's obligation, and
   rejecting a recursive body visit supplies unknown evidence.
+  Completion callee resolution keeps its dispatch and exact callback-origin
+  policy in `completion_callees.go`. Wrapper/phi alternatives, stable storage
+  and target materialization share the request allowance, preserving origin
+  order and requiring every alternative to resolve. Cutoff discards the whole
+  target set; an early dispatch cutoff has no body-evidence provenance.
   Local completion evidence caches only answers independent of per-request
   lookup callbacks and constants. `Summarized`, `CallContract` and returned-
   summary overrides bypass that outer memo because callback identity is not a

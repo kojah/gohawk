@@ -68,14 +68,14 @@ func (search *completionSearch) bindCallbackArguments(callee completionCallee) *
 func (search *completionSearch) boundCallees(instruction ssa.Instruction) ([]completionCallee, bool) {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil || common.IsInvoke() || common.StaticCallee() != nil || search.bindings == nil {
-		return resolveCallees(instruction)
+		return resolveCallees(instruction, search.budget)
 	}
 	value, ok := resolveCallbackValue(callbackValue{common.Value, search.bindings, instruction}, search.budget)
 	if !ok {
 		if common.StaticCallee() == nil {
 			*search.incomplete = true
 		}
-		return resolveCallees(instruction)
+		return resolveCallees(instruction, search.budget)
 	}
 	// Keep the invocation's arguments in its own SSA scope. Only its function
 	// value is substituted; mappedLocals maps those arguments into the resolved
@@ -85,11 +85,11 @@ func (search *completionSearch) boundCallees(instruction ssa.Instruction) ([]com
 	var callees []completionCallee
 	switch instruction.(type) {
 	case *ssa.Call:
-		callees, ok = calleesOf(&resolved, launchCalled, instruction, false)
+		callees, ok = calleesOf(&resolved, launchCalled, instruction, false, search.budget)
 	case *ssa.Defer:
-		callees, ok = calleesOf(&resolved, launchDeferred, instruction, true)
+		callees, ok = calleesOf(&resolved, launchDeferred, instruction, true, search.budget)
 	case *ssa.Go:
-		callees, ok = calleesOf(&resolved, launchStarted, instruction, false)
+		callees, ok = calleesOf(&resolved, launchStarted, instruction, false, search.budget)
 	}
 	for i := range callees {
 		callees[i].environment = value.bindings
