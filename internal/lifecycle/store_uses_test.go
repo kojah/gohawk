@@ -86,3 +86,45 @@ func local(o *owner) { o.Next() }
 		}
 	}
 }
+
+func TestCallConsumptionAliasBoundary(t *testing.T) {
+	pkg := buildTestSSA(t, `package ssaflowtest
+ type holder struct{ptr *int;result *int}
+ func identity(a,b *int)*int{return b}
+ func keepHolder(h *holder)*int{return h.ptr}
+ func cleanup(a,b *int)func(){return func(){println(b)}}
+ func cleanupHolder(h *holder)func(){return func(){println(h.ptr)}}
+ func fieldLate(){p:=new(int);q:=new(int);h:=new(holder);h.result=identity(q,p);println(p,h)}
+ func fieldOther(){p:=new(int);q:=new(int);h:=new(holder);h.result=identity(q,q);println(p,h)}
+ func fieldContained(){p:=new(int);h:=new(holder);h.result=keepHolder(&holder{ptr:p});println(p,h)}
+ func deferredLate(){p:=new(int);q:=new(int);defer cleanup(q,p)();println(p)}
+ func deferredOther(){p:=new(int);q:=new(int);defer cleanup(q,q)();println(p)}
+ func deferredContained(){p:=new(int);defer cleanupHolder(&holder{ptr:p})();println(p)}
+ `)
+	for _, test := range []struct {
+		name        string
+		field, want bool
+	}{
+		{"fieldLate", true, true},
+		{"fieldOther", true, false},
+		{"fieldContained", true, false},
+		{"deferredLate", false, true},
+		{"deferredOther", false, false},
+		{"deferredContained", false, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fn := pkg.Func(test.name)
+			target := ssaflow.InstructionsOf[*ssa.Alloc](fn)[0]
+			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
+			var got bool
+			if test.field {
+				got = CallTransfersValueToField(call, target)
+			} else {
+				got = CallReturnsDeferredCleanup(call, target)
+			}
+			if got != test.want {
+				t.Fatalf("consumption=%v want %v", got, test.want)
+			}
+		})
+	}
+}

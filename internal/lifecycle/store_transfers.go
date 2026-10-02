@@ -13,6 +13,18 @@ import (
 // returned owner, receiver, deferred cleanup, or escaping container. A call is
 // considered consuming only when its value flow and lifecycle use are visible.
 
+// Preserve argument-first alias dispatch: the graph query selects its context
+// from the first value. Possible aliasing is only call consumption here, never
+// a guarantee that the callee completes or takes ownership of that value.
+func callHasAliasedArgument(common *ssa.CallCommon, value ssa.Value) bool {
+	for _, argument := range common.Args {
+		if heapmodel.MayAlias(argument, value) {
+			return true
+		}
+	}
+	return false
+}
+
 // CallReturnsDeferredCleanup reports whether a call consumes value and one of
 // its function results is subsequently deferred by the caller.
 func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bool {
@@ -20,11 +32,7 @@ func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bo
 	if !ok {
 		return false
 	}
-	usesValue := false
-	for _, argument := range call.Common().Args {
-		usesValue = usesValue || heapmodel.MayAlias(argument, value)
-	}
-	if !usesValue || call.Referrers() == nil {
+	if !callHasAliasedArgument(call.Common(), value) || call.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *call.Referrers() {

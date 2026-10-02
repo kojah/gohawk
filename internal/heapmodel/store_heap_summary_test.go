@@ -119,3 +119,51 @@ func keep(f *File) *File { return f }
 		t.Fatalf("contended projection = %v (ok %t), want the callee's own summary", summary.String(), ok)
 	}
 }
+
+func TestProjectHeapNamedSlotDepthBoundary(t *testing.T) {
+	atLimit := strings.Repeat("Next.", SummaryPaths-1) + "Value"
+	beyond := strings.Repeat("Next.", SummaryPaths) + "Value"
+	pkg := ssaflowtest.BuildPackage(t, "slotdepth", `package slotdepth
+ type File struct{fd int}
+ type Node struct{Next *Node;Value *File}
+ var keep *File
+ func limit(p *Node,v *File){keep=p.`+atLimit+`;p.`+atLimit+`=v}
+ func beyond(p *Node,v *File){keep=p.`+beyond+`;p.`+beyond+`=v}
+ func history(p *Node,v *File){p.`+atLimit+`=v;p.`+atLimit+`=nil}
+ `)
+
+	for _, test := range []struct {
+		name   string
+		depth  int
+		edge   string
+		escape bool
+	}{
+		{"limit", SummaryPaths, "must", true}, {"beyond", SummaryPaths + 1, "", false}, {"history", SummaryPaths, "may", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			summary, ok := ProjectHeap(pkg.Func(test.name))
+			if !ok {
+				t.Fatal("projection unavailable")
+			}
+			rendered := summary.String()
+			path := strings.Repeat("field:0/", test.depth-1) + "field:1"
+			prefix := "edge P0/" + path + " -> P1 "
+			if test.edge == "" {
+				if strings.Contains(rendered, prefix) {
+					t.Fatalf("over-depth source slot published:\n%s", rendered)
+				}
+			} else if !strings.Contains(rendered, prefix+test.edge) {
+				t.Fatalf("missing state/history edge:\n%s", rendered)
+			}
+			effect := "effect P0/" + path + " escaped global every"
+			if strings.Contains(rendered, effect) != test.escape {
+				t.Fatalf("escape depth boundary changed:\n%s", rendered)
+			}
+			// Forwarded value targets have their own existing naming policy. The
+			// shared source/escape slot bound must not silently truncate those targets.
+			if test.name != "history" && !strings.Contains(rendered, "edge G:slotdepth.keep -> P0/"+path+" must") {
+				t.Fatalf("forwarded target changed:\n%s", rendered)
+			}
+		})
+	}
+}

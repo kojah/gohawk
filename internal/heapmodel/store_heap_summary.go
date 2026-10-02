@@ -375,26 +375,37 @@ func orderedSlots[Value any](entries map[slot]Value) []slot {
 	return slots
 }
 
+// boundedSlot names a concrete or placeholder slot within the publication
+// depth bound. State/history edge counts and escape coverage stay with their
+// callers; naming a slot alone establishes neither contents nor retention.
+func (projection *heapProjection) boundedSlot(target slot) (HeapSlot, bool) {
+	named, ok := projection.rootOf(target.region)
+	if !ok {
+		return HeapSlot{}, false
+	}
+	named.Path = joinSlotPath(named.Path, target.path)
+	if len(ssaflow.SplitAccessPath(named.Path)) > SummaryPaths {
+		return HeapSlot{}, false
+	}
+	return named, true
+}
+
 // projectRoots records the contents of every slot beneath a root that the
 // state knows, within the depth and count bounds.
 func (projection *heapProjection) projectRoots(state *regionState, record func(HeapSlot, pointees)) {
 	counts := map[HeapRoot]int{}
 	for _, target := range orderedSlots(state.contents) {
 		set := state.contents[target]
-		named, ok := projection.rootOf(target.region)
+		at, ok := projection.boundedSlot(target)
 		if !ok {
 			continue
 		}
-		path := joinSlotPath(named.Path, target.path)
-		if len(ssaflow.SplitAccessPath(path)) > SummaryPaths {
+		counts[at.Root]++
+		if counts[at.Root] > SummarySlots {
+			projection.truncate(HeapSlot{Root: at.Root})
 			continue
 		}
-		counts[named.Root]++
-		if counts[named.Root] > SummarySlots {
-			projection.truncate(HeapSlot{Root: named.Root})
-			continue
-		}
-		record(HeapSlot{Root: named.Root, Path: path}, set)
+		record(at, set)
 	}
 }
 
@@ -456,15 +467,11 @@ func assumedByDefault(edge HeapEdge) bool {
 func (projection *heapProjection) projectHistory(record func(HeapSlot, pointees)) {
 	for _, target := range orderedSlots(projection.graph.history) {
 		set := projection.graph.history[target]
-		named, ok := projection.rootOf(target.region)
+		at, ok := projection.boundedSlot(target)
 		if !ok {
 			continue
 		}
-		path := joinSlotPath(named.Path, target.path)
-		if len(ssaflow.SplitAccessPath(path)) > SummaryPaths {
-			continue
-		}
-		record(HeapSlot{Root: named.Root, Path: path}, set)
+		record(at, set)
 	}
 }
 
@@ -514,15 +521,10 @@ func (projection *heapProjection) escapes(states []*regionState) []HeapEffect {
 	counts := map[HeapEffect]int{}
 	for _, state := range states {
 		for target, kinds := range state.escapes {
-			named, ok := projection.rootOf(target.region)
+			at, ok := projection.boundedSlot(target)
 			if !ok {
 				continue
 			}
-			path := joinSlotPath(named.Path, target.path)
-			if len(ssaflow.SplitAccessPath(path)) > SummaryPaths {
-				continue
-			}
-			at := HeapSlot{Root: named.Root, Path: path}
 			for kind := HeapEscapedGlobal; kind <= HeapEscapedSend; kind <<= 1 {
 				if kinds&kind != 0 {
 					counts[HeapEffect{Slot: at, Escape: kind}]++

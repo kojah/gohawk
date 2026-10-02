@@ -156,11 +156,7 @@ func CallTransfersValueToField(instruction ssa.Instruction, value ssa.Value) boo
 	if !ok {
 		return false
 	}
-	usesValue := false
-	for _, argument := range call.Common().Args {
-		usesValue = usesValue || heapmodel.MayAlias(argument, value)
-	}
-	return usesValue && valueStoredInField(call)
+	return callHasAliasedArgument(call.Common(), value) && valueStoredInField(call)
 }
 
 func valueStoredInField(value ssa.Value) bool {

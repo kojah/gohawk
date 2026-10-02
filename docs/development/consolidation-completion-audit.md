@@ -5109,3 +5109,33 @@ records fourteen terminal parent/current receipts with identical complete
 payloads in five fixture scopes plus Skywalking and Rune. Focused shared/domain
 tests and canonical `make verify` pass, including ordinary tests and
 self-dogfood. No full precision replay or production FP credit is claimed.
+
+## Argument consumption and bounded source-slot naming
+
+Bead `gohawk-dho.23.21.4` consolidates the two pending mechanical families
+identified as partial groups 24 and 36. Lifecycle field-result transfer and
+returned deferred-cleanup detection share their argument-first alias predicate,
+without containment or lifecycle/name heuristics. The operand orientation is
+preserved because the first value selects the alias graph context; replacing it
+with a reversed-operand candidate helper was not assumed safe. Positive alias
+consumption remains distinct from the callers' transfer/defer evidence.
+
+Heap current-state, history and escape projections share bounded source-slot
+naming. Placeholder prefixes and local paths are joined before checking the
+existing depth bound. State count/truncation, history membership and escape
+coverage stay separate. Forwarded value targets, reads and requirements retain
+their existing naming rules; this helper is not a universal path cap.
+Actual SSA controls retain state edges at the limit, historical may-edges after
+overwrite, omitted over-depth source/escape slots and forwarded target identity.
+Broadened-containment and widened-depth overlays fail the corresponding
+controls. Collector preparation and CLI parser scaffolding remain under
+`.23.21.5`, and broader semantic completion plus eight production locations
+remain unresolved. No production FP credit or full precision replay is claimed.
+
+The [scoped validation record](../../benchmarks/precision/audits/slot-naming-argument-consumption-2026-10-03.md)
+records sixteen terminal receipts with identical complete parent/current
+payloads across six fixture scopes and two pinned production scopes. Parent
+controls, focused tests, counterfactual assertion checks and all eight canonical
+verification gates pass as expected. The canonical binary matches the frozen
+reviewed binary. These results establish preservation within the tested scope,
+not broad completion or production FP correction.

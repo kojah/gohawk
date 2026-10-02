@@ -1182,3 +1182,20 @@ exception; stores beneath that root and escaping selected addresses remain
 opaque. Heap transfer uses shared wrapper operands with its selected four
 transparent forms, retaining its separate slice-to-array-pointer and assertion
 handling. These are evidence mechanics; analyzer acceptance remains local.
+
+## Shared slot names and argument-consumption mechanics
+
+Current-state edge projection, historical edge projection and escape projection
+share one root/path naming query bounded by `SummaryPaths`. Naming does not
+establish contents or retention: state slot counts, history membership and
+per-return escape coverage remain separate. The helper does not replace target
+value naming, reads or requirements; those retain their existing contracts.
+Depth controls explicitly preserve forwarded targets beyond the source-slot
+bound rather than silently applying one publication rule everywhere.
+
+Lifecycle field-result transfer and returned deferred-cleanup detection share
+argument alias consumption. Each argument remains the first alias operand,
+matching the graph context chosen by `ProveMayAlias`; the query stops after the
+first match, as the prior Boolean short circuit did. Containment is not alias
+consumption, and positive consumption is not cleanup or ownership proof. The
+field-store and result/defer searches remain their own structural contracts.
