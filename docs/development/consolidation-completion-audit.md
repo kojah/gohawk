@@ -4857,3 +4857,21 @@ The [builtin storage review](../../benchmarks/precision/audits/builtin-execution
 records parent failures, compiled SSA controls, counterfactuals, scoped output
 and canonical validation. No recorded production FP removal is credited;
 seven sites plus Rune and the overall consolidation goal remain open.
+
+
+## SSA and summary selected-slot updates
+
+Beads `gohawk-dho.23.10` consolidates the duplicated scalar replacement/union
+paths in direct SSA stores and imported heap edges. Compiled summary callers
+reproduce omitted ancestor cache invalidation for possible field/element writes.
+One slot update now owns replacement, possible-content union, history, bounds
+and enclosing aggregate invalidation. First wildcard writes also retain
+unwritten nil/foreign possibilities rather than proving a value for an untouched
+specific element; fresh/caller and known-index controls cover the boundary. Direct SSA exposure and aggregate-copy
+policy, and imported escape/result binding policy, retain their own boundaries.
+
+The [summary slot review](../../benchmarks/precision/audits/summary-slot-updates-2026-10-03.md)
+records parent failures, exact/may/wildcard and snapshot controls, assertion
+counterfactuals, scoped output and canonical validation. No recorded production
+FP correction is credited; seven sites plus Rune and the broader consolidation
+completion requirements remain open.

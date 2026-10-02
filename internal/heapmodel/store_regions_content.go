@@ -327,7 +327,10 @@ func (graph *regionGraph) weakElementStore(state *regionState, target slot, valu
 	graph.remember(target, value)
 	star := state.contents[target]
 	if star == nil {
-		star = pointees{}
+		// An unknown index may leave any particular element untouched.
+		// Preserve existing elements and the unwritten nil/foreign possibility
+		// before adding the new value; a wildcard store is never an exact fill.
+		star = graph.content(state, target)
 		state.contents[target] = star
 	}
 	star.union(value)

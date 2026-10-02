@@ -1123,6 +1123,22 @@ unknown fields while earlier snapshots and untouched siblings remain intact.
 `store_builtin_calls_test.go` covers these boundaries and asynchronous,
 conditional and repeated builtin execution.
 
+SSA scalar stores and imported heap edges share one selected-slot update in
+`store_regions_writes.go`. Exact replacements clear prior contents; possible
+updates retain prior/replacement possibilities and invalidate cached enclosing
+aggregates. Wildcard elements use the existing weak-element mechanics, even
+when an edge says Must: an uncertain selection cannot establish one exact slot.
+A first wildcard update retains existing elements and the unwritten nil or
+foreign possibilities before unioning the replacement. An unknown index cannot
+establish the contents of a particular untouched element; known-index strong
+writes keep their exact replacement guarantee. `store_wildcard_writes_test.go`
+covers fresh and caller-supplied arrays. Earlier snapshots and untouched siblings
+stay intact. SSA destination exposure
+and foreign-write invalidation remain outside this update, as do imported
+escape metadata, result binding and aggregate-value writes. The compiled
+summary controls are in `store_summary_writes_test.go`.
+
+
 `ExclusiveAt` asks whole-object identity rather than exact content identity.
 Different or unknown selections of one non-stale object can still be private;
 unknown/stale/mixed origins cannot. Fresh `make` maps, slices and channels can

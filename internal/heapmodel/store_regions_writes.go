@@ -70,24 +70,30 @@ func (graph *regionGraph) storeValue(state *regionState, address, written ssa.Va
 			graph.storeAggregate(state, target, value, strong, graph.id(at))
 			continue
 		}
-		if lastStep(target.path) == pathStar {
-			graph.weakElementStore(state, target, value)
-			continue
-		}
-		graph.remember(target, value)
-		if strong {
-			graph.clearSubtree(state, target)
-			graph.forgetWholeAbove(state, target)
-			state.contents[target] = value.clone()
-			continue
-		}
-		graph.forgetWholeAbove(state, target)
-		existing, ok := state.contents[target]
-		if !ok {
-			existing = graph.content(state, target)
-			state.contents[target] = existing
-		}
-		existing.union(value)
-		graph.bound(state, target, at)
+		graph.storeSlot(state, target, value, strong, at)
 	}
+}
+
+// storeSlot updates one selected scalar slot. SSA writes and imported edges
+// share replacement, uncertainty, history and aggregate-cache invalidation;
+// their callers retain destination selection and exposure policy.
+func (graph *regionGraph) storeSlot(state *regionState, target slot, value pointees, strong bool, at ssa.Instruction) {
+	if lastStep(target.path) == pathStar {
+		graph.weakElementStore(state, target, value)
+		return
+	}
+	graph.remember(target, value)
+	graph.forgetWholeAbove(state, target)
+	if strong {
+		graph.clearSubtree(state, target)
+		state.contents[target] = value.clone()
+		return
+	}
+	existing, ok := state.contents[target]
+	if !ok {
+		existing = graph.content(state, target)
+		state.contents[target] = existing
+	}
+	existing.union(value)
+	graph.bound(state, target, at)
 }

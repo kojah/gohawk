@@ -234,26 +234,12 @@ func (substitution *heapSubstitution) apply(edge HeapEdge) {
 		}
 	}
 	destinations := substitution.slots(edge.From)
-	single, exact := singleSlot(destinations)
-	if edge.Must && exact && lastStep(single.path) != pathStar {
-		substitution.graph.clearSubtree(substitution.state, single)
-		substitution.graph.forgetWholeAbove(substitution.state, single)
-		substitution.state.contents[single] = value.clone()
-		substitution.graph.remember(single, value)
-		return
-	}
+	_, exact := singleSlot(destinations)
 	for destination := range destinations {
 		if destination.region.kind == regionUnknown || destination.region.kind == regionNil {
 			continue
 		}
-		existing, ok := substitution.state.contents[destination]
-		if !ok {
-			existing = substitution.graph.content(substitution.state, destination).clone()
-			substitution.state.contents[destination] = existing
-		}
-		existing.union(value)
-		substitution.graph.remember(destination, value)
-		substitution.graph.bound(substitution.state, destination, substitution.instruction)
+		substitution.graph.storeSlot(substitution.state, destination, value, edge.Must && exact, substitution.instruction)
 	}
 }
 
