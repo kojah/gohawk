@@ -552,7 +552,11 @@ func deferredBeforeAcquisitionMayRelease(
 			Coverage:    lifecycle.CoverageAnywhere,
 			Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
 		}
-		if releaseSettled(evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: resource, Completion: &completion})) {
+		proof := evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: resource, Completion: &completion})
+		// This may-release boundary keeps an exhausted search uncertain. It
+		// does not turn that early exit into an exact instruction discharge.
+		action, reason := releaseLabel(proof)
+		if action == actionSettled || reason == resourceReasonBudgetExhausted {
 			return true
 		}
 	}

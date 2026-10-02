@@ -154,6 +154,24 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	return actionNone, resourceReasonUntouched
 }
 
+// releaseLabel preserves the distinction between cleanup and an abandoned
+// search. Both suppress a leak, but only positive completion evidence settles
+// the obligation. A loop-only witness is likewise uncertain; conditional
+// helpers with complete path evidence retain the ordinary classification.
+func releaseLabel(proof lifecyclefacts.Proof) (resourceAction, resourceLifetimeReason) {
+	if proof.Proven() {
+		return actionSettled, resourceReasonSettled
+	}
+	switch proof.Reason {
+	case ssaflow.EvidenceBudgetExhausted:
+		return actionUnknown, resourceReasonBudgetExhausted
+	case ssaflow.EvidenceCompletionInCycle:
+		return actionUnknown, resourceReasonHelperCleanupInLoop
+	default:
+		return actionNone, resourceReasonNone
+	}
+}
+
 // A cleanup helper may receive a projection of a merged owner. Proving cleanup
 // of its actual argument does not prove which acquisition was released, but
 // that ambiguous identity cannot establish a leak either. Direct Close calls

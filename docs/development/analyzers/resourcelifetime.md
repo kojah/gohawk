@@ -24,6 +24,15 @@ one final decision for selected opaque/imported, deferred-release, memory-only,
 mixed-writer and reportable controls. No reporting policy, traversal, cleanup
 contract, query budget or exported summary schema changes with this projection.
 
+Helper cleanup labels preserve completion uncertainty: a budget-exhausted
+search yields `unknown/budget-exhausted`, not settled cleanup. Both suppress
+the leak report, but only proven cleanup or transfer discharges the obligation.
+Loop-only completion retains its existing unknown boundary; a conditional
+helper with a complete uncovered return keeps the ordinary classification.
+The pre-acquisition deferred-cleanup query remains a may-release boundary and
+still declines a diagnostic on exhaustion. The focused budget test uses actual
+SSA completion queries for exhausted, exact, conditional and loop-only cases.
+
 ## Detection boundaries
 
 Release owned resources on every path. Storing a resource in a partially

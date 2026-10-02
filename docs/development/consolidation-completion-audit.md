@@ -711,3 +711,85 @@ formatting, vet, lint, dead-code and local dogfood; its receipt is
 `.build/goal-return-classifier-verify.log`. A stable gate after the final
 assertion and review-note edits is recorded separately as
 `.build/goal-return-classifier-stable-verify.log`.
+
+## Resource and cancellation helper-query inventory
+
+The `gohawk-dho.40` review continues from the return-path correction. The
+following rows inventory selected inputs and their proof routes at source
+`b2ea7e4`, plus the resource completion-label correction in `gohawk-dho.42`.
+Source inspection covers query selection and these local policy boundaries;
+it does not prove completeness of the shared engines' transitive bodies.
+
+| Evidence family | Cancellation route | Resource route and disposition |
+| --- | --- | --- |
+| Exact helper completion | `proof.go:exactArgumentAction` asks `ProveCompletion` with `InvokeTarget`; only proven synchronous invocation releases. Imported positive invocation masks are consulted after unknown local evidence through `returned_cleanup.go:summaryInvokes`. | `contracts.go:releasesOrdinaryResource` asks lifecycle evidence with cleanup methods, selected imported masks and strict projection mapping. `cleanupReceiver` additionally consumes unchanged-result identity. These select different contracts from one completion engine. |
+| Possible helper cleanup | Disproven exact completion can still produce unknown through the older may-alias invocation or returned-deferred-cleanup query. | `ownership.go:pairedErrorHelperCleanup` requires an exact resource/error relationship and an anywhere cleanup witness; `classify.go:ambiguousHelperCleanup` requires merged argument provenance and proven cleanup of that argument. Neither establishes cleanup of the exact acquisition. |
+| Local observation | `localCallOnlyObserves` first asks `CallEffects.PreservesStorage`, then the cancellation-specific `cancellationUse` memo checks each exact argument/capture binding. Its conservative unavailable/cycle result is unresolved use. | `opaqueCall`, `aggregateOwnerMayEscape`, `wrapsResource` and `possiblyRetainedCallback` distinguish retain, asynchronous exposure and unknown effects at publication sites. A generic read-only test cannot replace cancellation invocation resolution or resource retention. |
+| Capture storage | `result_guards.go` accepts a written-once cancel cell used only by directly deferred literals, with store-before-defer dominance. `owner_structs.go` separately restricts a captured cell to one visible owner field. | `captured_cleanup.go` handles current vs deferred cell observations, response Body guards and possible retention by unreadable callees. Broader mutation/exposure is unknown; the cancel cell restrictions must not be weakened by this resource policy. |
+| Owner/destination identity | Fresh cancellation owners require visible field/return uses; parent context resolution observes storage at child creation. | `ownership.go:resourceExternalStorageProof` resolves an indirect destination at the store. `classify.go:carriesDirectly/carriesWithin` and Body handoff distinguish identity, projection and observation-time containment. These are separate questions, already supplied by storage/reaching helpers. |
+| Wrapper traversal | Broad cancellation references allow ChangeInterface, ChangeType, Convert and MakeInterface for uncertainty; exact invocation does not inherit this broad relation. | `ownership.go:unwrapWrapper` peels only ChangeInterface, ChangeType and MakeInterface. Wrapper chains are bounded and count possible retention only at suitable publication boundaries. The differing Convert policy is deliberate; no universal unwrap is appropriate. |
+| Returned resource owner | Cancellation return evidence now contributes to its cached instruction label. | `flow.go:returnedResourceOwner` is asked only for a live obligation without exact or opaque coverage; owner/cleanup-bearing result evidence and local-owner aliases then prevent an uncovered return. It does not re-run final reporting policy. This late query and its path-dependent trace frequency remain separate from cancellation's cached return labels. |
+| Edge evidence | `edgeObligation` requests invocation completion on the selected edge, then exact own-Done selection supplies uncertainty. | `resourceSuccessorStates` combines acquisition/presence feasibility, path guards, Rows exhaustion, collection cleanup and method completion on that edge. Optional acquisitions deliberately exclude generic completion. These inputs affect different state dimensions and cannot share an unconditional instruction label. |
+| Result guards | `result_guards.go:outcomeOf` checks literal outcomes before brokered result guarantees, with the candidate budget and missing-provider boundary. | `result_guarded_defers.go` does the same outcome projection, but submits one cleanup-method request per contract. Shared `Guarantee.Outcome` mechanics already exist; request meaning and budgets remain domain-owned. |
+
+Direct source ranges inspected in this continuation include cancellation's
+recognized direct/call actions, exact argument completion, local observation,
+returned cleanup and parent resolution; resource `classify`, ownership helpers,
+ordinary/optional release selection, cleanup receiver/mask/callback selection,
+return ownership and successor transitions. The related local collection and
+captured-cleanup policy bodies, optional-acquisition proof, acquisition-contract
+recognition and every shared engine implementation are not claimed fully
+reviewed here. Graph tools remain unavailable; no negative graph claim is used.
+
+The helper review found two concrete gaps. First, resource `releaseSettled`
+combined proven completion and `EvidenceBudgetExhausted` into an exact action.
+`gohawk-dho.42` replaces this Boolean policy with `releaseLabel`: exact evidence
+is settled, exhaustion is unknown/budget-exhausted and loop-only completion
+keeps its existing unknown reason. Other failures retain ordinary
+classification. The pre-acquisition deferred may-release boundary still treats
+exhaustion as uncertainty and preserves its existing early exit. No obligation
+is inferred from exhausted evidence and no exported fact is strengthened.
+
+The parent regression obtains an actual local SSA completion proof under a
+one-step budget: unknown/budget-exhausted. Its old settlement predicate returns
+true and fails the expected non-settlement assertion (0.004 seconds). The
+corrected test checks the authoritative action/reason pair and adds exact,
+conditional and loop-only public-query controls (0.008 seconds). The resource
+analyzer tests pass (26.006 seconds). Actual SSA is retained in
+`.build/goal-resource-exhaustion.ssa.txt`; its stderr is empty.
+
+Parent production source is `b2ea7e4`, executable
+`.build/goal-resource-exhaustion-parent`, SHA-256
+`55b4fba619a03304f0a904d2d368a5be93586b5724a8bb64080c5fc7f6e16c3c`.
+Corrected `.build/goal-resource-exhaustion-current` has SHA-256
+`9fcd5e02b2e9fc56a1017a423e43b55321bab3328c410e2802f520e2455fa9eb`.
+These identify exact executables, not clean-tree metadata. Both all-check
+resource fixture scans exit 3 with empty stderr and identical 335,147-byte JSON;
+their 1,029 final decisions and 5,858 labels match as multisets. Receipts use
+`.build/goal-resource-exhaustion-{parent,current}.*`. These ordinary fixtures do
+not force the exhausted query: the targeted public-query regression establishes
+that boundary. No production FP removal is credited.
+
+Second, ordinary resource helper completion allocates a standalone 250,000-step
+budget per method, outside the candidate pool and its observer. The candidate
+adapter test establishes pool behavior, not that every query uses it; its
+comment now states that scope. `gohawk-dho.43` tracks routing those requests
+through candidate-owned allowances without accidentally imposing the smaller
+storage-query cap. This budget ownership issue is unresolved in dho.42.
+`gohawk-dho.40` remains active; the completion audit and 15-site FP queue remain
+open. No full precision-regression or local race run is part of this iteration.
+
+The first canonical gate passed ordinary tests (65 seconds), vet, formatting,
+generation, dead-code and dogfood but failed the contracts-file size limit.
+The completion-to-label policy now lives in the existing classifier file;
+its action/reason vocabulary is the same classifier concern, with no new
+traversal or evidence engine. The comparison executable above predates this
+mechanical move. The final gate receipt is
+`.build/goal-resource-exhaustion-final-verify.log`; the earlier failing receipt
+is `.build/goal-resource-exhaustion-verify.log` and is not a passing gate.
+
+The corrected final canonical gate passes generation, formatting, vet, lint,
+dead-code, local dogfood and ordinary tests (73 seconds). Documentation
+architecture checks after the receipt-note edits pass (0.614 seconds), recorded
+in `.build/goal-resource-exhaustion-docs.log`. The size-limit failure is resolved;
+no full precision corpus or local race validation is credited.

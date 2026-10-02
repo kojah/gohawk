@@ -415,16 +415,8 @@ func releasesOrdinaryResource(
 			StrictImportedProjection: true,
 			SelectMask:               releaseMask(instruction, resource, method),
 		})
-		if releaseSettled(proof) {
-			return settled()
-		}
-		// The helper's only release lies inside a loop over what it was
-		// handed. The completion search declines to call that missing, and
-		// this classifier declines to call it a release: unknown. A helper
-		// whose release merely depends on a flag has complete path
-		// information and stays diagnostic.
-		if proof.Reason == ssaflow.EvidenceCompletionInCycle {
-			return actionUnknown, resourceReasonHelperCleanupInLoop
+		if action, reason := releaseLabel(proof); action != actionNone {
+			return action, reason
 		}
 	}
 	return actionNone, resourceReasonNone
@@ -470,16 +462,6 @@ func helperRequiresCleanup(
 // each, and one resource held across a single call into them, took over thirty
 // seconds before this bound.
 const releaseSearchBudget = 250_000
-
-// releaseSettled reports whether the analyzer may treat the resource as
-// released here: the evidence proved a release, or the search was abandoned
-// before it could decide. A leak diagnostic claims the resource is provably
-// never released, so an undecided release has to suppress. Leaving the
-// obligation open would let a walk the analyzer gave up on produce a
-// defect-tier report.
-func releaseSettled(proof lifecyclefacts.Proof) bool {
-	return proof.Proven() || proof.Reason == ssaflow.EvidenceBudgetExhausted
-}
 
 func registersCleanupCallback(evidence *lifecyclefacts.LifecycleEvidence, instruction ssa.Instruction, resource ssa.Value, methods []string) bool {
 	common := ssaflow.InstructionCall(instruction)
