@@ -1,11 +1,9 @@
 package resourcelifetime
 
 import (
-	"go/constant"
 	"go/token"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -27,17 +25,28 @@ import (
 // The server's own client, as in `server.Client().Get(server.URL)`, is the
 // same request: httptest configures that client with a transport to the
 // server and no timeout, so a header-only response has no body either.
-func localHeaderOnlyAcquisition(call *ssa.Call) resourceProof {
+func proveLocalHeaderOnlyAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
+	proof := findLocalHeaderOnlyAcquisitionWithin(call, budget)
+	if resourceFlowExhausted(budget) {
+		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	}
+	return proof
+}
+
+func findLocalHeaderOnlyAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
 	url, ok := localGetURL(call.Common())
 	if !ok {
 		return resourceProof{}
 	}
-	server := localHTTPServer(url)
+	if !budget.Spend() {
+		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	}
+	server := localHTTPServerWithin(url, budget)
 	if server == nil || !serverClientOrDefault(call.Common(), server) {
-		return resourceProof{Reason: resourceReasonLocalServerIdentityUnavailable}
+		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonLocalServerIdentityUnavailable}
 	}
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentMakeInterface
-	function, ok := ssaflow.ResolveReachingValue(ssaflow.NewReachingWalk(forms), server.Common().Args[0],
+	function, ok := ssaflow.ResolveReachingValue(ssaflow.NewReachingWalk(forms).Within(budget), server.Common().Args[0],
 		func(_ ssaflow.ReachingWalk, handler ssa.Value) (*ssa.Function, bool) {
 			if closure, captured := handler.(*ssa.MakeClosure); captured {
 				handler = closure.Fn
@@ -46,17 +55,30 @@ func localHeaderOnlyAcquisition(call *ssa.Call) resourceProof {
 			return function, direct
 		}, func(function *ssa.Function) *ssa.Function { return function })
 	if !ok || len(function.Params) != 2 {
-		return resourceProof{Reason: resourceReasonLocalServerHandlerUnavailable}
+		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonLocalServerHandlerUnavailable}
 	}
-	budget := ssaflow.NewSearchBudget(httpEffectsBudget)
+	child := budget.Within(httpEffectsBudget)
 	effects := newHTTPWriterEffects()
-	if effects.overrides.Function(call.Parent(), budget) || effects.overrides.Function(function, budget) {
-		return resourceProof{Reason: resourceReasonLocalServerClientOverrideUnresolved}
+	if effects.overrides.Function(call.Parent(), child) || effects.overrides.Function(function, child) {
+		return localHTTPEffectProof(false, resourceReasonLocalServerClientOverrideUnresolved, child)
 	}
-	if !effects.headerOnly(function.Params[0], budget) {
-		return resourceProof{Reason: resourceReasonLocalServerWriterEffectsUnavailable}
+	if !effects.headerOnly(function.Params[0], child) {
+		return localHTTPEffectProof(false, resourceReasonLocalServerWriterEffectsUnavailable, child)
 	}
-	return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonLocalServerHeaderOnlyEffects}
+	return localHTTPEffectProof(true, resourceReasonLocalServerHeaderOnlyEffects, child)
+}
+
+// Effect-child exhaustion cannot become a complete protocol decline: that
+// would let ordinary flow report without knowing whether the body exists.
+func localHTTPEffectProof(found bool, reason resourceLifetimeReason, budget *ssaflow.SearchBudget) resourceProof {
+	if resourceFlowExhausted(budget) {
+		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	}
+	state := ssaflow.EvidenceDisproven
+	if found {
+		state = ssaflow.EvidenceProven
+	}
+	return resourceProof{State: state, Reason: reason}
 }
 
 var (
@@ -86,7 +108,7 @@ func serverClientOrDefault(common *ssa.CallCommon, server *ssa.Call) bool {
 	return ok && ssaflow.CallMatchesSymbol(client.Common(), httptestServerClient) && ssaflow.CallReceiver(client.Common()) == server
 }
 
-func localHTTPServer(url ssa.Value) *ssa.Call {
+func localHTTPServerWithin(url ssa.Value, budget *ssaflow.SearchBudget) *ssa.Call {
 	if path, ok := url.(*ssa.BinOp); ok && path.Op == token.ADD && strings.HasPrefix(constantString(path.Y), "/") {
 		url = path.X
 	}
@@ -102,7 +124,7 @@ func localHTTPServer(url ssa.Value) *ssa.Call {
 	if !ok || !ssaflow.CallMatchesSymbol(server.Common(), syntax.PackageFunction("net/http/httptest", "NewServer")) {
 		return nil
 	}
-	if !unmodifiedHTTPServer(server) {
+	if !unmodifiedHTTPServerWithin(server, budget) {
 		return nil
 	}
 	return server
@@ -110,13 +132,19 @@ func localHTTPServer(url ssa.Value) *ssa.Call {
 
 // httptest.Server.URL is its first field. Only reading that field and closing
 // the server are permitted; Config/Listener access could replace the endpoint.
-func unmodifiedHTTPServer(server *ssa.Call) bool {
+func unmodifiedHTTPServerWithin(server *ssa.Call, budget *ssaflow.SearchBudget) bool {
 	if server.Referrers() == nil {
 		return false
 	}
 	for _, ref := range *server.Referrers() {
+		if !budget.Spend() {
+			return false
+		}
 		if field, ok := ref.(*ssa.FieldAddr); ok && field.Field == 0 && field.Referrers() != nil {
 			for _, use := range *field.Referrers() {
+				if !budget.Spend() {
+					return false
+				}
 				load, loaded := use.(*ssa.UnOp)
 				if !loaded || load.Op != token.MUL {
 					return false
@@ -126,7 +154,7 @@ func unmodifiedHTTPServer(server *ssa.Call) bool {
 		}
 		common := ssaflow.InstructionCall(ref)
 		if client, ok := ref.(*ssa.Call); ok && ssaflow.CallMatchesSymbol(common, httptestServerClient) {
-			if !onlyClientGetUses(client) {
+			if !onlyClientGetUsesWithin(client, budget) {
 				return false
 			}
 			continue
@@ -143,117 +171,17 @@ func unmodifiedHTTPServer(server *ssa.Call) bool {
 // onlyClientGetUses reports whether the server's client is used only as the
 // receiver of Get calls. Any other use, such as setting Timeout or storing
 // the client, could give the response a body wrapper.
-func onlyClientGetUses(client *ssa.Call) bool {
+func onlyClientGetUsesWithin(client *ssa.Call, budget *ssaflow.SearchBudget) bool {
 	refs := client.Referrers()
 	if refs == nil {
 		return false
 	}
 	for _, ref := range *refs {
+		if !budget.Spend() {
+			return false
+		}
 		call, ok := ref.(*ssa.Call)
 		if !ok || !ssaflow.CallMatchesSymbol(call.Common(), httpClientGet) || call.Common().Args[0] != client {
-			return false
-		}
-	}
-	return true
-}
-
-type httpWriterEffects struct {
-	writers   *ssaflow.CallGraphMemo[*ssa.Parameter, bool]
-	overrides *ssaflow.FunctionSummaries[bool]
-}
-
-func newHTTPWriterEffects() *httpWriterEffects {
-	effects := &httpWriterEffects{writers: ssaflow.NewCallGraphMemo[*ssa.Parameter, bool]()}
-	effects.overrides = ssaflow.NewFunctionSummaries(effects.visibleOverrides, func(ssaflow.SummaryUnavailable) bool { return true })
-	return effects
-}
-
-func (effects *httpWriterEffects) headerOnly(writer *ssa.Parameter, budget *ssaflow.SearchBudget) bool {
-	return effects.writers.Summarize(writer, writer.Parent(), budget, func() bool {
-		for _, block := range writer.Parent().Blocks {
-			for _, instruction := range block.Instrs {
-				if !budget.Spend() {
-					return false
-				}
-				for _, operand := range instruction.Operands(nil) {
-					if operand != nil && heapmodel.MayAlias(*operand, writer) && !effects.writerUse(instruction, writer, budget) {
-						return false
-					}
-				}
-			}
-		}
-		return true
-	}, func(ssaflow.SummaryUnavailable, bool) bool { return false })
-}
-
-func (effects *httpWriterEffects) writerUse(instruction ssa.Instruction, writer ssa.Value, budget *ssaflow.SearchBudget) bool {
-	if _, ok := instruction.(*ssa.ChangeInterface); ok {
-		return true
-	}
-	call, ok := instruction.(*ssa.Call)
-	if !ok {
-		return false
-	}
-	common := call.Common()
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "SetCookie")) {
-		return true
-	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
-		PackagePath: "net/http", Receiver: "ResponseWriter", Name: "Header",
-	})) {
-		return benignHTTPHeaders(call, budget)
-	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
-		PackagePath: "net/http", Receiver: "ResponseWriter", Name: "WriteHeader",
-	})) {
-		code, ok := common.Args[0].(*ssa.Const)
-		if !ok || code.Value == nil || code.Value.Kind() != constant.Int {
-			return false
-		}
-		n, exact := constant.Int64Val(code.Value)
-		return exact && n >= 200 && n <= 599 && (n < 300 || n >= 400)
-	}
-	callee, closure := ssaflow.DirectCallee(common)
-	// A visible helper must preserve the same restriction for every parameter
-	// receiving the writer. Missing bodies or captured/dynamic dispatch are not
-	// evidence of an empty effect set, so they cannot establish empty framing.
-	found := false
-	for _, binding := range ssaflow.CallBindings(common, callee, closure) {
-		if !budget.Spend() {
-			return false
-		}
-		if !heapmodel.MayAlias(binding.Supplied, writer) {
-			continue
-		}
-		parameter, ok := binding.Local.(*ssa.Parameter)
-		if !ok || !effects.headerOnly(parameter, budget) {
-			return false
-		}
-		found = true
-	}
-	return found
-}
-
-func benignHTTPHeaders(header *ssa.Call, budget *ssaflow.SearchBudget) bool {
-	if header.Referrers() == nil {
-		return false
-	}
-	for _, ref := range *header.Referrers() {
-		if !budget.Spend() {
-			return false
-		}
-		call, ok := ref.(*ssa.Call)
-		if !ok || len(call.Common().Args) < 2 {
-			return false
-		}
-		if !ssaflow.CallMatchesAnySymbol(call.Common(),
-			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Header", Name: "Set"}),
-			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Header", Name: "Add"})) {
-			return false
-		}
-		key := strings.ToLower(constantString(call.Common().Args[1]))
-		switch key {
-		case "", "content-length", "transfer-encoding", "trailer", "connection", "upgrade", "location":
 			return false
 		}
 	}

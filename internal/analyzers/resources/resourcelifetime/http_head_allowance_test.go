@@ -1,11 +1,9 @@
 package resourcelifetime
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -69,26 +67,7 @@ func TestHEADAcquisitionChildCutoff(t *testing.T) {
 
 func TestHEADDefaultEffectsChildCutoff(t *testing.T) {
 	call := headDoCall(t, headAllowanceFixture(t, true).Func("defaultClient"))
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
-	proof := proveHeadAcquisitionWithin(call, pool.Within(releaseSearchBudget))
-	if proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
-		t.Errorf("default-effect child lost availability=%+v", proof)
-	}
-	provider := resourceSummaries.Provider(nil)
-	evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
-	var resource ssa.Value
-	for _, extract := range ssaflow.InstructionsOf[*ssa.Extract](call.Parent()) {
-		if extract.Tuple == call && extract.Index == 0 {
-			resource = extract
-		}
-	}
-	if resource == nil {
-		t.Fatal("missing HTTP response extract")
-	}
-	got := evaluateResourceFlow(nil, evidence, call, resource, resourceContract{family: "http", packagePath: "net/http", cleanup: []string{"Close"}})
-	if got.state != ssaflow.EvidenceUnknown || got.reason != resourceReasonBudgetExhausted || got.leak != nil {
-		t.Fatalf("default-effect cutoff fell through to leak=%+v", got)
-	}
+	assertHTTPChildCutoffFlow(t, call, func(budget *ssaflow.SearchBudget) resourceProof { return proveHeadAcquisitionWithin(call, budget) })
 }
 
 func headDoCall(t *testing.T, fn *ssa.Function) *ssa.Call {
@@ -104,20 +83,13 @@ func headDoCall(t *testing.T, fn *ssa.Function) *ssa.Call {
 
 func headAllowanceFixture(t *testing.T, long bool) *ssa.Package {
 	t.Helper()
-	var source strings.Builder
-	source.WriteString(`package headallowance
+	return buildHTTPAllowanceFixture(t, "headallowance", `package headallowance
  import("context";
 "net/http";
 "time")
  func escape(*http.Request){}
  func mark(){}
- func slow(){`)
-	if long {
-		for range httpEffectsBudget + 10 {
-			source.WriteString("mark();")
-		}
-	}
-	source.WriteString(`}
+ func slow(){`, `}
  func exact(url string){r,_:=http.NewRequest("HEAD",url,nil);
 c:=&http.Client{};
 _,_=c.Do(r)}
@@ -166,6 +138,5 @@ _,_=c.Do(r)}
  func defaultModified(url string){r,_:=http.NewRequest("HEAD",url,nil);
 http.DefaultClient.Timeout=time.Second;
 _,_=http.DefaultClient.Do(r)}
- `)
-	return ssaflowtest.BuildPackage(t, "headallowance", source.String())
+ `, long)
 }

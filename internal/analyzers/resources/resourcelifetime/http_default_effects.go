@@ -39,6 +39,9 @@ func (effects *httpWriterEffects) scanDefaultOverrides(function *ssa.Function, b
 			}
 		}
 		for _, operand := range instruction.Operands(nil) {
+			if !budget.Spend() {
+				return true
+			}
 			if operand != nil && ssaflow.ValueMatchesAnySymbol(*operand, httpDefaultClient, httpDefaultTransport) {
 				return true
 			}

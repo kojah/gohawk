@@ -28,7 +28,7 @@ func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call, budget *ssaflo
 			Reason: head.Reason.String(), Outcome: analysisTrace.OutcomeRejected, Pos: call.Pos(), Function: call.Parent().String(),
 		})
 	}
-	proof := localHeaderOnlyAcquisition(call)
+	proof := proveLocalHeaderOnlyAcquisitionWithin(call, budget)
 	if proof.Reason != resourceReasonNone {
 		outcome := analysisTrace.OutcomeUnknown
 		if proof.Proven() {
@@ -37,6 +37,9 @@ func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call, budget *ssaflo
 		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()).Evidence(analysisTrace.Step{
 			Reason: proof.Reason.String(), Outcome: outcome, Pos: call.Pos(), Function: call.Parent().String(),
 		})
+	}
+	if proof.State == ssaflow.EvidenceUnknown && proof.Reason == resourceReasonBudgetExhausted {
+		return proof.Reason
 	}
 	if proof.Proven() {
 		return resourceReasonHeaderOnlyAcquisition

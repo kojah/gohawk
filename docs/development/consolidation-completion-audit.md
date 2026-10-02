@@ -3239,3 +3239,51 @@ effects baseline: terminal exits 3/0, empty stderr. Pins/scopes remain those
 recorded above. Cute's known TP remains and Ferro's corrected storage report
 stays absent. No production FP removal is credited. Local-server `.17.8.3`,
 the parent and the broader consolidation objective remain active.
+
+## Local HTTP endpoint and writer allowance
+
+`gohawk-dho.44.11.5.17.8.3` composes exact server/client referrers, selected handler
+reaching-value resolution and visible default/writer effects with the observed
+candidate pool. Endpoint provenance and writer framing now have separate files
+and reasons to change. Existing exact identities, transparent forms, cookies,
+nonframing headers, nonredirect statuses and visible-helper contracts remain.
+Completed declines continue the ordinary resource proof; interrupted provenance
+or the existing 4,000-step effect child returns explicit budget unknown. HEAD
+uncertainty and positive local bodyless protocol evidence remain distinct.
+
+Writer instruction, operand, alias-dispatch, binding and header visits charge
+that child; shared default-effect operand visits also charge their supplied
+allowance. Graph/type/alias and list materialization internals remain separate
+costs. Existing memo invalidation permits fresh writer proofs after cutoff.
+Thirteen actual-SSA cases cover direct/server-client/path acquisition, cookies,
+headers, helpers, body writes, framing, redirects, changed endpoint/client,
+opaque handlers, other clients and visible defaults. Controls include all
+insufficient allowances, parent-available child cutoff, fresh writer memo recovery
+and oversized header-only handler cutoff in complete resource flow.
+
+Focused tests (0.770 seconds), lint and architecture pass. Lint found duplicate
+HEAD/local cutoff and source-construction scaffolding; `http_allowance_test.go` now owns
+those shared controls while each protocol keeps its source fixture. Ignored-
+allowance and unchecked-child counterfactuals plus SSA receipts are retained
+under `.build/goal-local-http-*`: ignoring allowance fails all thirteen families
+and child cutoff; unchecked effect-child availability emits a leak on the
+oversized header-only handler. Actual SSA shows the exact server URL field,
+server Client receiver and selected handler boxing in
+`.build/goal-local-http-fixture.ssa.txt`. The canonical gate passes all checks
+in `.build/goal-local-http-verify.log`, including ordinary tests (50 seconds)
+and repository dogfood (26 seconds).
+
+Immutable pre-commit `.build/goal-local-http-current`, SHA-256
+`de24eea63dfbf5d9b93f7138a695a3e204191c7e6f9e38501f7b0ae6d5fe9781`,
+retains byte-identical pinned Cute/Ferro resource JSON against the HEAD baseline:
+terminal exits 3/0, empty stderr. Pins/scopes remain those recorded above.
+Cute's known TP remains and Ferro's corrected storage report stays absent.
+No production FP removal, full precision replay or local race run is credited.
+
+The HTTP parent `.17.8` has completed its scoped evidence families. Review of
+broader pre-flow setup found acquisitionErrorResult still using default
+CallResult before pool construction; `.17.9` records bounded result decoding
+and availability before the broader `.17` can close. MemoryWriterExempt remains
+its explicit one-wrapper/symbol/type policy exclusion. Graph/type/alias and list
+materialization internals plus cleanup uncertainty `.19` remain broader work;
+the overall consolidation objective is not complete.
