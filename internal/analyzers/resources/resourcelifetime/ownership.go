@@ -86,17 +86,27 @@ func (analysis *resourceAnalysis) correlatedError(call ssa.Instruction, argument
 // for its variadic files; a visible helper's loop is found by the completion
 // search itself. Either way the call is uncertain, never a release.
 // https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/staging/src/k8s.io/client-go/util/testing/remove_file.go#L25-L39
-func (analysis *resourceAnalysis) importedLoopRelease(instruction ssa.Instruction, common *ssa.CallCommon) bool {
+func (analysis *resourceAnalysis) proveImportedLoopReleaseWithin(
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+) resourceProof {
 	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) != 0 {
-		return false
+		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}
 	}
 	for index, argument := range common.Args {
-		if released, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimReleasesInLoop); released &&
-			analysis.carries(argument) {
-			return true
+		if !budget.Spend() {
+			return carriedValueProof(false, resourceReasonUntouched, budget)
+		}
+		if released, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimReleasesInLoop); released {
+			carried := analysis.proveCarriedValueWithin(argument, budget)
+			if carried.State == ssaflow.EvidenceUnknown {
+				return carried
+			}
+			if carried.Proven() {
+				return carriedValueProof(true, resourceReasonImportedHelperCleanupInLoop, budget)
+			}
 		}
 	}
-	return false
+	return carriedValueProof(false, resourceReasonUntouched, budget)
 }
 
 func resourceLifecycleMethod(name string) bool {
@@ -224,7 +234,14 @@ func (analysis *resourceAnalysis) proveAggregateArgumentWithin(
 	if !budget.Spend() {
 		return aggregateEscapeProof(false, budget)
 	}
-	if heapmodel.MayAlias(argument, analysis.resource) || analysis.carriedWithinClosure(argument) {
+	if heapmodel.MayAlias(argument, analysis.resource) {
+		return resourceProof{State: ssaflow.EvidenceDisproven}
+	}
+	closure := analysis.proveCarriedClosureWithin(argument, budget)
+	if closure.State == ssaflow.EvidenceUnknown {
+		return closure
+	}
+	if closure.Proven() {
 		return resourceProof{State: ssaflow.EvidenceDisproven}
 	}
 	contained := lifecycle.ProveMayContainValueAtWithin(argument, analysis.resource, instruction, budget)

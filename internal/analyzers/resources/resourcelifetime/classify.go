@@ -143,8 +143,9 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if analysis.pairedErrorHelperCleanup(instruction, common) {
 		return actionUnknown, resourceReasonPairedErrorHelperCleanup
 	}
-	if analysis.importedLoopRelease(instruction, common) {
-		return actionUnknown, resourceReasonImportedHelperCleanupInLoop
+	loopRelease := analysis.proveImportedLoopReleaseWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
+	if loopRelease.State != ssaflow.EvidenceDisproven {
+		return actionUnknown, loopRelease.Reason
 	}
 	if boundary, opaque := analysis.opaqueConsumption(instruction); opaque {
 		return actionUnknown, boundary
@@ -304,8 +305,9 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 		return carriedProof.Reason, true
 	}
 	carried := carriedProof.Proven()
-	if analysis.possiblyRetainedCallback(instruction, common) {
-		return resourceReasonCapturedByPossiblyRetainedCallback, true
+	callback := analysis.provePossiblyRetainedCallbackWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
+	if callback.State != ssaflow.EvidenceDisproven {
+		return callback.Reason, true
 	}
 	// A helper may expose the exact resource asynchronously without itself
 	// being launched. That is opaque ownership, not proven cleanup. Conversely,
@@ -381,7 +383,11 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// resource left behind in its argument is still leaked. oss-rebuild wraps a
 	// zip reader in an fs.FS wrapper and returns the loader's result:
 	// https://github.com/google/oss-rebuild/blob/9ce0528dd68bf209b52cc9fdc90bd63742cbb3a0/pkg/sysgraph/sgstorage/loader.go#L173-L179
-	if analysis.carriedWithinAggregate(common) && callResultMayTransfer(instruction) {
+	aggregate := analysis.proveCarriedAggregateArgumentsWithin(common, analysis.budget(ssaflow.SummaryBudget))
+	if aggregate.State == ssaflow.EvidenceUnknown {
+		return aggregate.Reason, true
+	}
+	if aggregate.Proven() && callResultMayTransfer(instruction) {
 		return resourceReasonNestedInTransferredArgument, true
 	}
 	// A summarized callee proven to release, store, or own the resource was
@@ -390,58 +396,6 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// through the completion proof already consulted; without either, the
 	// callee is a boundary.
 	return resourceReasonUnsummarizedCallee, !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
-}
-
-// Retaining a callback also retains its captured resource. A known test
-// cleanup registration has its own coverage proof; a visible observer that
-// neither invokes nor retains the callback is not an ownership boundary.
-func (analysis *resourceAnalysis) possiblyRetainedCallback(instruction ssa.Instruction, common *ssa.CallCommon) bool {
-	if ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) {
-		return false
-	}
-	for index, argument := range common.Args {
-		if !analysis.carriedWithinClosure(argument) {
-			continue
-		}
-		retained, known := analysis.evidence.ArgumentRetained(instruction, index)
-		callee := common.StaticCallee()
-		if retained || !known && (callee == nil || len(callee.Blocks) == 0) {
-			return true
-		}
-	}
-	return false
-}
-
-// carriedWithinAggregate finds a separate owner argument even when another
-// argument directly borrows the resource. A reader plus a variadic closer list
-// can return ownership through the list without the reader parameter owning it.
-func (analysis *resourceAnalysis) carriedWithinAggregate(common *ssa.CallCommon) bool {
-	within := false
-	for _, argument := range common.Args {
-		if heapmodel.MayAlias(argument, analysis.resource) {
-			continue
-		}
-		// A closure that captures the resource is not a struct aggregate; the
-		// launch and closure analyses already decide its fate, so this rule
-		// must not intercept it.
-		if analysis.carriedWithinClosure(argument) {
-			continue
-		}
-		within = within || analysis.carriesWithin(argument)
-	}
-	return within
-}
-
-// carriedWithinClosure reports whether the argument is a closure value that
-// captures the resource.
-func (analysis *resourceAnalysis) carriedWithinClosure(argument ssa.Value) bool {
-	value := argument
-	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
-	if inner, ok := ssaflow.UnwrapTransparentValue(value, forms); ok {
-		value = inner
-	}
-	closure, ok := value.(*ssa.MakeClosure)
-	return ok && analysis.closureCarries(closure)
 }
 
 // callResultMayTransfer reports whether a non-error call result flows to a return
@@ -472,15 +426,6 @@ func callResultMayTransfer(instruction ssa.Instruction) bool {
 		_, scalar := store.Val.Type().Underlying().(*types.Basic)
 		if !scalar && !types.Identical(store.Val.Type(), errorType) &&
 			heapmodel.ValueDerivesFrom(store.Val, result) {
-			return true
-		}
-	}
-	return false
-}
-
-func (analysis *resourceAnalysis) closureCarries(closure *ssa.MakeClosure) bool {
-	for _, binding := range closure.Bindings {
-		if heapmodel.CapturedBindingMatches(binding, analysis.resource) || analysis.carries(binding) {
 			return true
 		}
 	}

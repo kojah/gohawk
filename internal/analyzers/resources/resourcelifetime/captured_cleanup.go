@@ -35,8 +35,14 @@ func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction,
 	if analysis.capturesAggregateOwner(closure) {
 		return resourceReasonCapturedAggregateOwner, true
 	}
-	if !carried && !analysis.closureCarries(closure) {
-		return resourceReasonNone, false
+	if !carried {
+		capture := analysis.proveClosureCarryWithin(closure, analysis.budget(ssaflow.SummaryBudget))
+		if capture.State == ssaflow.EvidenceUnknown {
+			return capture.Reason, true
+		}
+		if !capture.Proven() {
+			return resourceReasonNone, false
+		}
 	}
 	// A started literal runs on another goroutine, so a release inside it
 	// cannot be ordered against this function's returns and the resource

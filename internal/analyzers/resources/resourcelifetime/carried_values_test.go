@@ -29,7 +29,7 @@ func closure(p, other *resource) any { return func() { println(p) } }
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
 			value := ssaflow.InstructionsOf[*ssa.Return](fn)[0].Results[0]
-			baseline := aggregateEscapeAnalysis(fn).carries(value)
+			baseline := aggregateEscapeAnalysis(fn).proveCarriedValueWithin(value, nil).Proven()
 			if baseline != test.want {
 				t.Fatalf("default carry = %v, want %v; SSA:\n%s", baseline, test.want, carriedSSA(t, fn))
 			}

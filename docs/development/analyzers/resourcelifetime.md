@@ -259,6 +259,43 @@ retains the same Cute/Ferro pins and scopes: exits 3/0, empty stderr and
 byte-identical JSON against the carried-value binary. These are scoped
 stability controls; this step credits no new FP removal or corpus replay.
 
+Closure and callback carrying now share `carried_callbacks.go`'s structured
+proofs with aggregate argument exclusions, imported loop-release consumption,
+and opaque closure calls. Capture matching delegates to
+`heapmodel.CapturedBindingMatchesWithin`; broader capture contents delegate to
+the ordinary carried-value proof. Argument/binding visits share the caller
+allowance. Cutoff propagates as unknown instead of completing a negative
+capture, retention or aggregate query. Positive evidence remains possible
+consumption, never cleanup.
+
+The callback recognizer still peels exactly one selected transparent step.
+A twice-wrapped callback may carry a resource under broader value containment
+without qualifying for this callback-specific policy. Direct resource arguments
+and recognized resource-carrying callbacks remain excluded from struct-aggregate
+ownership, while a separate aggregate argument can still carry the resource.
+Known testing cleanup registration retains its separate coverage proof; a
+visible callback observer and a summarized non-retaining helper stay transparent.
+Imported loop-release claims still establish uncertainty, never completion.
+
+`carried_callbacks_test.go` covers exact and nested captures, unrelated and
+empty callbacks, one/two wrapper recognition, retaining/observing helpers,
+mixed direct/aggregate arguments, callback exclusion, imported loop consumption
+and started-closure classifier recovery at insufficient allowances. A default
+`carriedWithinClosure` adapter remains only for prior-registration analysis
+until pre-acquisition budget integration. Old Boolean carrying/aggregate/capture
+engines are removed. Effect, closure-retention, graph/alias/type, result-transfer
+and aggregate-owner capture queries retain separate cost reviews; this step
+does not claim an end-to-end query bound. Beads child `.18.1.5.4.3` tracks this
+integration under `gohawk-dho.44.11.5`.
+An overlay ignoring capture allowance fails all three binding-cutoff controls.
+
+The closure/callback local gate passed (tests 77 seconds, repository dogfood
+36 seconds). Immutable `.build/goal-carried-callbacks-current`, SHA-256
+`b605676e36cfd22dbeb2869ea433b06e9b88f7dafa55523bfe853824529a68d7`,
+retains the same pinned Cute/Ferro scopes: exits 3/0, empty stderr and
+byte-identical JSON against the possible-wrapper binary. This credits stable
+scoped controls, no new FP removal and no full precision replay.
+
 The resource projection decision propagates view-binding and storage-projection
 cutoff rather than treating it as missing evidence. A known non-cleaning view
 still cannot discharge its resource merely because it has a Close method;

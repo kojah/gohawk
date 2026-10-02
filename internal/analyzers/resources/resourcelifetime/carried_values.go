@@ -33,15 +33,9 @@ func (analysis *resourceAnalysis) proveCarriedArgumentsWithin(common *ssa.CallCo
 	return carriedValueProof(false, resourceReasonUntouched, budget)
 }
 
-// carries retains the default query for classifier families not yet integrated.
-// Bound consumers use the structured proof and preserve its availability.
 // A struct literal wrapping a type-asserted response body and passed to a
 // function value may carry the resource; kandev's SPDY handoff is such a case:
 // https://github.com/kdlbs/kandev/blob/17da0aafe33df01828e21fc79cc9dd156dc088dc/apps/backend/internal/agent/kubernetes/portforward.go#L464-L491
-func (analysis *resourceAnalysis) carries(value ssa.Value) bool {
-	return analysis.proveCarriedValueWithin(value, nil).Proven()
-}
-
 func (analysis *resourceAnalysis) proveCarriedValueWithin(value ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
 	direct := analysis.proveCarriedDirectlyWithin(value, budget)
 	if direct.State != ssaflow.EvidenceDisproven {
@@ -79,10 +73,6 @@ func (analysis *resourceAnalysis) directStorageBudget(budget *ssaflow.SearchBudg
 		return analysis.budget(ssaflow.QueryBudget)
 	}
 	return budget.Within(ssaflow.QueryBudget)
-}
-
-func (analysis *resourceAnalysis) carriesWithin(value ssa.Value) bool {
-	return analysis.proveNestedCarryWithin(value, nil).Proven()
 }
 
 func (analysis *resourceAnalysis) proveNestedCarryWithin(value ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
