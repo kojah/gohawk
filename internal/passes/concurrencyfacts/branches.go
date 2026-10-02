@@ -13,10 +13,6 @@ import (
 // decline paths that could only agree after cancellation of earlier effects.
 // The fixed sequence limit bounds copying; no execution paths are enumerated.
 func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary {
-	if !detachedRecovery(function) {
-		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
-		return Summary{Reason: ReasonControlFlowUnknown}
-	}
 	flow, reason := engine.orderedBlocks(function, root)
 	if reason != ReasonNone {
 		return Summary{Reason: reason}
@@ -86,7 +82,14 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 	return *terminal
 }
 
+// orderedBlocks prepares the control flow for both acyclic collectors. Recovery
+// with predecessors cannot be omitted from their normal-return proofs, so reject
+// it before loop folding or any traversal budget is spent.
 func (engine *Engine) orderedBlocks(function *ssa.Function, root bool) (acyclicFlow, Reason) {
+	if !detachedRecovery(function) {
+		engine.recordBlockCutoff(function.Recover, cutoffRecovery)
+		return acyclicFlow{}, ReasonControlFlowUnknown
+	}
 	flow := acyclicFlow{folded: engine.foldLoops(function, root)}
 	inside := make(map[*ssa.BasicBlock]bool)
 	for header, folded := range flow.folded {

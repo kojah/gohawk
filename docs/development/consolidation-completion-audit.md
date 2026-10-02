@@ -5139,3 +5139,40 @@ controls, focused tests, counterfactual assertion checks and all eight canonical
 verification gates pass as expected. The canonical binary matches the frozen
 reviewed binary. These results establish preservation within the tested scope,
 not broad completion or production FP correction.
+
+## Collector preparation and selection parser dispositions
+
+Bead `gohawk-dho.23.21.5` addresses remaining indexed partial candidates 21
+and 10. Exact-source review found `orderedBlocks` has only the two acyclic
+collector callers. Their identical detached-recovery rejection now belongs to
+that shared preparation function, before loop folding and traversal budget
+spending. Recovery cutoff location and reason remain unchanged. Single-history
+join equality and alternative-path products stay in their separate collectors.
+Select and counted-loop collectors do not use this preparation and retain their
+own recovery guards at their existing dispatch points.
+
+The CLI candidate remains intentional local scaffolding. Check selectors build
+their available IDs from analyzer metadata and admit enable/disable overlap for
+later precedence. Analyzer and group selectors reject overlap; group validation
+uses ordered catalog choices in its errors. The parsers already share value
+consumption (`selectionFlagValue`) and check/analyzer name validation
+(`addSelectedNames`). A new dispatcher would require domain callbacks or error
+configuration to unify only map allocation, argv[0] preservation and the local
+argument loop. No distinct proof or parsing contract is duplicated by those
+initializations, so they are retained. No CLI behavior change is proposed.
+
+These bounded dispositions do not establish broader semantic consolidation or
+resolve any of the eight outstanding production locations.
+
+The refreshed normalized scan after these dispositions covers 329 production
+files and 2,174 declarations, retaining five full-body and 35 partial-block
+candidate groups. Previously addressed argument-consumption, bounded-slot and
+collector-preparation windows are absent from this candidate set; intentional
+CLI initialization remains. Overlapping normalized windows are not a defect
+metric or evidence that differently structured semantic duplication is absent.
+
+The [collector preparation record](../../benchmarks/precision/audits/collector-preparation-2026-10-03.md)
+records passing focused tests, all eight canonical verification gates and eight
+terminal affected-scope parent/current receipts with identical complete payloads.
+The canonical binary matches the reviewed binary. Production FP correction and
+broader semantic completion remain unproven.
