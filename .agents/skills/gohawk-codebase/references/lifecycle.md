@@ -160,6 +160,8 @@ type CompletionRequest struct {
 	// CallContract supplies exact positive effects of a call even when its
 	// body is visible. This lets external API semantics compose through a
 	// local forwarding wrapper without treating missing effects as absence.
+	// Its policy belongs to this request; LocalEvidence does not memoize it
+	// across requests because callback identities cannot form a stable key.
 	CallContract	CompletionSummaryLookup
 	// ReturnedSummaries supplies exact callback-to-parameter/result relations
 	// for factories whose bodies are unavailable.

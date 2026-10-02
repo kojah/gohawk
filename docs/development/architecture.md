@@ -44,6 +44,12 @@ for each; these times include each check's prerequisite passes.
   Both share binding, coverage, recursion and budget rules. A body promise
   never makes an asynchronous launch complete its caller's obligation, and
   rejecting a recursive body visit supplies unknown evidence.
+  Local completion evidence caches only answers independent of per-request
+  lookup callbacks and constants. `Summarized`, `CallContract` and returned-
+  summary overrides bypass that outer memo because callback identity is not a
+  stable key. A fixed returned-summary policy belongs to the evidence scope and
+  retains ordinary reuse. Budget cutoff is not a callee guarantee and is never
+  cached; a fresh query can recover. Each request keeps its own internal memo.
   Worker lifetime bounds share one analyzer-local receive search with
   caller-selected channel or context-field predicates. Its memo key includes
   the function and local value, so a helper visited for one formal does not

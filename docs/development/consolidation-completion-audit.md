@@ -3015,3 +3015,39 @@ Cute's known TP remains and Ferro's corrected statement-storage report stays
 absent. No new FP correction or full precision replay is credited. Earlier
 HTTP/context/error/optional predicates and graph/type internals remain separate
 cost scope; parent `.17` and the broader objective remain open.
+
+## Request-specific completion contract cache
+
+`gohawk-dho.44.11.5.20` confirms that LocalEvidence's outer completion memo
+omitted the per-request CallContract policy. Actual SSA contains a caller
+forwarding its exact resource into a visible empty contract callee. A trusted
+request hook recognizes that exact argument and Close query; without the hook,
+the body supplies no cleanup. Before the fix, all four policy-order controls
+fail: a cached negative blocks a later accepted contract, and a cached accepted
+contract remains a positive guarantee after the hook is removed or rejects it.
+
+CallContract now joins the existing per-request lookup bypass. Callback identity
+is not a stable cache key, so only the request's internal memo may reuse those
+answers. The fixed returned-summary policy still belongs to the evidence scope;
+unadorned completed proofs retain ordinary memoization and interrupted proofs
+remain uncached. No additional lookup engine or analyzer policy is introduced.
+The CompletionRequest comment, architecture reference and generated lifecycle
+API reference describe the same boundary.
+
+`evidence_contract_test.go` covers none/accepts, accepts/none, accepts/rejects
+and rejects/accepts transitions followed by a repeated policy. Corrected tests
+pass with the ordinary memo-reuse and cutoff/fresh controls in 0.010 seconds.
+Actual SSA is recorded in `.build/goal-completion-contract-fixture.ssa.txt`.
+The first focused gates found test line length and a generated comment reference
+that needed regeneration; both are corrected by the canonical workflow.
+
+The canonical `make verify` gate passes, including ordinary tests and repository
+dogfood. Immutable `.build/goal-completion-contract-current`, SHA-256
+`b883426807cacc88c7a71550eaa017a30cb278062d937edf744043337e1fd98d`,
+keeps pinned Cute/Ferro resource JSON byte-identical to the prior-deferred
+binary, exits 3/0 and empty stderr. Pins/scopes remain those recorded above.
+Cute's known TP remains and Ferro's corrected storage report stays absent.
+The current production contract lookup callsite uses the direct conditional-case
+search; this memo correction has no demonstrated production FP removal. No full
+precision replay ran. Earlier acquisition and cleanup-uncertainty families remain
+open in the broader consolidation objective.
