@@ -186,15 +186,24 @@ func (graph *regionGraph) contentAtUnlocked(address ssa.Value, at ssa.Instructio
 // everContained reports whether some slot beneath the object was ever given
 // one of the target's objects: the aggregate held the target at some point,
 // possibly in another iteration of a loop.
-func (graph *regionGraph) everContainedUnlocked(object slot, target pointees) bool {
+func (graph *regionGraph) everContainedUnlocked(object slot, target pointees, budget *ssaflow.SearchBudget) bool {
+	if !budget.Spend() {
+		return false
+	}
 	if object.region.kind == regionUnknown {
 		return true
 	}
 	for held, set := range graph.history {
+		if !budget.Spend() {
+			return false
+		}
 		if held.region != object.region || !slotBeneath(held.path, object.path) || held.path == object.path {
 			continue
 		}
 		for pointee := range set {
+			if !budget.Spend() {
+				return false
+			}
 			if pointee.region.kind == regionUnknown {
 				return true
 			}
@@ -204,42 +213,6 @@ func (graph *regionGraph) everContainedUnlocked(object slot, target pointees) bo
 		}
 	}
 	return false
-}
-
-// contentWhenDeferredRun returns what the addressed slots hold when the
-// function's deferred calls run: the union over every RunDefers the
-// registration can reach, read before the deferred calls' own effects, or
-// over every reachable return when the function defers nothing and the
-// callback was registered with a test instead. A deferred literal observes
-// its captured cell then, not at the registration.
-func (graph *regionGraph) contentWhenDeferredRun(address ssa.Value, registration ssa.Instruction) (pointees, bool) {
-	defer graph.lock()()
-	if !graph.available || registration == nil {
-		return nil, false
-	}
-	points := make([]ssa.Instruction, 0)
-	for _, run := range ssaflow.InstructionsOf[*ssa.RunDefers](graph.function) {
-		points = append(points, run)
-	}
-	if len(points) == 0 {
-		for _, returned := range ssaflow.InstructionsOf[*ssa.Return](graph.function) {
-			points = append(points, returned)
-		}
-	}
-	result := pointees{}
-	found := false
-	for _, point := range points {
-		if !ssaflow.InstructionMayFollow(registration, point) {
-			continue
-		}
-		set, ok := graph.contentAtUnlocked(address, point)
-		if !ok {
-			return nil, false
-		}
-		result.union(set)
-		found = true
-	}
-	return result, found
 }
 
 // storedPath returns the access path beneath the root's object at which the
@@ -415,11 +388,11 @@ func (graph *regionGraph) pointsTo(value ssa.Value) (pointees, bool) {
 	return graph.pointsToUnlocked(value)
 }
 
-// everContained is everContainedUnlocked for a caller outside the graph's
+// everContainedWithin is everContainedUnlocked for a caller outside the graph's
 // own queries.
-func (graph *regionGraph) everContained(object slot, target pointees) bool {
+func (graph *regionGraph) everContainedWithin(object slot, target pointees, budget *ssaflow.SearchBudget) bool {
 	defer graph.lock()()
-	return graph.everContainedUnlocked(object, target)
+	return graph.everContainedUnlocked(object, target, budget)
 }
 
 // singleObjectSlot permits different fields of the same object, while retaining

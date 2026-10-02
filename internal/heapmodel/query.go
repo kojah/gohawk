@@ -72,51 +72,6 @@ func graphStoredPath(root, target ssa.Value, at ssa.Instruction) ([]string, bool
 	return regionsOf(root).storedPath(root, target, at)
 }
 
-// DeferredCellMatch distinguishes a captured cell that contains exactly the
-// target from one whose every possible occupant contains it indirectly.
-type DeferredCellMatch uint8
-
-const (
-	DeferredCellUnknown DeferredCellMatch = iota
-	DeferredCellExact
-	DeferredCellContains
-)
-
-// DeferredCellRelation reads the cell when deferred calls execute. Known is
-// false when either side could not be read; callers must not use a fallback
-// proof in that case. A stale or unrelated occupant prevents an exact claim.
-func DeferredCellRelation(cell *ssa.Alloc, target ssa.Value, invocation ssa.Instruction) (DeferredCellMatch, bool) {
-	graph := regionsOf(cell)
-	held, ok := graph.contentWhenDeferredRun(cell, invocation)
-	if !ok || len(held) == 0 {
-		return DeferredCellUnknown, false
-	}
-	object, ok := graph.pointsTo(target)
-	if !ok {
-		return DeferredCellUnknown, false
-	}
-	targetSlot, exact := singleSlot(object)
-	isTarget, contains := exact, true
-	for entry, stale := range held {
-		if entry.region.kind == regionNil {
-			continue
-		}
-		if entry != targetSlot || stale {
-			isTarget = false
-		}
-		if !graph.everContained(entry, object) {
-			contains = false
-		}
-	}
-	if isTarget {
-		return DeferredCellExact, true
-	}
-	if contains {
-		return DeferredCellContains, true
-	}
-	return DeferredCellUnknown, true
-}
-
 // CanHoldReference reports whether a value of type value can refer to another
 // object. A string, a number, or a struct or array made only of them cannot:
 // a string's bytes are never an object the program releases. The points-to

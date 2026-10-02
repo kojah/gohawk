@@ -4434,3 +4434,23 @@ complete-body scan still has five distinct-contract groups across 316 files and
 construction, deferred observation costs, alias/type internals, cycle metadata,
 package inventories and other fact consumers remain open. Ten production FP
 sites plus Rune remain unresolved; no FP correction is credited by this refactor.
+
+## Deferred-cell observation allowance
+
+Beads `gohawk-dho.44.11.5.27.16` replaces the deferred graph relation's separate
+RunDefers/Return censuses with one completed shared instruction census and
+threads completion's existing allowance through reachability, occupant unions,
+comparison and descendant history. A shortened census or relation is
+unavailable, so no exact mapping or path fallback can consume its prefix.
+The old default API is removed after wiring its sole production consumer;
+nil-budget behavior and graph locks remain unchanged.
+
+Actual SSA exact/cleared/replaced/merged/aggregate/registered-cell controls,
+intermediate cutoffs, prefix discard, independent child recovery and lifecycle
+mapping cutoff pass. Three counterfactuals fail assertions. Final canonical
+validation and byte-identical 444 fixture diagnostics and four pinned production
+lock controls pass. See the [deferred-cell follow-up](../../benchmarks/precision/audits/deferred-cell-allowance-followup-2026-10-02.md).
+Graph build/replay, pointee internals, alias/type work, cycle metadata, package
+inventories and other fact consumers retain separate review scope. Ten production
+FP sites plus Rune remain open; this consolidation credits no FP correction or
+whole-query cost bound.

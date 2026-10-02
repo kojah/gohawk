@@ -116,6 +116,18 @@ pin later/replaced stores, unrelated objects, nested and cyclic containment,
 and both sides of the existing depth limit; the history widening test retains
 possible containment after an overfull slot becomes unknown.
 
+Deferred captured-cell mapping uses `DeferredCellRelationWithin`. One completed
+shared instruction census selects reachable RunDefers, or returns when a
+test-registered callback has no deferred execution points. Selection,
+reachability, occupant unions and descendant history checks spend the completion
+request's allowance. An interrupted census or relation publishes no occupant
+prefix and is unavailable to the mapping fallback. Nil alternatives retain the
+existing exact-cell policy; stale or unrelated occupants prevent an exact claim.
+Graph construction, state replay, pointee lookup and type/alias internals still
+have independent costs. The deferred-cell tests cover exact, cleared, replaced,
+merged, aggregate and test-registered cells, cutoff at intermediate allowances,
+discarded observation prefixes and fresh recovery.
+
 A may-answer is deliberately weaker inside a loop than outside it: a stale
 entry counts, so `true` there means "possibly, in some iteration". Only
 `must same` filters stale entries. A `false` from `may alias` is the one

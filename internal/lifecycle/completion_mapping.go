@@ -132,7 +132,7 @@ func (search *completionSearch) deferredCellLocal(free ssa.Value, cell *ssa.Allo
 			return mappedLocal{local: free, supplied: owner, kind: localOwner}, true
 		}
 	}
-	relation, known := heapmodel.DeferredCellRelation(cell, target, invocation)
+	relation, known := heapmodel.DeferredCellRelationWithin(cell, target, invocation, search.budget)
 	if !known {
 		return mappedLocal{}, false
 	}

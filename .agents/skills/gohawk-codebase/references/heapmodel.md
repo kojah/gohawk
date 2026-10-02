@@ -205,7 +205,7 @@ ContentValue returns the exact SSA value held by an address at observation.
 
 ## DeferredCellMatch
 
-[Source](../../../../internal/heapmodel/query.go)
+[Source](../../../../internal/heapmodel/store_deferred_cells.go)
 
 ```go
 type DeferredCellMatch uint8
@@ -214,21 +214,24 @@ type DeferredCellMatch uint8
 DeferredCellMatch distinguishes a captured cell that contains exactly the
 target from one whose every possible occupant contains it indirectly.
 
-## DeferredCellRelation
+## DeferredCellRelationWithin
 
-[Source](../../../../internal/heapmodel/query.go)
+[Source](../../../../internal/heapmodel/store_deferred_cells.go)
 
 ```go
-func DeferredCellRelation(cell *ssa.Alloc, target ssa.Value, invocation ssa.Instruction) (DeferredCellMatch, bool)
+func DeferredCellRelationWithin(cell *ssa.Alloc, target ssa.Value, invocation ssa.Instruction, budget *ssaflow.SearchBudget) (DeferredCellMatch, bool)
 ```
 
-DeferredCellRelation reads the cell when deferred calls execute. Known is
+DeferredCellRelationWithin reads the cell when deferred calls execute. Known is
 false when either side could not be read; callers must not use a fallback
 proof in that case. A stale or unrelated occupant prevents an exact claim.
+Census, reachability, union and history visits share budget; cutoff publishes
+no relation. Graph construction/replay and points-to internals retain separate
+costs. A nil budget retains the unbounded observation policy.
 
 ## DeferredCellUnknown, DeferredCellExact, DeferredCellContains
 
-[Source](../../../../internal/heapmodel/query.go)
+[Source](../../../../internal/heapmodel/store_deferred_cells.go)
 
 ```go
 const (
