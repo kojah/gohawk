@@ -17,7 +17,7 @@ func TestReachableConstantBlocksAllowance(t *testing.T) {
 		for _, outcome := range []Outcome{OutcomeTrue, OutcomeFalse} {
 			fn := pkg.Func(name)
 			constants := FixedValues{fn.Params[0]: outcome}
-			baseline := ReachableBlocksAssuming(fn, constants)
+			baseline := ReachableBlocksAssumingWithin(fn, constants, nil)
 			for limit := 0; limit <= QueryBudget; limit++ {
 				budget := NewSearchBudget(limit)
 				blocks := ReachableBlocksAssumingWithin(fn, constants, budget)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go/constant"
 	"go/token"
-	"slices"
 	"strings"
 
 	"golang.org/x/tools/go/ssa"
@@ -31,13 +30,26 @@ import (
 // binding holds only when the closure never writes the cell.
 type FixedValues map[ssa.Value]Outcome
 
-// FixedArguments binds the callee's parameters, and the captured variables
-// of closure when the callee is its body, to the outcomes the call's
-// arguments fix: literals, values that cannot be nil, and caller values that
-// known already fixes. It returns nil when nothing is fixed.
-func FixedArguments(common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known FixedValues) FixedValues {
+// FixedArgumentsProof publishes only a complete census of modeled argument
+// and capture outcomes. Proven does not establish any callee behavior.
+type FixedArgumentsProof struct {
+	Proof
+	Values FixedValues
+}
+
+// ProveFixedArgumentsWithin binds parameters and captured cells to literal or
+// caller-fixed outcomes. Capture identity, read-only and nil-test searches
+// share budget. Cutoff publishes no map; nil budget retains default binding
+// policy. Missing bodies yield a completed empty metadata census.
+func ProveFixedArgumentsWithin(
+	common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known FixedValues, budget *SearchBudget,
+) FixedArgumentsProof {
 	if callee == nil || len(callee.Blocks) == 0 {
-		return nil
+		return FixedArgumentsProof{Proof: Proof{State: EvidenceProven, Reason: EvidenceStructuralWalk}}
+	}
+	unknown := FixedArgumentsProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+	if !budget.Spend() {
+		return unknown
 	}
 	var fixed FixedValues
 	bind := func(local ssa.Value, outcome Outcome) {
@@ -48,59 +60,81 @@ func FixedArguments(common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ss
 	}
 	if common != nil && !common.IsInvoke() && len(common.Args) == len(callee.Params) {
 		for index, argument := range common.Args {
-			if outcome, ok := fixedOutcome(argument, known); ok && decidable(callee.Params[index], outcome) {
+			if !budget.Spend() {
+				return unknown
+			}
+			if outcome, ok := fixedOutcome(argument, known); ok && decidableWithin(callee.Params[index], outcome, budget) {
 				bind(callee.Params[index], outcome)
 			}
 		}
 	}
 	if closure != nil && closure.Fn == callee && len(closure.Bindings) == len(callee.FreeVars) {
-		for _, pair := range ClosureBindingPairs(callee, closure) {
-			cell := pair.Free
-			if outcome, ok := known[pair.Binding]; ok && onlyRead(cell) {
-				bind(cell, outcome)
-				continue
-			}
-			if outcome, ok := capturedOutcome(pair.Binding, known); ok && decidableCell(cell, outcome) {
-				bind(cell, outcome)
+		for pair := range ClosureBindingPairsWithin(callee, closure, budget) {
+			if outcome, ok := capturedArgumentOutcomeWithin(pair, known, budget); ok {
+				bind(pair.Free, outcome)
 			}
 		}
 	}
-	return fixed
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return unknown
+	}
+	return FixedArgumentsProof{Proof: Proof{State: EvidenceProven, Reason: EvidenceStructuralWalk, Provenance: EvidenceFromLocalSSA}, Values: fixed}
 }
 
-// decidable reports whether binding the parameter to outcome can decide
-// anything. A Boolean always can. Nilness is bound only for a parameter the
-// body compares with nil or captures, so a pointer argument that is never
-// tested adds no binding, and the memo keys that name bindings stay few.
-func decidable(parameter *ssa.Parameter, outcome Outcome) bool {
+// A caller-fixed current cell remains valid only in a directly read-only
+// body. Otherwise retain the once-stored fallback, including nested lexical
+// captures, and its existing nilness relevance rule.
+func capturedArgumentOutcomeWithin(pair CapturedBinding, known FixedValues, budget *SearchBudget) (Outcome, bool) {
+	if outcome, ok := known[pair.Binding]; ok && onlyReadWithin(pair.Free, budget) {
+		return outcome, true
+	}
+	outcome, ok := capturedOutcomeWithin(pair.Binding, known, budget)
+	if !ok || !decidableCellWithin(pair.Free, outcome, budget) {
+		return OutcomeAny, false
+	}
+	return outcome, true
+}
+
+// Boolean bindings are always useful; nilness is retained only for an exact
+// nil comparison or capture store, keeping unrelated pointer states out of
+// callee contexts. These predicates select relevance, not outcome truth.
+func decidableWithin(parameter *ssa.Parameter, outcome Outcome, budget *SearchBudget) bool {
 	if outcome == OutcomeTrue || outcome == OutcomeFalse {
 		return true
 	}
-	return slices.ContainsFunc(*parameter.Referrers(), ComparesWithNil)
+	for user := range ReferrersWithin(parameter, budget) {
+		if comparesWithNilWithin(user, budget) {
+			return true
+		}
+	}
+	return false
 }
 
-// decidableCell is decidable for a captured cell: nilness is bound only when
-// a load of the cell is compared with nil.
-func decidableCell(cell *ssa.FreeVar, outcome Outcome) bool {
+func decidableCellWithin(cell *ssa.FreeVar, outcome Outcome, budget *SearchBudget) bool {
 	if outcome == OutcomeTrue || outcome == OutcomeFalse {
 		return true
 	}
-	return slices.ContainsFunc(*cell.Referrers(), func(user ssa.Instruction) bool {
-		load, ok := user.(*ssa.UnOp)
-		return ok && load.Op == token.MUL && slices.ContainsFunc(*load.Referrers(), ComparesWithNil)
-	})
+	for user := range ReferrersWithin(cell, budget) {
+		if load, ok := user.(*ssa.UnOp); ok && load.Op == token.MUL {
+			for use := range ReferrersWithin(load, budget) {
+				if comparesWithNilWithin(use, budget) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
-// onlyRead reports whether a closure only loads its captured cell, so a
-// caller's statement of what the cell holds stays true inside it.
-func onlyRead(cell *ssa.FreeVar) bool {
-	for _, user := range *cell.Referrers() {
-		load, ok := user.(*ssa.UnOp)
-		if !ok || load.Op != token.MUL {
+// Only direct loads preserve a caller-fixed captured cell's outcome inside
+// this body. Nested captures retain the ordinary once-stored fallback.
+func onlyReadWithin(cell *ssa.FreeVar, budget *SearchBudget) bool {
+	for user := range ReferrersWithin(cell, budget) {
+		if load, ok := user.(*ssa.UnOp); !ok || load.Op != token.MUL {
 			return false
 		}
 	}
-	return true
+	return !budget.Exhausted() && !budget.PoolExhausted()
 }
 
 // ValueOutcome reports what a value is known to be on its own: a Boolean
@@ -110,13 +144,16 @@ func ValueOutcome(value ssa.Value) (Outcome, bool) {
 	return fixedOutcome(value, nil)
 }
 
-// ComparesWithNil reports whether a use of a nilable value can decide a
-// branch on its nilness: a comparison with nil, or a store into the cell a
-// closure captures it by.
+// ComparesWithNil reports whether a use is a nil comparison or a store into
+// a captured cell. It retains the default relevance query for summary setup.
 func ComparesWithNil(user ssa.Instruction) bool {
+	return comparesWithNilWithin(user, nil)
+}
+
+func comparesWithNilWithin(user ssa.Instruction, budget *SearchBudget) bool {
 	switch typed := user.(type) {
 	case *ssa.BinOp:
-		return (typed.Op == token.EQL || typed.Op == token.NEQ) && (DefinitelyNil(typed.X) || DefinitelyNil(typed.Y))
+		return (typed.Op == token.EQL || typed.Op == token.NEQ) && (DefinitelyNilWithin(typed.X, budget) || DefinitelyNilWithin(typed.Y, budget))
 	case *ssa.Store:
 		_, cell := typed.Addr.(*ssa.Alloc)
 		return cell
@@ -160,16 +197,16 @@ func neverNil(value ssa.Value) bool {
 	return false
 }
 
-// capturedOutcome reports the outcome every read of a captured cell yields:
+// capturedOutcomeWithin reports the outcome every read of a captured cell yields:
 // a cell written once with a fixed value, whose captures only read it, or a
 // cell an enclosing closure already bound and passes on.
-func capturedOutcome(binding ssa.Value, known FixedValues) (Outcome, bool) {
+func capturedOutcomeWithin(binding ssa.Value, known FixedValues, budget *SearchBudget) (Outcome, bool) {
 	switch cell := binding.(type) {
 	case *ssa.FreeVar:
 		outcome, ok := known[cell]
 		return outcome, ok
 	case *ssa.Alloc:
-		stored, ok := WrittenOnceCell(cell)
+		stored, ok := WrittenOnceCellWithin(cell, budget)
 		if !ok {
 			return OutcomeAny, false
 		}

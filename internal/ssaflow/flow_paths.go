@@ -231,14 +231,9 @@ func afterInstruction(start ssa.Instruction) ([]obligationState, bool) {
 	return []obligationState{{block: start.Block(), index: index + 1}}, true
 }
 
-// ReachableBlocksAssuming returns the blocks some path from entry reaches
-// when the bound constants hold, in discovery order.
-func ReachableBlocksAssuming(function *ssa.Function, constants FixedValues) []*ssa.BasicBlock {
-	return ReachableBlocksAssumingWithin(function, constants, nil)
-}
-
-// ReachableBlocksAssumingWithin shares queued, branch and edge visits with
-// budget. Cutoff discards the census; nil is unavailable when budget exhausted,
+// ReachableBlocksAssumingWithin returns blocks reachable under constants in
+// discovery order, sharing queued, branch and edge visits with budget. Cutoff
+// discards the census; nil is unavailable when budget exhausted,
 // not proof that the function has no reachable blocks. Nil budget is unbounded.
 func ReachableBlocksAssumingWithin(function *ssa.Function, constants FixedValues, budget *SearchBudget) []*ssa.BasicBlock {
 	if function == nil || len(function.Blocks) == 0 {

@@ -29,7 +29,7 @@ func optionalAction(flag bool) { if flag { mark(3) } }
 		}
 	}
 	optional := pkg.Func("optionalAction")
-	blocks := ssaflow.ReachableBlocksAssuming(optional, ssaflow.FixedValues{optional.Params[0]: ssaflow.OutcomeFalse})
+	blocks := ssaflow.ReachableBlocksAssumingWithin(optional, ssaflow.FixedValues{optional.Params[0]: ssaflow.OutcomeFalse}, nil)
 	if ssaflow.HasReturnAndAction(blocks, mark) || ssaflow.HasReturnAndAction(nil, mark) {
 		t.Error("filtered or absent blocks supplied an action witness")
 	}

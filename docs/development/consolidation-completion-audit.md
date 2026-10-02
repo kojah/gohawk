@@ -13,8 +13,8 @@ consolidation tracked in `gohawk-dho.24`.
 | Shared responsibilities and downward dependencies | The architecture guide names the SSA, heap, lifecycle, resource and summary layers. Repository-wide architecture tests enforce imports, analyzer layout, fact ownership, summary access, traversal and reporting boundaries. | Structural conformance has passing canonical receipts. It does not prove every proof policy is cohesive; semantic review remains open. |
 | No duplicated proof mechanics | The value-walk and storage/summary reviews document concrete merges and distinct policies. The broader normalized-body scan below found five additional mechanical duplicate groups, now consolidated. | The identified groups are addressed. Partial blocks and equivalent logic written differently remain outside that scan; no repository-wide absence claim is made. |
 | One authoritative decision for each check | Reviewed lifecycle analyzers classify once and ask a shared flow query. The remaining normalized matches in classifier caches and state keys contain different domain state, rather than second acceptance rules. | The ten-check inventory below locates each reporting pipeline. Concurrent capture and process ownership now share their final decisions with tracing. Lock release and mutation reporting also consume structured decisions after dho.27. Defer-loop outcomes use a structured proof after dho.28; resource lifetime now also owns its state and pre-flow policy exclusion after dho.30. Deeper classification and precision-family review remain open. |
-| Remaining easy FPs fixed | Frozen batches 62/63 supplied 55 production FP locations. The queue refresh, successful 22-site replay and four subsequent corrections left 18 unresolved production sites. The later opaque registry-owner correction removes two FDio sites, leaving 16 unresolved; the one-time entry-context correction in dho.37 removes one k8ssandra site, leaving 15. The ten-family assessment states the missing evidence for each. Rune callback wait is separately corrected; fresh-lock publication remains open. | No target-resolution-only correction has been demonstrated. The remaining families need policy, identity, state or protocol evidence. The current-helper reassessment found the FDio field-origin gap fixed in dho.31 and the one-time entry policy corrected in dho.37. Further source review must distinguish a newly available bounded fix from a genuinely larger model. |
-| Precision preserved by consolidation | Parent/current boundary comparisons, accepted and diagnostic fixtures, ordinary tests and local dogfood scans accompany focused changes. Existing facts retain must/may polarity, exact binding, observation time and bounded unknown outcomes. | Passing receipts prove their stated scopes. They do not certify every historical finding against the latest source. Use affected pinned cases when behavior changes; do not rewrite frozen labels or credit unscannable cases. |
+| Remaining easy FPs fixed | Frozen batches 62/63 supplied 55 production locations originally labelled FP. The queue refresh, successful 22-site replay and four subsequent corrections left 18 unresolved production sites. The later opaque registry-owner correction removes two FDio sites, leaving 16 unresolved; the one-time entry-context correction in dho.37 removes one k8ssandra site, leaving 15. The entry-process correction in dho.4.1 removes four coder sites, leaving 11 recorded unresolved sites. The ten-family assessment preserves its earlier 18-site snapshot and the evidence gaps; these follow-ups are scoped receipts, not a fresh corpus census. Rune callback wait is separately corrected; fresh-lock publication remains open. | No target-resolution-only correction has been demonstrated. The remaining families need policy, identity, state or protocol evidence. The current-helper reassessment found the FDio field-origin gap fixed in dho.31 and the one-time entry policy corrected in dho.37. Further source review must distinguish a newly available bounded fix from a genuinely larger model. |
+| Precision preserved by consolidation | Parent/current boundary comparisons, accepted and diagnostic fixtures, ordinary tests and local dogfood scans accompany focused changes. Focused controls pin must/may polarity, exact binding, observation time and bounded unknown outcomes. The inherited captured-outcome timing gap in dho.44.11.5.25.2 remains a concrete semantic exception requiring correction. | Passing receipts prove their stated scopes. They do not certify every historical finding against the latest source. Use affected pinned cases when behavior changes; do not rewrite frozen labels or credit unscannable cases. |
 | Tight development cycle | Focused tests precede stable `make verify` gates. The local gate runs ordinary tests, formatting, vet, lint, dead-code and local dogfood; it does not invoke precision-regression. | Maintained. No full precision replay or local race run is part of these iterations. |
 | Work tracked and own changes published | Beads children record corrections, reviews and unresolved questions. Implementation commits contain exact task paths; unrelated staged deletion and working-tree artifacts remain separate. | Verify commit, upstream synchronization and child closure after each implementation. The epic and this completion audit remain active. |
 
@@ -3845,7 +3845,108 @@ filter and its publication/label integration, not a whole-cancellation cost
 bound or completion of the broader consolidation goal.
 
 The partial-publication counterfactual, assigning retained guards after the
-first match, also fails `TestDeferredCaptureGuardCensusAllowance` at an
+first match, also fails the guard-census control at an
 interrupted two-guard census (`.build/goal-deferred-capture-mutant-census.log`).
 The final focused documentation/architecture check passes in
 `.build/goal-deferred-capture-docs-final.log`.
+
+### Fixed-argument binding census (dho.44.11.5.25.1)
+
+The .25 source review identified four default once-stored-cell families. This
+child completes fixed-argument binding in completion search and both lock-order
+call sites; the channel, concurrency-field and cancellation-owner families
+remain open in the parent. Graph tools are unavailable, so this is a scoped
+source/usage review, not an exhaustive graph or whole-engine cost claim.
+
+`ProveFixedArgumentsWithin` now returns `FixedArgumentsProof`: a complete
+argument/capture outcome census, not a callee-behavior guarantee. Parameter and
+capture visits, direct read-only cells, once-stored nested captures and nil-test
+relevance share the owning allowance. Cutoff publishes no map, including a
+Boolean binding collected before an interrupted later pointer argument.
+Missing bodies preserve the completed empty metadata lookup without local SSA
+provenance. Caller-fixed current cells retain their existing read-only-body
+rule; mutable inferred cells stay unbound. Implicitly zeroed captured cells have
+no store and remain unbound, while explicitly stored nil cells still bind.
+Typed-nil interface boxing, irrelevant pointers and literal-first outcomes
+retain their default behavior.
+
+Completion consumes the structured census before assigning scoped constants,
+coverage or memoization. A cutoff cannot prove even an early anywhere-cleanup
+witness. Lock root and nested binding share the context allowance with bounded
+block discovery. Budget-interrupted contexts drop acquisition witnesses at
+the root, rather than reviving unconstrained acquisitions. Complete empty
+binding censuses and non-budget depth limits retain the existing ordinary
+declaration-summary fallback. Key, type, identity, alias preparation and ordinary fallback
+summary costs remain independent. No partial map is a branch-pruning fact.
+
+The added binding work took `callee_locks.go` across its size review trigger.
+Its distinct caller-snapshot, embedded-field and constructor-slot mechanics
+were extracted unchanged to `callee_lock_bindings.go`, preserving rationale
+and pinned links. Summary traversal stays in the original file; its context
+search remains cohesive around one allowance and fallback rule. Obsolete
+`FixedArguments` and `ReachableBlocksAssuming` default wrappers were removed
+once production consumers migrated; tests select the same nil-budget engines.
+`ComparesWithNil` remains the default setup query used by summary guard discovery
+and delegates to the same nil-relevance predicate as binding.
+
+Actual SSA tests cover twelve argument/capture contexts, nested forwarded
+captures, default semantic controls, child/available-parent/fresh queries,
+metadata provenance and partial-map discard. The large completion fixture
+places cleanup before irrelevant body work, isolating binding cutoff before an
+anywhere witness; the same search recovers with a fresh allowance, without a
+truncated memo. Lock controls retain both flag arms and demonstrate nested
+binding cutoff even when its eventual body would be pruned. Fixtures are built
+to SSA, not executed. `.build/goal-fixed-binding-final-ssa.log` contains the
+focused semantic controls and `Function.WriteTo` receipts; final focused suites
+pass in `.build/goal-fixed-binding-final-focused.log`.
+
+Five counterfactual overlays fail in
+`.build/goal-fixed-binding-mutant-{relevance,publication,completion,locks,root}.log`:
+bypassing nil relevance publishes a supposedly complete map, publishing an
+interrupted census exposes the first Boolean binding, bypassing completion's
+binding allowance proves its early cleanup, and bypassing nested lock binding
+makes an interrupted context appear complete. The root fallback mutation
+revives an unconstrained acquisition after binding cutoff; its control
+requires no acquisition witnesses. These are behavioral failures, not
+compilation failures.
+
+The initial gates exposed binding complexity, a long test expression, an
+unexplained context-search span, an ambiguous earlier audit test citation and
+a dead block-census wrapper. These were corrected without exemptions. Final
+`make verify VERIFY_TIMINGS=1` passes in
+`.build/goal-fixed-binding-verify-cutoff.log`: tests 56s, dogfood 24s, lint 5s
+with zero issues, vet 1s, formatting 2s, deadcode 5s, generation 1s and module
+verification 1s. No local race or full precision replay was run.
+
+The immutable `.build/goal-fixed-binding-cutoff` binary is built from 255f630
+plus the final production change, SHA-256
+`6cef5a013a49633b3e7d9989aa665bc4a1202d10c319aea584c8b074c2d69d03`.
+Scoped static scans use `CGO_ENABLED=0`, `GOFLAGS=-mod=readonly`, `GOWORK=off`.
+Openase `e530faf137e764337d5beaaf68af3be159eb17aa`, all checks on
+`./internal/orchestrator`, exits 3 with empty stderr and byte-identical JSON to
+the preceding deferred-capture control, retaining both reviewed cancellation
+leaks. Cute `9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3`, resource-only
+`./...`, exits 3 with empty stderr and byte-identical JSON to its return-binding
+control, retaining the reviewed resource leak at `test.go:614:13`.
+`.build/goal-fixed-binding-cutoff-{openase,cute}.{json,err}` holds the receipts.
+Candidate tests, generators and applications are not run. These controls
+credit no new FP removal; the recorded production queue remains 11 unresolved
+sites, not a fresh corpus census. The .25 parent and broader consolidation
+goal remain active.
+
+The final root cutoff rule drops witnesses rather than falling back to an
+unconstrained acquisition set. Complete empty binding censuses and non-budget
+depth failures preserve the existing fallback. `callee_constants_budget_test.go`
+includes an ordinary-summary control that does acquire, a cutoff that must not
+revive it, and a fresh completed query proving the arm is pruned. Focused lock
+and full architecture suites pass in `.build/goal-fixed-binding-root-reviewed.log`.
+
+A separate read-only overlay probe exposed an inherited timing gap in the old
+capture outcome contract: a zeroed local Boolean has its sole true store after
+an early return, yet a deferred cleanup conditioned on it is proven by default.
+Fixing the caller's cell to false for that return disproves completion. Actual
+caller and deferred-body SSA plus both proofs are in
+`.build/goal-fixed-binding-timing-probe.log`. New dho.44.11.5.25.2 records this
+semantic question for its own temporal proof and regression work; the current
+binding change preserves the old complete-query lookup policies. This is not a
+verified production FP correction. Parent .25 and the broader goal remain open.

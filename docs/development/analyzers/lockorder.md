@@ -325,3 +325,22 @@ The existing trace assertions for caller transfer, imported writers, loaded
 guards, state-budget exhaustion and release-attempt evidence remain alongside
 these boundaries. Parent/current fixture JSON is compared independently of
 trace events; no new guard-to-field inference or FP removal is claimed.
+
+### Fixed-argument binding allowance
+
+`ProveFixedArgumentsWithin` supplies a complete argument/capture outcome census
+before callee branch pruning. Root binding, nested binding and constant-bound
+block discovery share the context search's allowance. Budget cutoff drops
+acquisition witnesses at the root: an unconstrained summary could revive an
+impossible arm. Complete empty binding censuses and non-budget depth limits
+retain the existing ordinary declaration-summary fallback.
+No partial binding map can select a callee arm or enter its context search.
+
+`callee_constants_budget_test.go` covers both constant arms, forwarded flags,
+child cutoff/fresh queries and a large nested binding census whose body would
+otherwise be pruned. Existing constant-argument and helper-field fixtures keep
+their policies. `callee_lock_bindings.go` now owns the distinct caller snapshot,
+embedded field and constructor-slot identity mechanics formerly beside summary
+traversal; this is an extraction with unchanged evidence and rationale comments.
+Independent key, identity, type and ordinary fallback-summary costs remain
+separate; this does not claim a bound on the entire lock proof.

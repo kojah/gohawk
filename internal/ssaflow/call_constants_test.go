@@ -82,7 +82,7 @@ func nilCalls() {
 // effectReached reports whether some block reachable under constants calls
 // effect.
 func effectReached(function *ssa.Function, constants ssaflow.FixedValues) bool {
-	for _, block := range ssaflow.ReachableBlocksAssuming(function, constants) {
+	for _, block := range ssaflow.ReachableBlocksAssumingWithin(function, constants, nil) {
 		for _, instruction := range block.Instrs {
 			if call, ok := instruction.(*ssa.Call); ok && call.Common().StaticCallee() != nil && call.Common().StaticCallee().Name() == "effect" {
 				return true
@@ -137,14 +137,14 @@ func TestFixedArgumentsBindCallsAndCells(t *testing.T) {
 		}
 	}
 	direct := pkg.Func("direct")
-	if constants := ssaflow.FixedArguments(calls[0].Common(), nil, direct, nil); constants[direct.Params[0]] != ssaflow.OutcomeTrue {
+	if constants := fixedArguments(calls[0].Common(), nil, direct, nil); constants[direct.Params[0]] != ssaflow.OutcomeTrue {
 		t.Errorf("literal argument bindings = %v, want keep=true", constants)
 	}
-	if constants := ssaflow.FixedArguments(calls[1].Common(), nil, direct, nil); len(constants) != 0 {
+	if constants := fixedArguments(calls[1].Common(), nil, direct, nil); len(constants) != 0 {
 		t.Errorf("unbound parameter argument bindings = %v, want none", constants)
 	}
 	known := ssaflow.FixedValues{caller.Params[0]: ssaflow.OutcomeFalse}
-	if constants := ssaflow.FixedArguments(calls[1].Common(), nil, direct, known); constants[direct.Params[0]] != ssaflow.OutcomeFalse || len(constants) != 1 {
+	if constants := fixedArguments(calls[1].Common(), nil, direct, known); constants[direct.Params[0]] != ssaflow.OutcomeFalse || len(constants) != 1 {
 		t.Errorf("forwarded argument bindings = %v, want keep=false", constants)
 	}
 	if supplied := ssaflow.SuppliedCondition(calls[0].Common(), nil).Arguments; supplied.Bound != 1 || supplied.Values != 1 {
@@ -172,7 +172,7 @@ func TestFixedArgumentsBindCallsAndCells(t *testing.T) {
 		}
 		body := closure.Fn.(*ssa.Function)
 		known := ssaflow.FixedValues{function.Params[0]: ssaflow.OutcomeFalse}
-		constants := ssaflow.FixedArguments(deferred.Common(), closure, body, known)
+		constants := fixedArguments(deferred.Common(), closure, body, known)
 		if _, ok := constants[body.FreeVars[0]]; ok != test.bound {
 			t.Errorf("%s: cell bound = %t, want %t", test.name, ok, test.bound)
 		}
@@ -207,15 +207,21 @@ func TestFixedArgumentsBindNilness(t *testing.T) {
 			}
 		}
 	}
-	if fixed := ssaflow.FixedArguments(calls[0].Common(), nil, withoutSink, nil); fixed[withoutSink.Params[0]] != ssaflow.OutcomeNil {
+	if fixed := fixedArguments(calls[0].Common(), nil, withoutSink, nil); fixed[withoutSink.Params[0]] != ssaflow.OutcomeNil {
 		t.Errorf("nil argument bindings = %v, want nil", fixed)
 	}
 	// An interface holding a typed nil pointer is not a nil interface.
-	if fixed := ssaflow.FixedArguments(calls[1].Common(), nil, withoutSink, nil); fixed[withoutSink.Params[0]] != ssaflow.OutcomeNonNil {
+	if fixed := fixedArguments(calls[1].Common(), nil, withoutSink, nil); fixed[withoutSink.Params[0]] != ssaflow.OutcomeNonNil {
 		t.Errorf("typed nil argument bindings = %v, want non-nil", fixed)
 	}
 	// A pointer the callee never compares with nil adds no binding.
-	if fixed := ssaflow.FixedArguments(calls[2].Common(), nil, pkg.Func("untested"), nil); len(fixed) != 0 {
+	if fixed := fixedArguments(calls[2].Common(), nil, pkg.Func("untested"), nil); len(fixed) != 0 {
 		t.Errorf("untested pointer bindings = %v, want none", fixed)
 	}
+}
+
+// Keep the default binding assertions concise while production consumers
+// explicitly inspect the structured census before using its values.
+func fixedArguments(common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known ssaflow.FixedValues) ssaflow.FixedValues {
+	return ssaflow.ProveFixedArgumentsWithin(common, closure, callee, known, nil).Values
 }

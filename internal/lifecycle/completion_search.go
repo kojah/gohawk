@@ -315,7 +315,11 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	// a helper that closes only behind a flag completes the target at a call
 	// fixing the flag to the closing arm, and at no call fixing it otherwise.
 	outer := search.constants
-	search.constants = ssaflow.FixedArguments(callee.common, callee.closure, callee.function, outer)
+	fixed := ssaflow.ProveFixedArgumentsWithin(callee.common, callee.closure, callee.function, outer, search.budget)
+	if !fixed.Proven() {
+		return false
+	}
+	search.constants = fixed.Values
 	defer func() { search.constants = outer }()
 	var nonNil ssa.Value
 	var concrete types.Type

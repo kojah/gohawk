@@ -752,9 +752,8 @@ unknown. A nil budget retains default policy; stopping needs no later work.
 func ComparesWithNil(user ssa.Instruction) bool
 ```
 
-ComparesWithNil reports whether a use of a nilable value can decide a
-branch on its nilness: a comparison with nil, or a store into the cell a
-closure captures it by.
+ComparesWithNil reports whether a use is a nil comparison or a store into
+a captured cell. It retains the default relevance query for summary setup.
 
 ## CompletionProof
 
@@ -1279,18 +1278,19 @@ FeasibleSuccessorsWithin shares allowance through incoming phi selection
 and literal helper return inspection. Cutoff keeps all successors; callers
 retain availability before judging paths. A nil budget preserves defaults.
 
-## FixedArguments
+## FixedArgumentsProof
 
 [Source](../../../../internal/ssaflow/call_constants.go)
 
 ```go
-func FixedArguments(common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known FixedValues) FixedValues
+type FixedArgumentsProof struct {
+	Proof
+	Values	FixedValues
+}
 ```
 
-FixedArguments binds the callee's parameters, and the captured variables
-of closure when the callee is its body, to the outcomes the call's
-arguments fix: literals, values that cannot be nil, and caller values that
-known already fixes. It returns nil when nothing is fixed.
+FixedArgumentsProof publishes only a complete census of modeled argument
+and capture outcomes. Proven does not establish any callee behavior.
 
 ## FixedValues
 
@@ -2366,6 +2366,21 @@ therefore the number of times Body ran on any path that takes Exit. Unlike
 ProveCountedLoop, the body cannot be replayed as straight-line code, so a
 consumer may use the count but must reason about the body's paths itself.
 
+## ProveFixedArgumentsWithin
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func ProveFixedArgumentsWithin(
+	common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known FixedValues, budget *SearchBudget,
+) FixedArgumentsProof
+```
+
+ProveFixedArgumentsWithin binds parameters and captured cells to literal or
+caller-fixed outcomes. Capture identity, read-only and nil-test searches
+share budget. Cutoff publishes no map; nil budget retains default binding
+policy. Missing bodies yield a completed empty metadata census.
+
 ## ProveIdentity
 
 [Source](../../../../internal/ssaflow/value_identity.go)
@@ -2437,17 +2452,6 @@ RangeElementLoop recognizes the element loop whose header is header. It
 declines a loop with another exit, such as a break or a return in the
 body, and a bound that is not the length of one slice value.
 
-## ReachableBlocksAssuming
-
-[Source](../../../../internal/ssaflow/flow_paths.go)
-
-```go
-func ReachableBlocksAssuming(function *ssa.Function, constants FixedValues) []*ssa.BasicBlock
-```
-
-ReachableBlocksAssuming returns the blocks some path from entry reaches
-when the bound constants hold, in discovery order.
-
 ## ReachableBlocksAssumingWithin
 
 [Source](../../../../internal/ssaflow/flow_paths.go)
@@ -2456,8 +2460,9 @@ when the bound constants hold, in discovery order.
 func ReachableBlocksAssumingWithin(function *ssa.Function, constants FixedValues, budget *SearchBudget) []*ssa.BasicBlock
 ```
 
-ReachableBlocksAssumingWithin shares queued, branch and edge visits with
-budget. Cutoff discards the census; nil is unavailable when budget exhausted,
+ReachableBlocksAssumingWithin returns blocks reachable under constants in
+discovery order, sharing queued, branch and edge visits with budget. Cutoff
+discards the census; nil is unavailable when budget exhausted,
 not proof that the function has no reachable blocks. Nil budget is unbounded.
 
 ## ReachingWalk

@@ -760,7 +760,7 @@ allocation, a made map, slice, channel, or closure, a function, or an
 interface box, which is non-nil even around a nil pointer), or a caller
 value the caller's own call already fixed, decides every branch in the
 callee that tests that parameter: a Boolean directly or negated, a nilable
-value compared with nil. `ssaflow.FixedArguments` binds the callee's
+value compared with nil. `ssaflow.ProveFixedArgumentsWithin` binds the callee's
 parameters at each call the completion search enters, as `ssaflow.FixedValues`,
 and the obligation walk's `Constants` narrows a decided branch to its arm, so
 a helper that closes only under `!keep` completes the target at `finish(f,
@@ -977,3 +977,13 @@ once-stored-cell identity and exact deferred-reader registration. The selected
 guard list is published only when the full filter completes. Store and defer
 classification likewise retain unknown at capture cutoff. Shared cell identity
 still answers identity only; it supplies no cleanup or registration guarantee.
+
+Fixed-argument binding publishes `FixedArgumentsProof` only after parameter,
+capture, read-only, once-stored-cell and nil-relevance searches complete under
+the request allowance. Cutoff discards every binding, including ones collected
+before an interrupted later argument. Completion stops before callee coverage
+or memoization can consume a partial map. A missing body yields an empty
+metadata census without local SSA provenance; it establishes no behavior.
+Nil-budget binding retains the old literal, known-value, typed-nil-interface,
+mutable-cell and caller-fixed named-result policies. Summary guard discovery's
+default `ComparesWithNil` remains a separate setup query.
