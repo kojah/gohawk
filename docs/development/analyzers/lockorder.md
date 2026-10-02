@@ -289,6 +289,16 @@ accepted direct-only initialization pattern in `exclusive_owners.go`.
 
 ### Writes under a read lock
 
+Possible imported writer guards use the completed setup call census when
+checking for an explicit intervening writer unlock. The flow never rescans the
+function body for that query. Dominance, temporal reachability, mutex identity,
+read-versus-write unlocks and possible aliasing retain their existing policies;
+the setup publication barrier still rejects incomplete inventories. The
+`opaque_writer.go` fixtures retain both a held writer and an early explicit
+release. This shares discovery only; temporal and heap-query internals retain
+their independent cost boundaries.
+
+
 One proven instruction/lock pair is reported once per function, even when
 short-circuit predecessors reach it with different branch evidence. Proof and
 tracing still run for each state; unknown states do not reserve a diagnostic,

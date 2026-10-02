@@ -40,7 +40,7 @@ func reportReadLockWrites(
 	flow lockFlowContext, instruction ssa.Instruction, held, readHeld []string,
 	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer,
 ) {
-	proof := proveReadLockWrite(instruction, held, readHeld, lockValues, possibleWriters)
+	proof := proveReadLockWrite(instruction, held, readHeld, lockValues, possibleWriters, flow.setup.calls)
 	traceLockDiagnostic(flow.pass, check.LockReadLockWrite, instruction.Pos(), proof.lockDiagnosticProof)
 	if proof.state != ssaflow.EvidenceProven {
 		return
@@ -78,7 +78,7 @@ type readLockWriteProof struct {
 // full owner-query order, while a reportable candidate ends the search.
 func proveReadLockWrite(
 	instruction ssa.Instruction, held, readHeld []string,
-	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer,
+	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer, calls []*ssa.Call,
 ) readLockWriteProof {
 	proof := readLockWriteProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}}
 	for _, identity := range readHeld {
@@ -100,7 +100,7 @@ func proveReadLockWrite(
 				proof = readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonExclusiveWriterUnknown}, identity}
 				continue
 			}
-			if slices.ContainsFunc(possibleWriters, func(deferred *ssa.Defer) bool { return possibleWriterAt(deferred, instruction) }) {
+			if slices.ContainsFunc(possibleWriters, func(deferred *ssa.Defer) bool { return possibleWriterAt(deferred, instruction, calls) }) {
 				proof = readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonImportedWriterGuardUnknown}, identity}
 				continue
 			}
@@ -110,12 +110,14 @@ func proveReadLockWrite(
 	return proof
 }
 
-func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction) bool {
+// The caller supplies the completed setup census. Rechecking temporal and alias
+// evidence here must not rediscover the same function body for every write.
+func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction, calls []*ssa.Call) bool {
 	if !ssaflow.InstructionDominates(deferred, instruction) {
 		return false
 	}
 	_, _, writer, _ := mutexAction(deferred)
-	for _, call := range ssaflow.InstructionsOf[*ssa.Call](instruction.Parent()) {
+	for _, call := range calls {
 		operation, _, receiver, direct := mutexAction(call)
 		if direct && operation == mutexRelease && !readModeRelease(call) && heapmodel.MayAlias(receiver, writer) &&
 			ssaflow.InstructionMayFollow(deferred, call) && ssaflow.InstructionMayFollow(call, instruction) {
