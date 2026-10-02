@@ -83,27 +83,36 @@ func (evidence *LifecycleEvidence) retentionQueries() *retentionCache {
 func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCallee(
 	closure *ssa.MakeClosure, target ssa.Value,
 ) bool {
+	return evidence.ClosureHandsValueToUnreadableCalleeWithin(closure, target, nil)
+}
+
+// ClosureHandsValueToUnreadableCalleeWithin charges the capture and body census
+// to budget. Exhaustion preserves possible opaque consumption; it never proves
+// that the callback leaves target with its caller.
+func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCalleeWithin(
+	closure *ssa.MakeClosure, target ssa.Value, budget *ssaflow.SearchBudget,
+) bool {
 	function, ok := closure.Fn.(*ssa.Function)
 	if !ok || len(function.Blocks) == 0 {
 		return true
 	}
-	for held := range capturedTargetUses(function, closure, target) {
+	for held := range capturedTargetUsesWithin(function, closure, target, budget) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
-				if callHandsValueToUnreadableCallee(instruction, held) {
+				if !budget.Spend() || callHandsValueToUnreadableCallee(instruction, held, budget) {
 					return true
 				}
 			}
 		}
 	}
-	return false
+	return budget.Exhausted()
 }
 
 // callHandsValueToUnreadableCallee reports whether the instruction passes one
 // of the held values to a callee with no body here. A dynamic callee and a
 // callee in another package both qualify: go vet analyses one package at a
 // time, so an imported body is absent and only its summary is available.
-func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Value) bool {
+func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Value, budget *ssaflow.SearchBudget) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
@@ -114,6 +123,9 @@ func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Va
 	}
 	for _, argument := range common.Args {
 		for _, value := range held {
+			if !budget.Spend() {
+				return true
+			}
 			if heapmodel.MayAlias(argument, value) {
 				return true
 			}
@@ -126,13 +138,22 @@ func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Va
 // handoff queries. Keep each capture's uses together and stop when the caller
 // has its witness; neither query needs to inspect unrelated later captures.
 func capturedTargetUses(function *ssa.Function, closure *ssa.MakeClosure, target ssa.Value) iter.Seq[[]ssa.Value] {
+	return capturedTargetUsesWithin(function, closure, target, nil)
+}
+
+func capturedTargetUsesWithin(
+	function *ssa.Function, closure *ssa.MakeClosure, target ssa.Value, budget *ssaflow.SearchBudget,
+) iter.Seq[[]ssa.Value] {
 	return func(yield func([]ssa.Value) bool) {
 		for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
+			if !budget.Spend() {
+				return
+			}
 			if !heapmodel.CapturedBindingMatches(captured.Binding, target) &&
 				!heapmodel.ValueDerivesFrom(captured.Binding, target) {
 				continue
 			}
-			if !yield(capturedUses(captured.Free)) {
+			if !yield(capturedUsesWithin(captured.Free, budget)) {
 				return
 			}
 		}
@@ -144,11 +165,18 @@ func capturedTargetUses(function *ssa.Function, closure *ssa.MakeClosure, target
 // asking the retention walk about the cell alone finds nothing: that walk
 // matches values exactly, unlike the traversal that follows a value forward.
 func capturedUses(free *ssa.FreeVar) []ssa.Value {
+	return capturedUsesWithin(free, nil)
+}
+
+func capturedUsesWithin(free *ssa.FreeVar, budget *ssaflow.SearchBudget) []ssa.Value {
 	uses := []ssa.Value{free}
 	if free.Referrers() == nil {
 		return uses
 	}
 	for _, reference := range *free.Referrers() {
+		if !budget.Spend() {
+			return uses
+		}
 		if load, ok := reference.(*ssa.UnOp); ok && load.Op == token.MUL && load.X == free {
 			uses = append(uses, load)
 		}

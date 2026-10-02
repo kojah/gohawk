@@ -34,7 +34,26 @@ func WalkStates[S any, K comparable](initial []S, key func(S) K, step func(S) ([
 // different runtime value it names on a later iteration, which matters for
 // any use-after-X question.
 func InstructionsReachableAfter(start ssa.Instruction) []ssa.Instruction {
-	index := InstructionIndex(start)
+	return InstructionsReachableAfterWithin(start, nil)
+}
+
+// InstructionsReachableAfterWithin charges the instruction and successor
+// census to budget. A partial result is usable only with its availability:
+// exhaustion never proves that an instruction cannot follow start.
+func InstructionsReachableAfterWithin(start ssa.Instruction, budget *SearchBudget) []ssa.Instruction {
+	if start == nil || start.Block() == nil {
+		return nil
+	}
+	index := -1
+	for i, instruction := range start.Block().Instrs {
+		if !budget.Spend() {
+			return nil
+		}
+		if instruction == start {
+			index = i
+			break
+		}
+	}
 	if index < 0 {
 		return nil
 	}
@@ -44,9 +63,17 @@ func InstructionsReachableAfter(start ssa.Instruction) []ssa.Instruction {
 	}
 	var result []ssa.Instruction
 	WalkStates([]location{{block: start.Block(), index: index + 1}}, func(at location) location { return at }, func(at location) ([]location, bool) {
-		result = append(result, at.block.Instrs[at.index:]...)
+		for _, instruction := range at.block.Instrs[at.index:] {
+			if !budget.Spend() {
+				return nil, false
+			}
+			result = append(result, instruction)
+		}
 		successors := make([]location, 0, len(at.block.Succs))
 		for _, successor := range at.block.Succs {
+			if !budget.Spend() {
+				return nil, false
+			}
 			if successor.Dominates(at.block) {
 				continue
 			}

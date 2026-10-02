@@ -263,7 +263,11 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	if action, reason := analysis.directJoinAction(common); action != actionNone {
 		return action, reason
 	}
-	if analysis.closesRetainedWorkerOwner(instruction, common) {
+	owner := analysis.closesRetainedWorkerOwner(instruction, common)
+	if owner.Reason == ssaflow.EvidenceBudgetExhausted {
+		return actionUnknown, reasonRetainedOwnerBudgetExhausted
+	}
+	if owner.Proven() {
 		return actionUnknown, reasonLabelClosesRetainedOwner
 	}
 	if action := analysis.pipePeerAction(instruction, common); action != actionNone {

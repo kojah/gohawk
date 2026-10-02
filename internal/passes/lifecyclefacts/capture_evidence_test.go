@@ -53,6 +53,14 @@ func multiple(p,q *int) func() { return func() { read(q); opaque(p) } }
 			if got := evidence.ClosureHandsValueToUnreadableCallee(closures[0], function.Params[0]); got != test.unreadable {
 				t.Errorf("ClosureHandsValueToUnreadableCallee() = %t, want %t", got, test.unreadable)
 			}
+			cutoff := ssaflow.NewSearchBudget(0)
+			if !evidence.ClosureHandsValueToUnreadableCalleeWithin(closures[0], function.Params[0], cutoff) || !cutoff.Exhausted() {
+				t.Fatal("capture cutoff must preserve possible opaque consumption")
+			}
+			fresh := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+			if got := evidence.ClosureHandsValueToUnreadableCalleeWithin(closures[0], function.Params[0], fresh); got != test.unreadable || fresh.Exhausted() {
+				t.Fatalf("fresh handoff=%v exhausted=%v, want %v", got, fresh.Exhausted(), test.unreadable)
+			}
 		})
 	}
 }

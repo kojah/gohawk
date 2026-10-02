@@ -1551,6 +1551,18 @@ at back edges keeps a loop-carried SSA value from being compared with a
 different runtime value it names on a later iteration, which matters for
 any use-after-X question.
 
+## InstructionsReachableAfterWithin
+
+[Source](../../../../internal/ssaflow/flow_worklist.go)
+
+```go
+func InstructionsReachableAfterWithin(start ssa.Instruction, budget *SearchBudget) []ssa.Instruction
+```
+
+InstructionsReachableAfterWithin charges the instruction and successor
+census to budget. A partial result is usable only with its availability:
+exhaustion never proves that an instruction cannot follow start.
+
 ## InterfaceDispatch
 
 [Source](../../../../internal/ssaflow/interface_dispatch.go)

@@ -393,10 +393,6 @@ func spawnedLifecycleOwners(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.
 	return owners
 }
 
-func lifecycleOwner(value ssa.Value) bool {
-	return lifecycleOwnerWithin(value, nil)
-}
-
 func lifecycleOwnerWithin(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 	if value == nil || syntax.NamedType(value.Type(), "sync", "WaitGroup") {
 		return false

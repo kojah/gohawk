@@ -2,12 +2,10 @@ package goroutineownership
 
 import (
 	"go/token"
-	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
-	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -26,54 +24,51 @@ func (analysis *spawnAnalysis) selectedOwnershipEdge(from, to *ssa.BasicBlock) b
 		return true
 	}
 	channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
-	if !selected || !analysis.observesOpaqueWorkerContext(channel) {
+	if !selected {
 		return false
+	}
+	proof := analysis.observesOpaqueWorkerContext(channel)
+	if proof.State == ssaflow.EvidenceDisproven {
+		return false
+	}
+	if proof.Reason == ssaflow.EvidenceBudgetExhausted {
+		analysis.recordEdge(from, to, reasonRetainedOwnerBudgetExhausted, ssaflow.ObligationUnknown)
+		return true
 	}
 	analysis.recordEdge(from, to, reasonSelectedContextEdge, ssaflow.ObligationUnknown)
 	return true
 }
 
-func (analysis *spawnAnalysis) observesOpaqueWorkerContext(channel ssa.Value) bool {
+func (analysis *spawnAnalysis) observesOpaqueWorkerContext(channel ssa.Value) ssaflow.Proof {
+	budget := analysis.budget()
+	found := analysis.observesOpaqueWorkerContextWithin(channel, budget)
+	return analysis.retainedOwnerProof(found, budget)
+}
+
+func (analysis *spawnAnalysis) observesOpaqueWorkerContextWithin(channel ssa.Value, budget *ssaflow.SearchBudget) bool {
 	call, ok := channel.(*ssa.Call)
 	if !ok || !ssaflow.CallMatchesSymbol(call.Common(),
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "context", Receiver: "Context", Name: "Done"})) {
 		return false
 	}
-	function, closure := spawnedFunction(analysis.pass, analysis.spawn)
-	if function == nil || closure == nil || workerHasSend(function) || workerHandsOffOutputChannel(function) {
+	function, closure := resolveSpawnedFunction(analysis.pass, analysis.spawn, budget)
+	if function == nil || closure == nil {
 		return false
 	}
-	retained := analysis.retainedWorkerOwner(ssaflow.CallReceiver(call.Common()))
+	publishes := workerHasSendWithin(function, budget) || workerHandsOffOutputChannelWithin(function, budget)
+	if publishes || budget.Exhausted() {
+		return false
+	}
+	retained := analysis.retainedWorkerOwner(ssaflow.CallReceiver(call.Common()), budget)
 	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	evidence.ForCandidate(analysis.spawn.Pos())
 	for _, pair := range ssaflow.CallBindings(analysis.spawn.Common(), function, closure) {
+		if !budget.Spend() {
+			return false
+		}
 		if ssaflow.NewReachingWalk(carryForms).Any(pair.Supplied, retained) &&
-			evidence.ClosureHandsValueToUnreadableCallee(closure, pair.Supplied) {
+			evidence.ClosureHandsValueToUnreadableCalleeWithin(closure, pair.Supplied, budget) {
 			return true
-		}
-	}
-	return false
-}
-
-// An opaque helper receiving a send-capable channel can publish after its
-// context is canceled. Capacity does not bound its send count. Badwolf's storage
-// implementation ignores cancellation while streaming results, so the caller's
-// canceled-context arm must not hide the abandoned producer behind the helper.
-// https://github.com/google/badwolf/blob/6cde56dbc7db828597ea856db6c3e1f331e70916/storage/memoization/memoization.go#L194-L222
-func workerHandsOffOutputChannel(function *ssa.Function) bool {
-	for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
-		common := call.Common()
-		if _, builtin := common.Value.(*ssa.Builtin); builtin {
-			continue
-		}
-		if callee := common.StaticCallee(); callee != nil && len(callee.Blocks) > 0 {
-			continue
-		}
-		for _, argument := range common.Args {
-			channel, ok := argument.Type().Underlying().(*types.Chan)
-			if ok && channel.Dir() != types.RecvOnly && !ssaflow.DefinitelyNil(argument) {
-				return true
-			}
 		}
 	}
 	return false
@@ -84,27 +79,56 @@ func workerHandsOffOutputChannel(function *ssa.Function) bool {
 // worker: the constructor may retain its argument somewhere besides its result.
 // Requiring a positive summary avoids treating an ignored argument as an owner.
 // https://github.com/abshkbh/arrakis/blob/877231496acbf3b3091ab33340d2d126a251c4d5/cmd/vsockclient/main.go#L30-L76
-func (analysis *spawnAnalysis) closesRetainedWorkerOwner(instruction ssa.Instruction, common *ssa.CallCommon) bool {
-	receivers := cleanupTargets(common)
+func (analysis *spawnAnalysis) closesRetainedWorkerOwner(instruction ssa.Instruction, common *ssa.CallCommon) ssaflow.Proof {
+	budget := analysis.budget()
+	found := analysis.closesRetainedWorkerOwnerWithin(instruction, common, budget)
+	return analysis.retainedOwnerProof(found, budget)
+}
+
+// A cutoff leaves ownership uncertain at this call or selected edge. It does
+// not excuse a return that flow reaches without that observation.
+func (analysis *spawnAnalysis) retainedOwnerProof(found bool, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	if budget.Exhausted() {
+		budget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
+			return map[string]string{"phase": "retained-owner"}
+		})
+		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+	}
+	if found {
+		return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk}
+	}
+	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+}
+
+func (analysis *spawnAnalysis) closesRetainedWorkerOwnerWithin(
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+) bool {
+	receivers := cleanupTargets(common, budget)
 	if len(receivers) == 0 {
 		return false
 	}
 	if _, deferred := instruction.(*ssa.Defer); !deferred &&
-		!slices.Contains(ssaflow.InstructionsReachableAfter(analysis.spawn), instruction) {
+		!slices.Contains(ssaflow.InstructionsReachableAfterWithin(analysis.spawn, budget), instruction) {
 		return false
 	}
-	function, closure := spawnedFunction(analysis.pass, analysis.spawn)
-	if function == nil || workerHasSend(function) {
+	function, closure := resolveSpawnedFunction(analysis.pass, analysis.spawn, budget)
+	if function == nil || workerHasSendWithin(function, budget) || budget.Exhausted() {
 		return false
 	}
 	for _, receiver := range receivers {
-		retained := analysis.retainedWorkerOwner(receiver)
+		if !budget.Spend() {
+			return false
+		}
+		retained := analysis.retainedWorkerOwner(receiver, budget)
 		for _, pair := range ssaflow.CallBindings(analysis.spawn.Common(), function, closure) {
+			if !budget.Spend() {
+				return false
+			}
 			if ssaflow.NewReachingWalk(carryForms).Any(pair.Supplied, retained) {
 				return true
 			}
 		}
-		if analysis.opaqueWorkerUsesOwner(function, closure, receiver) {
+		if analysis.opaqueWorkerUsesOwner(function, closure, receiver, budget) {
 			return true
 		}
 	}
@@ -116,32 +140,42 @@ func (analysis *spawnAnalysis) closesRetainedWorkerOwner(instruction ssa.Instruc
 // widening a wrapper's constructor arguments into ownership. Possible opaque
 // use makes cleanup uncertain, never a proven worker join.
 // https://github.com/lynxbase/lynxdb/blob/7c4bf0432b0cef2807f0ddcd2cd2000ce7ffb8c1/pkg/ingest/receiver/otlpgrpc/server.go#L106-L121
-func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(function *ssa.Function, closure *ssa.MakeClosure, receiver ssa.Value) bool {
-	budget := analysis.budget()
+func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(
+	function *ssa.Function, closure *ssa.MakeClosure, receiver ssa.Value, budget *ssaflow.SearchBudget,
+) bool {
 	storage := heapmodel.NewStorage(budget)
 	bindings := ssaflow.CallBindings(analysis.spawn.Common(), function, closure)
-	for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
-		if !budget.Spend() {
-			return false
-		}
-		common := call.Common()
-		callee, _ := ssaflow.DirectCallee(common)
-		used := ssaflow.CallReceiver(common)
-		if used == nil || callee != nil && len(callee.Blocks) != 0 || !opaqueCallEndsWorkerWork(call, budget) {
-			continue
-		}
-		for _, pair := range bindings {
-			if !ssaflow.ValueIsAccessPathFrom(receiver, pair.Supplied) {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if !budget.Spend() {
+				return false
+			}
+			call, ok := instruction.(*ssa.Call)
+			if !ok {
 				continue
 			}
-			if cell, ok := pair.Supplied.(*ssa.Alloc); ok && !storage.StableContent(cell, analysis.spawn).Proven() {
+			common := call.Common()
+			callee, _ := ssaflow.DirectCallee(common)
+			used := ssaflow.CallReceiver(common)
+			if used == nil || callee != nil && len(callee.Blocks) != 0 || !opaqueCallEndsWorkerWork(call, budget) {
 				continue
 			}
-			if ssaflow.ProveIdentity(
-				ssaflow.AccessPath{Value: used, Root: pair.Local},
-				ssaflow.AccessPath{Value: receiver, Root: pair.Supplied},
-			).Proven() {
-				return true
+			for _, pair := range bindings {
+				if !budget.Spend() {
+					return false
+				}
+				if !ssaflow.ValueIsAccessPathFrom(receiver, pair.Supplied) {
+					continue
+				}
+				if cell, ok := pair.Supplied.(*ssa.Alloc); ok && !storage.StableContent(cell, analysis.spawn).Proven() {
+					continue
+				}
+				if ssaflow.ProveIdentity(
+					ssaflow.AccessPath{Value: used, Root: pair.Local},
+					ssaflow.AccessPath{Value: receiver, Root: pair.Supplied},
+				).Proven() {
+					return true
+				}
 			}
 		}
 	}
@@ -152,7 +186,7 @@ func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(function *ssa.Function, clo
 // Admit only the worker's nonblocking completion tail, not a second call, send,
 // receive, or loop. This narrows the new field mapping, not existing retention.
 func opaqueCallEndsWorkerWork(call *ssa.Call, budget *ssaflow.SearchBudget) bool {
-	for _, instruction := range ssaflow.InstructionsReachableAfter(call) {
+	for _, instruction := range ssaflow.InstructionsReachableAfterWithin(call, budget) {
 		if !budget.Spend() || ssaflow.BlockInCycle(instruction.Block()) {
 			return false
 		}
@@ -167,106 +201,19 @@ func opaqueCallEndsWorkerWork(call *ssa.Call, budget *ssaflow.SearchBudget) bool
 				return false
 			}
 		case *ssa.RunDefers:
-			if !completionOnlyDefers(call.Parent()) {
+			if !completionOnlyDefersWithin(call.Parent(), budget) {
 				return false
 			}
 		default:
 			return false
 		}
 	}
-	return true
+	return !budget.Exhausted()
 }
 
-// A factory's returned callback is cleanup evidence only when a returned
-// literal captures the exact sibling resource and the existing helper-use
-// proof establishes its lifecycle call. Arbitrary tuple siblings prove nothing.
-// https://github.com/containerd/ttrpc/blob/9e62ff76048c2565d85b243f70adc66aeea73290/server_test.go#L571-L582
-func cleanupTargets(common *ssa.CallCommon) []ssa.Value {
-	if receiver := ssaflow.CallReceiver(common); lifecycleOwner(receiver) && lifecycleMethod(ssaflow.CallName(common)) {
-		return []ssa.Value{receiver}
-	}
-	callback, ok := common.Value.(*ssa.Extract)
-	if !ok {
-		return nil
-	}
-	factory, ok := callback.Tuple.(*ssa.Call)
-	if !ok {
-		return nil
-	}
-	return factoryCleanupTargets(factory, callback.Index)
-}
-
-func factoryCleanupTargets(factory *ssa.Call, callbackIndex int) []ssa.Value {
-	function := ssaflow.ResolvedCallee(factory.Common())
-	if function == nil {
-		return nil
-	}
-	var targets []ssa.Value
-	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
-	for index := range function.Signature.Results().Len() {
-		target := ssaflow.CallResult(factory, index)
-		if !lifecycleOwner(target) {
-			continue
-		}
-		if lifecycle.ProveReturnedCleanup(function, lifecycle.ReturnedCleanupRelation{
-			CallbackResult: callbackIndex, Target: index, TargetIsResult: true,
-		}, lifecycle.CompletionRequest{Methods: []string{"Close", "Stop", "Shutdown"}, Budget: budget}).Proven() {
-			targets = append(targets, target)
-		}
-	}
-	// Preserve the older may-cleanup evidence below as Unknown only. A partial
-	// literal return may explain shutdown participation, but cannot be promoted
-	// to exact cleanup or a worker join. The shared relation above is stricter
-	// and also understands forwarding factories.
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return targets
-			}
-			returned, ok := instruction.(*ssa.Return)
-			if !ok {
-				continue
-			}
-			closure, ok := lifecycle.ReturnedResult(returned, callbackIndex).(*ssa.MakeClosure)
-			if !ok {
-				continue
-			}
-			for index := range returned.Results {
-				target := ssaflow.CallResult(factory, index)
-				if lifecycleOwner(target) && callbackClosesSibling(closure, lifecycle.ReturnedResult(returned, index), budget) {
-					targets = append(targets, target)
-				}
-			}
-		}
-	}
-	return targets
-}
-
-func callbackClosesSibling(closure *ssa.MakeClosure, sibling ssa.Value, budget *ssaflow.SearchBudget) bool {
-	function, _ := closure.Fn.(*ssa.Function)
-	if function == nil {
-		return false
-	}
-	for _, pair := range ssaflow.CallBindings(nil, function, closure) {
-		if !budget.Spend() {
-			return false
-		}
-		if !heapmodel.DefinitelySameValue(ssaflow.CapturedBindingValue(pair.Supplied), sibling) {
-			continue
-		}
-		search := newHelperSearch()
-		search.budget = budget
-		if search.use(function, pair.Local, trackedOwner) == actionJoin {
-			return true
-		}
-	}
-	return false
-}
-
-func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaflow.ReachingWalk, ssa.Value) bool {
+func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value, budget *ssaflow.SearchBudget) func(ssaflow.ReachingWalk, ssa.Value) bool {
 	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	evidence.ForCandidate(analysis.spawn.Pos())
-	budget := analysis.budget()
 	storage := heapmodel.NewStorage(budget)
 	identity := receiver
 	// A nested worker captures an interface cell while its parent's deferred
@@ -294,6 +241,9 @@ func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaf
 			return walk.Any(typed.Tuple, retained)
 		case *ssa.Call:
 			for index, argument := range typed.Common().Args {
+				if !budget.Spend() {
+					return false
+				}
 				if holds, _ := evidence.ArgumentRetained(typed, index); holds && walk.Any(argument, retained) {
 					return true
 				}
@@ -302,30 +252,6 @@ func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaf
 		return false
 	}
 	return retained
-}
-
-// Releasing an I/O operation cannot settle a subsequent blocking publication.
-// Keep the existing completion proof authoritative for workers with sends.
-// https://github.com/pterodactyl/wings/blob/d6116827313dae176ddf4741e233554392993398/server/transfer/source.go#L87-L96
-func workerHasSend(function *ssa.Function) bool { return workerHasSendWithin(function, nil) }
-
-func workerHasSendWithin(function *ssa.Function, budget *ssaflow.SearchBudget) bool {
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return false
-			}
-			if _, send := instruction.(*ssa.Send); send {
-				return true
-			}
-			if choice, ok := instruction.(*ssa.Select); ok && slices.ContainsFunc(choice.States, func(state *ssa.SelectState) bool {
-				return budget.Spend() && state.Dir == types.SendOnly
-			}) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // io.Pipe and net.Pipe return communicating endpoints, not arbitrary sibling

@@ -1768,3 +1768,71 @@ ordinary tests, generation, formatting, vet, lint, dead-code and local dogfood.
 Earlier failed runs exposed an overlong test line and missing rationale inside
 the pipe query; both are corrected. Follow-ups `.44.11.3` and `.44.11.4` record
 the retained-owner and caller-bound/relay-dependency budget review respectively.
+
+## Retained-owner census availability
+
+Beads `gohawk-dho.44.11.3` follows constructor discovery in `939be44`.
+Call and selected-context retained-owner queries now draw one observed allowance
+for worker resolution, send/output guards, binding enumeration, retained-value
+search, cleanup targets and opaque worker tails. Factory returned-cleanup and
+legacy sibling callbacks use that allowance instead of a standalone budget.
+The shared unreadable-callback engine gains a budgeted capture/referrer/body
+census; its default entry point delegates to the same implementation and keeps
+possible opaque consumption on exhaustion.
+
+The classifier consumes a structured retained-owner proof. Exhaustion supplies
+an unknown label at that call or selected edge, with stable
+`retained-owner-budget-exhausted` spelling and attributed evidence. It does not
+make an independent early return safe or establish a worker join. Actual SSA
+tests exercise that label through the shared obligation flow: a path through
+the call is uncertain, while a path bypassing it is violated. Fresh unrelated
+owner and context queries remain negative within this policy. Factory tests
+distinguish unavailable target discovery from fresh cleanup witnesses; shared
+callback tests preserve the existing visible, opaque, derived and unrelated
+capture outcomes. Focused receipts are
+`.build/goal-retained-budget-focused3.log`.
+
+Reachability collection previously preceded spending. The retained-owner call
+and tail checks now use `InstructionsReachableAfterWithin`, whose default
+facade delegates the same back-edge policy with no caller allowance. Its SSA
+test distinguishes zero allowance, partial census and fresh complete census;
+partial instructions never prove an unvisited instruction unreachable. No new
+analyzer-local graph walk is introduced.
+
+Factory cleanup discovery and worker publication guards move to cohesive
+`cleanup_targets.go` and `worker_publication.go`; retained-owner provenance and
+its structured result stay in `retained_owners.go`. Unused method-selection
+and completion-defer facades are removed after their callers select the
+budgeted implementations. Known API rationale and pinned links move with their
+decision points. No summary schema or published declaration guarantee changes.
+
+This is bounded source/SSA review because graph tools remain unavailable.
+Underlying alias, access-path and call-result/referrer mechanics still contain
+queries without a supplied allowance. `.44.11.5` records that transitive review;
+`.44.11.4` retains caller-bound and relay-dependency routes. This census change
+does not certify a wall-clock or whole-engine bound. The wider architecture
+goal and 15-site production FP queue remain open. No production correction is
+credited; no full precision-regression or local race run is performed.
+
+Static stargz control uses pinned clean
+`624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+`-enable=goroutineownership -json`, CGO disabled, readonly modules and GOWORK off.
+Parent artifact `.build/goal-relay-current` is retained from the prior relay
+change (SHA-256
+`9247339c04ff8f920d7a673dcdd28c84d26a856080e6c468b3ace6384e2ffc65`).
+Corrected `.build/goal-retained-budget-current` has SHA-256
+`f0177e838480d8bb9df73e9f68ad316f50919860bbf170382c6ec114016413b1`.
+It includes the census/proof changes before final unused-facade removals;
+the hash identifies the exact executable, not a clean-tree source revision.
+`.build/goal-retained-budget-stargz-{parent,current}.{json,err}` both exit 3,
+retain byte-identical 827-byte JSON, empty stderr and the reviewed TP at
+`store/manager.go:193:2`. Candidate tests, generators and applications are not
+executed. The commentary/reference/public-prose check passes in
+`.build/goal-retained-budget-architecture.log`.
+
+Final `make verify` passes in `.build/goal-retained-budget-final-verify.log`,
+including ordinary tests, generated helper inventories, formatting, vet, lint,
+dead-code and local dogfood. The first gate passed ordinary tests but found the
+two unused facades; the final gate verifies their removal. Child `.44.11.3`
+can close for the direct census/availability work, while its parent and the
+broader consolidation objective remain active for the recorded remaining scope.

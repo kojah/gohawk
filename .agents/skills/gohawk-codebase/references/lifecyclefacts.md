@@ -574,6 +574,20 @@ was judged transparent.
 Rather than credit a release it cannot see, say the literal is not readable
 and let the caller keep the old opaque answer.
 
+## LifecycleEvidence.ClosureHandsValueToUnreadableCalleeWithin
+
+[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
+
+```go
+func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCalleeWithin(
+	closure *ssa.MakeClosure, target ssa.Value, budget *ssaflow.SearchBudget,
+) bool
+```
+
+ClosureHandsValueToUnreadableCalleeWithin charges the capture and body census
+to budget. Exhaustion preserves possible opaque consumption; it never proves
+that the callback leaves target with its caller.
+
 ## LifecycleEvidence.ClosureRetainsValue
 
 [Source](../../../../internal/passes/lifecyclefacts/evidence.go)

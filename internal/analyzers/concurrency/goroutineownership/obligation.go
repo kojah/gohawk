@@ -437,10 +437,6 @@ func terminalCompletion(done ssa.Instruction, budget *ssaflow.SearchBudget) bool
 // worker's actual work. Keeping that alternative handle does not treat an
 // arbitrary deferred callback as complete: it may still block or mutate data.
 // https://github.com/murphysecurity/murphysec/blob/59d5cdc9a53a9e7940250aa30ea4434d0e258c40/module/nuget/nuget_cmd_build.go#L611-L640
-func completionOnlyDefers(function *ssa.Function) bool {
-	return completionOnlyDefersWithin(function, nil)
-}
-
 func completionOnlyDefersWithin(function *ssa.Function, budget *ssaflow.SearchBudget) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {

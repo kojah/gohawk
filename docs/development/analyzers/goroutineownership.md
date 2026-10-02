@@ -23,6 +23,22 @@ work stops at that cutoff. No incomplete discovery is cached.
 cutoff, partial evidence at a candidate-pool cutoff and a fresh full-budget
 missing-join proof. This can miss defects in oversized workers. Owner/lifecycle
 suppression adapters after constructor discovery remain separate review scope.
+
+Retained-owner calls and selected context observations now share one allowance
+per query across worker resolution, send/output census, capture and cleanup
+target enumeration. Factory returned-cleanup queries and legacy sibling
+callback checks use that same allowance. The shared unreadable-callback query
+has a budgeted capture/body census; its default facade preserves existing
+possible-consumption policy. A retained-owner cutoff produces unknown at the
+affected instruction or selected edge, with `retained-owner-budget-exhausted`
+and attributed evidence. It does not excuse a return that bypasses that point.
+`retained_budget_test.go` exercises the classifier, path-local flow, fresh
+unrelated owners, factory availability and selected-context cutoffs;
+`capture_evidence_test.go` checks fresh and exhausted shared callback queries.
+Constructor discovery remains independently guarded. These changes bound the
+enumerated scans, not every transitive identity/alias helper or method-set
+construction; those mechanics and the remaining caller-bound routes still need
+review. No new worker-completion guarantee or published fact is introduced.
 Launching background work without a recognizable completion obligation is not
 itself a diagnostic, including with `-enable-all`.
 
