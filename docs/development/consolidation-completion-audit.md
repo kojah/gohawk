@@ -3430,3 +3430,66 @@ JSON to the earlier program-entry-context corrected control (1,827 bytes,
 empty stderr). Both reviewed cancellation TPs remain at
 `runtime_launcher.go:414:22` and `runtime_process_lifecycle_slice.go:192:22`.
 These three pinned scopes are controls, not a latest whole-corpus replay.
+
+## Ambiguous cleanup identity and request availability
+
+Cleanup uncertainty `.44.11.5.19` is divided by its actual evidence contracts:
+`.19.1` direct/merged helper cleanup identity, `.19.2` exact correlated-error
+cleanup with anywhere coverage, and `.19.3` captured HTTP Body stability and
+body-nil coverage. The latter two remain open; their distinct meanings are not
+folded into the ambiguous-identity decision.
+
+`.19.1` extracts the classifier's direct condition and Boolean helper into
+`proveAmbiguousCleanupWithin`. A completed positive direct receiver derivation,
+or merged helper argument derivation plus exact actual-argument completion,
+provides an unknown classifier label, never settlement of the exact caller
+resource. Shared derivation and completion consume the same candidate child
+across arguments and methods. Child or nested completion cutoff supplies budget
+unknown rather than a completed absence of possible cleanup. Optional-acquisition
+and non-call exclusions still decline before querying. Durable source rationale
+links move with the authoritative policy; the classifier now requests its proof.
+
+Ten actual-SSA families cover direct cleanup, merged receivers, merged helper
+arguments, owner projections, unrelated origins, read-only/conditional helpers,
+exact non-merged helper arguments and overwritten fields. Allowance controls
+use fresh evidence per limit, so prior completion memoization cannot conceal
+interruptions. A child cutoff leaves the pool available; a fresh query through
+the same evidence then proves the existing boundary. Independent optional and
+non-call controls require no query. Seven full-flow controls assert unknown for
+merged direct/helper cleanup, honored exact direct cleanup and retained leak
+witnesses for conditional, read-only, overwritten and unrelated forms. SSA and
+outcome receipt: `.build/goal-ambiguous-cleanup-ssa.log`.
+
+Ignoring the allowance or its availability fails all ten queried families and
+the child control. An integration overlay limits only the ambiguous-classifier
+query to one visit. The correct classifier returns unknown/budget with the
+candidate pool available; bypassing that proof result returns a completed
+none label, failing the control. Receipts are
+`.build/goal-ambiguous-cleanup-{unbudgeted,unchecked,class-cut,class-unchecked}.log`.
+
+Canonical validation passes before and after tightening fresh-evidence tests:
+`make verify VERIFY_TIMINGS=1`, final ordinary tests 34s, repository dogfood 3s,
+vet, lint, formatter, deadcode, module verification and generation. No local
+race or full precision-regression audit is run. Immutable
+`.build/goal-ambiguous-cleanup-current` has SHA-256
+`3014b2da4d418695484913ed56aa9b819bc9c028274b707f5b1317ce32c2d55b`.
+Confirmed Cute pin `9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3`
+(`./...`, resource-only, exit 3) and Ferro pin
+`d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4`
+(`./internal/admin/repository ./mcp`, resource-only, exit 0) retain byte-identical
+JSON to the preceding result-guard binary (980/2 bytes), with empty stderr.
+Cute's known TP remains and Ferro's corrected storage FP stays absent. This
+change credits no production FP removal; the frozen queue remains at 15 sites.
+Graph/type/alias and fact-selection callback internals retain independent costs.
+Scoped source fallback is used because graph MCP tools are unavailable.
+
+A separate current-helper FP reassessment is recorded as `.dho.4.1`. The pinned
+coder source `0845a3bb9eddda5bfc22a94dd3598c90cb842451` shows the agent example
+also constructs its child with CommandContext, then kills it on the normal path
+before main returns. The process return decision still recognizes unused-command
+uncertainty but has no shared one-time entry boundary, unlike cancellation.
+This observation changes the next assessment question: can the existing entry
+proof support bounded program-lifetime uncertainty without asserting Wait or
+child termination? It is not a replay, implementation or credited correction.
+Caller intent, loops, referenced entry functions and reusable callee guarantees
+must remain distinct.

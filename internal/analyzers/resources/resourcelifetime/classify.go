@@ -3,7 +3,6 @@ package resourcelifetime
 import (
 	"go/token"
 	"go/types"
-	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
@@ -125,19 +124,12 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if action, reason := analysis.releasesResource(instruction); action != actionNone {
 		return action, reason
 	}
-	// A merged receiver or an escaped owner projection may still select this
-	// acquisition. Exact storage identity cannot establish that relationship,
-	// but absence of a match is not proof that the resource stays open. A body
-	// read helper can consume a response before its explicit Body.Close:
-	// https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/auth/claude_api_key.go#L94-L99
 	common := ssaflow.InstructionCall(instruction)
-	if !analysis.optional.Proven() && common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
-		heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), analysis.resource) {
-		return actionUnknown, resourceReasonAmbiguousCleanupValue
+	ambiguous := analysis.proveAmbiguousCleanupWithin(instruction, common, analysis.budget(releaseSearchBudget))
+	if ambiguous.State != ssaflow.EvidenceDisproven {
+		return actionUnknown, ambiguous.Reason
 	}
-	if analysis.ambiguousHelperCleanup(instruction, common) {
-		return actionUnknown, resourceReasonAmbiguousHelperCleanupValue
-	}
+
 	if analysis.pairedErrorHelperCleanup(instruction, common) {
 		return actionUnknown, resourceReasonPairedErrorHelperCleanup
 	}
@@ -167,58 +159,6 @@ func releaseLabel(proof lifecyclefacts.Proof) (resourceAction, resourceLifetimeR
 	default:
 		return actionNone, resourceReasonNone
 	}
-}
-
-// A cleanup helper may receive a projection of a merged owner. Proving cleanup
-// of its actual argument does not prove which acquisition was released, but
-// that ambiguous identity cannot establish a leak either. Direct Close calls
-// have the same unknown boundary above; read-only helpers do not qualify.
-// https://github.com/mr-karan/doggo/blob/7f6b105f240e562a5c7659976b1c16b683c25385/pkg/resolvers/doh.go#L143-L168
-func (analysis *resourceAnalysis) ambiguousHelperCleanup(instruction ssa.Instruction, common *ssa.CallCommon) bool {
-	if analysis.optional.Proven() || common == nil {
-		return false
-	}
-	for _, argument := range common.Args {
-		if !mergedCleanupArgument(argument) || !heapmodel.ValueDerivesFrom(argument, analysis.resource) {
-			continue
-		}
-		for _, method := range analysis.contract.cleanup {
-			completion := lifecycle.CompletionRequest{
-				Instruction: instruction,
-				Target:      argument,
-				Methods:     []string{method},
-				Coverage:    lifecycle.CoverageEveryReturn,
-				Budget:      analysis.budget(releaseSearchBudget),
-			}
-			if analysis.evidence.Prove(lifecyclefacts.EvidenceRequest{
-				Instruction: instruction,
-				Target:      argument,
-				Completion:  &completion,
-				SelectMask:  releaseMask(instruction, argument, method),
-			}).Proven() {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// Only merged values are ambiguous here. A helper that closes an overwritten
-// field, or conditionally closes its exact argument, must remain diagnostic.
-func mergedCleanupArgument(argument ssa.Value) bool {
-	if _, merged := argument.(*ssa.Phi); merged {
-		return true
-	}
-	load, loaded := argument.(*ssa.UnOp)
-	if !loaded || load.Op != token.MUL {
-		return false
-	}
-	field, projected := load.X.(*ssa.FieldAddr)
-	if !projected {
-		return false
-	}
-	_, merged := field.X.(*ssa.Phi)
-	return merged
 }
 
 // Compressors own finalization, not their output descriptor. An error return

@@ -1195,3 +1195,31 @@ methods, repeated fresh discovery, the close-on-error success-path leak and
 close-on-success cleanup. Shared lifecycle tests cover error/Boolean guards,
 unrelated/opaque captures, multiple defers and child/fresh cutoff. Per-return
 value decoding and other capture queries remain separate cost questions.
+
+## Ambiguous cleanup availability
+
+`proveAmbiguousCleanupWithin` owns the direct-receiver and merged-helper
+uncertainty decision formerly split between classifier conditions and a Boolean
+helper. It asks shared `heapmodel.ValueDerivesFromWithin` whether the acquisition
+may contribute to the cleanup receiver or helper argument. A helper qualifies
+only for a phi or a load projected from a merged owner, and only when completion
+of its exact actual argument is established on every return. Derivation and
+completion share one candidate child across arguments and cleanup methods.
+
+Positive ambiguous identity supplies an unknown classifier label, never exact
+resource settlement. A child or nested completion cutoff also supplies unknown,
+with the budget reason rather than an absence of possible cleanup. Optional
+acquisition and non-call exclusions remain metadata decisions before queries.
+Conditional/read-only helpers, overwritten fields, non-merged exact arguments
+and unrelated origins keep their existing declines. Exact cleanup remains the
+separate earlier completion decision.
+
+`ambiguous_cleanup_test.go` exercises ten actual-SSA direct, merged, projected,
+helper and rejected forms, every insufficient allowance, child/fresh recovery,
+optional/non-call exclusions and seven full-flow controls. The controls assert
+unknown for ambiguous cleanup, completed cleanup for the exact direct call,
+and retained leaks for conditional, read-only, overwritten and unrelated forms.
+Graph/type/alias internals and fact-selection callback resolution remain
+independent costs; this change bounds the shared derivation/completion request.
+Correlated-error helper cleanup and guarded captured HTTP Body cleanup remain
+separate contracts tracked in `.44.11.5.19.2` and `.44.11.5.19.3`.
