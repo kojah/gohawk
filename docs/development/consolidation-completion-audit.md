@@ -1488,3 +1488,67 @@ workspace and use read-only module mode; candidate tests, applications and
 generators are not run. No full precision corpus replay or local race run is
 performed. The wider architecture and obligation-discovery review is still
 incomplete; this closes the demonstrated recursive helper-availability gap.
+
+
+## Nested notification promise coverage
+
+`gohawk-dho.44.9` narrows obligation discovery after the actual parent SSA and
+trace demonstrated six ambiguous forms being reported as missing joins:
+conditional inner close, conditional inner send, conditional defer registration,
+inner progress work, outer progress work and detached inner `go close`.
+The immutable parent is source `669c6e3`, executable
+`.build/goal-obligation-parent`, SHA-256
+`6d4b4d9f8fe83f63a819361544fff97474464b2ab161949cafed137871a77c86`.
+The pilot SSA and trace are `.build/goal-obligation-pilot.ssa.txt` and
+`.build/goal-obligation-pilot.trace.jsonl`. Graph tools are unavailable; this is
+bounded source evidence, not a transitive completeness claim.
+
+| Discovery input | Authoritative selection and boundary |
+| --- | --- |
+| Direct send | `completionNotification` requires `terminalCompletion`; later work supplies no completion promise. |
+| Direct close | The shared selector rejects detached and loop-local closes; `notifiesChannelOnEveryReturn` requires exact channel notification coverage and a return witness. |
+| Nested notification | The same selector and channel return coverage apply in the inner closure. The exact outer invocation/registration must cover worker returns; synchronous invocation must also be terminal. |
+| Aggregate signal mapping | Existing `signalSuppliedAtCall` mapping remains; its corrected rationale now says possible aggregate observations and handoffs are unknown, never exact joins. |
+| Deferred group alternatives | Existing group discovery remains. Two fixtures lose a conditional nested signal but retain their independent group and unchanged proof outcomes. |
+
+This consolidates notification operation selection previously duplicated in
+three scans. It also moves the misplaced `terminalCompletion` rationale to the
+function it explains. The new `notificationpromises` fixtures check six unknown
+outcomes, three unconditional missing-join diagnostics and two exact joined
+outcomes. The parent fails all six unknown cases; the corrected focused test
+passes. One older close-or-send diagnostic followed by arbitrary deferred
+cleanup is removed as an accepted false negative, with the gap in its fixture
+header and design note: its actual SSA runs arbitrary cleanup after the send,
+so that send cannot promise worker completion.
+
+Fresh 12-package fixture receipts are
+`.build/goal-notification-{parent,current}-receipt.{json,trace.jsonl,err}`.
+Both scans exit 3 with empty stderr. Diagnostics change from 140 to 134;
+JSON sizes are 130,906 and 124,826 bytes. Final decision events change from
+579 to 573, and classifier labels from 240 to 236. Six new proofs change from
+unowned-return to no-completion-obligation, with their reporting events removed.
+Two existing proof details change signals from one to zero while retaining
+their group, reason and outcome; all other final decisions agree as multisets.
+This comparison excludes the deleted coverage fixture and is not all-event
+trace equivalence or a frozen-corpus replay. The corrected immutable binary is
+`.build/goal-notification-current`, SHA-256
+`ceeb24d29ffd759ef35162a0d580a5a4eabfee5d17ca9c6ba3dc717711a38945`.
+
+No production FP removal is credited. The 15-site production queue and frozen
+verdicts remain unchanged. Parent `dho.44` remains open: exact signal/group
+mapping, discovery budget ownership and the remaining selected adapter inventory
+are not certified by this notification coverage correction. Broader
+process/defer/producer/lock review and Rune publication also remain open.
+
+
+The canonical `make verify` gate passes on the final source, including ordinary
+tests (85 seconds), formatting, vet, lint, dead-code and local dogfood;
+`.build/goal-notification-verify.log` retains the receipt. Documentation checks
+also pass after this inventory update. Pinned clean stargz
+`624678b4e421947534cbf0618f9609853cccee0f`, `./store`, scanned statically with
+`CGO_ENABLED=0`, `GOFLAGS=-mod=readonly` and `GOWORK=off`, yields identical
+827-byte JSON, exit 3 and empty stderr before/after. Its reviewed true positive
+at `store/manager.go:193:2` remains. Receipts are
+`.build/goal-notification-stargz-{parent,current}.{json,err}`. No candidate tests,
+generators or applications, full precision-regression corpus or local race run
+were executed.

@@ -110,6 +110,23 @@ A direct channel close establishes a completion obligation only when that
 same channel is closed or sent on before every normal worker return. An error-only close
 does not promise a completion notification on successful exits.
 
+Nested literal notifications use the same operation selection as direct
+notification discovery and return coverage. Detached `go close` operations,
+loop-local closes and sends followed by work cannot supply this notification.
+A nested closure must notify the exact channel before every normal return;
+its invocation or deferred registration must also cover every outer return.
+A synchronous invocation must be terminal in the worker. Conditional nested
+notifications and registrations therefore create no unconditional join promise.
+This deliberately misses genuine omissions in those conditional forms rather
+than inferring caller/worker guard relationships. `notificationpromises` pairs
+those accepted forms and inner/outer progress work with unconditional deferred
+and synchronous missing-join diagnostics and exact receive controls. The same
+return-coverage query requires a return witness rather than a vacuous proof
+from a body with no returns. No application-specific contract is added. A close-or-send worker whose send
+is followed by arbitrary deferred cleanup is also outside coverage; the
+previous diagnostic fixture was removed as an accepted false negative. A
+close-or-send worker with no later work retains its missing-join diagnostic.
+
 These summaries do not introduce new worker obligations: a close or `Done`
 inside a helper may be an early readiness signal rather than completion.
 A direct `Done` followed by more work is also insufficient to establish a

@@ -243,41 +243,65 @@ func spawnedCompletionSignal(
 	closure *ssa.MakeClosure,
 	instruction ssa.Instruction,
 ) ssa.Value { //nolint:ireturn // Completion signals retain their concrete SSA value types.
-	if send, ok := instruction.(*ssa.Send); ok {
-		// A send followed by further work can announce readiness or progress,
-		// not completion. Blocking-producer checks remain independent of this
-		// narrower join obligation, and use the full send lifecycle themselves.
-		// https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/blob/39dd2288da294e98d683c5619fc3556016df1e76/pkg/autoscaler/autoscaler_server.go#L109-L124
-		if !terminalCompletion(send) {
+	if channel := completionNotification(instruction); channel != nil {
+		if _, send := instruction.(*ssa.Send); !send && !notifiesChannelOnEveryReturn(function, channel) {
 			return nil
 		}
-		return signalSuppliedAtCall(spawn, function, closure, send.Chan)
+		return signalSuppliedAtCall(spawn, function, closure, channel)
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return nil
 	}
-	if _, launched := instruction.(*ssa.Go); !launched {
-		if nested, ok := common.Value.(*ssa.MakeClosure); ok {
-			if signal := nestedClosureSignal(nested); signal != nil {
-				return signalSuppliedAtCall(spawn, function, closure, signal)
-			}
-		}
+	if _, launched := instruction.(*ssa.Go); launched {
+		return nil
 	}
-	if ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1 {
-		// Closing entries while serving a loop is per-item cleanup, not a
-		// promise that the worker itself has finished. A deferred close still
-		// announces eventual completion, even when its registration is in a loop.
-		// https://github.com/BurntSushi/wingo/blob/33b154361587e65ec35d4499f1cc487835d0ab48/event/ipc.go#L124-L157
-		if _, deferred := instruction.(*ssa.Defer); !deferred && ssaflow.BlockInCycle(instruction.Block()) {
-			return nil
-		}
-		if !notifiesChannelOnEveryReturn(function, common.Args[0]) {
-			return nil
-		}
-		return signalSuppliedAtCall(spawn, function, closure, common.Args[0])
+	nested, ok := common.Value.(*ssa.MakeClosure)
+	if !ok {
+		return nil
+	}
+	// The inner notification and its invocation must both cover returns.
+	// A conditional defer cannot promise an unconditional worker join.
+	covered := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+		Entry: function, Owns: func(candidate ssa.Instruction) bool { return candidate == instruction },
+	}) == nil
+	_, deferred := instruction.(*ssa.Defer)
+	if !covered || (!deferred && !terminalCompletion(instruction)) {
+		return nil
+	}
+	if signal := nestedClosureSignal(nested); signal != nil {
+		return signalSuppliedAtCall(spawn, function, closure, signal)
 	}
 	return nil
+}
+
+// completionNotification selects the same completion operations for direct
+// discovery, nested closures and return coverage. A detached notification
+// belongs to another worker and cannot settle this one.
+func completionNotification(instruction ssa.Instruction) ssa.Value { //nolint:ireturn // Notifications retain their concrete SSA value types.
+	if _, launched := instruction.(*ssa.Go); launched {
+		return nil
+	}
+	if send, ok := instruction.(*ssa.Send); ok {
+		// A send followed by further work can announce readiness or progress,
+		// not completion. Blocking-producer checks use the full send lifecycle.
+		// https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/blob/39dd2288da294e98d683c5619fc3556016df1e76/pkg/autoscaler/autoscaler_server.go#L109-L124
+		if terminalCompletion(send) {
+			return send.Chan
+		}
+		return nil
+	}
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil || !ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) || len(common.Args) != 1 {
+		return nil
+	}
+	// Closing entries in a loop is per-item cleanup. A deferred close can
+	// announce completion, provided its registration covers every return.
+	// https://github.com/BurntSushi/wingo/blob/33b154361587e65ec35d4499f1cc487835d0ab48/event/ipc.go#L124-L157
+	if _, deferred := instruction.(*ssa.Defer); !deferred && ssaflow.BlockInCycle(instruction.Block()) {
+		return nil
+	}
+	return common.Args[0]
 }
 
 // An error-only notification is not a promise to signal every worker exit.
@@ -285,37 +309,27 @@ func spawnedCompletionSignal(
 // otherwise the caller may legitimately observe a separate success event.
 // https://github.com/zmap/zgrab2/blob/a1231792c51576f1818825fae51db042b4dcd41e/lib/http2/transport.go#L3028-L3043
 func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value) bool {
+	if len(ssaflow.InstructionsOf[*ssa.Return](function)) == 0 {
+		return false
+	}
 	identity := channel
 	if source, ok := ssaflow.IdentitySource(channel); ok {
 		identity = source
 	}
 	return ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: func(instruction ssa.Instruction) bool {
-		if _, launched := instruction.(*ssa.Go); launched {
-			return false
-		}
-		common := ssaflow.InstructionCall(instruction)
-		var notified ssa.Value
-		if send, ok := instruction.(*ssa.Send); ok {
-			notified = send.Chan
-		} else if common != nil && ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1 {
-			notified = common.Args[0]
-		}
+		notified := completionNotification(instruction)
 		if source, ok := ssaflow.IdentitySource(notified); ok {
 			notified = source
 		}
 		return heapmodel.DefinitelySameValue(notified, identity)
-	}, Assume:
-
-	// signalSuppliedAtCall maps a worker-side channel back to the parent's value.
-	// A channel selected from a captured aggregate, such as chans[index] in a
-	// per-shard snapshot, resolves to the aggregate itself: the parent then joins
-	// by receiving from any part of it and transfers it by handing the aggregate
-	// on. Matching any element over-approximates joins, which only widens what the
-	// analyzer accepts.
-	// https://github.com/nacos-group/nacos-sdk-go/blob/002486583df5ad370ab809cd19dfd97e71b2ef6d/clients/cache/concurrent_map.go#L199-L219
-	ssaflow.EntryAssumptions{NonNil: channel}}) == nil
+	}, Assume: ssaflow.EntryAssumptions{NonNil: channel}}) == nil
 }
 
+// signalSuppliedAtCall maps a worker-side channel back to the parent's value.
+// A selection from a captured aggregate resolves to the aggregate itself.
+// Its possible element observations and handoffs supply unknown ownership,
+// never an exact join of the worker's channel.
+// https://github.com/nacos-group/nacos-sdk-go/blob/002486583df5ad370ab809cd19dfd97e71b2ef6d/clients/cache/concurrent_map.go#L199-L219
 func signalSuppliedAtCall(
 	spawn *ssa.Go,
 	function *ssa.Function,
@@ -382,14 +396,8 @@ func nestedClosureSignal(nested *ssa.MakeClosure) ssa.Value { //nolint:ireturn /
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			var channel ssa.Value
-			if send, ok := instruction.(*ssa.Send); ok {
-				channel = send.Chan
-			} else if common := ssaflow.InstructionCall(instruction); common != nil &&
-				ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1 {
-				channel = common.Args[0]
-			}
-			if channel == nil {
+			channel := completionNotification(instruction)
+			if channel == nil || !notifiesChannelOnEveryReturn(function, channel) {
 				continue
 			}
 			for _, captured := range ssaflow.ClosureBindingPairs(function, nested) {
@@ -488,13 +496,11 @@ func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value) bool {
 			return true
 		}
 		return terminalCompletion(instruction)
-	}, Assume:
-
-	// terminalCompletion reports whether only returns can follow a completion
-	// operation. Later work cannot be joined by observing an earlier signal.
-	ssaflow.EntryAssumptions{NonNil: receiver}}) == nil
+	}, Assume: ssaflow.EntryAssumptions{NonNil: receiver}}) == nil
 }
 
+// terminalCompletion reports whether only returns can follow a completion
+// operation. Later work cannot be joined by observing an earlier signal.
 func terminalCompletion(done ssa.Instruction) bool {
 	index := ssaflow.InstructionIndex(done)
 	if index < 0 {
