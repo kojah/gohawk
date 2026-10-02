@@ -4696,3 +4696,28 @@ records focused fixture validation, actual SSA for the explicit-release boundary
 canonical validation and parent/current fixture plus pinned Skywalking scans.
 No production FP correction is credited. Seven recorded production sites plus
 Rune and the broader architecture completion audit remain open.
+
+
+## Deferred process wait allowance and discovery
+
+Beads `gohawk-dho.23.2` identifies a process-specific bypass of the shared
+bounded coverage API. Deferred closure waits now use one completed callback
+instruction census and `ProveMethodCallCoverageWithin` under the candidate's
+child allowance. Successful-Start assumptions, capture-before-argument priority,
+independent Boolean guards and Process replacement retain their policies.
+The focused `deferred_wait.go` file owns this evidence model; general transfer
+and asynchronous handoff remain in `ownership.go`.
+
+The [deferred waiter review](../../benchmarks/precision/audits/process-deferred-wait-allowance-2026-10-02.md)
+records compiled SSA exact/conditional/guarded/replaced controls, intermediate
+cutoffs, fresh child recovery and two assertion-failing counterfactuals.
+Scoped parent/current process fixture and pinned production comparisons preserve
+diagnostic payloads. No production FP correction is credited; seven recorded
+production sites plus Rune and broader architecture completion remain open.
+
+A current source reassessment of goiardi confirms `UsingDB` is the disjunction
+of two mutable configuration fields. Carrying that caller condition into either
+SQL helper requires stability through Begin and, for the stream helper, Get and
+GetRun. Current private-call and unconditional summary helpers do not supply
+that guarantee. This remains a caller-precondition question rather than an easy
+name-based cleanup exception; no new production scan or correction is claimed.

@@ -153,3 +153,22 @@ program, and a process stored in a returned container that waits on
 destroy. Whether a started child is meant to outlive its launcher is intent
 the code rarely states, so the check stays available but is not run by
 default.
+
+
+## Deferred waiter discovery and coverage allowance
+
+Deferred closure waiters have one completed census of callable instructions,
+stores and loads, shared across captured and supplied command queries. The
+successful-Start non-nil Process assumption belongs to this analyzer; it does
+not make arbitrary loaded receiver identities equal. Capture proofs retain
+priority over argument proofs. The census, binding visits, selected witnesses
+and shared every-return coverage query use the command candidate's child
+allowance. Any interrupted stage supplies unknown, never exact cleanup or
+absence of ownership. Heap identity/type and binding metadata retain their
+existing separate cost boundaries.
+
+`deferred_wait_test.go` uses compiled SSA to pin exact, conditional, guarded
+and replaced Process forms, intermediate cutoffs and fresh-child recovery.
+The classifier and coverage controls reject exhausted candidate/query budgets.
+Existing fixture pairs in `processownership.go` and `guarded_merge.go` preserve
+accepted defensive guards and diagnostic independent flags or field replacement.

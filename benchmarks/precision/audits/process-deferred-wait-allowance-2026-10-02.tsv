@@ -1,0 +1,7 @@
+scope	version	revision	exit	stderr_bytes	diagnostics	binary_sha256	receipt
+process-fixture	parent		0	0	37	7b3a353a1faccabd2c8837c5eddbd5c100259e89efaa3f5c6456e9bcde9612d6	.build/goal-process-deferred-final/process-fixture-parent-receipt.json
+process-fixture	current		0	0	37	67fef5820e87ebf0692fadc8d41456ddda537e42f6d4d77af4d91eabb734ec23	.build/goal-process-deferred-final/process-fixture-current-receipt.json
+ferro	parent	d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4	0	0	1	7b3a353a1faccabd2c8837c5eddbd5c100259e89efaa3f5c6456e9bcde9612d6	.build/goal-process-deferred-final/ferro-parent-receipt.json
+ferro	current	d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4	0	0	1	67fef5820e87ebf0692fadc8d41456ddda537e42f6d4d77af4d91eabb734ec23	.build/goal-process-deferred-final/ferro-current-receipt.json
+revdep	parent	8a2fdb0927e2fc9b2a5b178c94f55d1887659152	0	0	0	7b3a353a1faccabd2c8837c5eddbd5c100259e89efaa3f5c6456e9bcde9612d6	.build/goal-process-deferred-final/revdep-parent-receipt.json
+revdep	current	8a2fdb0927e2fc9b2a5b178c94f55d1887659152	0	0	0	67fef5820e87ebf0692fadc8d41456ddda537e42f6d4d77af4d91eabb734ec23	.build/goal-process-deferred-final/revdep-current-receipt.json

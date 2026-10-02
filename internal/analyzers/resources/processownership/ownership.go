@@ -199,7 +199,7 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 	if possibleWaitHandoff(instruction, command, proof.budget()) {
 		return ssaflow.EvidenceUnknown
 	}
-	if deferred := deferredClosureWaitsForCommand(instruction, command); deferred != ssaflow.EvidenceDisproven {
+	if deferred := deferredClosureWaitsForCommand(instruction, command, proof.budget()); deferred != ssaflow.EvidenceDisproven {
 		return deferred
 	}
 	common := ssaflow.InstructionCall(instruction)
@@ -310,87 +310,6 @@ func possibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget 
 		}
 	}
 	return false
-}
-
-func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
-	if _, ok := instruction.(*ssa.Defer); !ok {
-		return ssaflow.EvidenceDisproven
-	}
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
-		return ssaflow.EvidenceDisproven
-	}
-	closure, _ := common.Value.(*ssa.MakeClosure)
-	if closure == nil {
-		return ssaflow.EvidenceDisproven
-	}
-	function, _ := closure.Fn.(*ssa.Function)
-	if function == nil {
-		return ssaflow.EvidenceDisproven
-	}
-	waitsOnEveryReturn := func(local ssa.Value) ssaflow.EvidenceState {
-		// A successful Cmd.Start guarantees Cmd.Process is non-nil. Use the
-		// concrete Wait receiver as the closure's non-nil assumption so a
-		// defensive `if cmd.Process != nil` guard does not create a spurious
-		// path that skips Wait.
-		var receivers []ssa.Value
-		for _, block := range function.Blocks {
-			for _, candidate := range block.Instrs {
-				if waitsForCommand(candidate, local) {
-					receivers = append(receivers, ssaflow.CallReceiver(ssaflow.InstructionCall(candidate)))
-				}
-			}
-		}
-		for _, receiver := range receivers {
-			if lifecycle.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
-				return waitsForCommand(candidate, local)
-			}, lifecycle.CoverageEveryReturn, receiver) {
-				return ssaflow.EvidenceProven
-			}
-		}
-		return guardedDeferredWait(function, local)
-	}
-	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if heapmodel.CapturedBindingMatches(captured.Binding, command) {
-			if proof := waitsOnEveryReturn(captured.Free); proof != ssaflow.EvidenceDisproven {
-				return proof
-			}
-		}
-	}
-	// Keep capture evidence first: an unknown captured waiter must not be
-	// reordered behind an argument proof by the shared positional mapping.
-	for _, binding := range ssaflow.CallBindings(common, function, nil) {
-		if heapmodel.MayAlias(binding.Supplied, command) {
-			if proof := waitsOnEveryReturn(binding.Local); proof != ssaflow.EvidenceDisproven {
-				return proof
-			}
-		}
-	}
-	return ssaflow.EvidenceDisproven
-}
-
-// A deferred waiter guarded only by its captured Cmd.Process field may own
-// reaping, but distinct loads do not establish stable identity. Preserve that
-// uncertainty without teaching shared non-nil flow that possible aliases are
-// equal. A Boolean condition still leaves an unowned path, and a visible field
-// replacement defeats even this possible successful-Start contract.
-func guardedDeferredWait(function *ssa.Function, command ssa.Value) ssaflow.EvidenceState {
-	for _, store := range ssaflow.InstructionsOf[*ssa.Store](function) {
-		if heapmodel.ValueDerivesFrom(store.Addr, command) {
-			return ssaflow.EvidenceDisproven
-		}
-	}
-	for _, load := range ssaflow.InstructionsOf[*ssa.UnOp](function) {
-		if !osProcessDerivedFromCommand(load, command) {
-			continue
-		}
-		if lifecycle.MethodCallCoverage(function, func(candidate ssa.Instruction) bool {
-			return waitsForCommand(candidate, command)
-		}, lifecycle.CoverageEveryReturn, load) {
-			return ssaflow.EvidenceUnknown
-		}
-	}
-	return ssaflow.EvidenceDisproven
 }
 
 func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa.Value) bool {
