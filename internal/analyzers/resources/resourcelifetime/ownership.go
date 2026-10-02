@@ -19,19 +19,6 @@ import (
 // retaining-call boundary; neither a wrapper's name nor its mere use transfers
 // the obligation.
 
-func localResourceOwners(function *ssa.Function, resource ssa.Value) []ssa.Value {
-	var owners []ssa.Value
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			stored := proveResourceStorage(instruction, resource, nil)
-			if stored.Owner != nil && !stored.Proven() && !heapmodel.MayAliasAny(stored.Owner, owners) {
-				owners = append(owners, stored.Owner)
-			}
-		}
-	}
-	return owners
-}
-
 // A helper can condition cleanup on an error it receives beside the
 // resource. Unconditional completion cannot represent that relation, so a
 // witnessed cleanup plus a correlated error is uncertainty, not proof of

@@ -55,13 +55,16 @@ func evaluateResourceFlow(
 	if deferredBeforeAcquisitionMayRelease(evidence, call, resource, contract.cleanup) {
 		return unknownResourceLifetime(resourceReasonPriorDeferMayRelease)
 	}
-	owners := localResourceOwners(call.Parent(), resource)
 	analysis := &resourceAnalysis{
 		acquisition: call,
 		summaries:   resourceSummaries.Provider(pass),
-		pass:        pass, evidence: evidence, function: call.Parent(), resource: resource, candidate: call.Pos(), owners: owners,
+		pass:        pass, evidence: evidence, function: call.Parent(), resource: resource, candidate: call.Pos(),
 		contract: contract, optional: optionalAcquisition, actions: map[ssa.Instruction]resourceAction{},
 		probe: analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()),
+	}
+	owners := analysis.discoverResourceOwnersWithin(analysis.budget(releaseSearchBudget))
+	if !owners.Proven() {
+		return unknownResourceLifetime(resourceReasonBudgetExhausted)
 	}
 	analysis.collection = analysis.localCollection()
 	analysis.guardedDefers = analysis.findResultGuardedDefers()

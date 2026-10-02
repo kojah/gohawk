@@ -2843,3 +2843,39 @@ check direct/nested handoff, an unrelated return, possible owner alias and a
 scalar observation, with interrupted proofs carrying no leak witness. The
 recursive child review and existing scoped receipts finish this bounded return
 family; pre-acquisition and cleanup uncertainty remain in the larger cost audit.
+
+## Resource owner-discovery census
+
+`gohawk-dho.44.11.5.17.1` replaces the pre-pool manual owner scan with
+`owner_discovery.go`. The existing observed candidate pool is initialized once
+before discovery and reused by subsequent flow queries. Instruction visits,
+storage dispositions and owner alias deduplication share its release-query
+allowance. A completed census atomically installs possible owners and the
+classifier's existing exact-store cache. Interrupted evidence discards both
+outputs and produces budget uncertainty before flow classification. Possible
+owners still imply neither release nor exact ownership; foreign, local,
+unrelated and opaque destinations retain the original disposition policy.
+The memory-writer exemption remains ahead of all candidate work.
+
+Actual-SSA controls cover those destination families at every insufficient
+allowance, a child cutoff with parent allowance remaining, fresh complete
+commitment, storage-cache reuse without an available pool, and ordinary
+leak/release flow. The unbounded-discovery overlay fails all four family cutoff
+controls and the child cutoff. The initial generated fixture exceeded 250,000
+calls and took two minutes; the final controls inject a small allowance at the
+same authoritative discovery boundary and complete in milliseconds, preserving
+the production quota. The late-populated captured-owner control uses the same
+census. Graph, alias and type internals retain independent cost scope; earlier
+acquisition predicates and prior-cleanup registration remain in `.17`.
+
+The canonical `make verify` gate passed (ordinary tests 56 seconds, repository
+dogfood 28 seconds), with focused lint and architecture checks also passing.
+Immutable `.build/goal-owner-discovery-current`, SHA-256
+`0947b3048ab947c9742acb8a6235e3fa3e0e5bb2c65bfd41e19e064cf69cc00a`,
+keeps pinned Cute (`9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3`, `./...`)
+and Ferro (`d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4`,
+`./internal/admin/repository ./mcp`) resource JSON byte-identical to the final
+ownership-effects binary. Terminal exits are 3/0 and stderr is empty. Cute's
+known TP remains and Ferro's corrected statement-storage FP stays absent.
+No additional FP removal, new full-corpus precision result or full precision
+replay is credited.

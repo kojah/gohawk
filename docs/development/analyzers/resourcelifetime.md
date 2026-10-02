@@ -702,13 +702,23 @@ classify the same destination. During resource classification, release and
 opaque-consumption decisions reuse the completed disposition for that exact
 store. Cutoff answers are never memoized. Stored-value derivation and recursive
 containment share a `SummaryBudget` query drawn from the candidate pool; cutoff
-is unknown and cannot settle transfer. The default pre-acquisition owner census
-retains its existing allowance and remains separate work under
-`gohawk-dho.44.11.5.17`. Destination-origin and graph/alias internals retain
-independent costs. `storage_test.go` checks actual SSA for foreign/local,
+is unknown and cannot settle transfer. Owner discovery now initializes the same
+observed candidate pool before its census and spends the existing 250,000-step
+release-query allowance on instruction visits, storage disposition and owner
+alias deduplication. A completed census atomically seeds the existing owner list
+and store-disposition cache; interrupted collection discards both and stops
+before flow classification. Possible holders still establish no cleanup or
+ownership guarantee. Local, foreign, unrelated and ambiguous destinations keep
+their prior policy. Destination-origin and graph/alias/type internals retain
+independent costs. Earlier acquisition predicates remain separate work under
+`gohawk-dho.44.11.5.17`. `storage_test.go` checks actual SSA for foreign/local,
 unrelated/contained, copied/replaced and opaque destinations at every
 insufficient allowance, plus fresh retry and reuse without a second search.
-
+`owner_discovery_test.go` checks the candidate census at every insufficient
+allowance, child cutoff with parent allowance remaining, atomic commitment on a
+fresh query, classifier-cache reuse with no available pool, and complete-flow
+leak/release controls. Small actual-SSA inputs exercise the same discovery
+boundary without generating a fixture at the production quota.
 
 The `owned` contract family is not a table. A constructor in another package
 whose returned struct holds a resource it acquired itself, and whose type has

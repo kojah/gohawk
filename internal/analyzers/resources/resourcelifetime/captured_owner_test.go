@@ -89,7 +89,7 @@ func TestCapturedOwnerChildCutoff(t *testing.T) {
 func TestCapturedOwnerDiscoveredAfterClosure(t *testing.T) {
 	fn := capturedOwnerFixture(t).Func("late")
 	query := aggregateEscapeAnalysis(fn)
-	query.owners = localResourceOwners(fn, query.resource)
+	query.owners = proveLocalResourceOwnersWithin(fn, query.resource, nil).Owners
 	closure := ssaflow.InstructionsOf[*ssa.MakeClosure](fn)[0]
 	// The SSA has both a captured pointer cell and the holder loaded from it.
 	// Discovery may retain both; the capture proof owns their type exclusions.
