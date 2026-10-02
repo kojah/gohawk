@@ -296,6 +296,34 @@ retains the same pinned Cute/Ferro scopes: exits 3/0, empty stderr and
 byte-identical JSON against the possible-wrapper binary. This credits stable
 scoped controls, no new FP removal and no full precision replay.
 
+Call-result publication now has one instruction census in
+`ownership.go:proveCallResultMayTransferWithin`, shared by return and global
+store witnesses. Result visits and may-derivation share the publication
+allowance. A completed witness makes a nested argument's ownership uncertain;
+an interrupted search likewise suppresses the leak, with a budget reason,
+rather than completing a false publication result. Neither establishes cleanup.
+The classifier consumes this structured proof after proving a nested argument,
+so it preserves one authoritative publication decision.
+
+The existing filters remain distinct: returned errors are excluded, while
+global stores exclude both errors and scalar observations. Returned scalars
+retain the existing broader may-derivation policy. Foreign field stores and
+discarded/unrelated results remain outside this result-publication query.
+`result_publication_test.go` covers these shapes, all insufficient allowances,
+fresh recovery, and a real SSA census exceeding the child cap while the
+candidate pool remains available. An overlay ignoring publication allowance
+must fail both the census and classifier controls. The shared proof allowance
+test harness is separate from callback/publication scenario fixtures. Graph,
+alias/type and effect internals retain independent cost reviews; this step owns
+`gohawk-dho.44.11.5.18.1.5.5`, not the broader integration goal.
+
+The result-publication local gate passed (tests 61 seconds, repository dogfood
+23 seconds). Immutable `.build/goal-result-publication-current`, SHA-256
+`a07afd450724e6c3db2726a3a9ae14356daea790fd0fa9b8dcc6d04dacc4c9b3`,
+retains the same pinned Cute/Ferro scopes: exits 3/0, empty stderr and
+byte-identical JSON against the closure/callback binary. This records scoped
+stability, no new FP removal and no full precision replay.
+
 The resource projection decision propagates view-binding and storage-projection
 cutoff rather than treating it as missing evidence. A known non-cleaning view
 still cannot discharge its resource merely because it has a Close method;

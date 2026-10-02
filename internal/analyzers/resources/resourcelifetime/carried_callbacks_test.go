@@ -22,7 +22,7 @@ func TestCarriedClosureAllowance(t *testing.T) {
 			fn := pkg.Func(test.name)
 			query := callbackAnalysis(fn, provider)
 			value := ssaflow.InstructionsOf[*ssa.Return](fn)[0].Results[0]
-			checkCallbackAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
 				return query.proveCarriedClosureWithin(value, budget)
 			}, test.want)
 			if test.name == "twice" && !query.proveCarriedValueWithin(value, nil).Proven() {
@@ -39,7 +39,7 @@ func TestClosureBindingAllowance(t *testing.T) {
 			fn := pkg.Func(name)
 			closure := ssaflow.InstructionsOf[*ssa.MakeClosure](fn)[0]
 			query := callbackAnalysis(fn, provider)
-			checkCallbackAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
 				return query.proveClosureCarryWithin(closure, budget)
 			}, name != "unrelated")
 		})
@@ -70,7 +70,7 @@ func TestCarriedCallArgumentsAllowance(t *testing.T) {
 			fn := pkg.Func(test.name)
 			query := callbackAnalysis(fn, provider)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-			checkCallbackAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
 				switch test.family {
 				case "retention":
 					return query.provePossiblyRetainedCallbackWithin(call, call.Common(), budget)
@@ -98,28 +98,6 @@ func TestClosureClassifierCutoff(t *testing.T) {
 	if reason, opaque := query.opaqueClosureCall(launched, closure, false); !opaque || reason != resourceReasonCapturedByStartedLiteral {
 		t.Fatalf("fresh closure classifier = %v/%v", reason, opaque)
 	}
-}
-
-func checkCallbackAllowance(t *testing.T, prove func(*ssaflow.SearchBudget) resourceProof, want bool) {
-	t.Helper()
-	if got := prove(nil); got.State == ssaflow.EvidenceUnknown || got.Proven() != want {
-		t.Fatalf("default callback evidence = %+v, want %v", got, want)
-	}
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
-		got := prove(budget)
-		if resourceFlowExhausted(budget) || limit == 0 {
-			if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
-				t.Fatalf("allowance %d retained interrupted callback evidence: %+v", limit, got)
-			}
-			continue
-		}
-		if got.State == ssaflow.EvidenceUnknown || got.Proven() != want {
-			t.Fatalf("complete callback evidence = %+v, want %v", got, want)
-		}
-		return
-	}
-	t.Fatal("callback query never completed")
 }
 
 func callbackAnalysis(fn *ssa.Function, provider *summaries.Provider) *resourceAnalysis {

@@ -387,8 +387,14 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	if aggregate.State == ssaflow.EvidenceUnknown {
 		return aggregate.Reason, true
 	}
-	if aggregate.Proven() && callResultMayTransfer(instruction) {
-		return resourceReasonNestedInTransferredArgument, true
+	if aggregate.Proven() {
+		publication := proveCallResultMayTransferWithin(instruction, analysis.budget(ssaflow.SummaryBudget))
+		if publication.State == ssaflow.EvidenceUnknown {
+			return publication.Reason, true
+		}
+		if publication.Proven() {
+			return resourceReasonNestedInTransferredArgument, true
+		}
 	}
 	// A summarized callee proven to release, store, or own the resource was
 	// classified as settled above; one summarized as doing none of those is
@@ -396,40 +402,6 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// through the completion proof already consulted; without either, the
 	// callee is a boundary.
 	return resourceReasonUnsummarizedCallee, !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
-}
-
-// callResultMayTransfer reports whether a non-error call result flows to a return
-// or a global aggregate. A fluent builder may publish its nested resource without
-// returning it from this function. This is uncertainty, not proof of ownership:
-// https://github.com/tair-opensource/RedisShake/blob/014e2f493583d24d2a37166d360bad21fc2a2422/internal/log/init.go#L54-L60
-func callResultMayTransfer(instruction ssa.Instruction) bool {
-	result, ok := instruction.(ssa.Value)
-	if !ok || instruction.Parent() == nil {
-		return false
-	}
-	errorType := types.Universe.Lookup("error").Type()
-	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](instruction.Parent()) {
-		for _, value := range returned.Results {
-			if types.Identical(value.Type(), errorType) {
-				continue
-			}
-			if heapmodel.ValueDerivesFrom(value, result) {
-				return true
-			}
-		}
-	}
-	for _, store := range ssaflow.InstructionsOf[*ssa.Store](instruction.Parent()) {
-		if _, global := store.Addr.(*ssa.Global); !global {
-			continue
-		}
-		// Publishing a scalar observation or error does not retain its inputs.
-		_, scalar := store.Val.Type().Underlying().(*types.Basic)
-		if !scalar && !types.Identical(store.Val.Type(), errorType) &&
-			heapmodel.ValueDerivesFrom(store.Val, result) {
-			return true
-		}
-	}
-	return false
 }
 
 func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosure) bool {

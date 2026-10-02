@@ -2,6 +2,7 @@ package resourcelifetime
 
 import (
 	"go/token"
+	"go/types"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
@@ -266,4 +267,48 @@ func aggregateEscapeProof(found bool, budget *ssaflow.SearchBudget) resourceProo
 		return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonAggregateOwnerMayEscape}
 	}
 	return resourceProof{State: ssaflow.EvidenceDisproven}
+}
+
+// proveCallResultMayTransferWithin reports whether a non-error call result flows to a return
+// or a global aggregate. A fluent builder may publish its nested resource without
+// returning it from this function. This is uncertainty, not proof of ownership:
+// https://github.com/tair-opensource/RedisShake/blob/014e2f493583d24d2a37166d360bad21fc2a2422/internal/log/init.go#L54-L60
+func proveCallResultMayTransferWithin(instruction ssa.Instruction, budget *ssaflow.SearchBudget) resourceProof {
+	result, ok := instruction.(ssa.Value)
+	if !ok || instruction.Parent() == nil {
+		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}
+	}
+	errorType := types.Universe.Lookup("error").Type()
+	// One census shares return and global-publication work. A result that merely
+	// reaches an unsupported instruction does not establish transfer; interrupted
+	// census or derivation cannot establish that publication is absent either.
+	for candidate := range ssaflow.InstructionsWithin(instruction.Parent(), budget) {
+		switch typed := candidate.(type) {
+		case *ssa.Return:
+			for _, value := range typed.Results {
+				if !budget.Spend() {
+					return carriedValueProof(false, resourceReasonUntouched, budget)
+				}
+				if !types.Identical(value.Type(), errorType) && heapmodel.ValueDerivesFromWithin(value, result, budget) {
+					return carriedValueProof(true, resourceReasonCallResultMayTransfer, budget)
+				}
+				if resourceFlowExhausted(budget) {
+					return carriedValueProof(false, resourceReasonUntouched, budget)
+				}
+			}
+		case *ssa.Store:
+			if _, global := typed.Addr.(*ssa.Global); !global {
+				continue
+			}
+			// Publishing a scalar observation or error does not retain its inputs.
+			_, scalar := typed.Val.Type().Underlying().(*types.Basic)
+			if !scalar && !types.Identical(typed.Val.Type(), errorType) && heapmodel.ValueDerivesFromWithin(typed.Val, result, budget) {
+				return carriedValueProof(true, resourceReasonCallResultMayTransfer, budget)
+			}
+			if resourceFlowExhausted(budget) {
+				return carriedValueProof(false, resourceReasonUntouched, budget)
+			}
+		}
+	}
+	return carriedValueProof(false, resourceReasonUntouched, budget)
 }

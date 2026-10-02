@@ -15,6 +15,7 @@ const (
 	resourceReasonAppended
 	resourceReasonBudgetExhausted
 	resourceReasonCallEffectsAsynchronousExposure
+	resourceReasonCallResultMayTransfer
 	resourceReasonDirectMayCarry
 	resourceReasonAggregateMayCarry
 	resourceReasonWrapperMayCarry
@@ -126,6 +127,7 @@ var resourceReasonCodes = [...]string{
 	resourceReasonResultGuardedUnknown:                     "result-guarded-unknown",
 	resourceReasonBudgetExhausted:                          "budget-exhausted",
 	resourceReasonCallEffectsAsynchronousExposure:          "call-effects-asynchronous-exposure",
+	resourceReasonCallResultMayTransfer:                    "call-result-may-transfer",
 	resourceReasonParentCleanup:                            "caller-owned-database-cleanup",
 	resourceReasonCapturedAggregateOwner:                   "captured-aggregate-owner",
 	resourceReasonCapturedBodyGuardedCleanup:               "captured-body-guarded-cleanup",
