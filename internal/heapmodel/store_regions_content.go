@@ -262,25 +262,19 @@ func (graph *regionGraph) forgetWholeAbove(state *regionState, target slot) {
 // storeAggregate records the aggregate value as the slot's whole content
 // and copies its sub-slots beneath the target.
 func (graph *regionGraph) storeAggregate(state *regionState, target slot, value pointees, strong bool, stamp int) {
-	if strong {
-		graph.clearSubtree(state, target)
-	}
-	graph.forgetWholeAbove(state, target)
-	if len(value) != 1 || value.unknown() {
-		state.clobbered[target] = stamp
+	if !strong || len(value) != 1 || value.unknown() {
+		// A possible aggregate replacement can change any stored field.
+		// Its unknown stamp cannot override an old concrete field entry,
+		// so forget the selected contents as well as the enclosing cache.
+		graph.forgetStoredSlot(state, target, stamp)
 		return
 	}
+	graph.clearSubtree(state, target)
+	graph.forgetWholeAbove(state, target)
 	for source := range value {
 		if source.region.kind == regionNil {
-			// Storing a zero value empties every sub-slot.
-			if strong {
-				return
-			}
-			state.clobbered[target] = stamp
-			return
-		}
-		if !strong {
-			state.clobbered[target] = stamp
+			// A definite zero value empties the selected storage; it must
+			// not inherit the uncertainty of a possible aggregate overwrite.
 			return
 		}
 		state.contents[target] = value.clone()
@@ -293,6 +287,14 @@ func (graph *regionGraph) storeAggregate(state *regionState, target slot, value 
 			state.clobbered[target] = clobber
 		}
 	}
+}
+
+// forgetStoredSlot replaces selected concrete storage with an unknown write.
+// Former pointees, earlier snapshots and sibling storage are not modified.
+func (graph *regionGraph) forgetStoredSlot(state *regionState, target slot, stamp int) {
+	graph.forgetWholeAbove(state, target)
+	graph.clearSubtree(state, target)
+	state.clobbered[target] = stamp
 }
 
 // remember records, for the whole build, that the slot was given the value.

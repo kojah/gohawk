@@ -4875,3 +4875,19 @@ records parent failures, exact/may/wildcard and snapshot controls, assertion
 counterfactuals, scoped output and canonical validation. No recorded production
 FP correction is credited; seven sites plus Rune and the broader consolidation
 completion requirements remain open.
+
+
+## Uncertain aggregate storage invalidation
+
+Beads `gohawk-dho.23.11` reproduces stale exact fields after possible aggregate
+writes: the unknown marker did not remove old concrete entries. One selected
+stored-slot invalidation now forgets contents/backing, drops enclosing cache
+entries and marks unknown. Local summary forgetting consumes that same operation;
+foreign epoch and closure policies keep their own boundaries. Definite copies
+and zeroing, prior snapshots, untouched siblings and former pointees are preserved.
+
+The [aggregate invalidation review](../../benchmarks/precision/audits/aggregate-slot-invalidation-2026-10-03.md)
+records parent SSA failures, seven controls, four assertion counterfactuals,
+scoped diagnostics and canonical verification. No recorded production FP removal
+is credited; seven sites plus Rune and the broader completion requirements remain
+open.

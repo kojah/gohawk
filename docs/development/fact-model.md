@@ -1138,6 +1138,17 @@ and foreign-write invalidation remain outside this update, as do imported
 escape metadata, result binding and aggregate-value writes. The compiled
 summary controls are in `store_summary_writes_test.go`.
 
+A possible or undescribed aggregate replacement invalidates both the selected
+concrete contents and cached aggregates above it. An unknown write stamp alone
+cannot override an earlier concrete field entry. The shared stored-slot
+invalidation also serves summary forgetting of local storage; foreign epoch and
+closure invalidation retain their separate policies. Definite aggregate copies
+remain exact, and a definite zero clears selected fields. Prior snapshots,
+untouched siblings and former pointee storage remain intact.
+`store_aggregate_writes_test.go` covers mixed destinations, mixed source values,
+exact replacements, zero values and preservation controls.
+
+
 
 `ExclusiveAt` asks whole-object identity rather than exact content identity.
 Different or unknown selections of one non-stale object can still be private;
