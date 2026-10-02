@@ -66,8 +66,8 @@ func (callers *exclusiveCallers) parameterExclusive(function *ssa.Function, inde
 	callers.exclusive[key] = false
 	object := function.Object()
 	entry := callers.sites[function]
-	sites := entry.calls
-	if object == nil || object.Exported() || entry.escaped || len(sites) == 0 {
+	sites := entry.Calls
+	if object == nil || object.Exported() || entry.Escaped || len(sites) == 0 {
 		return false
 	}
 	for _, call := range sites {
@@ -106,7 +106,7 @@ func (callers *exclusiveCallers) acquisitionExclusive(function *ssa.Function, in
 	case callers.parameterExclusive(function, exclusive.Parameter):
 		probe.Decision(analysisTrace.Step{
 			Reason: lockReasonExclusiveParameterFromFreshCallers.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
-			Details: map[string]string{"parameter": strconv.Itoa(exclusive.Parameter), "callers": strconv.Itoa(len(callers.sites[function].calls))},
+			Details: map[string]string{"parameter": strconv.Itoa(exclusive.Parameter), "callers": strconv.Itoa(len(callers.sites[function].Calls))},
 		})
 		return true
 	}

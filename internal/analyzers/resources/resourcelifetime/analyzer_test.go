@@ -40,7 +40,7 @@ func TestAnalyzer(t *testing.T) {
 	// Reuse this run for diagnostic context and trace checks: repeating the
 	// fixtures also repeats dependency loading and fact serialization checks.
 	results := analyzertest.Run(t, analysistest.TestData(), Analyzer(),
-		"resourcelifetime", "processexit", "processexitlib", "processexitrecursive")
+		"resourcelifetime", "processexit", "processexitlib", "processexitrecursive", "privateentry")
 	assertMissingReleaseEvidence(t, results)
 	data, err := os.ReadFile(path)
 	if err != nil {

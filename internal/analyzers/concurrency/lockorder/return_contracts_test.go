@@ -29,7 +29,7 @@ func TestLockReturnContractsShareAllowance(t *testing.T) {
 		if name == "heldFalse" {
 			caller = pkg.Func("callerFalse")
 		}
-		callers := conditionalCallerSet{calls: ssaflow.InstructionsOf[*ssa.Call](caller)[:1]}
+		callers := conditionalCallerSet{Calls: ssaflow.InstructionsOf[*ssa.Call](caller)[:1]}
 		complete := false
 		for limit := range ssaflow.SummaryBudget {
 			pool := ssaflow.NewSearchBudget(lockStateWorkBudget)
@@ -59,7 +59,7 @@ func TestLockReturnContractsShareAllowance(t *testing.T) {
 		if proof.proven != (name == "heldSuccess") {
 			t.Fatalf("%s held-success policy changed: %+v", name, proof)
 		}
-		callers.escaped = true
+		callers.Escaped = true
 		if proof := query.conditionalCallerRelease(fn, []ssa.Value{pkg.Var("global")}, heldAt, identity, callers); proof.proven {
 			t.Fatal("escaped caller establishes a release")
 		}

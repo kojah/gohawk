@@ -4634,3 +4634,28 @@ correction, not an FP removal: ten production sites and Rune remain unresolved.
 Final canonical validation passes all eight targets, including ordinary tests
 and self-dogfood; final architecture validation passes. No full precision
 regression replay or local race run was used.
+
+
+## Private entry reclamation and shared caller uses
+
+Beads `gohawk-dho.4.6` corrects boxesandglue at the existing reclaim-only
+resource boundary. One complete private-use collector now serves lockorder and
+an explicitly bounded private entry-chain query. Operands/body/CFG searches use
+the caller allowance; interrupted resource queries stay unknown. The entry query
+requires unique synchronous, nonescaping, acyclic calls and a nonreferenced
+language entry. Other analyzers retain their direct-entry policy; effectful
+cleanup and unconditional callee facts remain unchanged.
+
+The [private-entry review](../../benchmarks/precision/audits/private-entry-reclamation-2026-10-02.md)
+records compiled SSA, cutoff recovery, depth boundaries, two assertion-failing
+counterfactuals and parent/current production receipts. The accepted minimized
+file acquisition and boxesandglue `pattern.go:79:14` disappear. All 426 existing
+lock/resource fixture reports and two pinned goiardi lock findings remain
+byte-identical; repeated/looped/escaped helper acquisitions, compressors and
+transactions remain diagnostic. This credits one FP correction, leaving nine
+recorded production sites plus Rune. The broader architecture completion audit
+remains open; this is not a new corpus census.
+
+Final canonical validation passes all eight targets and final architecture
+validation passes. Ten scoped scan receipts exit zero with empty stderr. No
+full precision regression replay or local race run was used.

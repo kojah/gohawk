@@ -18,7 +18,7 @@ Some cases are deliberately not reported:
 - a resource returned, stored beyond the function, or passed to code gohawk cannot see into;
 - a resource handed to asynchronous work through a helper;
 - channel timers and tickers, which the garbage collector reclaims;
-- a file, response body, or rows value opened once in `main.main`, which program exit closes;
+- a file, response body, or rows value opened once from `main.main`, including private helper calls, which program exit closes;
 - helper cleanup selected by a constant flag or `nil` option, such as `finish(file, nil)`;
 - a `BeginTx` transaction whose context's cancel is called or deferred on every path.
 

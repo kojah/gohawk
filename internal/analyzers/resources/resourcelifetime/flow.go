@@ -101,8 +101,12 @@ func evaluateResourceFlow(
 	if analysis.pool.Exhausted() {
 		return unknownResourceLifetime(resourceReasonBudgetExhausted)
 	}
-	if processExitReclaims(call, contract) {
+	entryBudget := analysis.budget(releaseSearchBudget)
+	if processExitReclaims(call, contract, entryBudget) {
 		return acceptedResourceLifetime(resourceReasonProcessExitReclaims)
+	}
+	if entryBudget.Exhausted() {
+		return unknownResourceLifetime(resourceReasonBudgetExhausted)
 	}
 	return flow
 }
@@ -182,13 +186,13 @@ func (analysis *resourceAnalysis) traceUncertainEdge(block, successor *ssa.Basic
 
 // processExitReclaims accepts a resource that program exit genuinely cleans
 // up. A leak does harm when it accumulates or when its cleanup has an effect
-// that exit would lose. An acquisition that runs at most once in main.main
+// that exit would lose. An acquisition that runs at most once from main.main
 // cannot accumulate, and every path that leaves main ends the process, which
 // closes descriptors and connections. Only contracts whose cleanup merely
 // reclaims qualify: a compressor's Close flushes buffered data, a transaction
 // must commit, and an inferred owner's Close is not known to be free of such
 // effects, so all of those are still reported.
-func processExitReclaims(call *ssa.Call, contract resourceContract) bool {
+func processExitReclaims(call *ssa.Call, contract resourceContract, budget *ssaflow.SearchBudget) bool {
 	switch contract.family {
 	case "os", "http":
 	case "sql":
@@ -198,5 +202,9 @@ func processExitReclaims(call *ssa.Call, contract resourceContract) bool {
 	default:
 		return false
 	}
-	return ssaflow.RunsOnceInProgramEntry(call)
+	// A complete unique private caller chain keeps this process-local policy
+	// out of unconditional callee facts. Repeated/escaping helpers cannot
+	// establish that their acquisitions happen only once before process exit.
+	// https://github.com/boxesandglue/boxesandglue/blob/79509f4b6b0e2e7a1d0562139ab4d9946d4be080/helper/main.go#L10-L35
+	return ssaflow.RunsOnceThroughPrivateEntryCallsWithin(call, budget)
 }

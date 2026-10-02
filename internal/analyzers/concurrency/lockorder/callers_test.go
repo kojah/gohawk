@@ -33,7 +33,7 @@ func TestLockCallerInventoryScopeAndUses(t *testing.T) {
 		{"crowded", 32, true},
 	} {
 		entry := inventory[pkg.Func(test.name)]
-		if len(entry.calls) != test.calls || entry.escaped != test.escaped {
+		if len(entry.Calls) != test.calls || entry.Escaped != test.escaped {
 			t.Errorf("%s conditional callers: %+v", test.name, entry)
 		}
 	}
@@ -62,7 +62,7 @@ func TestLockCallerCutoffDiscardsPrefix(t *testing.T) {
 			t.Fatalf("cutoff %d lost child allowance ownership", limit)
 		}
 		fresh := collectLockCallers(pkg.Func("init"), functions, pool.Within(callerSetBudget))
-		if fresh == nil || len(fresh[pkg.Func("crowded")].calls) != 32 {
+		if fresh == nil || len(fresh[pkg.Func("crowded")].Calls) != 32 {
 			t.Fatalf("cutoff %d contaminated fresh discovery", limit)
 		}
 	}

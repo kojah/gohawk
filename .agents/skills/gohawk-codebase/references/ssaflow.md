@@ -769,6 +769,20 @@ ClosureBindingPairsWithin yields matched lexical captures in free-variable
 order, charging each pair before yielding it. A cutoff leaves later captures
 unknown. A nil budget retains default policy; stopping needs no later work.
 
+## CollectPrivateFunctionUsesWithin
+
+[Source](../../../../internal/ssaflow/call_uses.go)
+
+```go
+func CollectPrivateFunctionUsesWithin(functions []*ssa.Function, budget *SearchBudget) map[*ssa.Function]PrivateFunctionUses
+```
+
+CollectPrivateFunctionUsesWithin collects uses of unexported non-method
+declarations. Callers supply the complete body scope, including initialization
+and closures when relevant. A nil result means an interrupted census; no
+discovered prefix may establish absence of other uses. Missing entries have
+no observed use, rather than a guarantee about execution outside the scope.
+
 ## ComparesWithNil
 
 [Source](../../../../internal/ssaflow/call_constants.go)
@@ -2333,6 +2347,22 @@ PhiIncoming yields each edge of phi with the predecessor block it comes
 from. An edge without a matching predecessor, which malformed SSA could
 produce, is skipped.
 
+## PrivateFunctionUses
+
+[Source](../../../../internal/ssaflow/call_uses.go)
+
+```go
+type PrivateFunctionUses struct {
+	// Calls contains at most 32 direct synchronous calls.
+	Calls	[]*ssa.Call
+	// Escaped includes opaque, asynchronous, deferred and excess uses.
+	Escaped	bool
+}
+```
+
+PrivateFunctionUses describes declaration-resolved uses in a supplied body
+inventory. It establishes no ownership, completion or execution count.
+
 ## Proof
 
 [Source](../../../../internal/ssaflow/proof_types.go)
@@ -2748,6 +2778,23 @@ again, so any such reference also declines.
 This is only the "at most once, until exit" half of a process-lifetime
 argument. Whether exit actually settles an obligation, rather than losing a
 flush or a commit, is the calling analyzer's decision.
+
+## RunsOnceThroughPrivateEntryCallsWithin
+
+[Source](../../../../internal/ssaflow/process_entry.go)
+
+```go
+func RunsOnceThroughPrivateEntryCallsWithin(instruction ssa.Instruction, budget *SearchBudget) bool
+```
+
+RunsOnceThroughPrivateEntryCallsWithin extends the at-most-once entry witness
+through a chain of private nonescaping declarations with one synchronous
+caller each. Every call and the instruction must be outside CFG cycles. The
+complete package use census rejects callbacks, aliases, repeated calls and
+references to main. Generic declarations and chains beyond 16 frames decline.
+The supplied allowance owns body/operand and CFG searches; package metadata
+enumeration retains DeclaredFunctions' existing independent cost. This says
+nothing about cleanup or whether entry eventually returns.
 
 ## SameAccessPathWithin
 

@@ -681,7 +681,8 @@ held by the result of ... is dropped on some return path". A wrapper that only
 may hold its input, such as `bufio.NewWriter`, is not treated this way.
 
 A resource that program exit reclaims is not reported. The acquisition must be
-in `main.main` of package `main`, outside any loop or closure, in a package
+in `main.main` of package `main` or in a complete unique private synchronous
+call chain from it, outside any loop or closure, in a package
 that never calls its own `main`. It then runs at most once, and every way out
 of `main` ends the process, which closes the file, response body, rows, or
 statement. Cleanups with an effect that exit would lose are still reported:
@@ -999,8 +1000,8 @@ Some cases are deliberately not reported:
 
 - channel timers and tickers, which the garbage collector reclaims since Go 1.23;
 - compression writers over an in-memory buffer;
-- a file, response body, or rows value acquired once in `main.main` of package
-  `main`, which program exit closes. Compressors and transactions there are
+- a file, response body, or rows value acquired once from `main.main` of package
+  `main`, through the direct frame or a complete unique private call chain, which program exit closes. Compressors and transactions there are
   still reported, because exit would lose their flush or commit.
 
 ### Prior cleanup registration allowance
@@ -1331,3 +1332,26 @@ cleanup or a completed cleanup. The shared
 multiple returns, overwritten stores, earlier-block assignments, conditional
 registration and interrupted callbacks. Consumer `result_guard_budget_test.go`
 checks cutoff unknown followed by fresh release and skipped-cleanup answers.
+
+
+### Reclamation through a private entry chain
+
+`RunsOnceThroughPrivateEntryCallsWithin` extends only the resource exit policy.
+The direct-entry helper used by other analyzers keeps its existing contract.
+One declaration-resolved private-use census is shared with lockorder; no
+analyzer repeats operand discovery. The entry query requires exactly one direct
+synchronous caller at each private declaration, acyclic call blocks, no escaping
+uses and an unreferenced language-defined main. Initializer aliases, callbacks,
+asynchronous/deferred use, repeated calls, generic declarations, recursion and
+chains beyond sixteen frames decline. Package metadata enumeration retains its
+independent cost; instruction/operand and CFG searches consume the candidate's
+existing allowance. An interrupted query returns unknown at the resource decision.
+
+The `privateentry` fixture accepts a file created through two private helpers
+but retains repeated, looped and callback-exposed file acquisitions, compressor
+flushes and transactions. Shared SSA controls include exhausted searches and
+fresh-query recovery. This implements the process-local boundary needed by
+[boxesandglue's helper entry](https://github.com/boxesandglue/boxesandglue/blob/79509f4b6b0e2e7a1d0562139ab4d9946d4be080/helper/main.go#L10-L35)
+and [file acquisition](https://github.com/boxesandglue/boxesandglue/blob/79509f4b6b0e2e7a1d0562139ab4d9946d4be080/helper/pattern.go#L71-L113).
+It establishes no unconditional cleanup fact for the helper. Descriptor
+reclamation remains distinct from cleanup that flushes data or commits a change.

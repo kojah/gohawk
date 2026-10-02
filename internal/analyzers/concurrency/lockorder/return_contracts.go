@@ -103,7 +103,7 @@ func (query lockReturnQueries) conditionalCallerRelease(
 	function *ssa.Function, values []ssa.Value, heldAt map[*ssa.Return]lockReturnState, identity string, callers conditionalCallerSet,
 ) callerReleaseProof {
 	unknown := callerReleaseProof{reason: lockReasonConditionalCallerReleaseUnknown}
-	if len(values) != 1 || callers.escaped || len(callers.calls) == 0 {
+	if len(values) != 1 || callers.Escaped || len(callers.Calls) == 0 {
 		return unknown
 	}
 	global, ok := values[0].(*ssa.Global)
@@ -115,7 +115,7 @@ func (query lockReturnQueries) conditionalCallerRelease(
 			return callerReleaseProof{reason: lockReasonLockStateBudgetExhausted}
 		}
 		heldWhen, known := query.heldResultPolarity(heldAt, identity, index)
-		if known && !slices.ContainsFunc(callers.calls, func(call *ssa.Call) bool {
+		if known && !slices.ContainsFunc(callers.Calls, func(call *ssa.Call) bool {
 			return !query.callerReleasesOnFlag(call, global, heldWhen)
 		}) && !query.budget.Exhausted() {
 			return callerReleaseProof{proven: true, reason: lockReasonConditionalCallerReleaseProven}

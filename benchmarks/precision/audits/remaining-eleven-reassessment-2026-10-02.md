@@ -48,3 +48,10 @@ the returned-pipe fixture, so that version is rejected.
 Graph tools were unavailable; source fallback inspected the selected pinned
 families and current process proof. This is a scoped precision reassessment,
 not a full corpus replay, call-graph benchmark or completed architecture audit.
+
+
+The [private-entry follow-up](private-entry-reclamation-2026-10-02.md) corrects
+boxesandglue's file acquisition through a complete unique private entry call
+chain. Final scoped production evidence credits this additional removal,
+leaving nine unresolved production sites plus Rune after the local pipe fix.
+The eleven-site table remains the historical snapshot.
