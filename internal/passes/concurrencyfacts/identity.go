@@ -92,24 +92,12 @@ func (engine *Engine) fixedLoad(load *ssa.UnOp) (*ssa.UnOp, bool) {
 	if !ok {
 		return nil, false
 	}
-	for instruction := range ssaflow.InstructionsWithin(load.Parent(), engine.budget) {
-		candidate, isLoad := instruction.(*ssa.UnOp)
-		if !isLoad {
-			continue
-		}
-		if !engine.budget.Spend() {
-			return nil, false
-		}
-		other, ok := candidate.X.(*ssa.FieldAddr)
-		if candidate.Op != token.MUL || !ok || fieldOf(other) != fieldOf(address) {
-			continue
-		}
-		if path, ok := pathFromWithin(other, engine.fixedLoad, engine.budget); ok && path == base {
-			engine.fields.canonical[load] = candidate
-			return candidate, true
-		}
+	candidate, ok := engine.firstFieldLoad(load.Parent(), base, fieldOf(address))
+	if !ok {
+		return nil, false
 	}
-	return nil, false
+	engine.fields.canonical[load] = candidate
+	return candidate, true
 }
 
 // capturedLoad returns the closure's first read of capture when every use of
@@ -198,6 +186,17 @@ func (engine *Engine) bindCapturedRoot(
 
 // callerLoad finds the caller's canonical load of the field at address path.
 func (engine *Engine) callerLoad(function *ssa.Function, address ssaflow.EmbeddedFieldPath, field *types.Var) (*ssa.UnOp, bool) {
+	candidate, ok := engine.firstFieldLoad(function, address, field)
+	if !ok {
+		return nil, false
+	}
+	return engine.fixedLoad(candidate)
+}
+
+// firstFieldLoad owns the bounded, block-order census and exact field/path
+// match. The caller decides whether to cache that load or bind its identity;
+// this search does not establish write-once or captured-storage stability.
+func (engine *Engine) firstFieldLoad(function *ssa.Function, address ssaflow.EmbeddedFieldPath, field *types.Var) (*ssa.UnOp, bool) {
 	for instruction := range ssaflow.InstructionsWithin(function, engine.budget) {
 		candidate, isLoad := instruction.(*ssa.UnOp)
 		if !isLoad {
@@ -211,7 +210,7 @@ func (engine *Engine) callerLoad(function *ssa.Function, address ssaflow.Embedde
 			continue
 		}
 		if path, ok := pathFromWithin(other, engine.fixedLoad, engine.budget); ok && path == address {
-			return engine.fixedLoad(candidate)
+			return candidate, true
 		}
 	}
 	return nil, false

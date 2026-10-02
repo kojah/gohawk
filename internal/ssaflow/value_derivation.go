@@ -116,25 +116,13 @@ func enclosingAggregateAddressWithin(address ssa.Value, budget *SearchBudget) ss
 		if !budget.Spend() {
 			return nil
 		}
-		switch typed := reference.(type) {
-		case *ssa.Store:
-			if typed.Addr != enclosing {
+		if store, ok := reference.(*ssa.Store); ok {
+			if store.Addr != enclosing {
 				return nil
 			}
-		case *ssa.FieldAddr:
-			if !addressOnlyLoadedWithin(typed, budget) {
-				return nil
-			}
-		case *ssa.IndexAddr:
-			if !addressOnlyLoadedWithin(typed, budget) {
-				return nil
-			}
-		case *ssa.UnOp:
-			if typed.Op != token.MUL {
-				return nil
-			}
-		case *ssa.DebugRef:
-		default:
+			continue
+		}
+		if !addressUseOnlyLoadsWithin(reference, budget) {
 			return nil
 		}
 	}
@@ -168,23 +156,27 @@ func addressOnlyLoadedWithin(address ssa.Value, budget *SearchBudget) bool {
 		if !budget.Spend() {
 			return false
 		}
-		switch typed := reference.(type) {
-		case *ssa.FieldAddr:
-			if !addressOnlyLoadedWithin(typed, budget) {
-				return false
-			}
-		case *ssa.IndexAddr:
-			if !addressOnlyLoadedWithin(typed, budget) {
-				return false
-			}
-		case *ssa.UnOp:
-			if typed.Op != token.MUL {
-				return false
-			}
-		case *ssa.DebugRef:
-		default:
+		if !addressUseOnlyLoadsWithin(reference, budget) {
 			return false
 		}
 	}
 	return true
+}
+
+// Selected addresses may only be loaded or selected further. Whole-root stores
+// are a separate policy of enclosingAggregateAddressWithin, never accepted here.
+// The caller charges this use; recursive selection visits retain their costs.
+func addressUseOnlyLoadsWithin(reference ssa.Instruction, budget *SearchBudget) bool {
+	switch typed := reference.(type) {
+	case *ssa.FieldAddr:
+		return addressOnlyLoadedWithin(typed, budget)
+	case *ssa.IndexAddr:
+		return addressOnlyLoadedWithin(typed, budget)
+	case *ssa.UnOp:
+		return typed.Op == token.MUL
+	case *ssa.DebugRef:
+		return true
+	default:
+		return false
+	}
 }

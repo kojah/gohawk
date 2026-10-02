@@ -1166,3 +1166,19 @@ retain lifecycle owners. Mixed tuples and their reference-bearing projections
 can, without proving that any particular result actually owns the supplied
 value. Process startup discovery applies this prerequisite before wrapper-owner
 completion; call effects remain a separate query about the instruction itself.
+
+## Shared discovery without shared diagnostic policy
+
+Concurrency mutex-root canonicalization and caller binding share one bounded
+first-field-load census. It selects the first block-order load with both the
+same declared field and exact embedded access path. Canonicalization retains
+its write-once inventory, recursive sentinel and cutoff invalidation; caller
+binding retains its own canonical-load query. Neither field-name similarity
+nor a shared prefix proves stable storage or completion.
+
+Whole-written aggregate derivation shares the read-use classifier for selected
+field/element addresses. A store of the whole root is an explicit outer
+exception; stores beneath that root and escaping selected addresses remain
+opaque. Heap transfer uses shared wrapper operands with its selected four
+transparent forms, retaining its separate slice-to-array-pointer and assertion
+handling. These are evidence mechanics; analyzer acceptance remains local.

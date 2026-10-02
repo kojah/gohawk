@@ -5033,3 +5033,79 @@ completion cutoff. Its silence still receives no FP credit. The
 records exact source, binary, receipt and trace evidence. Seven production
 sites plus Rune and broader semantic/partial-duplication review remain open;
 no full precision replay or completion claim is made.
+
+## Current whole-function and partial-block review
+
+Bead `gohawk-dho.23.21` refreshes source evidence at `520ae75` rather than
+relying on the earlier inventory. Graph/index/coverage tools are not callable
+in this session; discovery and material claims use the exact source fallback.
+The scanner visits 329 production Go files and 2,170 function declarations
+under `internal/`, excluding generated source, tests, fixture/testdata/vendor
+and dot/underscore directories. Whole-function matches normalize identifiers
+and require at least 35 tokens. Partial matches compare adjacent sequences of
+three through six statements in every AST block, requiring at least 50 tokens.
+Operators and literals remain distinct, but identifier normalization also
+conflates types, field names, `nil` and Boolean names. Matches are candidates,
+not semantic equivalence or proof of a defect. Sliding windows overlap, and
+nested function bodies can contribute repeated locations.
+
+The fresh whole-function scan has five groups: carried/captured resource proof
+adapters differ in proven versus unknown outcomes; action caches hold distinct
+domain proofs; field/global/enclosing stores differ in destination and alias
+versus derivation policy; candidate budget adapters carry different domain
+attribution; resource presence and stored-value constructors carry different
+evidence. They do not establish interchangeable proof rules.
+
+The 43 partial-block groups are reviewed below by original zero-based candidate
+index. Exact bodies and relevant callers were read for the three consolidations;
+other rows explain the observed block, with pending follow-ups stated explicitly.
+This is not a claim that all semantically equivalent code has been found.
+
+| Candidate indices | Evidence and disposition |
+| --- | --- |
+| 0 | Lock setup appends different concrete instruction kinds to their typed inventories; declaration scaffolding, not repeated traversal. |
+| 1, 2, 4, 12, 16, 17, 18 | Goroutine proof branches carry distinct reasons, outcomes and rationale. The one reporting proof remains authoritative. |
+| 3 | Diagnostic source-position sorting and heap-root sorting compare unrelated identities. |
+| 5, 9, 14, 40 | Shared aggregate-address read-use classification, corrected in `.21.2`; whole-root stores remain a distinct outer policy. |
+| 6, 42 | Command-use and returned-ownership proof adapters share an enum/result shape, but their searches and exhaustion contracts differ. |
+| 7, 19, 25 | Fresh mutex-field evidence and merged cleanup argument evidence share a load/field shape, but allocation versus phi provenance has different meaning. |
+| 8, 39 | Two-way branch decoding precedes different acquisition/select policies; resource success already delegates ordinary nil comparison to `ssaflow.SuccessBranch`. Small branch-shape scaffolding is not an independent flow solver. |
+| 10 | CLI selection domains repeat argument/map initialization. Further parser consolidation remains a separate candidate; it is not evidence-engine duplication. |
+| 11, 27, 29, 31 | Explicit wrapper/projection cases include different forms. Heap's four ordinary wrapper operands now use selected shared SSA transparency in `.21.3`; slice-to-array pointer and type-assertion policies remain explicit. |
+| 13 | Select-index successor decoding and path-guard extension consume different conditions and availability contracts. |
+| 15 | Resource assertion presence and a bound concrete-type assumption already use shared identity/type evidence; the supplied type and inference policy differ. |
+| 20 | Possible deferred capture and resolved deferred cancellation use differ in may versus complete-use semantics. |
+| 21 | Recovery/order setup repeats before single-sequence and alternative-path collection. Preparation may be shareable; deeper collector setup review remains pending. |
+| 22 | Resource proof adapters differ in positive outcome, negative reason and meaning; normalization hides the proven/unknown distinction. |
+| 23 | Heap path search and exact path lookup share locking/state/root primitives, then perform different queries. No second memory-state solver appears in the matched prefix. |
+| 24 | Lifecycle call-argument consumption loops are a remaining consolidation candidate; alias orientation and call-site behavior must be verified before replacement. |
+| 26 | Immediate process nil checks and counted-loop headers inspect different comparison contracts. |
+| 28, 41 | Distinct domain action-cache adapters, already noted in the whole-function review. |
+| 30 | Identical first field-load census and exact field/path matching now live in one concurrency-engine helper (`.21.1`). Canonical caching and caller binding stay distinct. |
+| 32, 35 | Literal/operand comparison scaffolding precedes integer select-index versus Boolean/error result outcome semantics. |
+| 33 | Field/global/enclosing storage destinations and alias/derivation policies differ; an unrestricted escape helper would merge precision boundaries. |
+| 34 | Explicit cloning of different summary slices is intentional schema-aware copying. |
+| 36 | Heap root/path naming and depth checks repeat across current-state, history and escape projection. This is a further mechanical consolidation candidate. |
+| 37 | Callback array shape and readable captured channel/synchronization storage have different element contracts. |
+| 38 | Callback field/index resolution already delegates stability to shared storage; field matching versus index coverage stays local. |
+
+The three current consolidations preserve query visit order, exact identity,
+observation time, local caches and cutoff charging. Actual SSA controls retain
+root/field discrimination, first-load choice, cold cutoffs and fresh recovery,
+and whole-root versus selected-field store/escape distinctions. Counterfactual
+wrong-root and selected-store overlays fail those controls. No new analyzer
+acceptance policy, fact schema, traversal form or diagnostic is introduced.
+
+After consolidation, the same scan visits 329 files and 2,172 declarations,
+with five whole-function and 38 partial-block groups. Counts reflect overlapping
+syntactic candidates, not resolved defects or proof of no duplication. Local
+artifacts are `.build/goal-duplicate-{functions,blocks}-{current,after}.json`;
+scanner sources are `.build/goal-duplicate-functions.go` and
+`.build/goal-duplicate-blocks.go`. Broader semantic review, the explicit pending
+candidates above and eight unresolved production locations remain open.
+
+The [scoped consolidation audit](../../benchmarks/precision/audits/shared-partial-mechanics-2026-10-03.md)
+records fourteen terminal parent/current receipts with identical complete
+payloads in five fixture scopes plus Skywalking and Rune. Focused shared/domain
+tests and canonical `make verify` pass, including ordinary tests and
+self-dogfood. No full precision replay or production FP credit is claimed.

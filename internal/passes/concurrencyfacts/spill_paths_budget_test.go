@@ -147,3 +147,60 @@ func TestSpillOrderingSharesPathAllowance(t *testing.T) {
 		t.Fatalf("fresh summary=%+v", fresh)
 	}
 }
+
+func TestFieldLoadDiscoveryPreservesPathOrderAndCutoffs(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "fielddiscovery", `package fielddiscovery
+ import "sync"
+ type child struct{mu sync.Mutex}
+ type owner struct{c,d *child}
+ func newOwner()*owner{return &owner{c:&child{},d:&child{}}}
+ func mixed(a,b *owner){println(b.c);println(a.d);println(a.c);println(a.c)}
+ `)
+	fn := pkg.Func("mixed")
+	loads := ssaflow.InstructionsOf[*ssa.UnOp](fn)
+	if len(loads) != 4 {
+		t.Fatalf("loads=%d", len(loads))
+	}
+	address := loads[2].X.(*ssa.FieldAddr)
+	path, ok := embeddedPathWithin(address, nil)
+	if !ok {
+		t.Fatal("field has no exact path")
+	}
+	for _, mode := range []string{"caller", "canonical"} {
+		t.Run(mode, func(t *testing.T) {
+			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+				engine := NewEngine()
+				pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+				child := pool.Within(limit)
+				query := engine.query(child)
+				var got *ssa.UnOp
+				var known bool
+				if mode == "caller" {
+					got, known = query.callerLoad(fn, path, fieldOf(address))
+				} else {
+					got, known = query.fixedLoad(loads[3])
+				}
+				if child.Exhausted() {
+					if known || got != nil || pool.Exhausted() {
+						t.Fatalf("cutoff %d: %v/%v", limit, got, known)
+					}
+					query = engine.query(pool.Within(ssaflow.SummaryBudget))
+					if mode == "caller" {
+						got, known = query.callerLoad(fn, path, fieldOf(address))
+					} else {
+						got, known = query.fixedLoad(loads[3])
+					}
+					if !known || got != loads[2] {
+						t.Fatalf("fresh after cutoff %d: %v/%v", limit, got, known)
+					}
+					continue
+				}
+				if !known || got != loads[2] {
+					t.Fatalf("complete allowance %d: %v/%v", limit, got, known)
+				}
+				return
+			}
+			t.Fatal("field load query never completed")
+		})
+	}
+}

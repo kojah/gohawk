@@ -84,3 +84,46 @@ func TestDerivationRejectsSiblingPoolCutoff(t *testing.T) {
 		t.Fatal("sibling exhaustion admitted positive derivation")
 	}
 }
+
+func TestWholeWrittenCellDistinguishesSelectedUses(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "wholeuses", `package wholeuses
+ type inner struct{p *int}
+ type aggregate struct{items [2]inner}
+ func opaque(*inner)
+ func read(p aggregate)*int{copy:=p;return copy.items[0].p}
+ func replaced(p aggregate)*int{copy:=p;copy.items[0].p=new(int);return copy.items[0].p}
+ func escaped(p aggregate)*int{copy:=p;opaque(&copy.items[0]);return copy.items[0].p}
+ `)
+	for _, test := range []struct {
+		name string
+		want bool
+	}{{"read", true}, {"replaced", false}, {"escaped", false}} {
+		t.Run(test.name, func(t *testing.T) {
+			fn := pkg.Func(test.name)
+			cells := ssaflow.InstructionsOf[*ssa.Alloc](fn)
+			if len(cells) == 0 {
+				t.Fatal("SSA has no aggregate cell")
+			}
+			cell := cells[0]
+			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+				pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+				child := pool.Within(limit)
+				got := ssaflow.WholeWrittenCellWithin(cell, child)
+				if child.Exhausted() {
+					if got || pool.Exhausted() {
+						t.Fatalf("cutoff %d admitted cell", limit)
+					}
+					if fresh := ssaflow.WholeWrittenCellWithin(cell, pool.Within(ssaflow.SummaryBudget)); fresh != test.want {
+						t.Fatalf("fresh after %d=%v", limit, fresh)
+					}
+					continue
+				}
+				if got != test.want {
+					t.Fatalf("completed allowance %d=%v want %v", limit, got, test.want)
+				}
+				return
+			}
+			t.Fatal("cell query never completed")
+		})
+	}
+}

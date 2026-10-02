@@ -85,19 +85,12 @@ func (graph *regionGraph) define(state *regionState, instruction ssa.Instruction
 // wrapperOperand returns the operand of an instruction whose value refers
 // to exactly what its operand refers to.
 func wrapperOperand(instruction ssa.Instruction) (ssa.Value, bool) { //nolint:ireturn // Operands keep their concrete forms.
-	switch typed := instruction.(type) {
-	case *ssa.ChangeInterface:
-		return typed.X, true
-	case *ssa.ChangeType:
-		return typed.X, true
-	case *ssa.Convert:
-		return typed.X, true
-	case *ssa.MakeInterface:
-		return typed.X, true
-	case *ssa.SliceToArrayPointer:
+	if typed, ok := instruction.(*ssa.SliceToArrayPointer); ok {
 		return typed.X, true
 	}
-	return nil, false
+	value, _ := instruction.(ssa.Value)
+	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+	return ssaflow.UnwrapTransparentValue(value, forms)
 }
 
 // pointees returns the slots a value may refer to, deriving them for the
