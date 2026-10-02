@@ -130,8 +130,9 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 		return actionUnknown, ambiguous.Reason
 	}
 
-	if analysis.pairedErrorHelperCleanup(instruction, common) {
-		return actionUnknown, resourceReasonPairedErrorHelperCleanup
+	paired := analysis.provePairedErrorCleanupWithin(instruction, common, analysis.budget(releaseSearchBudget))
+	if paired.State != ssaflow.EvidenceDisproven {
+		return actionUnknown, paired.Reason
 	}
 	loopRelease := analysis.proveImportedLoopReleaseWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
 	if loopRelease.State != ssaflow.EvidenceDisproven {

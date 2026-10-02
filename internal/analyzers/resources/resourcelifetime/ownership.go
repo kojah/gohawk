@@ -1,9 +1,7 @@
 package resourcelifetime
 
 import (
-	"go/token"
 	"go/types"
-	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
@@ -18,56 +16,6 @@ import (
 // Wrapper chains establish possible retention only at a foreign storage or
 // retaining-call boundary; neither a wrapper's name nor its mere use transfers
 // the obligation.
-
-// A helper can condition cleanup on an error it receives beside the
-// resource. Unconditional completion cannot represent that relation, so a
-// witnessed cleanup plus a correlated error is uncertainty, not proof of
-// either release or a leak. The error is correlated when it is the one
-// paired with this acquisition, or when the caller itself branches on it
-// being nil after the call: then the caller's own paths split on the same
-// value the helper's cleanup does, as in closeOnError(f, err) followed by
-// if err != nil { return nil, err }; return f, nil.
-// https://github.com/h44z/wg-portal/blob/eb44c8c4ff120f34c26b2415c47560f4fba0603c/internal/lowlevel/mikrotik.go#L267-L280
-// Helpers that merely inspect the pair, receive an error the caller never
-// tests again, or condition cleanup on a flag stay visible: a flag the
-// caller does not branch on leaves the unreleased path feasible.
-func (analysis *resourceAnalysis) pairedErrorHelperCleanup(instruction ssa.Instruction, common *ssa.CallCommon) bool {
-	if common == nil || !slices.Contains(common.Args, analysis.resource) ||
-		!slices.ContainsFunc(common.Args, func(argument ssa.Value) bool { return analysis.correlatedError(instruction, argument) }) {
-		return false
-	}
-	return lifecycle.ProveCompletion(lifecycle.CompletionRequest{
-		Instruction: instruction,
-		Target:      analysis.resource,
-		Methods:     analysis.contract.cleanup,
-		Coverage:    lifecycle.CoverageAnywhere,
-		Budget:      analysis.budget(releaseSearchBudget),
-	}).Proven()
-}
-
-// correlatedError reports whether an error handed to the helper call is the
-// acquisition's paired error, or one the caller compares with nil after the
-// call. Identity, not derivation: a wrapped error is a different value.
-func (analysis *resourceAnalysis) correlatedError(call ssa.Instruction, argument ssa.Value) bool {
-	if !syntax.IsErrorType(argument.Type()) {
-		return false
-	}
-	if analysis.resource == ssaflow.CallResult(analysis.acquisition, 0) && argument == ssaflow.CallResult(analysis.acquisition, 1) {
-		return true
-	}
-	for _, instruction := range ssaflow.InstructionsReachableAfter(call) {
-		branch, ok := instruction.(*ssa.If)
-		if !ok {
-			continue
-		}
-		comparison, ok := branch.Cond.(*ssa.BinOp)
-		if ok && (comparison.Op == token.EQL || comparison.Op == token.NEQ) &&
-			(comparison.X == argument && ssaflow.DefinitelyNil(comparison.Y) || comparison.Y == argument && ssaflow.DefinitelyNil(comparison.X)) {
-			return true
-		}
-	}
-	return false
-}
 
 // An imported helper that releases every element of what it receives inside
 // a loop exports that loop as a may-claim, as client-go's CloseAndRemove does

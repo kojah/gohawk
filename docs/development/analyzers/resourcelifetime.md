@@ -1223,3 +1223,33 @@ Graph/type/alias internals and fact-selection callback resolution remain
 independent costs; this change bounds the shared derivation/completion request.
 Correlated-error helper cleanup and guarded captured HTTP Body cleanup remain
 separate contracts tracked in `.44.11.5.19.2` and `.44.11.5.19.3`.
+
+## Correlated-error cleanup request allowance
+
+`correlated_cleanup.go` owns the exact resource/error helper uncertainty
+previously embedded in ownership predicates. `provePairedErrorCleanupWithin`
+requires the resource itself among actual arguments, an error either in the
+acquisition's paired slot or compared with nil after the helper, and an anywhere
+cleanup witness from the ordinary lifecycle completion search. Positive evidence
+labels the helper unknown; it never settles the caller's exact resource.
+Argument visits, result-slot referrers, later-instruction census, comparison
+visits, nil folds and completion share the request allowance. Cutoff produces
+budget unknown before classification can interpret a negative answer. A partial
+reachable-after census cannot publish correlation. Type-system and underlying
+graph-construction costs remain independent.
+
+The result-pair contract remains slots zero/one. A three-result factory whose
+last slot is error does not acquire new paired-cleanup semantics; only a later
+exact caller nil comparison can supply the other existing route. Wrapped errors
+are different SSA values. Read-only helpers, wrong resources, flags alone,
+uncompared errors and tests only before the helper retain diagnostic paths.
+The reusable contract and representative
+[wg-portal helper](https://github.com/h44z/wg-portal/blob/eb44c8c4ff120f34c26b2415c47560f4fba0603c/internal/lowlevel/mikrotik.go#L267-L280)
+remain unchanged.
+
+`correlated_cleanup_test.go` covers ten actual-SSA proof families with fresh
+query evidence per allowance, a child cutoff with available parent and a fresh
+retry, and six full-flow controls for unknown cleanup and retained leak witnesses.
+The existing `paired_error_cleanup.go` reporting fixtures retain generic
+forwarding and conditional cleanup controls. This is consolidation and bounded
+uncertainty handling, not a credited production FP removal.

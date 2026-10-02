@@ -723,7 +723,7 @@ it does not prove completeness of the shared engines' transitive bodies.
 | Evidence family | Cancellation route | Resource route and disposition |
 | --- | --- | --- |
 | Exact helper completion | `proof.go:exactArgumentAction` asks `ProveCompletion` with `InvokeTarget`; only proven synchronous invocation releases. Imported positive invocation masks are consulted after unknown local evidence through `returned_cleanup.go:summaryInvokes`. | `contracts.go:releasesOrdinaryResource` asks lifecycle evidence with cleanup methods, selected imported masks and strict projection mapping. `cleanupReceiver` additionally consumes unchanged-result identity. These select different contracts from one completion engine. |
-| Possible helper cleanup | Disproven exact completion can still produce unknown through the older may-alias invocation or returned-deferred-cleanup query. | `ownership.go:pairedErrorHelperCleanup` requires an exact resource/error relationship and an anywhere cleanup witness; `classify.go:ambiguousHelperCleanup` requires merged argument provenance and proven cleanup of that argument. Neither establishes cleanup of the exact acquisition. |
+| Possible helper cleanup | Disproven exact completion can still produce unknown through the older may-alias invocation or returned-deferred-cleanup query. | `correlated_cleanup.go:provePairedErrorCleanupWithin` requires an exact resource/error relationship and an anywhere cleanup witness; `ambiguous_cleanup.go:proveAmbiguousHelperCleanupWithin` requires merged argument provenance and proven cleanup of that argument. Neither establishes cleanup of the exact acquisition. |
 | Local observation | `localCallOnlyObserves` first asks `CallEffects.PreservesStorage`, then the cancellation-specific `cancellationUse` memo checks each exact argument/capture binding. Its conservative unavailable/cycle result is unresolved use. | `opaqueCall`, `proveAggregateOwnerEscapeWithin`, `provePossibleWrapperWithin` and `provePossiblyRetainedCallbackWithin` distinguish retain, asynchronous exposure and unknown effects at publication sites. A generic read-only test cannot replace cancellation invocation resolution or resource retention. |
 | Capture storage | `result_guards.go` accepts a written-once cancel cell used only by directly deferred literals, with store-before-defer dominance. `owner_structs.go` separately restricts a captured cell to one visible owner field. | `captured_cleanup.go` handles current vs deferred cell observations, response Body guards and possible retention by unreadable callees. Broader mutation/exposure is unknown; the cancel cell restrictions must not be weakened by this resource policy. |
 | Owner/destination identity | Fresh cancellation owners require visible field/return uses; parent context resolution observes storage at child creation. | `storage.go:proveResourceStorage` resolves an indirect destination at the store. `carried_values.go:proveCarriedDirectlyWithin/proveNestedCarryWithin` and Body handoff distinguish identity, projection and observation-time containment. These are separate questions, already supplied by storage/reaching helpers. |
@@ -3515,3 +3515,62 @@ the experimental check disabled and supply no correction credit. The queue
 falls from 15 to 11 sites; frozen batch counts are unchanged. Broader architecture
 and FP work remain open. Graph MCP tools remain unavailable; scoped source reads
 and actual SSA provide evidence, not graph completeness.
+
+## Correlated-error helper cleanup allowance
+
+`.44.11.5.19.2` extracts the second cleanup-uncertainty evidence family into
+`correlated_cleanup.go`. The former ownership Booleans are removed; one structured
+proof owns exact argument identity, acquisition slot-zero/one correlation or a
+later caller nil comparison, and an anywhere lifecycle cleanup witness. All
+visits and nested completion spend the request allowance. Interrupted result
+selection, a partial instruction census or a nested completion cutoff supply
+budget unknown rather than an absent-cleanup label. A positive witness still
+means possible cleanup, never settlement. Three-result factory pairing remains
+unchanged instead of silently assigning new semantics to its last error slot.
+
+Ten actual-SSA cases retain the previous evidence boundary: paired and later
+caller-tested/reversed-nil cleanup, third-result pairing exclusion, uncompared
+or previously tested errors, read-only and flag-only helpers, wrong resource and
+wrapped error identities. Fresh evidence per limit avoids cache effects masking
+interruptions. A child cutoff leaves the parent available and a fresh larger
+request recovers. Six full-flow controls retain unknown cleanup and exact leak
+witnesses. SSA/proof receipt: `.build/goal-correlated-cleanup-ssa.log`.
+
+The unbudgeted source overlay fails all ten allowance controls and the child
+control. A separate integration overlay limits only the correlated-classifier
+request to one visit: unknown/budget is retained while the pool remains available.
+Ignoring that structured unknown produces an incorrect completed none label
+and fails the same integration assertion. Receipts are
+`.build/goal-correlated-cleanup-{unbudgeted,class-cut,class-unchecked}.log`.
+The canonical gate's first run found one overlong test construction line;
+that line is formatted across its named fields before final validation.
+No full precision-regression or local race run is part of this iteration.
+Production correction credit is unchanged: the queue remains at 11 sites.
+Graph MCP tools are unavailable; scoped source and actual SSA provide bounded
+evidence. Type-system and underlying graph-construction costs remain independent.
+
+The intermediate gate then required in-body rationale for the extracted proof's
+identity and anywhere-coverage boundaries. Those comments now explain why a
+possible origin cannot borrow correlation and why a witnessed release cannot
+settle the obligation. Focused architecture validation passes in
+`.build/goal-correlated-cleanup-architecture.log`.
+
+Immutable `.build/goal-correlated-cleanup-current` has SHA-256
+`6348b82e2df9322ba895240279088d8ef93ddef07a8ffcf1f276d775cc50bdbd`.
+It implements parent `24622b0` plus this production proof change, before later
+rationale-comment additions and test formatting. No executable was replaced
+while scanning. Confirmed Cute pin
+`9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3` (`./...`, resource-only, exit 3)
+and Ferro pin `d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4`
+(`./internal/admin/repository ./mcp`, resource-only, exit 0) retain byte-identical
+JSON to the preceding ambiguity-proof control receipts (980/2 bytes). Both have
+empty stderr. Cute's known TP remains and Ferro's corrected statement-storage
+FP stays absent. These are successful pinned package controls, not a new corpus
+precision measurement, and credit no additional production FP corrections.
+
+Final canonical validation passes in `.build/goal-correlated-cleanup-verify-stable.log`:
+ordinary tests 52s, repository dogfood 26s, vet, lint, deadcode, formatter,
+module and generated checks. Final documentation/commentary validation also
+passes in `.build/goal-correlated-cleanup-docs-final.log`. No broader completion
+claim is made; `.19.3` captured HTTP Body uncertainty and the other architecture
+and production FP items remain open.
