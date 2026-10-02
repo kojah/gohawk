@@ -70,7 +70,7 @@ type resourceAnalysis struct {
 	leak *ssa.Return
 }
 
-// resourcePoolBudget bounds a whole acquisition proof. The largest single
+// resourcePoolBudget bounds the pooled queries of one acquisition proof. The largest single
 // question, a release search, may itself cost releaseSearchBudget, so the
 // pool allows four of them; a proof that needs more is a pathological
 // candidate, and an exhausted pool is unknown exactly as an exhausted
@@ -79,8 +79,8 @@ const resourcePoolBudget = 4 * releaseSearchBudget
 
 // budget draws one shared query's allowance from this candidate's pool:
 // give-ups inside it reach the probe, so a trace of the acquisition shows
-// where the storage, summary, or completion evidence ran out, and the proof
-// as a whole stays bounded.
+// where shared storage, summary, or completion evidence ran out, and these
+// queries stay bounded together.
 func (analysis *resourceAnalysis) budget(limit int) *ssaflow.SearchBudget {
 	if analysis.pool == nil {
 		analysis.pool = ssaflow.NewSearchBudget(resourcePoolBudget).Observed(analysis.probe.Observer())
@@ -121,12 +121,7 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if cancelsTransactionContext(analysis.acquisition, instruction) {
 		return actionUnknown, resourceReasonTransactionContextCanceled
 	}
-	// The storage identity queries behind a release draw from this
-	// candidate's pool, so their give-ups reach the trace like every other.
-	if action, reason := releasesResource(
-		analysis.evidence, analysis.summaries, heapmodel.NewStorage(analysis.budget(ssaflow.QueryBudget)),
-		instruction, analysis.resource, analysis.owners, analysis.contract.cleanup, analysis.optional,
-	); action != actionNone {
+	if action, reason := analysis.releasesResource(instruction); action != actionNone {
 		return action, reason
 	}
 	// A merged receiver or an escaped owner projection may still select this

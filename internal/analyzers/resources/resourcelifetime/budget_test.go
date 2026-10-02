@@ -1,6 +1,8 @@
 package resourcelifetime
 
 import (
+	"go/token"
+	"strings"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
@@ -9,6 +11,65 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
+
+func TestHelperCompletionUsesCandidatePool(t *testing.T) {
+	analysis, call := helperBudgetAnalysis(t, "value.Close()")
+	type observation struct {
+		reason  string
+		at      token.Pos
+		details map[string]string
+	}
+	var observations []observation
+	analysis.pool = ssaflow.NewSearchBudget(0).Observed(func(reason string, at token.Pos, details map[string]string) {
+		observations = append(observations, observation{reason, at, details})
+	})
+	action, reason := analysis.classify(call)
+	if action != actionUnknown || reason != resourceReasonBudgetExhausted {
+		t.Fatalf("classification = %v/%v, want exhausted unknown; observations = %+v", action, reason, observations)
+	}
+	found := 0
+	for _, observation := range observations {
+		if observation.reason == "budget-exhausted" && observation.at == call.Pos() && observation.details["methods"] == "Close" {
+			found++
+		}
+	}
+	if found != 1 {
+		t.Fatalf("want one candidate-observed completion exhaustion, got %d: %+v", found, observations)
+	}
+}
+
+func TestHelperCompletionKeepsLargerQueryAllowance(t *testing.T) {
+	body := "n := 0\n" + strings.Repeat("n = step(n)\n", ssaflow.QueryBudget+1) + "println(n)\nvalue.Close()"
+	analysis, call := helperBudgetAnalysis(t, body)
+	callee := call.Common().StaticCallee()
+	if len(callee.Blocks[0].Instrs) <= ssaflow.QueryBudget {
+		t.Fatal("fixture must exceed the storage query limit in actual SSA")
+	}
+	if action, reason := analysis.classify(call); action != actionSettled || reason != resourceReasonSettled {
+		t.Fatalf("large helper classification = %v/%v, want exact cleanup", action, reason)
+	}
+}
+
+func helperBudgetAnalysis(t *testing.T, body string) (*resourceAnalysis, *ssa.Call) {
+	t.Helper()
+	pkg := ssaflowtest.BuildPackage(t, "candidatebudget", `package candidatebudget
+type resource struct{}
+func (*resource) Close() {}
+func step(n int) int { return n + 1 }
+func closeResource(value *resource) { `+body+` }
+func acquire() *resource { return new(resource) }
+func caller() { value := acquire(); closeResource(value) }
+`)
+	function := pkg.Func("caller")
+	calls := ssaflow.InstructionsOf[*ssa.Call](function)
+	acquisition, call := calls[0], calls[1]
+	provider := resourceSummaries.Provider(nil)
+	evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
+	return &resourceAnalysis{
+		function: function, acquisition: acquisition, resource: acquisition, evidence: evidence, summaries: provider,
+		contract: resourceContract{cleanup: []string{"Close"}},
+	}, call
+}
 
 func TestExhaustedCleanupDoesNotProveSettlement(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "cleanupbudget", `package cleanupbudget

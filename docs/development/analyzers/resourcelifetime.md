@@ -33,6 +33,15 @@ The pre-acquisition deferred-cleanup query remains a may-release boundary and
 still declines a diagnostic on exhaustion. The focused budget test uses actual
 SSA completion queries for exhausted, exact, conditional and loop-only cases.
 
+Ordinary helper completion draws each method query from the candidate pool,
+with its existing 250,000-step allowance. Storage retains its separate smaller
+query allowance; completion must not inherit that cap. Exhaustion reaches the
+pool's observer and remains unknown. The classifier budget regression exercises
+an exhausted pool through the real helper classification and checks exactly one
+method-completion give-up at the call. A helper with more than the storage limit
+in actual SSA remains provably cleaned up. The pre-acquisition deferred query
+still has its own bounded allowance; this change does not move that boundary.
+
 ## Detection boundaries
 
 Release owned resources on every path. Storing a resource in a partially

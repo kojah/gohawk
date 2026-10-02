@@ -302,27 +302,18 @@ func resourceContractsFor(common *ssa.CallCommon, settings resourceLifetimeSetti
 // an uncertain release, or as neither. Uncertainty arises when the only
 // release a helper performs lies inside a loop: the flow then neither
 // credits nor reports it.
-func releasesResource(
-	evidence *lifecyclefacts.LifecycleEvidence,
-	knowledge *summaries.Provider,
-	storage *heapmodel.Storage,
-	instruction ssa.Instruction,
-	resource ssa.Value,
-	owners []ssa.Value,
-	methods []string,
-	optionalAcquisition optionalAcquisitionProof,
-) (resourceAction, resourceLifetimeReason) {
-	if optionalAcquisition.Proven() {
+func (analysis *resourceAnalysis) releasesResource(instruction ssa.Instruction) (resourceAction, resourceLifetimeReason) {
+	if analysis.optional.Proven() {
 		// The optional-acquisition proof deliberately authorizes only cleanup
 		// through its exact resource phi. Letting the ordinary existential
 		// derivation rules inspect a later phi could mistake cleanup of another
 		// non-nil resource for cleanup of the acquired one.
-		if optionalAcquisitionReleases(instruction, resource, methods) {
+		if optionalAcquisitionReleases(instruction, analysis.resource, analysis.contract.cleanup) {
 			return actionSettled, resourceReasonSettled
 		}
 		return actionNone, resourceReasonNone
 	}
-	return releasesOrdinaryResource(evidence, knowledge, storage, instruction, resource, owners, methods)
+	return analysis.releasesOrdinaryResource(instruction)
 }
 
 // cleanupReceiver is the value a cleanup call acts on, seen through a
@@ -342,15 +333,10 @@ func cleanupReceiver(knowledge *summaries.Provider, budget *ssaflow.SearchBudget
 	return receiver
 }
 
-func releasesOrdinaryResource(
-	evidence *lifecyclefacts.LifecycleEvidence,
-	knowledge *summaries.Provider,
-	storage *heapmodel.Storage,
-	instruction ssa.Instruction,
-	resource ssa.Value,
-	owners []ssa.Value,
-	methods []string,
-) (resourceAction, resourceLifetimeReason) {
+func (analysis *resourceAnalysis) releasesOrdinaryResource(instruction ssa.Instruction) (resourceAction, resourceLifetimeReason) {
+	evidence, knowledge := analysis.evidence, analysis.summaries
+	resource, owners, methods := analysis.resource, analysis.owners, analysis.contract.cleanup
+	storage := heapmodel.NewStorage(analysis.budget(ssaflow.QueryBudget))
 	settled := func() (resourceAction, resourceLifetimeReason) { return actionSettled, resourceReasonSettled }
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
@@ -398,7 +384,10 @@ func releasesOrdinaryResource(
 			Target:      resource,
 			Methods:     []string{method},
 			Coverage:    deferredReleaseCoverage(instruction),
-			Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
+			// Completion keeps its larger query allowance while charging the
+			// same candidate pool and inheriting its give-up observer. The
+			// smaller storage query must not cap this independent question.
+			Budget: analysis.budget(releaseSearchBudget),
 		}
 		proof := evidence.Prove(lifecyclefacts.EvidenceRequest{
 			Instruction: instruction,

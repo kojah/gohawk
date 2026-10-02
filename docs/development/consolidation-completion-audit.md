@@ -793,3 +793,61 @@ dead-code, local dogfood and ordinary tests (73 seconds). Documentation
 architecture checks after the receipt-note edits pass (0.614 seconds), recorded
 in `.build/goal-resource-exhaustion-docs.log`. The size-limit failure is resolved;
 no full precision corpus or local race validation is credited.
+
+## Candidate-owned ordinary resource completion budgets
+
+`gohawk-dho.43` resolves the ordinary-method budget gap identified above.
+`releasesResource` and `releasesOrdinaryResource` now belong to the existing
+`resourceAnalysis` context instead of accepting parallel evidence, knowledge,
+storage, owner and cleanup arguments. The optional-acquisition branch retains
+its exact-phi policy and selects no generic helper completion. Ordinary storage
+queries still receive `QueryBudget`; each method completion independently draws
+`releaseSearchBudget` (250,000 steps) from the same candidate pool. The pool
+remains 1,000,000 steps and supplies its observer. It bounds these selected
+queries together, not every transitive query in the acquisition proof.
+
+The query order, target, methods, coverage, imported mask and strict projection
+mapping are unchanged. Exhausting the shared total now keeps ordinary completion
+unknown, as already established by dho.42, rather than allowing a standalone
+search beyond that total. This can conservatively lose diagnostics or exact
+cleanup conclusions for expensive candidates. The pre-acquisition deferred
+may-release query retains its separate bounded allowance and uncertainty;
+no publication schema or unconditional declaration guarantee changes.
+
+The actual classifier regression creates an acquisition and local cleanup
+helper in SSA, then exhausts the candidate pool before classification. The
+parent still returns settled and exposes no method-completion give-up through
+that pool. The current returns unknown/budget-exhausted and records exactly
+one completion observation at the helper call, naming Close. Replaying the
+final test against an overlay of parent classifier/contracts source fails this
+assertion (0.039 seconds); its larger-helper control passes. Corrected focused
+tests pass (0.030 seconds), including a helper with more than QueryBudget
+instructions in actual SSA. This prevents accidentally using the storage
+allowance for completion. The resource analyzer tests pass (24.290 seconds).
+Actual small-fixture SSA is `.build/goal-completion-pool.ssa.txt`, with empty
+stderr; the larger fixture checks its SSA size directly in the regression.
+
+Parent production source is `a4c1e78`, retained as
+`.build/goal-completion-pool-parent`, SHA-256
+`cd5cd67cd8eb1efc0788cbda344698894dd9d7a1bc4bb298a798321ef61d93d2`.
+Corrected `.build/goal-completion-pool-current` has SHA-256
+`fc076736eaed5e778cbe3ed912e48d4d413d414fb93fc727f7d62cf65979dec7`.
+Hashes identify exact executables rather than clean-tree Git metadata. Both
+all-check resource fixture scans exit 3 with empty stderr and identical
+335,147-byte diagnostic JSON. Their 5,858 labels and 1,029 final decisions match
+as multisets. Total trace events increase from 42,934 to 52,918 because ordinary
+helper give-ups now reach the candidate observer. No equivalence of every
+trace event is claimed. Receipts use `.build/goal-completion-pool-{parent,current}.*`;
+the final parent overlay test is `.build/goal-completion-pool-final-parent-test.log`.
+
+The broader classifier review remains active in `gohawk-dho.40`; unreviewed
+local collection, captured-cleanup and optional-acquisition bodies and other
+transitive budget ownership are not certified by this fix. The 15-site FP
+queue is unchanged. No FP correction, complete architecture consolidation,
+full precision-regression or local race run is credited.
+
+Canonical `make verify` passes generation, formatting, vet, lint, dead-code,
+local dogfood and ordinary tests (64 seconds); its receipt is
+`.build/goal-completion-pool-verify.log`. Documentation architecture checks on
+the added inventory pass (0.563 seconds), recorded in
+`.build/goal-completion-pool-docs.log`.
