@@ -111,3 +111,38 @@ func producerTrace(t *testing.T, pkg string) []producerTraceEvent {
 	}
 	return events
 }
+
+func TestFoldedBranchSourcesKeepTheirDecisions(t *testing.T) {
+	source, err := os.ReadFile(filepath.Join(analysistest.TestData(), "src", "helpers", "branch_sources.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{}
+	for index, text := range strings.Split(string(source), "\n") {
+		if !strings.Contains(text, "ch <-") {
+			continue
+		}
+		outcome := "accepted"
+		if strings.Contains(text, "// want") {
+			outcome = "rejected"
+		}
+		want["branch_sources.go:"+strconv.Itoa(index+1)+":"] = outcome
+	}
+	for _, event := range producerTrace(t, "helpers") {
+		if event.Phase != "decision" || strings.HasPrefix(event.Reason, "diagnostic-") {
+			continue
+		}
+		for location, outcome := range want {
+			if !strings.Contains(event.Candidate, location) {
+				continue
+			}
+			if event.Outcome != outcome {
+				t.Errorf("%s: got %s (%s), want %s", location, event.Outcome, event.Reason, outcome)
+			}
+			delete(want, location)
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("missing branch-source decisions: %v", want)
+	}
+}

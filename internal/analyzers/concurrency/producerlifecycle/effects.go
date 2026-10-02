@@ -39,12 +39,12 @@ func summarizedSends(function *ssa.Function, spawn *ssa.Go, engine *concurrencyf
 		if local.Complete() && len(local.Operations) == len(summary.Operations) {
 			positions = append([]token.Pos{local.Operations[i].Site}, local.Operations[i].Alternates...)
 		}
-		for _, position := range positions {
-			sends = append(sends, producerSend{
-				instruction: spawn, position: position, channel: channel, spawn: spawn,
-				sequence: i, summarized: true,
-			})
-		}
+		// Alternate branch sites are attribution metadata for one execution,
+		// not additional sends competing for the caller's receives.
+		sends = append(sends, producerSend{
+			instruction: spawn, positions: positions, channel: channel, spawn: spawn,
+			sequence: i, summarized: true,
+		})
 	}
 	return sends, true
 }

@@ -41,7 +41,7 @@ func runProducerLifecycle(pass *analysis.Pass) (any, error) {
 
 type producerSend struct {
 	instruction ssa.Instruction
-	position    token.Pos
+	positions   []token.Pos
 	sequence    int
 	summarized  bool
 	channel     ssa.Value
@@ -54,21 +54,25 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 	sends := producerSends(function, engine)
 	reported := map[token.Pos]bool{}
 	for _, send := range sends {
-		if reported[send.position] {
-			continue
-		}
-		probe := trace.For(pass, "producerlifecycle", string(check.ProducerLifecycleSend), send.position)
-		probe.Candidate(trace.Step{Reason: reasonProducerSend.String(), Outcome: trace.OutcomeObserved})
 		proof := abandonedProducerSend(function, send, sends, engine)
-		outcome := trace.OutcomeUnknown
-		if proof.Proven() {
-			outcome = trace.OutcomeRejected
-			reported[send.position] = true
-			check.Reportf(pass, check.ProducerLifecycleSend, send.position, "goroutine send can block after the receiver stops waiting")
-		} else if proof.Known() {
-			outcome = trace.OutcomeAccepted
+		// Branch source positions describe the same operation. Ask the count
+		// proof once, then attribute its outcome to each source independently.
+		for _, position := range send.positions {
+			if reported[position] {
+				continue
+			}
+			probe := trace.For(pass, "producerlifecycle", string(check.ProducerLifecycleSend), position)
+			probe.Candidate(trace.Step{Reason: reasonProducerSend.String(), Outcome: trace.OutcomeObserved})
+			outcome := trace.OutcomeUnknown
+			if proof.Proven() {
+				outcome = trace.OutcomeRejected
+				reported[position] = true
+				check.Reportf(pass, check.ProducerLifecycleSend, position, "goroutine send can block after the receiver stops waiting")
+			} else if proof.Known() {
+				outcome = trace.OutcomeAccepted
+			}
+			probe.Decision(trace.Step{Reason: proof.Reason.String(), Outcome: outcome})
 		}
-		probe.Decision(trace.Step{Reason: proof.Reason.String(), Outcome: outcome})
 	}
 }
 
@@ -104,7 +108,7 @@ func producerSends(function *ssa.Function, engine *concurrencyfacts.Engine) []pr
 					channel := ssaflow.SpawnedValueAtCall(spawn, spawned, closure, send.Chan)
 					if channel != nil && localUnbufferedChannel(function, channel) {
 						sends = append(sends, producerSend{
-							instruction: send, position: send.Pos(), channel: channel,
+							instruction: send, positions: []token.Pos{send.Pos()}, channel: channel,
 							repeated: ssaflow.BlockInCycle(spawnedBlock), spawn: spawn,
 						})
 					}

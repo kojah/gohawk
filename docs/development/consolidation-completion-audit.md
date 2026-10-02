@@ -4891,3 +4891,22 @@ records parent SSA failures, seven controls, four assertion counterfactuals,
 scoped diagnostics and canonical verification. No recorded production FP removal
 is credited; seven sites plus Rune and the broader completion requirements remain
 open.
+
+## Producer operation count and source attribution
+
+Beads `gohawk-dho.23.12` corrects a duplicated execution count in the producer
+summary adapter. Equivalent branches yield one ordered concurrency operation
+with alternate source positions. Expanding those positions into producer
+records made the count proof treat one execution as several sends. Parent
+actual-SSA fixtures reproduce balanced branch sends and first-send false
+alerts. One producer record now retains all source positions, and its one
+count proof feeds reporting and tracing at each position.
+
+Balanced one/two-send workers, true excess second sends and distinct competing
+workers pin the boundary. A parent overlay fails diagnostic and trace outcome
+assertions. Complete all-check fixture payloads remove exactly six false
+alerts, add none, and preserve all other findings. Canonical validation passes.
+The [scoped audit](../../benchmarks/precision/audits/producer-branch-attribution-2026-10-03.md)
+records the binaries and receipts. Seven recorded production sites plus Rune,
+the remaining semantic/partial-duplication review and overall consolidation
+completion remain open; this correction earns no production FP credit.

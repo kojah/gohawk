@@ -16,6 +16,13 @@ competing workers can therefore suppress a finding, unless shared call-effects
 evidence proves that all uses of the channel are non-receiving. Buffered channels and
 externally supplied channels remain outside this proof.
 
+Equivalent branches in a complete concurrency summary describe one ordered
+operation. Its alternate source positions are diagnostic attribution only;
+they must not multiply the send count. `helpers/branch_sources.go` covers a
+balanced branch send, balanced pairs, a true excess second send, and distinct
+competing workers. The count proof runs once per operation; reporting and
+tracing retain each branch position.
+
 Loop-based send counts remain unknown: a repeated statement does not prove
 multiple sends are feasible. This deliberately misses unbounded producer loops
 until their excess production can be established without a cardinality guess.
