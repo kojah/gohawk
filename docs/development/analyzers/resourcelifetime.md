@@ -226,6 +226,39 @@ retains the pinned Cute/Ferro scopes above: exits 3/0, empty stderr, and
 byte-identical JSON against the observed-containment binary. This records
 stable scoped controls, not additional FP corrections or a full audit replay.
 
+Possible constructor retention now has one structured engine in
+`possible_wrappers.go`. Carried-value queries, observed aggregate argument
+queries, strict retaining-call chains and foreign-owner stores share its
+availability. The engine preserves the four-step depth cap, caller-selected
+direct mode, scalar/error exclusions and nested derived-stored-value policy.
+Missing call effects still permit possible retention; complete effects lacking
+retention do not. Strict `ClaimStores` remains necessary to publish a chain
+through a callee, and local allocations remain excluded from foreign stores.
+This evidence never proves exact identity or cleanup. The separate returned
+wrapper proof asks for must-hold result claims; combining the two policies
+would strengthen possible retention into an unsupported guarantee.
+
+Explicit append values use `ssaflow.AppendedValuesWithin`, which shares array
+user/write census with the wrapper allowance and discards partial results at
+cutoff. The default append helper delegates to the same mechanics. Spread
+slices remain unsupported by this special constructor-chain traversal, while
+ordinary argument containment still retains its existing policy.
+`possible_wrappers_test.go` covers these distinctions, unknown on insufficient
+allowance, publication through strict stores, local versus foreign destinations
+and classifier recovery. The shared slice tests cover complete and interrupted
+explicit/spread queries. Effect and graph/alias/type internals retain independent
+costs: structural cutoff is unknown, while legacy effect-query uncertainty
+continues to support possible retention. Closure/callee/default-query integration
+remains tracked by `gohawk-dho.44.11.5.18.1.5.4`; this step owns child `.4.2`.
+An overlay ignoring the wrapper allowance fails every wrapper cutoff control.
+
+The possible-wrapper local gate passed. Immutable
+`.build/goal-possible-wrapper-current`, SHA-256
+`f90704431f5fcc5d78f6cf0be4be69e5753d5d91a59162752e9c62a030668643`,
+retains the same Cute/Ferro pins and scopes: exits 3/0, empty stderr and
+byte-identical JSON against the carried-value binary. These are scoped
+stability controls; this step credits no new FP removal or corpus replay.
+
 The resource projection decision propagates view-binding and storage-projection
 cutoff rather than treating it as missing evidence. A known non-cleaning view
 still cannot discharge its resource merely because it has a Close method;
@@ -360,7 +393,7 @@ resource owed. Up to four constructors are followed.
 
 The same bounded chain proof follows explicitly appended wrapper values through
 the compiler's variadic array when the resulting slice is stored on a foreign
-owner. It reuses `ssaflow.AppendedValues`; spread slices remain outside this
+owner. It reuses `ssaflow.AppendedValuesWithin`; spread slices remain outside this
 query. This covers [KCL's logger options](https://github.com/twmb/kcl/blob/5290cb05bcc421a239e327ba11408bc4e27bd2dd/client/client.go#L1445-L1456)
 without inferring ownership from logging names or process lifetime. An unrelated
 wrapper leaves the obligation live. A discarded local slice containing wrapped

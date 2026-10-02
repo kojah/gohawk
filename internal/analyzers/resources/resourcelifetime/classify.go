@@ -266,7 +266,8 @@ func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction)
 		if field && owner != nil && ssaflow.ElementOfAggregate(owner) {
 			return resourceReasonStoredOnCollectionOwner, true
 		}
-		return resourceReasonWrapperStoredOnForeignOwner, analysis.wrapperStoredOnForeignOwner(typed)
+		wrapper := analysis.proveWrapperStoredOnForeignOwnerWithin(typed, analysis.budget(ssaflow.SummaryBudget))
+		return wrapper.Reason, wrapper.State != ssaflow.EvidenceDisproven
 	case *ssa.Send:
 		if proof := analysis.responseBodyAggregateHandoff(typed.X, typed); proof.State == ssaflow.EvidenceUnknown {
 			return proof.Reason, true
@@ -355,9 +356,10 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	}
 	// A callee proven to store a constructor chain over the resource takes it,
 	// whether the chain derives from the resource directly or holds it inside
-	// an aggregate; see keptThroughChain.
-	if analysis.chainKept(instruction, common) {
-		return resourceReasonAggregateOwnerMayEscape, true
+	// an aggregate; see proveChainKeptWithin.
+	chain := analysis.proveChainKeptWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
+	if chain.State != ssaflow.EvidenceDisproven {
+		return chain.Reason, true
 	}
 	if !carried {
 		return resourceReasonNone, false
@@ -470,21 +472,6 @@ func callResultMayTransfer(instruction ssa.Instruction) bool {
 		_, scalar := store.Val.Type().Underlying().(*types.Basic)
 		if !scalar && !types.Identical(store.Val.Type(), errorType) &&
 			heapmodel.ValueDerivesFrom(store.Val, result) {
-			return true
-		}
-	}
-	return false
-}
-
-func (analysis *resourceAnalysis) possibleAggregateWrapper(value ssa.Value) bool {
-	return analysis.wrapsResource(value, 0, false)
-}
-
-// chainKept reports whether some argument reaches a callee proven to keep it
-// through a chain of constructors over the resource; see keptThroughChain.
-func (analysis *resourceAnalysis) chainKept(instruction ssa.Instruction, common *ssa.CallCommon) bool {
-	for index, argument := range common.Args {
-		if analysis.keptThroughChain(instruction, index, argument) {
 			return true
 		}
 	}

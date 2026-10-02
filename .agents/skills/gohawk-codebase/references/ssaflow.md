@@ -73,6 +73,18 @@ AppendedValues returns the values a call to append adds, when they are
 written as separate arguments, as append(s, a, b) is. SSA passes them in a
 fresh array; a spread slice, as in append(s, t...), is not followed.
 
+## AppendedValuesWithin
+
+[Source](../../../../internal/ssaflow/slice_elements.go)
+
+```go
+func AppendedValuesWithin(call *ssa.Call, budget *SearchBudget) ([]ssa.Value, bool)
+```
+
+AppendedValuesWithin follows the same explicit variadic array under budget.
+Array users and writes share the allowance; cutoff returns no partial values.
+Callers distinguish an unsupported shape from cutoff through the budget.
+
 ## ArgumentConstants
 
 [Source](../../../../internal/ssaflow/call_conditions.go)

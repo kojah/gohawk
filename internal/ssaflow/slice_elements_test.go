@@ -132,6 +132,9 @@ func grow(items []int, extra []int) []int {
 	if _, ok := ssaflow.AppendedValues(spread); ok {
 		t.Errorf("AppendedValues(%v) followed a spread slice", spread)
 	}
+	for _, call := range []*ssa.Call{separate, spread} {
+		checkAppendedValuesAllowance(t, call)
+	}
 	versions := ssaflow.SliceVersions(separate)
 	if len(versions) < 2 {
 		t.Fatalf("SliceVersions = %v, want the append and the loop phi", versions)
@@ -143,5 +146,34 @@ func grow(items []int, extra []int) []int {
 		if version == ssa.Value(spread) {
 			t.Errorf("SliceVersions followed a spread append, which is not a separate-argument append: %v", versions)
 		}
+	}
+}
+
+func checkAppendedValuesAllowance(t *testing.T, call *ssa.Call) {
+	t.Helper()
+	want, explicit := ssaflow.AppendedValues(call)
+	completed := false
+	for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
+		budget := ssaflow.NewSearchBudget(limit)
+		got, ok := ssaflow.AppendedValuesWithin(call, budget)
+		if budget.Exhausted() || limit == 0 {
+			if ok || len(got) != 0 {
+				t.Fatalf("allowance %d returned partial append values: %v/%v", limit, got, ok)
+			}
+			continue
+		}
+		if ok != explicit || len(got) != len(want) {
+			t.Fatalf("complete append = %v/%v, want %v/%v", got, ok, want, explicit)
+		}
+		for index := range want {
+			if got[index] != want[index] {
+				t.Fatalf("append argument %d changed", index)
+			}
+		}
+		completed = true
+		break
+	}
+	if !completed {
+		t.Fatal("append census never completed")
 	}
 }

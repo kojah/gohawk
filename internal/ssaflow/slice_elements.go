@@ -23,6 +23,16 @@ import (
 // written as separate arguments, as append(s, a, b) is. SSA passes them in a
 // fresh array; a spread slice, as in append(s, t...), is not followed.
 func AppendedValues(call *ssa.Call) ([]ssa.Value, bool) {
+	return AppendedValuesWithin(call, nil)
+}
+
+// AppendedValuesWithin follows the same explicit variadic array under budget.
+// Array users and writes share the allowance; cutoff returns no partial values.
+// Callers distinguish an unsupported shape from cutoff through the budget.
+func AppendedValuesWithin(call *ssa.Call, budget *SearchBudget) ([]ssa.Value, bool) {
+	if !budget.Spend() {
+		return nil, false
+	}
 	builtin, ok := call.Call.Value.(*ssa.Builtin)
 	if !ok || builtin.Name() != "append" || len(call.Call.Args) != 2 {
 		return nil, false
@@ -37,6 +47,9 @@ func AppendedValues(call *ssa.Call) ([]ssa.Value, bool) {
 	}
 	var values []ssa.Value
 	for _, user := range *array.Referrers() {
+		if !budget.Spend() {
+			return nil, false
+		}
 		if user == spread {
 			continue
 		}
@@ -45,6 +58,9 @@ func AppendedValues(call *ssa.Call) ([]ssa.Value, bool) {
 			return nil, false
 		}
 		for _, write := range *address.Referrers() {
+			if !budget.Spend() {
+				return nil, false
+			}
 			store, ok := write.(*ssa.Store)
 			if !ok || store.Addr != address {
 				return nil, false

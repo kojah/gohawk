@@ -9,8 +9,8 @@ import (
 
 // Carried-value evidence distinguishes a direct argument from a nested value.
 // Both can supply opaque consumption, never exact cleanup. Structural visits
-// share caller allowance; alias/graph/type internals and the legacy possible
-// constructor query retain independent costs until its consumers are integrated.
+// share caller allowance; alias/graph/type and effect internals retain
+// independent costs.
 
 func (analysis *resourceAnalysis) carriedPayload(value ssa.Value, reason resourceLifetimeReason) (resourceLifetimeReason, bool) {
 	proof := analysis.proveCarriedValueWithin(value, analysis.budget(ssaflow.SummaryBudget))
@@ -51,10 +51,7 @@ func (analysis *resourceAnalysis) proveCarriedValueWithin(value ssa.Value, budge
 	if within.State != ssaflow.EvidenceDisproven {
 		return within
 	}
-	if !budget.Spend() {
-		return carriedValueProof(false, resourceReasonUntouched, budget)
-	}
-	return carriedValueProof(analysis.possibleAggregateWrapper(value), resourceReasonWrapperMayCarry, budget)
+	return analysis.provePossibleWrapperWithin(value, 0, false, budget)
 }
 
 func (analysis *resourceAnalysis) proveCarriedDirectlyWithin(value ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
