@@ -30,6 +30,18 @@ which its fields and indexes are selected.
 func AccessPathSteps(value, root ssa.Value) ([]string, bool)
 ```
 
+## AccessPathStepsWithin
+
+[Source](../../../../internal/ssaflow/access_paths.go)
+
+```go
+func AccessPathStepsWithin(value, root ssa.Value, budget *SearchBudget) ([]string, bool)
+```
+
+AccessPathStepsWithin charges projection visits and structural root checks to
+one allowance. Cutoff returns no path; callers inspect budget availability.
+A nil budget retains default field, constant-index, wrapper and load policy.
+
 ## AliasProof
 
 [Source](../../../../internal/ssaflow/proof_types.go)
@@ -2250,6 +2262,18 @@ func ProveIdentity(left, right AccessPath) IdentityProof
 ProveIdentity reports whether two values denote corresponding access paths
 beneath roots that the caller has already established as equivalent.
 
+## ProveIdentityWithin
+
+[Source](../../../../internal/ssaflow/value_identity.go)
+
+```go
+func ProveIdentityWithin(left, right AccessPath, budget *SearchBudget) IdentityProof
+```
+
+ProveIdentityWithin shares budget across structural identity, both path
+searches and step comparison. Exhaustion is an unknown proof with the budget
+reason, never differing paths. Roots must already be established as equivalent.
+
 ## QueryBudget, SummaryBudget
 
 [Source](../../../../internal/ssaflow/call_budget.go)
@@ -2685,6 +2709,18 @@ one SSA value seen through wrappers, a phi whose alternatives all agree,
 or equal address selections. Distinct loads stay unknown here, even from
 the same address.
 
+## StructurallyIdenticalWithin
+
+[Source](../../../../internal/ssaflow/value_identity.go)
+
+```go
+func StructurallyIdenticalWithin(left, right ssa.Value, budget *SearchBudget) bool
+```
+
+StructurallyIdenticalWithin charges structural comparisons and reaching-value
+visits to budget. A cutoff supplies no identity evidence; false remains
+unproved, never inequality. A nil budget retains the default structural policy.
+
 ## StructurallySame
 
 [Source](../../../../internal/ssaflow/value_matching.go)
@@ -2943,6 +2979,17 @@ func ValueIsAccessPathFrom(value, root ssa.Value) bool
 
 ValueIsAccessPathFrom reports whether value is root itself or a statically
 identifiable field or constant-index projection beneath root.
+
+## ValueIsAccessPathFromWithin
+
+[Source](../../../../internal/ssaflow/access_paths.go)
+
+```go
+func ValueIsAccessPathFromWithin(value, root ssa.Value, budget *SearchBudget) bool
+```
+
+ValueIsAccessPathFromWithin applies the same projection policy under budget.
+A false result at exhaustion is unavailable, not evidence of unrelated roots.
 
 ## ValueMatchesAnySymbol
 

@@ -2047,3 +2047,46 @@ lookup; this change is not a whole-engine bound. Graph tools remain unavailable;
 evidence uses scoped source and actual SSA. No production FP correction is
 credited; the 15-site queue and broader goal remain open. No full
 precision-regression, local race or candidate tests/generators/apps are run.
+
+
+## Shared structural identity allowance (dho.44.11.5.3)
+
+At parent `2d4438d`, caller-capture projection and retained-owner field mapping
+entered structural identity/access-path recursion without their allowance.
+`StructurallyIdenticalWithin`, `AccessPathStepsWithin`,
+`ValueIsAccessPathFromWithin` and `ProveIdentityWithin` now share the caller's
+budget across structural comparisons, reaching folds, projection recursion and
+path-step comparison. Default facades delegate with nil allowance and retain
+existing must-identity, wrapper, field/index and load policy. Path-step equality
+is centralized instead of separately maintained by `SameAccessPath` and
+`ProveIdentity`; the latter's inaccurate memoization comment is removed.
+
+Caller-owned capture and retained-owner projection consumers use the bounded
+queries. Interrupted `ProveIdentityWithin` returns structured unknown with
+`EvidenceBudgetExhausted`, never different-path evidence or a credited owner.
+Actual SSA controls in `identity_budget_test.go` cover agreeing converted phi
+alternatives, separate loads, static paths and differing/dynamic indexes,
+shared-pool cutoff and interruption during the last path-comparison step.
+Focused tests pass in `.build/goal-identity-focused.log`; final canonical
+`make verify` passes in `.build/goal-identity-final-verify.log`, including
+ordinary tests, generated inventory, formatting, vet, lint, dead-code and local
+dogfood. Initial lint findings in the new test were fixed by separating access
+path and corresponding-identity scenarios; production code was unchanged.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-metadata-current` has
+SHA-256 `74d19d6dfce3bc04e4c5156c8e2f2208a54bc6878006d0de86c402d9ddcfc4ca`;
+current `.build/goal-identity-current` has SHA-256
+`5769fca01d32e685caec4f65992bd805cb987a3fe6c2c06b60cc3525382d7190`.
+Fresh `.build/goal-identity-stargz-{metadata,identity}.{json,err}` scans
+both exit 3 with identical 827-byte JSON, empty stderr and the reviewed TP
+at `store/manager.go:193:2`. Hashes identify immutable pre-commit binaries.
+
+Parent `gohawk-dho.44.11.5` remains active for heap graph identity, storage's
+structural calls, other consumers, dominance and initial flow setup. Map-clone
+and graph costs are not bounded by these value-visit allowances. Possible alias
+queries are not replaced by exact identity. Graph tools remain unavailable;
+evidence uses scoped source and actual SSA. No production FP correction is
+credited; the 15-site queue and broader goal remain open. No full
+precision-regression, local race or candidate tests/generators/apps are run.

@@ -409,3 +409,22 @@ unknown decisions; a missing result at cutoff is not evidence of absence.
 order, shared-pool partial census, early stop, tuple lookup and single-result
 representation. Heap identity, access paths, dominance and flow setup remain
 open in `gohawk-dho.44.11.5`; this is not a complete wall-clock bound.
+
+### Structural identity allowance
+
+Caller-owned capture projections and retained-owner field mapping share their
+existing allowance with `ValueIsAccessPathFromWithin` and `ProveIdentityWithin`.
+The authoritative structural identity and access-path engines now charge
+comparisons, wrapper/phi visits, field/index recursion and path-step comparison.
+Default facades delegate with a nil allowance and keep existing projection
+policy. Shared path-step equality removes the separate Boolean comparison
+previously maintained by `SameAccessPath` and `ProveIdentity`.
+
+`ProveIdentityWithin` yields unknown with `EvidenceBudgetExhausted` when the
+query is interrupted; it cannot report different paths or credit an owner from
+partial evidence. Actual SSA controls in `identity_budget_test.go` cover
+agreeing converted phi alternatives, distinct loads, static field/index paths,
+differing and dynamic indexes, candidate-pool cutoff and exhaustion at the last
+path-comparison step. Heap graph queries, storage's default structural calls,
+other consumers and initial flow setup remain the parent transitive review;
+this does not replace possible alias evidence with exact structural identity.

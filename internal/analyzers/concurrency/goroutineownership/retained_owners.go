@@ -151,15 +151,15 @@ func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(
 			continue
 		}
 		for pair := range bindings {
-			if !ssaflow.ValueIsAccessPathFrom(receiver, pair.Supplied) {
+			if !ssaflow.ValueIsAccessPathFromWithin(receiver, pair.Supplied, budget) {
 				continue
 			}
 			if cell, ok := pair.Supplied.(*ssa.Alloc); ok && !storage.StableContent(cell, analysis.spawn).Proven() {
 				continue
 			}
-			if ssaflow.ProveIdentity(
+			if ssaflow.ProveIdentityWithin(
 				ssaflow.AccessPath{Value: used, Root: pair.Local},
-				ssaflow.AccessPath{Value: receiver, Root: pair.Supplied},
+				ssaflow.AccessPath{Value: receiver, Root: pair.Supplied}, budget,
 			).Proven() {
 				return true
 			}

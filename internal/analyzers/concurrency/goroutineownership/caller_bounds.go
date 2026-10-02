@@ -243,7 +243,7 @@ func callerSuppliedValue(
 		return false
 	}
 	for captured := range ssaflow.ClosureBindingPairsWithin(function, closure, budget) {
-		if ssaflow.ValueIsAccessPathFrom(value, captured.Free) &&
+		if ssaflow.ValueIsAccessPathFromWithin(value, captured.Free, budget) &&
 			ssaflow.ExternallyOwnedValue(ssaflow.CapturedBindingValueWithin(captured.Binding, budget)) {
 			return true
 		}
