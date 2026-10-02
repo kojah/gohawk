@@ -2584,6 +2584,17 @@ ReturnsOnlyNilOrErrors reports whether a nonempty return contains only
 definitely nil values or values of the builtin error type, including aliases.
 This describes the result shape, not failure, ownership or cleanup coverage.
 
+## ReturnsOnlyNilOrErrorsWithin
+
+[Source](../../../../internal/ssaflow/return_values.go)
+
+```go
+func ReturnsOnlyNilOrErrorsWithin(returned *ssa.Return, budget *SearchBudget) bool
+```
+
+ReturnsOnlyNilOrErrorsWithin shares result and nilness visits with budget.
+Cutoff cannot supply the unsuccessful-construction exception.
+
 ## RunsOnceInProgramEntry
 
 [Source](../../../../internal/ssaflow/process_entry.go)

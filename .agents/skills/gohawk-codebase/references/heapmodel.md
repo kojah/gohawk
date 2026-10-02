@@ -160,6 +160,17 @@ target or refers to an addressable local that has contained target. Unlike
 CapturedBindingValue, it handles variables reassigned before a callback is
 installed without depending on referrer iteration order.
 
+## CapturedBindingMatchesWithin
+
+[Source](../../../../internal/heapmodel/store_alias.go)
+
+```go
+func CapturedBindingMatchesWithin(binding, target ssa.Value, budget *ssaflow.SearchBudget) bool
+```
+
+CapturedBindingMatchesWithin shares alias dispatch and store-referrer visits
+with budget. Graph and alias internals remain separate; cutoff is unavailable.
+
 ## Contains
 
 [Source](../../../../internal/heapmodel/query.go)
@@ -950,6 +961,17 @@ func SelectionsOf(root ssa.Value, path []string) []ssa.Value
 
 SelectionsOf returns every address the function selected beneath root by
 exactly path.
+
+## SelectionsOfWithin
+
+[Source](../../../../internal/heapmodel/store_access_paths.go)
+
+```go
+func SelectionsOfWithin(root ssa.Value, path []string, budget *ssaflow.SearchBudget) []ssa.Value
+```
+
+SelectionsOfWithin shares path, address and referrer visits with budget.
+Cutoff returns no selections and cannot establish that a path is absent.
 
 ## SliceOnlyObserved
 

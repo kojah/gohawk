@@ -5,14 +5,13 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
 
 // ReturnedValueOwnsValue reports whether any returned value carries value,
 // directly or inside an aggregate or callback.
 func ReturnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool {
-	return newOwnershipSearch(nil).returnedValueOwnsValue(returned, value)
+	return ProveReturnedOwnershipWithin(returned, value, nil, nil).Proven()
 }
 
 // ReturnsOwner reports whether callee returns a value that owns its parameter
@@ -27,7 +26,25 @@ type ReturnsOwner func(callee *ssa.Function, index int) bool
 // without the summary the search stops at that boundary and concludes the
 // callee kept the argument for itself.
 func ReturnedValueOwnsValueSummarized(returned *ssa.Return, value ssa.Value, summarized ReturnsOwner) bool {
-	return newOwnershipSearch(summarized).returnedValueOwnsValue(returned, value)
+	return ProveReturnedOwnershipWithin(returned, value, summarized, nil).Proven()
+}
+
+// ProveReturnedOwnershipWithin asks the existing possible-ownership search with
+// caller allowance. Result, value, reference, storage and constructor coverage
+// visits share budget. Cutoff is unknown; a completed negative means only that
+// this model found no owner. Graph/type and summary-hook internals remain separate.
+func ProveReturnedOwnershipWithin(returned *ssa.Return, value ssa.Value, summarized ReturnsOwner, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	search := newOwnershipSearch(summarized)
+	search.budget = budget
+	found := search.returnedValueOwnsValue(returned, value)
+	if search.exhausted() {
+		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+	}
+	state, reason := ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
+	if found {
+		state, reason = ssaflow.EvidenceProven, ssaflow.EvidenceStructuralWalk
+	}
+	return ssaflow.Proof{State: state, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}
 }
 
 // ownershipSearch carries the cycle guard and the summary hook through the
@@ -35,10 +52,19 @@ func ReturnedValueOwnsValueSummarized(returned *ssa.Return, value ssa.Value, sum
 type ownershipSearch struct {
 	seen       map[ownershipPair]bool
 	summarized ReturnsOwner
+	budget     *ssaflow.SearchBudget
 }
 
 func newOwnershipSearch(summarized ReturnsOwner) *ownershipSearch {
 	return &ownershipSearch{seen: map[ownershipPair]bool{}, summarized: summarized}
+}
+
+func (search *ownershipSearch) exhausted() bool {
+	return search.budget.Exhausted() || search.budget.PoolExhausted()
+}
+
+func (search *ownershipSearch) aliases(left, right ssa.Value) bool {
+	return search.budget.Spend() && heapmodel.MayAlias(left, right)
 }
 
 type ownershipPair struct {
@@ -47,7 +73,13 @@ type ownershipPair struct {
 }
 
 func (search *ownershipSearch) returnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool {
+	if returned == nil {
+		return false
+	}
 	for _, result := range returned.Results {
+		if !search.budget.Spend() {
+			return false
+		}
 		if search.aggregateStoresValue(result, value) {
 			return true
 		}
@@ -56,6 +88,9 @@ func (search *ownershipSearch) returnedValueOwnsValue(returned *ssa.Return, valu
 }
 
 func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) bool {
+	if !search.budget.Spend() {
+		return false
+	}
 	pair := ownershipPair{aggregate: aggregate, value: value}
 	if aggregate == nil || search.seen[pair] {
 		return false
@@ -64,7 +99,7 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 	// constructor arguments ask the same question once. Only a negative alias
 	// answer enters the cycle guard; a direct alias remains independently usable
 	// on later visits. Containment below remains possible ownership, not release.
-	if heapmodel.MayAlias(aggregate, value) {
+	if search.aliases(aggregate, value) {
 		return true
 	}
 	search.seen[pair] = true
@@ -84,8 +119,13 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 			return true
 		}
 	case *ssa.Phi:
-		if search.anyAggregateStoresValue(typed.Edges, value) {
-			return true
+		for _, incoming := range ssaflow.PhiIncoming(typed) {
+			if !search.budget.Spend() {
+				return false
+			}
+			if search.aggregateStoresValue(incoming, value) {
+				return true
+			}
 		}
 	case *ssa.Slice:
 		// Stores can select an element through this slice rather than its
@@ -99,7 +139,7 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 		// A returned callback that captured the value keeps it alive and is the
 		// only thing that can still release it, so the caller receives the
 		// obligation with the callback.
-		if closureBindingsOwnValue(typed, value, func(binding ssa.Value) bool {
+		if closureBindingsOwnValueWithin(typed, value, search.budget, func(binding ssa.Value) bool {
 			return search.aggregateStoresValue(binding, value)
 		}) {
 			return true
@@ -138,35 +178,11 @@ func (search *ownershipSearch) loadStoresValue(typed *ssa.UnOp, value ssa.Value)
 	return false
 }
 
-func (search *ownershipSearch) callAggregateStoresValue(call *ssa.Call, value ssa.Value) bool {
-	common := call.Common()
-	if ssaflow.CallMatchesSymbol(common, syntax.Builtin("append")) && search.anyAggregateStoresValue(common.Args, value) {
-		return true
-	}
-	callee := ssaflow.ResolvedCallee(common)
-	if callee == nil {
-		return false
-	}
-	for index, argument := range common.Args {
-		if !search.aggregateStoresValue(argument, value) {
-			continue
-		}
-		if index < len(callee.Params) && search.functionReturnsOwner(callee, callee.Params[index]) {
-			return true
-		}
-		// A callee in another package has neither a body nor parameter values
-		// here, so its summary is the only account of what it did with the
-		// argument. Index the summary by the argument position, which is how
-		// the summary counts parameters, receiver included.
-		if search.summarized != nil && search.summarized(callee, index) {
-			return true
-		}
-	}
-	return false
-}
-
 func (search *ownershipSearch) anyAggregateStoresValue(aggregates []ssa.Value, value ssa.Value) bool {
 	for _, aggregate := range aggregates {
+		if !search.budget.Spend() {
+			return false
+		}
 		if search.aggregateStoresValue(aggregate, value) {
 			return true
 		}
@@ -174,41 +190,14 @@ func (search *ownershipSearch) anyAggregateStoresValue(aggregates []ssa.Value, v
 	return false
 }
 
-func (search *ownershipSearch) functionReturnsOwner(function *ssa.Function, value ssa.Value) bool {
-	// Returned-owner summaries carry an every-return guarantee. Preserve it
-	// while following a delegated constructor: one branch returning an owner
-	// cannot justify transferring the parameter on a sibling branch that
-	// returns an unrelated value. Nil/error-only returns carry no owner and are
-	// the same unsuccessful-construction exception used by the outer proof.
-	owners := map[*ssa.Return]bool{}
-	hasOwner := false
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			returned, ok := instruction.(*ssa.Return)
-			if !ok {
-				continue
-			}
-			owners[returned] = search.returnedValueOwnsValue(returned, value)
-			hasOwner = hasOwner || owners[returned]
-		}
-	}
-	if !hasOwner {
-		return false
-	}
-	return ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
-		Entry: function,
-		Owns:  func(ssa.Instruction) bool { return false },
-		AllowReturn: func(returned *ssa.Return) bool {
-			return owners[returned] || ssaflow.ReturnsOnlyNilOrErrors(returned)
-		},
-	}) == nil
-}
-
 func (search *ownershipSearch) aggregateReferrersStoreValue(aggregate, value ssa.Value) bool {
 	if aggregate.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *aggregate.Referrers() {
+		if !search.budget.Spend() {
+			return false
+		}
 		if call, ok := reference.(ssa.CallInstruction); ok {
 			if search.callStoresValueIntoAggregate(call, aggregate, value) {
 				return true
@@ -229,75 +218,18 @@ func (search *ownershipSearch) aggregateReferrersStoreValue(aggregate, value ssa
 	return false
 }
 
-// callStoresValueIntoAggregate reports whether a call hands a callee both the
-// aggregate and the value, and that callee stores the value into it.
-//
-// A constructor commonly delegates the assembly of the value it returns rather
-// than writing the field itself: bufio.NewReader reaches its buffer through
-// (*Reader).reset, and encoding/json's NewDecoder reaches its reader through
-// jsontext.NewDecoder and then (*Decoder).Reset. The parameter is stored into
-// the returned aggregate only inside those callees, so a search that stops at
-// the caller's own stores concludes the callee kept the value for itself, and
-// the caller is then wrongly credited with handing over the release. The
-// helper is often unexported, so its summary is never exported and the answer
-// has to come from its body, which is available here for a callee in the same
-// package.
-func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruction, aggregate, value ssa.Value) bool {
-	common := call.Common()
-	if common == nil {
-		return false
-	}
-	callee := ssaflow.ResolvedCallee(common)
-	if callee == nil || len(callee.Blocks) == 0 {
-		return false
-	}
-	// The aggregate may be handed over as a field of itself, as jsontext does
-	// when Reset passes d.s to the state's own reset.
-	holder := -1
-	for index, argument := range common.Args {
-		if index < len(callee.Params) &&
-			(heapmodel.MayAlias(argument, aggregate) || ssaflow.ValueIsAccessPathFrom(argument, aggregate)) {
-			holder = index
-			break
-		}
-	}
-	if holder < 0 {
-		return false
-	}
-	for index, argument := range common.Args {
-		if index == holder || index >= len(callee.Params) {
-			continue
-		}
-		// A callback that captured the value is not the value being stored.
-		// Registering one, as t.Cleanup does, keeps the callback alive without
-		// proving the callback releases anything, and the closure rules decide
-		// that separately. Reading it as a store would accept a cleanup that
-		// only conditionally releases.
-		if _, closure := argument.(*ssa.MakeClosure); closure {
-			continue
-		}
-		if !search.aggregateStoresValue(argument, value) {
-			continue
-		}
-		if search.aggregateStoresValue(callee.Params[holder], callee.Params[index]) {
-			return true
-		}
-	}
-	return false
-}
-
 // samePathStoresValue reports whether some store to the same field or
 // element path beneath the same local root as address stores the value.
 func (search *ownershipSearch) samePathStoresValue(address ssa.Value, value ssa.Value) bool {
-	root := localAggregateRoot(address)
+	root := localAggregateRootWithin(address, search.budget)
 	if root == nil {
 		return false
 	}
-	path, ok := heapmodel.AccessPathOf(address, root)
+	path, ok := ssaflow.AccessPathStepsWithin(address, root, search.budget)
 	if !ok || len(path) == 0 {
 		return false
 	}
-	for _, selection := range heapmodel.SelectionsOf(root, path) {
+	for _, selection := range heapmodel.SelectionsOfWithin(root, path, search.budget) {
 		if search.addressStoresValue(selection, value) {
 			return true
 		}
@@ -307,8 +239,11 @@ func (search *ownershipSearch) samePathStoresValue(address ssa.Value, value ssa.
 
 // localAggregateRoot returns the local allocation an address selects
 // beneath through fields and constant indexes, or nil.
-func localAggregateRoot(address ssa.Value) *ssa.Alloc {
+func localAggregateRootWithin(address ssa.Value, budget *ssaflow.SearchBudget) *ssa.Alloc {
 	for {
+		if !budget.Spend() {
+			return nil
+		}
 		switch typed := address.(type) {
 		case *ssa.Alloc:
 			return typed
@@ -323,7 +258,7 @@ func localAggregateRoot(address ssa.Value) *ssa.Alloc {
 }
 
 func (search *ownershipSearch) addressStoresValue(address ssa.Value, value ssa.Value) bool {
-	for stored := range StoredInto(address) {
+	for stored := range StoredIntoWithin(address, search.budget) {
 		if search.aggregateStoresValue(stored, value) {
 			return true
 		}

@@ -102,10 +102,11 @@ aggregate, derived and known-owner handoffs against unrelated and scalar
 results at every insufficient allowance. The heap census test uses two actual
 SSA results and two candidates to check dispatch cutoff and fresh recovery.
 
-Beads `gohawk-dho.44.11.5.18.1` retains the transitive cost review: recursive
-`lifecycle` aggregate/constructor ownership, wrapper decoding and view-summary
+Beads `gohawk-dho.44.11.5.18.1` retains the transitive cost review: wrapper
+decoding and view-summary
 binding still have independent costs, alongside graph and type internals.
-This change bounds the return census and derivation, not the complete query.
+The return census, derivation and recursive ownership share allowance;
+this is not a complete query bound.
 
 The recursive lifecycle ownership entry owns alias evidence as well as
 aggregate containment. Return results, loaded addresses, stored values and
@@ -125,10 +126,28 @@ visits and referrers spend the optional caller allowance, including revisits.
 Consumer early stopping preserves availability; cutoff can leave a partial
 sequence and cannot establish missing ownership. Actual SSA controls cover
 fields, indexes, loaded callback slots, cyclic owners, early stopping and
-callback pool exhaustion. Existing callers still use an unbounded allowance;
-the enclosing recursive-owner and classifier proofs must propagate unknown
-before attaching their budgets. Beads `gohawk-dho.44.11.5.18.1.2` records the
-shared traversal, while `.18.1` retains that consumer integration.
+callback pool exhaustion. The recursive returned-owner query uses its caller
+allowance. Other consumers still use an unbounded allowance until their
+classifiers propagate unknown. Beads `gohawk-dho.44.11.5.18.1.2` records the
+shared traversal.
+
+Resource returns now call `lifecycle.ProveReturnedOwnershipWithin` with the
+flow allowance. The existing recursive ownership search shares result/value
+visits, referrers, constructor arguments and instruction census, capture storage,
+stored-value enumeration, access-path selections and constructor return coverage.
+One structured proof discards both positive ownership and completed-negative
+evidence at child or parent cutoff. Boolean defaults delegate to that proof.
+Its negative outcome means no owner recognized by this model, not actual absence.
+
+Constructor delegation lives in `store_constructors.go`: it requires an owner
+on every successful return and retains the nil/error-only exception. That
+exception's nilness query and the shared obligation walk now spend the same
+allowance. Actual SSA controls cover direct and copied owners, helper stores,
+conditional construction, uncovered sibling returns, closures, phis and cycles;
+summary-hook pool cutoff cannot retain an owner, and a fresh query can retry.
+Graph construction, alias-query internals, type-system work and external summary
+hook internals still have independent costs. Resource wrapper decoding and view
+binding remain under Beads `gohawk-dho.44.11.5.18.1`.
 
 The scoped resource controls above were repeated with immutable
 `.build/goal-return-owner-complete`, SHA-256

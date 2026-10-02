@@ -10,14 +10,23 @@ import (
 // definitely nil values or values of the builtin error type, including aliases.
 // This describes the result shape, not failure, ownership or cleanup coverage.
 func ReturnsOnlyNilOrErrors(returned *ssa.Return) bool {
+	return ReturnsOnlyNilOrErrorsWithin(returned, nil)
+}
+
+// ReturnsOnlyNilOrErrorsWithin shares result and nilness visits with budget.
+// Cutoff cannot supply the unsuccessful-construction exception.
+func ReturnsOnlyNilOrErrorsWithin(returned *ssa.Return, budget *SearchBudget) bool {
 	if returned == nil || len(returned.Results) == 0 {
 		return false
 	}
 	errorType := types.Universe.Lookup("error").Type()
 	for _, result := range returned.Results {
-		if !DefinitelyNil(result) && !types.Identical(result.Type(), errorType) {
+		if !budget.Spend() {
+			return false
+		}
+		if !DefinitelyNilWithin(result, budget) && !types.Identical(result.Type(), errorType) {
 			return false
 		}
 	}
-	return true
+	return !budget.Exhausted() && !budget.PoolExhausted()
 }

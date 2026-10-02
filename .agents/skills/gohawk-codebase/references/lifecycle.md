@@ -456,6 +456,19 @@ ProveReturnedCleanup proves a factory relation using the completion request's
 methods or InvokeTarget mode, budget, and imported-summary policies. Target
 and Instruction are unused: relation identifies values inside the factory.
 
+## ProveReturnedOwnershipWithin
+
+[Source](../../../../internal/lifecycle/store_returns.go)
+
+```go
+func ProveReturnedOwnershipWithin(returned *ssa.Return, value ssa.Value, summarized ReturnsOwner, budget *ssaflow.SearchBudget) ssaflow.Proof
+```
+
+ProveReturnedOwnershipWithin asks the existing possible-ownership search with
+caller allowance. Result, value, reference, storage and constructor coverage
+visits share budget. Cutoff is unknown; a completed negative means only that
+this model found no owner. Graph/type and summary-hook internals remain separate.
+
 ## ProveReturnedParameterWithin
 
 [Source](../../../../internal/lifecycle/store_return_identity.go)

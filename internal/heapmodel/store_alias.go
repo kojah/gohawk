@@ -25,6 +25,15 @@ func MayAlias(value, target ssa.Value) bool {
 // CapturedBindingValue, it handles variables reassigned before a callback is
 // installed without depending on referrer iteration order.
 func CapturedBindingMatches(binding, target ssa.Value) bool {
+	return CapturedBindingMatchesWithin(binding, target, nil)
+}
+
+// CapturedBindingMatchesWithin shares alias dispatch and store-referrer visits
+// with budget. Graph and alias internals remain separate; cutoff is unavailable.
+func CapturedBindingMatchesWithin(binding, target ssa.Value, budget *ssaflow.SearchBudget) bool {
+	if !budget.Spend() {
+		return false
+	}
 	if MayAlias(binding, target) {
 		return true
 	}
@@ -32,6 +41,9 @@ func CapturedBindingMatches(binding, target ssa.Value) bool {
 		return false
 	}
 	for _, reference := range *binding.Referrers() {
+		if !budget.Spend() {
+			return false
+		}
 		store, ok := reference.(*ssa.Store)
 		if ok && store.Addr == binding && MayAlias(store.Val, target) {
 			return true

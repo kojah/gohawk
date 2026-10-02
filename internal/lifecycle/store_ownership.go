@@ -108,9 +108,16 @@ func valueOwnsValue(owner, value ssa.Value) bool {
 // Capture identity and cell contents are shared mechanics. The caller chooses
 // whether to follow only nested callbacks or also owning aggregates.
 func closureBindingsOwnValue(closure *ssa.MakeClosure, value ssa.Value, owns func(ssa.Value) bool) bool {
+	return closureBindingsOwnValueWithin(closure, value, nil, owns)
+}
+
+func closureBindingsOwnValueWithin(closure *ssa.MakeClosure, value ssa.Value, budget *ssaflow.SearchBudget, owns func(ssa.Value) bool) bool {
 	for _, binding := range closure.Bindings {
-		if heapmodel.CapturedBindingMatches(binding, value) || owns(ssaflow.CapturedBindingValue(binding)) {
-			return true
+		if !budget.Spend() {
+			return false
+		}
+		if heapmodel.CapturedBindingMatchesWithin(binding, value, budget) || owns(ssaflow.CapturedBindingValueWithin(binding, budget)) {
+			return !budget.Exhausted() && !budget.PoolExhausted()
 		}
 	}
 	return false

@@ -12,8 +12,8 @@ import (
 )
 
 // Return evidence distinguishes a possible owner handoff from an uncovered
-// resource return. Result/derivation visits share the flow allowance; recursive
-// ownership, wrapper decoding, graph construction and type queries retain
+// resource return. Result, derivation and ownership visits share the flow
+// allowance; wrapper decoding, graph construction and type queries retain
 // independent costs. Cutoff cannot admit the uncovered-return witness.
 
 func (analysis *resourceAnalysis) proveResourceReturn(returned *ssa.Return, budget *ssaflow.SearchBudget) resourceLifetimePolicyResult {
@@ -36,7 +36,7 @@ func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return, bu
 	if !budget.Spend() {
 		return false
 	}
-	if lifecycle.ReturnedValueOwnsValue(returned, resource) {
+	if lifecycle.ProveReturnedOwnershipWithin(returned, resource, nil, budget).Proven() {
 		return true
 	}
 	if position := analysis.returnedWrapperPositionWithin(returned, budget); position >= 0 &&

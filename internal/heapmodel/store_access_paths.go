@@ -79,24 +79,42 @@ func ValueAtPath(root ssa.Value, path []string, observation ssa.Instruction) (ss
 // SelectionsOf returns every address the function selected beneath root by
 // exactly path.
 func SelectionsOf(root ssa.Value, path []string) []ssa.Value {
+	return SelectionsOfWithin(root, path, nil)
+}
+
+// SelectionsOfWithin shares path, address and referrer visits with budget.
+// Cutoff returns no selections and cannot establish that a path is absent.
+func SelectionsOfWithin(root ssa.Value, path []string, budget *ssaflow.SearchBudget) []ssa.Value {
 	frontier := []ssa.Value{root}
 	for _, step := range path {
+		if !budget.Spend() {
+			return nil
+		}
 		var next []ssa.Value
 		for _, address := range frontier {
+			if !budget.Spend() {
+				return nil
+			}
 			if address.Referrers() == nil {
 				continue
 			}
 			for _, reference := range *address.Referrers() {
+				if !budget.Spend() {
+					return nil
+				}
 				selected, ok := reference.(ssa.Value)
 				if !ok {
 					continue
 				}
-				if selection, ok := ssaflow.AccessPathSteps(selected, address); ok && len(selection) == 1 && selection[0] == step {
+				if selection, ok := ssaflow.AccessPathStepsWithin(selected, address, budget); ok && len(selection) == 1 && selection[0] == step {
 					next = append(next, selected)
 				}
 			}
 		}
 		frontier = next
+	}
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return nil
 	}
 	return frontier
 }
