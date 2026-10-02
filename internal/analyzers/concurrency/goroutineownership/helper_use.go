@@ -17,9 +17,11 @@ import (
 // the value ends the proof as an escape.
 
 // helperUse classifies how a callee treats one parameter or captured variable.
-// The callee joins only when its observation of the value covers every normal
-// return, which is what makes a deferred helper or cleanup callback
-// equivalent to an inline join. Storing, sending, returning, capturing, or
+// Positive coverage requires the requested effect on every normal return.
+// Channel receives and group waits observe completion. Owner coverage means
+// invoking a lifecycle method; the worker classifier consumes that as unknown
+// shutdown participation, while retained-owner queries use it only to identify
+// cleanup. Storing, sending, returning, capturing, or
 // passing the value to an opaque call ends the proof as unknown. A callee that
 // merely reads the value, or joins it on some paths, proves nothing.
 // helperSearch answers one helper-use question. The memo owns the cycle guard
@@ -133,8 +135,9 @@ func (search *helperSearch) instructionJoins(instruction ssa.Instruction, kind t
 	})
 }
 
-// receiverJoins recognizes the receiver-side join for each tracked kind: Wait
-// on a group, or a lifecycle method on an owner.
+// receiverJoins recognizes the requested receiver effect: Wait on a group or
+// a lifecycle call on an owner. The owner result is cleanup coverage, not a
+// worker join; its caller must preserve that distinction.
 func receiverJoins(common *ssa.CallCommon, kind trackedKind, derives func(ssa.Value) bool) bool {
 	receiver := ssaflow.CallReceiver(common)
 	if receiver == nil || !derives(receiver) {

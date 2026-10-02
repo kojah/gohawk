@@ -25,15 +25,18 @@ func TestJoinBindingStrength(t *testing.T) {
 
 func TestJoinReceiverTrace(t *testing.T) {
 	path := enableSummaryJoinTrace(t)
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "joinbindings")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "joinbindings", "ownerparticipation")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := map[string][3]string{
-		"mixedWait":  {"possible-join-receiver", "unknown", "opaque-use"},
-		"mixedOwner": {"possible-join-receiver", "unknown", "opaque-use"},
-		"exactWait":  {"direct-join", "accepted", "join"},
+		"mixedWait":                        {"possible-join-receiver", "unknown", "opaque-use"},
+		"mixedOwner":                       {"owner-lifecycle-participation", "unknown", "opaque-use"},
+		"exactWait":                        {"direct-join", "accepted", "join"},
+		"ownerparticipation.directClose":   {"owner-lifecycle-participation", "unknown", "opaque-use"},
+		"ownerparticipation.deferredClose": {"owner-lifecycle-participation", "unknown", "opaque-use"},
+		"ownerparticipation.helperClose":   {"helper-use", "unknown", "opaque-use"},
 	}
 	counts := map[string]int{}
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {

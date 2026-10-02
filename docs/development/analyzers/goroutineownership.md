@@ -35,12 +35,20 @@ possible containment as unknown rather than establishing exact stream identity.
 `gohawk-dho.44.3.1` additionally requires exact call-site identity before a
 helper's join can cover the tracked value. A mixed argument or an aggregate
 that previously contained the channel keeps the helper use unknown. Direct
-WaitGroup and lifecycle acceptance likewise require the exact receiver;
-possible receivers are labelled `possible-join-receiver` and stay unknown.
+WaitGroup acceptance likewise requires the exact receiver; possible group
+receivers are labelled `possible-join-receiver` and stay unknown.
 `joinbindings/joins.go` pairs those uncertain forms with exact helper and
 WaitGroup joins and an unrelated-channel diagnostic. Internal helper-body
 derivation and aggregate receive selection remain under review in
 `gohawk-dho.44.4`; the call-site correction does not certify them.
+`gohawk-dho.44.5` keeps lifecycle methods on tracked owners as unknown shutdown
+participation even when the receiver is exact. Calling or deferring a project's
+Close, Stop, Shutdown, Wait or Kill method does not establish a worker join.
+The helper-effect projection preserves that distinction too: positive owner
+method coverage remains useful to retained-resource cleanup queries, while the
+worker flow receives unknown. `ownerparticipation/owners.go` pairs no-op methods
+with a real completion-channel join and an unrelated-owner diagnostic. Direct
+participation has its own `owner-lifecycle-participation` trace label.
 Caller-owned channel and stable receiver-context bounds share one receive
 search, keyed by both function and local value. Repeated calls to the same
 helper therefore retain distinct formal bindings. These are possible lifetime

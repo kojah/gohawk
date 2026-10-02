@@ -1118,3 +1118,79 @@ The focused trace regression passes in 4.919 seconds. Final `make verify` with
 that control passes (`.build/goal-join-binding-trace-verify.log`), covering
 canonical formatting, generation, vet, lint, dead-code, ordinary tests and local
 dogfood. Documentation conformance is rechecked after recording the receipts.
+
+### Lifecycle-method participation versus worker completion
+
+`gohawk-dho.44.5` reviews lifecycle-method acceptance in the spawn classifier.
+Source fallback covers `directJoinAction`, helper-effect projection, the
+helper search's tracked-kind contract, `callbackClosesSibling`, guarded-join
+consumers and the final worker reporter. Graph tools remain unavailable.
+Retained callback cleanup uses positive owner-method coverage only to identify
+cleanup participation and returns an unknown worker action. Guarded helper
+coverage also supplies only an unknown final proof. Neither requires converting
+owner method coverage into an exact worker join.
+
+Actual SSA for `ownerparticipation.directClose` loads a captured object whose
+Boolean field feeds a worker's blocking send; the parent calls a no-op Close.
+The method neither observes nor completes that channel. The visible helper
+`closeOwner` only invokes that method and returns
+(`.build/goal-owner-participation-direct.ssa.txt` and
+`.build/goal-owner-participation-helper.ssa.txt`). Parent proof controls fail
+in 0.133 seconds for direct and deferred Close, helper Close, and no-op Stop,
+Shutdown, Wait and Kill: all were called `join-proven` despite no completion
+observation (`.build/goal-owner-participation-parent-test.log`).
+
+The direct classifier now preserves these existing accepted patterns as
+unknown `owner-lifecycle-participation`. Exact identity does not turn a method
+name into worker completion. The helper classifier has one `boundHelperAction`
+projection: positive owner coverage becomes unknown; a channel/group effect
+needs exact supplied-value identity to become a join. Helper search still
+answers coverage for the requested tracked kind, so the retained sibling
+cleanup query keeps its owner-method coverage without inventing a worker join.
+No parallel cleanup search, structural owner solver, or naming exemption is
+added. Helper-body may-derivation remains the separate `gohawk-dho.44.4` scope.
+
+`ownerparticipation/owners.go` pairs misleading no-op method names with a real
+completion receive and an unrelated owner diagnostic. Exact WaitGroup controls
+remain in `joinbindings`; local/imported summary join controls remain in
+`summaryjoins`. Focused owner, join-binding, receiver-trace and concurrency
+proof tests pass together in 12.465 seconds. Extended trace coverage checks
+one unknown label for direct, deferred and helper owner cleanup as well as
+exact and uncertain group receivers; focused owner/trace tests pass in
+3.826 seconds.
+
+Fixture GOPATH CLI scans cover `goroutineownership`, `summaryjoins`,
+`processexit`, `returnlabels`, `transferlabels`, `joinbindings` and
+`ownerparticipation`. Parent `.build/goal-owner-participation-parent` SHA-256:
+`b6b3108adc454709e5d671716cc9fe86a8d27f17c454e6c9ad0974d5edbae6a0`;
+current `.build/goal-owner-participation-current` SHA-256:
+`b4a4b9e652a8b361878c361de4eaa039a3104bb71fc981b0df3bbf3c2f1b5479`.
+Both exit 3 with empty stderr and identical 117,372-byte JSON diagnostics.
+Both have 516 final decisions and 211 labels. Eight final decisions become
+`opaque-ownership-transfer`/unknown: the seven new uncertain method controls
+and the existing deferred asserted-owner fixture previously accepted as
+`deferred-join-before-spawn`. Every other final decision agrees. The actual
+receive and unrelated-owner diagnostic retain their outcomes. No production
+FP removal or all-event equivalence is credited.
+
+The early caller-owned stop/context branch of `lifecycleProof` was also read
+and located: it returns honored for a lifetime bound before consulting local
+flow, while local/receiver context bounds are already unknown. Its distinct
+caller-transfer contract and actual SSA need their own review, now tracked in
+`gohawk-dho.44.6`. The finite obligation/classifier review is not complete.
+
+Pinned production control containerd/stargz-snapshotter is clean at
+`624678b4e421947534cbf0618f9609853cccee0f`. Parent/current static scans of
+`./store` with `CGO_ENABLED=0`, `GOFLAGS=-mod=readonly` and `GOWORK=off`
+both exit 3 with identical nonempty 827-byte JSON and empty stderr
+(`.build/goal-owner-participation-stargz-*.json`). The reviewed worker TP at
+`store/manager.go:193:2` remains. Candidate tests, generators and applications
+were not executed.
+
+`make verify` passes all ordinary gates on the first run
+(`.build/goal-owner-participation-verify.log`), including changed-package tests
+in 25.874 seconds and the full ordinary suite in 61 seconds, generation,
+canonical formatting, vet, lint, dead-code and local dogfood. Documentation
+conformance is rechecked after recording these receipts. No full precision
+corpus replay or local race run is performed. The 15 production FP locations
+receive no correction credit from this proof-strength change.

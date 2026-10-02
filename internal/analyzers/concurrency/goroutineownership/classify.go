@@ -285,29 +285,27 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	return analysis.helperAction(common, callee, closure, analysis.tracked), reasonLabelHelper
 }
 
-// Direct acceptance needs the exact receiver on every reaching path. A mixed
-// receiver might observe completion, so it remains unknown instead of being
-// treated as unrelated bookkeeping or as a guaranteed join.
+// Wait observes completion only on the exact settling group. A lifecycle
+// method on a captured owner supplies possible shutdown participation; neither
+// its name nor receiver identity proves observation of this worker's completion.
 func (analysis *spawnAnalysis) directJoinAction(common *ssa.CallCommon) (ownershipAction, goroutineOwnershipReason) {
 	receiver := ssaflow.CallReceiver(common)
 	if receiver == nil {
 		return actionNone, reasonNone
 	}
-	targets := analysis.owners
-	possible := ownerReceiver(receiver, targets)
-	if ssaflow.CallMatchesSymbol(common, waitGroupWait) {
-		targets = analysis.groups
-		possible = heapmodel.MayAliasAny(receiver, targets)
-	} else if !lifecycleMethod(ssaflow.CallName(common)) {
+	if !ssaflow.CallMatchesSymbol(common, waitGroupWait) {
+		if lifecycleMethod(ssaflow.CallName(common)) && ownerReceiver(receiver, analysis.owners) {
+			return actionUnknown, reasonLabelOwnerLifecycle
+		}
 		return actionNone, reasonNone
 	}
 	storage := heapmodel.NewStorage(analysis.budget())
-	for _, target := range targets {
+	for _, target := range analysis.groups {
 		if storage.Same(receiver, target).Proven() {
 			return actionJoin, reasonLabelDirectJoin
 		}
 	}
-	if possible || storage.Budget().Exhausted() {
+	if heapmodel.MayAliasAny(receiver, analysis.groups) || storage.Budget().Exhausted() {
 		return actionUnknown, reasonLabelPossibleJoin
 	}
 	return actionNone, reasonNone
@@ -358,24 +356,28 @@ func (analysis *spawnAnalysis) helperAction(
 			}
 			search := newHelperSearch()
 			search.concurrency, _ = summaryKnowledge.Provider(analysis.pass).Concurrency()
-			action := search.use(callee, pair.Local, tracked.kind)
-			// Passing the aggregate that a signal was read from exposes a
-			// possible shutdown path, but loses the exact field identity. A
-			// helper action on that aggregate is unknown, never an exact join.
-			// https://github.com/jech/galene/blob/6d9338e909fdecdd906150e4dda34e10d9869654/rtpconn/webclient.go#L878-L894
-			// Containment includes mixed arguments and past aggregate writes.
-			// Only exact binding can carry a callee's must-join back to this
-			// worker; possible bindings retain the helper use as unknown.
-			if action == actionJoin {
-				exactBinding := carried && heapmodel.NewStorage(analysis.budget()).Same(pair.Supplied, tracked.value).Proven()
-				if !exactBinding {
-					action = actionUnknown
-				}
-			}
+			action := analysis.boundHelperAction(pair.Supplied, tracked, search.use(callee, pair.Local, tracked.kind))
 			result = strongerAction(result, action)
 		}
 	}
 	return result
+}
+
+// Owner coverage establishes a lifecycle call, not observation of worker
+// completion. A completion handle also needs exact binding: containment includes
+// old stores and aggregate projections, which supply only possible shutdown.
+// https://github.com/jech/galene/blob/6d9338e909fdecdd906150e4dda34e10d9869654/rtpconn/webclient.go#L878-L894
+func (analysis *spawnAnalysis) boundHelperAction(supplied ssa.Value, tracked trackedValue, effect ownershipAction) ownershipAction {
+	if effect != actionJoin {
+		return effect
+	}
+	if tracked.kind == trackedOwner {
+		return actionUnknown
+	}
+	if !heapmodel.NewStorage(analysis.budget()).Same(supplied, tracked.value).Proven() {
+		return actionUnknown
+	}
+	return actionJoin
 }
 
 // testingCleanupAction treats a testing Cleanup callback like a deferred
