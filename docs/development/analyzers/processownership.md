@@ -190,3 +190,16 @@ cutoffs remain unknown. Graph/type/alias internals retain independent costs.
 `processchoices/choices.go` pins accepted mixed captures and dynamic launches,
 with unrelated commands, early bypass returns and converted callables diagnostic.
 `handoff_test.go` checks actual SSA, negative captures and fresh allowance recovery.
+
+
+## Shared pre-Start instruction census
+
+The cleanup-registration, wrapper-owner and external-store policies consume
+one completed census of instructions strictly dominating Start. Shared SSA
+traversal preserves function block order and excludes Start and its later
+same-block instructions, including loop bodies. A child cutoff discards the
+prefix and traces unknown ownership before reporting can use it. The policies
+retain their distinct method sets, owner/watcher requirements and destination
+rules; the census does not publish unconditional cleanup facts.
+`prestart_test.go` pins intermediate cutoffs and fresh child recovery. Nested
+binding, watcher, heap and type query costs retain their existing boundaries.

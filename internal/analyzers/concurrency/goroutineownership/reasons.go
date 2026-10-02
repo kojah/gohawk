@@ -31,6 +31,7 @@ const (
 	reasonSelectedContextEdge
 	reasonCountedDrainEdge
 	reasonProcessExitStopsWorker
+	reasonPreSpawnCensusCutoff
 	reasonReceiveBudgetExhausted
 	reasonDiscoveryBudgetExhausted
 	reasonRetainedOwnerBudgetExhausted
@@ -66,6 +67,7 @@ const (
 )
 
 var ownershipReasonCodes = [...]string{
+	reasonPreSpawnCensusCutoff:           "pre-spawn-census-budget-exhausted",
 	reasonRelayDependencyBudgetExhausted: "relay-dependency-budget-exhausted",
 	reasonRetainedOwnerBudgetExhausted:   "retained-owner-budget-exhausted",
 	reasonDiscoveryBudgetExhausted:       "completion-discovery-budget-exhausted",

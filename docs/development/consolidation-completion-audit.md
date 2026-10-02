@@ -4741,3 +4741,28 @@ while retaining unrelated, bypass and converted-callable diagnostics. Explicit
 final decision tracing distinguishes opaque ownership from budget silence.
 No recorded production FP correction is credited: seven sites plus Rune remain,
 and broader architecture completion is unproven.
+
+
+## Strict-dominator census consolidation
+
+Beads `gohawk-dho.23.4` consolidates three process pre-Start block/prefix
+loops, the external-store scan and the goroutine pre-spawn traversal into
+`ssaflow.InstructionsStrictlyDominatingWithin`. It indexes the pivot once,
+preserves function block order and excludes the pivot and its later same-block
+instructions. Block checks, indexing and yielded visits share the supplied
+allowance; the iterator does not decide ownership policy.
+
+Process ownership materializes one completed prefix for its four distinct
+policies, discarding any interrupted census before classification. Goroutine
+ownership retains early positive witnesses and gives an interrupted negative
+search an explicit unknown proof. Existing signal-census direct controls still
+cover that query; its large main proof now cuts off at the earlier pre-spawn
+stage. The existing cutoff observer projects the authoritative proof and
+attributes `pre-spawn-census`, without changing trace-disabled behavior.
+
+The [dominator review](../../benchmarks/precision/audits/strict-dominator-census-2026-10-02.md)
+records actual SSA differential/allowance controls, three assertion-failing
+counterfactuals, canonical validation and affected scoped parent/current output.
+No recorded production FP correction is credited; seven sites plus Rune remain,
+and overall architecture completion remains unproven. Watcher, binding, heap,
+type and remaining pre/post-Start query costs stay explicitly outside this census.

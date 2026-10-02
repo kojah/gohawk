@@ -41,17 +41,23 @@ func TestUnobservedSignalCensusCutoff(t *testing.T) {
 	if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted || !child.Exhausted() || candidate.pool.Exhausted() {
 		t.Fatalf("cut=%+v", got)
 	}
+	cutoff := candidate.lifetimeCutoff(child, "signal-census", reasonSignalCensusUnavailable)
+	if cutoff.Outcome != GoroutineUnknown || cutoff.Reason != reasonSignalCensusUnavailable {
+		t.Fatalf("signal cutoff projection: %+v", cutoff)
+	}
 	fresh := candidate.proveUnobservedSignalsWithin(candidate.pool.Within(2 * ssaflow.SummaryBudget))
 	if !fresh.Proven() {
 		t.Fatalf("fresh=%+v", fresh)
 	}
-	if proof := candidate.prove(); proof.Outcome != GoroutineUnknown || proof.Reason != reasonSignalCensusUnavailable {
+	// The bounded pre-spawn census now encounters this huge prefix first;
+	// the direct signal query above still pins its own cutoff and recovery.
+	if proof := candidate.prove(); proof.Outcome != GoroutineUnknown || proof.Reason != reasonPreSpawnCensusCutoff {
 		t.Fatalf("cutoff revived diagnostic: %+v", proof)
 	}
-	requireSignalCensusCutoffTrace(t, path)
+	requireCensusCutoffTrace(t, path, "signal-census")
 }
 
-func requireSignalCensusCutoffTrace(t *testing.T, path string) {
+func requireCensusCutoffTrace(t *testing.T, path, phase string) {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -62,9 +68,9 @@ func requireSignalCensusCutoffTrace(t *testing.T, path string) {
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
 		}
-		if event.Phase == "evidence" && event.Reason == "budget-exhausted" && event.Candidate != "" && event.Details["phase"] == "signal-census" {
+		if event.Phase == "evidence" && event.Reason == "budget-exhausted" && event.Candidate != "" && event.Details["phase"] == phase {
 			return
 		}
 	}
-	t.Fatal("signal census cutoff has no attributed evidence event")
+	t.Fatalf("%s cutoff has no attributed evidence event", phase)
 }

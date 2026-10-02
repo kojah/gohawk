@@ -609,3 +609,15 @@ times. The existing other-worker census already handles opaque worker pools;
 its missing phi captures caused the two alerts. This correction widens that
 unknown boundary. It proves no producer/consumer count, group registration or
 protocol-completion contract and changes no cross-package fact.
+
+
+## Shared strict-dominator traversal
+
+Pre-spawn cleanup and ownership use the shared budgeted strict-dominator
+instruction iterator. Deferred and testing cleanup, ordinary prior Wait,
+transfer and opaque actions retain their analyzer policies. A positive witness
+can stop enumeration; a completed negative needs the full traversal. Cutoff
+returns unknown with `pre-spawn-census-budget-exhausted` and cannot reach a
+violation proof. `dominating_census_test.go` pins cutoff and fresh recovery.
+The very large signal-census fixture now cuts off at this earlier stage; its
+direct signal-census cutoff/trace assertions still cover that separate query.

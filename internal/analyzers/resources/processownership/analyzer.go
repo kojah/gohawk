@@ -71,7 +71,14 @@ func startedCommand(instruction ssa.Instruction) (*ssa.Call, ssa.Value, bool) { 
 func commandOwnedElsewhere(
 	pass *analysis.Pass, proof *commandProof, function *ssa.Function, start *ssa.Call, command ssa.Value,
 ) bool {
-	owners := processOwnersRegisteredBefore(function, start, command)
+	prefix := collectProcessStartInstructions(start, proof.budget())
+	if !prefix.Proven() {
+		analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos()).Decision(analysisTrace.Step{
+			Reason: prefix.Reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: start.Pos(),
+		})
+		return true
+	}
+	owners := processOwnersRegisteredBefore(prefix.instructions, command)
 	// A helper returning *exec.Cmd may already have registered cleanup
 	// or wait ownership. Without interprocedural evidence either way,
 	// reporting here would trade precision for recall. containerd wraps
@@ -99,9 +106,9 @@ func commandOwnedElsewhere(
 	// Cleanup may be registered before Start. This is common when a
 	// constructor builds a teardown closure first, then starts the
 	// process and returns that closure to its caller.
-	if processOwnershipDominatesStart(proof, function, start, command) ||
-		processOwnerDominatesStart(proof, function, start, owners) ||
-		commandStoredExternallyBeforeStart(start, command) {
+	if processOwnershipDominatesStart(proof, prefix.instructions, command) ||
+		processOwnerDominatesStart(proof, function, start, owners, prefix.instructions) ||
+		commandStoredExternallyBeforeStart(prefix.instructions, command) {
 		return true
 	}
 	return successfulStartCannotReturn(start)
@@ -207,16 +214,14 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 // cannot see that store, so it is asked here. Istio's Envoy driver keeps the
 // command on the receiver and waits on e.cmd from a goroutine:
 // https://github.com/istio/proxy/blob/1bdb025a454d26a55ffa11a50e5c0a70dff7d853/test/envoye2e/driver/envoy.go#L135-L154
-func commandStoredExternallyBeforeStart(start *ssa.Call, command ssa.Value) bool {
-	for _, block := range start.Parent().Blocks {
-		for _, instruction := range block.Instrs {
-			store, ok := instruction.(*ssa.Store)
-			if !ok || !ssaflow.InstructionDominates(store, start) || !heapmodel.MayAlias(store.Val, command) {
-				continue
-			}
-			if storesProcessHandleInExternalField(store, command) || externallyOwnedAddress(store.Addr) {
-				return true
-			}
+func commandStoredExternallyBeforeStart(before []ssa.Instruction, command ssa.Value) bool {
+	for _, instruction := range before {
+		store, ok := instruction.(*ssa.Store)
+		if !ok || !heapmodel.MayAlias(store.Val, command) {
+			continue
+		}
+		if storesProcessHandleInExternalField(store, command) || externallyOwnedAddress(store.Addr) {
+			return true
 		}
 	}
 	return false

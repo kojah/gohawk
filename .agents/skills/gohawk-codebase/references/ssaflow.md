@@ -1780,6 +1780,21 @@ InstructionsReachableAfterWithin charges the instruction and successor
 census to budget. A partial result is usable only with its availability:
 exhaustion never proves that an instruction cannot follow start.
 
+## InstructionsStrictlyDominatingWithin
+
+[Source](../../../../internal/ssaflow/instruction_dominators.go)
+
+```go
+func InstructionsStrictlyDominatingWithin(at ssa.Instruction, budget *SearchBudget) iter.Seq[ssa.Instruction]
+```
+
+InstructionsStrictlyDominatingWithin yields instructions that structurally
+dominate at, excluding at itself, in function block order. Instructions later
+in at's block are excluded even in loops. Block checks, indexing and yielded
+visits share budget; a cutoff cannot prove absent dominating instructions.
+Callers needing a complete census must discard its prefix at cutoff. Breaking
+on a positive witness avoids later work. Nil budget retains unbounded policy.
+
 ## InstructionsWithin
 
 [Source](../../../../internal/ssaflow/value_instructions.go)

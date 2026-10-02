@@ -1,0 +1,9 @@
+scope	version	revision	exit	stderr_bytes	diagnostics	binary_sha256	receipt
+process-fixture	parent		0	0	40	355c5583b064e32b47e853e6abb005410bc258248e2fd76539c2a67c25c1d5cd	.build/goal-dominating-census-scoped/process-fixture-parent-receipt.json
+process-fixture	current		0	0	40	f4aaa34926a705750e7a908497b3697f715f748a45cd6c99934275677986d940	.build/goal-dominating-census-scoped/process-fixture-current-receipt.json
+goroutine-fixture	parent		0	0	128	355c5583b064e32b47e853e6abb005410bc258248e2fd76539c2a67c25c1d5cd	.build/goal-dominating-census-scoped/goroutine-fixture-parent-receipt.json
+goroutine-fixture	current		0	0	128	f4aaa34926a705750e7a908497b3697f715f748a45cd6c99934275677986d940	.build/goal-dominating-census-scoped/goroutine-fixture-current-receipt.json
+ferro	parent	d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4	0	0	1	355c5583b064e32b47e853e6abb005410bc258248e2fd76539c2a67c25c1d5cd	.build/goal-dominating-census-scoped/ferro-parent-receipt.json
+ferro	current	d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4	0	0	1	f4aaa34926a705750e7a908497b3697f715f748a45cd6c99934275677986d940	.build/goal-dominating-census-scoped/ferro-current-receipt.json
+debian	parent	567a9be49163cbf731f25bf79890f692e04d22d9	0	0	0	355c5583b064e32b47e853e6abb005410bc258248e2fd76539c2a67c25c1d5cd	.build/goal-dominating-census-scoped/debian-parent-receipt.json
+debian	current	567a9be49163cbf731f25bf79890f692e04d22d9	0	0	0	f4aaa34926a705750e7a908497b3697f715f748a45cd6c99934275677986d940	.build/goal-dominating-census-scoped/debian-current-receipt.json

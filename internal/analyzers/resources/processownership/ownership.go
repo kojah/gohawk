@@ -49,36 +49,26 @@ func processOwnerDominatesStart(
 	proof *commandProof,
 	function *ssa.Function,
 	start *ssa.Call,
-	owners []ssa.Value,
+	owners []ssa.Value, before []ssa.Instruction,
 ) bool {
-	startIndex := ssaflow.InstructionIndex(start)
-	for _, block := range function.Blocks {
-		if !block.Dominates(start.Block()) {
-			continue
-		}
-		limit := len(block.Instrs)
-		if block == start.Block() {
-			limit = startIndex
-		}
-		for _, instruction := range block.Instrs[:limit] {
-			for _, owner := range owners {
-				completion := lifecycle.CompletionRequest{
-					Instruction: instruction,
-					Target:      owner,
-					Methods:     []string{"close", "Close", "kill", "Kill", "Wait", "wait"},
-					Budget:      proof.budget(),
-				}
-				result := proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
-					Instruction: instruction,
-					Target:      owner,
-					Completion:  &completion,
-				})
-				if abandoned(result) {
-					return true
-				}
-				if result.Proven() && result.Reason == ssaflow.EvidenceDeferredCompletion {
-					return laterProcessOwnerWatcher(function, start, owners)
-				}
+	for _, instruction := range before {
+		for _, owner := range owners {
+			completion := lifecycle.CompletionRequest{
+				Instruction: instruction,
+				Target:      owner,
+				Methods:     []string{"close", "Close", "kill", "Kill", "Wait", "wait"},
+				Budget:      proof.budget(),
+			}
+			result := proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
+				Instruction: instruction,
+				Target:      owner,
+				Completion:  &completion,
+			})
+			if abandoned(result) {
+				return true
+			}
+			if result.Proven() && result.Reason == ssaflow.EvidenceDeferredCompletion {
+				return laterProcessOwnerWatcher(function, start, owners)
 			}
 		}
 	}
@@ -121,74 +111,53 @@ func successfulStartCannotReturn(start *ssa.Call) bool {
 // remains part of the ordinary post-Start flow proof instead.
 func processOwnershipDominatesStart(
 	proof *commandProof,
-	function *ssa.Function,
-	start *ssa.Call,
+	before []ssa.Instruction,
 	command ssa.Value,
 ) bool {
-	startIndex := ssaflow.InstructionIndex(start)
-	for _, block := range function.Blocks {
-		if !block.Dominates(start.Block()) {
-			continue
+	for _, instruction := range before {
+		completion := lifecycle.CompletionRequest{
+			Instruction: instruction,
+			Target:      command,
+			Methods:     []string{"Wait"},
+			Budget:      proof.budget(),
 		}
-		limit := len(block.Instrs)
-		if block == start.Block() {
-			limit = startIndex
+		transfer := lifecycle.OwnershipTransferRequest{
+			Instruction: instruction,
+			Value:       command,
+			Modes:       lifecycle.TransferCapturedByClosure,
 		}
-		for _, instruction := range block.Instrs[:limit] {
-			completion := lifecycle.CompletionRequest{
-				Instruction: instruction,
-				Target:      command,
-				Methods:     []string{"Wait"},
-				Budget:      proof.budget(),
-			}
-			transfer := lifecycle.OwnershipTransferRequest{
-				Instruction: instruction,
-				Value:       command,
-				Modes:       lifecycle.TransferCapturedByClosure,
-			}
-			result := proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
-				Instruction: instruction,
-				Target:      command,
-				Completion:  &completion,
-				Transfer:    &transfer,
-			})
-			if abandoned(result) ||
-				result.Proven() && (result.Reason == ssaflow.EvidenceDeferredCompletion || result.Reason == ssaflow.EvidenceCapturedByClosure) {
-				return true
-			}
+		result := proof.evidence.Prove(lifecyclefacts.EvidenceRequest{
+			Instruction: instruction,
+			Target:      command,
+			Completion:  &completion,
+			Transfer:    &transfer,
+		})
+		if abandoned(result) ||
+			result.Proven() && (result.Reason == ssaflow.EvidenceDeferredCompletion || result.Reason == ssaflow.EvidenceCapturedByClosure) {
+			return true
 		}
 	}
 	return false
 }
 
-func processOwnersRegisteredBefore(function *ssa.Function, start *ssa.Call, command ssa.Value) []ssa.Value {
+func processOwnersRegisteredBefore(before []ssa.Instruction, command ssa.Value) []ssa.Value {
 	var owners []ssa.Value
-	startIndex := ssaflow.InstructionIndex(start)
-	for _, block := range function.Blocks {
-		if !block.Dominates(start.Block()) {
+	for _, instruction := range before {
+		call, ok := instruction.(*ssa.Call)
+		if !ok || call.Common().StaticCallee() == nil {
 			continue
 		}
-		limit := len(block.Instrs)
-		if block == start.Block() {
-			limit = startIndex
-		}
-		for _, instruction := range block.Instrs[:limit] {
-			call, ok := instruction.(*ssa.Call)
-			if !ok || call.Common().StaticCallee() == nil {
-				continue
-			}
-			for _, argument := range call.Common().Args {
-				if heapmodel.MayAlias(argument, command) {
-					owners = append(owners, call)
-					if call.Referrers() != nil {
-						for _, reference := range *call.Referrers() {
-							if result, ok := reference.(*ssa.Extract); ok {
-								owners = append(owners, result)
-							}
+		for _, argument := range call.Common().Args {
+			if heapmodel.MayAlias(argument, command) {
+				owners = append(owners, call)
+				if call.Referrers() != nil {
+					for _, reference := range *call.Referrers() {
+						if result, ok := reference.(*ssa.Extract); ok {
+							owners = append(owners, result)
 						}
 					}
-					break
 				}
+				break
 			}
 		}
 	}

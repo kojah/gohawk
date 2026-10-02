@@ -329,31 +329,27 @@ func opaqueGroupOrigin(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 // obligation before this function could observe completion.
 func (analysis *spawnAnalysis) dominatingProof() (GoroutineProof, bool) {
 	unknown := false
-	for _, block := range analysis.function.Blocks {
-		if !block.Dominates(analysis.spawn.Block()) {
-			continue
-		}
-		for _, instruction := range block.Instrs {
-			if !ssaflow.InstructionDominates(instruction, analysis.spawn) || instruction == analysis.spawn {
-				continue
+	budget := analysis.budget()
+	for instruction := range ssaflow.InstructionsStrictlyDominatingWithin(analysis.spawn, budget) {
+		_, deferred := instruction.(*ssa.Defer)
+		// Testing callbacks also execute later, even when registration
+		// precedes the spawn. An ordinary Wait before spawn still cannot join.
+		// https://github.com/miniscruff/changie/blob/e78b7fcae4fd76fc588b6442117ef99c39835e15/then/write.go#L19-L35
+		deferred = deferred || ssaflow.HasLibraryContract(ssaflow.InstructionCall(instruction), ssaflow.ContractTestingCleanup)
+		switch analysis.action(instruction) {
+		case actionJoin:
+			if deferred {
+				return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonDeferredJoinBeforeSpawn}, true
 			}
-			_, deferred := instruction.(*ssa.Defer)
-			// Testing callbacks also execute later, even when registration
-			// precedes the spawn. An ordinary Wait before spawn still cannot join.
-			// https://github.com/miniscruff/changie/blob/e78b7fcae4fd76fc588b6442117ef99c39835e15/then/write.go#L19-L35
-			deferred = deferred || ssaflow.HasLibraryContract(ssaflow.InstructionCall(instruction), ssaflow.ContractTestingCleanup)
-			switch analysis.action(instruction) {
-			case actionJoin:
-				if deferred {
-					return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonDeferredJoinBeforeSpawn}, true
-				}
-			case actionTransfer:
-				return GoroutineProof{Outcome: GoroutineTransferred, Reason: reasonOwnershipTransfer}, true
-			case actionUnknown:
-				unknown = true
-			case actionNone:
-			}
+		case actionTransfer:
+			return GoroutineProof{Outcome: GoroutineTransferred, Reason: reasonOwnershipTransfer}, true
+		case actionUnknown:
+			unknown = true
+		case actionNone:
 		}
+	}
+	if budget.Exhausted() {
+		return analysis.lifetimeCutoff(budget, "pre-spawn-census", reasonPreSpawnCensusCutoff), true
 	}
 	if unknown {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true
