@@ -46,6 +46,16 @@ func processOwnerDominatesStart(
 	owners []ssa.Value, before []ssa.Instruction,
 ) bool {
 	for _, instruction := range before {
+		// Only deferred launches can register cleanup for this caller's
+		// return. A helper's own defer completes before that helper returns;
+		// a goroutine launch is not a deferred registration. Keep the exact
+		// testing.Cleanup contract, which the completion engine also defers.
+		_, deferred := instruction.(*ssa.Defer)
+		call, called := instruction.(*ssa.Call)
+		registered := called && ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup)
+		if !deferred && !registered {
+			continue
+		}
 		for _, owner := range owners {
 			completion := lifecycle.CompletionRequest{
 				Instruction: instruction,

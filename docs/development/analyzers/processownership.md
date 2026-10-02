@@ -235,6 +235,17 @@ source-position policy. A capture is possible supervision, never exact Wait.
 The enclosing cleanup-registration policy keeps that uncertainty distinct from
 unconditional callee guarantees.
 
+Wrapper supervision submits only deferred launches to completion: `defer` and
+synchronous registrations with the exact `testing.Cleanup` contract. Ordinary
+calls, including a helper with its own defer, complete in the helper's scope;
+goroutine launches have a separate completion reason. Neither can supply the
+deferred-completion reason accepted by this startup policy. Skipping those
+queries avoids spending allowance mapping every earlier helper against every
+owner result. The command's own cleanup/transfer questions remain separate.
+No filter uses value definition order, since a later result may alias an already
+existing object. `startup_queries_test.go` pins all launch forms, a missing
+watcher, retained `testing.Cleanup` supervision and deferred cutoff uncertainty.
+
 Successful-Start return reachability has a structured result. Proven no-return
 branches can end startup analysis; a cutoff leaves ownership unknown and cannot
 be inverted into a no-return guarantee. The ordinary success-branch selector,

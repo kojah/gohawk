@@ -3,6 +3,7 @@ package processownership
 import (
 	"testing"
 
+	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -94,4 +95,55 @@ func startupTestCall(t *testing.T, fn *ssa.Function) *ssa.Call {
 	}
 	t.Fatal("compiled SSA has no Start")
 	return nil
+}
+
+func TestStartupWrapperDeferredLaunches(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "startupdeferred", `package startupdeferred
+ import("os/exec";"testing")
+ type holder struct{cmd *exec.Cmd}
+ func(owner *holder)close(){}
+ func(owner *holder)Close(){owner.close()}
+ func nested(owner *holder){defer owner.Close()}
+ func called(cmd *exec.Cmd,owner *holder){owner.Close();cmd.Start();go func(){println(owner)}()}
+ func nestedCall(cmd *exec.Cmd,owner *holder){nested(owner);cmd.Start();go func(){println(owner)}()}
+ func spawned(cmd *exec.Cmd,owner *holder){go owner.Close();cmd.Start();go func(){println(owner)}()}
+ func deferred(cmd *exec.Cmd,owner *holder){defer owner.Close();cmd.Start();go func(){println(owner)}()}
+ func unwatched(cmd *exec.Cmd,owner *holder){defer owner.Close();cmd.Start()}
+ func registered(cmd *exec.Cmd,owner *holder,t *testing.T){t.Cleanup(func(){owner.Close()});cmd.Start();go func(){println(owner)}()}
+ `)
+	for _, test := range []struct {
+		name     string
+		want     bool
+		deferred bool
+	}{
+		{"called", false, false},
+		{"nestedCall", false, false},
+		{"spawned", false, false},
+		{"deferred", true, true},
+		{"unwatched", false, true},
+		{"registered", true, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fn := pkg.Func(test.name)
+			start := startupTestCall(t, fn)
+			var before []ssa.Instruction
+			for instruction := range ssaflow.InstructionsStrictlyDominatingWithin(start, nil) {
+				before = append(before, instruction)
+			}
+			for _, limit := range []int{0, processPoolBudget} {
+				proof := &commandProof{pool: ssaflow.NewSearchBudget(limit), evidence: lifecyclefacts.NewLifecycleEvidence(nil, "test", "startup-wrapper")}
+				got := processOwnerDominatesStart(proof, fn, start, []ssa.Value{fn.Params[1]}, before)
+				want := test.want
+				if limit == 0 {
+					want = test.deferred
+				}
+				if got != want {
+					t.Fatalf("allowance %d: accepted=%v, want %v", limit, got, want)
+				}
+				if !test.deferred && proof.pool.Exhausted() {
+					t.Fatal("non-deferred launch spent completion allowance")
+				}
+			}
+		})
+	}
 }

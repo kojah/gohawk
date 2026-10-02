@@ -5011,3 +5011,25 @@ still includes budget cutoffs and receives no FP credit. Ferro's invalid void
 owner is gone, but the next pipe-owner query cuts off. Constructor-state,
 caller-precondition, reader/session completion and guarded-publication models
 remain unresolved. No full precision replay or broad completion claim is made.
+
+## Startup wrapper completion launch selection
+
+Bead `gohawk-dho.23.20` selects the launch forms the existing wrapper startup
+policy can accept: deferred calls and synchronous `testing.Cleanup`
+registrations. Ordinary calls, even helpers that defer inside their own scope,
+and goroutine launches cannot produce the deferred-completion reason this
+policy requires. Their completion queries were spending allowance across the
+owner inventory and suppressing candidates after irrelevant cutoffs. The
+command's own cleanup/transfer queries remain separate. Definition order is
+not used to reject targets, since later results can alias earlier objects.
+
+Parent-failing actual SSA controls cover all launch forms, required watchers
+and retained uncertainty for deferred cutoffs. Full all-check fixture payloads
+remain identical at producer 22 and process 41. Canonical local verification
+passes. The clean pinned Ferro payload remains identical, but startup now
+reaches `command-use-budget-exhausted` rather than the irrelevant wrapper
+completion cutoff. Its silence still receives no FP credit. The
+[scoped audit](../../benchmarks/precision/audits/process-startup-completion-launches-2026-10-03.md)
+records exact source, binary, receipt and trace evidence. Seven production
+sites plus Rune and broader semantic/partial-duplication review remain open;
+no full precision replay or completion claim is made.
