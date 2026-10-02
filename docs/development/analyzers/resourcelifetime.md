@@ -40,7 +40,8 @@ pool's observer and remains unknown. The classifier budget regression exercises
 an exhausted pool through the real helper classification and checks exactly one
 method-completion give-up at the call. A helper with more than the storage limit
 in actual SSA remains provably cleaned up. The pre-acquisition deferred query
-still has its own bounded allowance; this change does not move that boundary.
+now shares the candidate pool through its census and nested anywhere-completion
+queries; it retains the existing may-release semantics.
 
 The resource coverage walk now shares the existing candidate pool for its
 acquisition index and reachability, dominating guards, queued states, guard
@@ -1002,3 +1003,24 @@ retains its distinct contract and graph/type internals remain independent costs.
 captured cells, saved values, Tx-prepared statements, all insufficient allowances
 and cutoff/fresh recovery in both consumers. Existing SQL parent fixtures retain
 conditional cleanup diagnostics and accepted exact-parent cleanup forms.
+
+### Pre-acquisition deferred completion allowance
+
+`prior_deferred_completion.go` asks the existing lifecycle evidence engine about
+all dominating defers with anywhere coverage. Instruction census and nested
+completion queries share one child allowance from the observed candidate pool;
+a completed witness supplies prior-defer uncertainty, never exact settlement.
+The pool is created after the existing memory, HTTP, acquisition-error and
+optional-acquisition boundaries, with the final optional resource binding, and
+is reused by owner discovery and ordinary flow. Cutoff returns budget unknown
+rather than an exhausted negative or an exact cleanup label.
+
+Local completion memoization discards interrupted proofs, allowing a larger
+fresh query in the same evidence context to retry. Complete evidence retains
+ordinary reuse. `prior_deferred_completion_test.go` covers captured conditional
+cleanup, unrelated and by-value defers, non-deferred registration, multiple
+defers, child cutoff, nested completion under a census-sufficient allowance,
+and fresh recovery. The independent nested-budget counterfactual must fail;
+`evidence_local_test.go` separately pins no cache publication at cutoff.
+Earlier HTTP/context/error/optional predicates and graph/type internals retain
+separate cost scope. Ordinary resource flow remains the sole diagnostic proof.

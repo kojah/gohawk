@@ -199,3 +199,30 @@ func caller(value *closer) {
 		t.Fatalf("completion cache entries = %d, want 1", len(evidence.completions))
 	}
 }
+
+func TestLocalCompletionCutoffIsNotCached(t *testing.T) {
+	pkg := buildTestSSA(t, `package ssaflowtest
+ type closer struct{}
+ func (*closer) Close(){}
+ func cleanup(value *closer){value.Close()}
+ func caller(value *closer){cleanup(value)}
+ `)
+	fn := pkg.Func("caller")
+	instruction := findSSAInstruction(t, fn, func(instruction ssa.Instruction) bool {
+		return ssaflow.CallName(ssaflow.InstructionCall(instruction)) == "cleanup"
+	})
+	request := CompletionRequest{Instruction: instruction, Target: fn.Params[0], Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(0)}
+	var evidence LocalEvidence
+	cut := evidence.Completion(request)
+	if cut.State != ssaflow.EvidenceUnknown || cut.Reason != ssaflow.EvidenceBudgetExhausted || len(evidence.completions) != 0 {
+		t.Fatalf("interrupted completion cached: %+v, entries %d", cut, len(evidence.completions))
+	}
+	request.Budget = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	fresh := evidence.Completion(request)
+	if !fresh.Proven() || len(evidence.completions) != 1 {
+		t.Fatalf("fresh completion = %+v, entries %d", fresh, len(evidence.completions))
+	}
+	if reused := evidence.Completion(request); reused != fresh {
+		t.Fatalf("complete evidence changed on reuse: %+v", reused)
+	}
+}

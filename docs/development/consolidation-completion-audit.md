@@ -2973,3 +2973,45 @@ byte-identical to the prior-cleanup baseline, exits 3/0 and empty stderr.
 The final canonical gate passes, including ordinary tests (86 seconds) and
 repository dogfood (44 seconds). Final documentation/architecture checks pass.
 The bounded SQL parent task is complete; earlier acquisition work remains open.
+
+## Pre-acquisition deferred completion
+
+`gohawk-dho.44.11.5.17.4` replaces the default defer census and independent
+per-defer completion budgets with one structured query in
+`prior_deferred_completion.go`. The candidate infrastructure is constructed
+once after existing memory/HTTP/error/optional gates, with the final optional
+resource binding. Its observed pool now feeds the dominating-defer instruction
+census and every nested CoverageAnywhere completion request, then owner
+discovery, prior registration and ordinary flow. A completed witness retains
+prior-defer may-release uncertainty, never exact settlement; cutoff is explicit
+budget unknown rather than a completed negative.
+
+Six actual-SSA controls cover mutable conditional capture, unrelated and
+by-value defers, non-deferred registration, later registration and no cleanup.
+Multiple-defer, child-cutoff and fresh controls retain the same source policy.
+A nested fixture has enough allowance for its whole caller census but too
+little for the deferred body: giving completion a fresh independent budget
+fails that control. The ignored-census allowance overlay fails all six family
+controls and the child cutoff. Existing full-flow leak/release, prior-cleanup
+and helper-observer controls remain passing. Actual SSA receipts are in
+`.build/goal-prior-deferred-fixture.ssa.txt`.
+
+The nested recovery control exposed a real shared cache defect, child
+`.17.4.1`: `LocalEvidence.Completion` retained EvidenceBudgetExhausted under a
+key that contains no allowance. A later larger query returned that stale
+cutoff. Interrupted proofs now bypass cache publication; complete proofs retain
+ordinary reuse. A layer-local actual-SSA regression checks cutoff/no-cache,
+fresh successful completion and completed cache reuse. Reinstating the old
+cache publication fails it. Resource nested fresh recovery also passes. The
+per-request CallContract lookup's separate cache-policy question is tracked
+under `.44.11.5.20`; it is not assumed fixed by this budget correction.
+
+The canonical gate passes, including ordinary tests and repository dogfood.
+Immutable `.build/goal-prior-deferred-current`, SHA-256
+`95b2c0abea7f1c355dae7c2f548ed743f730aa7b7dc92b6607ec58dcd8accf2b`,
+keeps pinned Cute/Ferro resource JSON byte-identical to the final SQL-parent
+binary, exits 3/0 with empty stderr. Pins/scopes remain those recorded above;
+Cute's known TP remains and Ferro's corrected statement-storage report stays
+absent. No new FP correction or full precision replay is credited. Earlier
+HTTP/context/error/optional predicates and graph/type internals remain separate
+cost scope; parent `.17` and the broader objective remain open.

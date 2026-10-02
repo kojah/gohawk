@@ -63,6 +63,11 @@ func (evidence *LocalEvidence) Completion(request CompletionRequest) ssaflow.Com
 	}
 	request.ReturnedSummaries = evidence.returned
 	proof := ProveCompletion(request)
+	// A cutoff describes this request's allowance, not the callee's behavior.
+	// Retaining it would prevent a later query with fresh allowance from deciding.
+	if proof.Reason == ssaflow.EvidenceBudgetExhausted || request.Budget.Exhausted() || request.Budget.PoolExhausted() {
+		return proof
+	}
 	if evidence.completions == nil {
 		evidence.completions = make(map[completionEvidenceKey]ssaflow.CompletionProof)
 	}

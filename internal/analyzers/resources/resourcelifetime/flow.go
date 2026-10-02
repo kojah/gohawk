@@ -49,18 +49,21 @@ func evaluateResourceFlow(
 	if optionalAcquisition.Proven() {
 		resource = optionalAcquisition.resourcePhi
 	}
-	// This pre-acquisition query uses anywhere coverage: a deferred loop may
-	// release the resource, but it does not prove every-return settlement of
-	// this exact acquisition. Preserve that uncertainty in the final proof.
-	if deferredBeforeAcquisitionMayRelease(evidence, call, resource, contract.cleanup) {
-		return unknownResourceLifetime(resourceReasonPriorDeferMayRelease)
-	}
 	analysis := &resourceAnalysis{
 		acquisition: call,
 		summaries:   resourceSummaries.Provider(pass),
 		pass:        pass, evidence: evidence, function: call.Parent(), resource: resource, candidate: call.Pos(),
 		contract: contract, optional: optionalAcquisition, actions: map[ssa.Instruction]resourceAction{},
 		probe: analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()),
+	}
+	// This query uses anywhere coverage, not every-return settlement. A
+	// dominating defer may release a later acquisition through captured storage.
+	deferred := analysis.proveDeferredBeforeAcquisitionWithin(call, analysis.budget(releaseSearchBudget))
+	if deferred.State == ssaflow.EvidenceUnknown {
+		return unknownResourceLifetime(deferred.Reason)
+	}
+	if deferred.Proven() {
+		return unknownResourceLifetime(resourceReasonPriorDeferMayRelease)
 	}
 	owners := analysis.discoverResourceOwnersWithin(analysis.budget(releaseSearchBudget))
 	if !owners.Proven() {
@@ -230,42 +233,6 @@ func errorAssertionDominatesNil(assertedError ssa.Instruction, nilAssertions []s
 func fatalErrorAssertion(instruction ssa.Instruction) bool {
 	common := ssaflow.InstructionCall(instruction)
 	return ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyFatalError)
-}
-
-// deferredBeforeAcquisitionMayRelease reports whether a defer registered on
-// every path to the acquisition may release the resource: typically a literal
-// that drains a captured closer slice the resource is appended to later. The
-// walk below only classifies instructions after the acquisition, so such a
-// defer is asked here, with may-release coverage because the deferred
-// literal decides at return time how many entries it closes. rules_img opens
-// inputs into a closer slice under one deferred drain loop:
-// https://github.com/bazel-contrib/rules_img/blob/af5e1452f0cb68b1ed64dc6095210f1eb4ae625f/img_tool/cmd/mtree/mtree.go#L110-L128
-func deferredBeforeAcquisitionMayRelease(
-	evidence *lifecyclefacts.LifecycleEvidence,
-	call *ssa.Call,
-	resource ssa.Value,
-	methods []string,
-) bool {
-	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](call.Parent()) {
-		if !ssaflow.InstructionDominates(deferred, call) {
-			continue
-		}
-		completion := lifecycle.CompletionRequest{
-			Instruction: deferred,
-			Target:      resource,
-			Methods:     methods,
-			Coverage:    lifecycle.CoverageAnywhere,
-			Budget:      ssaflow.NewSearchBudget(releaseSearchBudget),
-		}
-		proof := evidence.Prove(lifecyclefacts.EvidenceRequest{Instruction: deferred, Target: resource, Completion: &completion})
-		// This may-release boundary keeps an exhausted search uncertain. It
-		// does not turn that early exit into an exact instruction discharge.
-		action, reason := releaseLabel(proof)
-		if action == actionSettled || reason == resourceReasonBudgetExhausted {
-			return true
-		}
-	}
-	return false
 }
 
 // processExitReclaims accepts a resource that program exit genuinely cleans
