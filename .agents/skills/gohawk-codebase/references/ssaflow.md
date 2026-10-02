@@ -1394,6 +1394,20 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool
 
 HasLibraryContract reports whether common exactly matches a registered API.
 
+## HasReturnAndAction
+
+[Source](../../../../internal/ssaflow/value_instructions.go)
+
+```go
+func HasReturnAndAction(blocks []*ssa.BasicBlock, action func(ssa.Instruction) bool) bool
+```
+
+HasReturnAndAction reports independent witnesses for a normal return and a
+matching instruction in blocks. It proves neither ordering nor coverage;
+callers select the blocks and must still ask their path-sensitive query.
+The predicate is evaluated in block/instruction order only until its first
+match; finding a return does not stop enumeration before an action is found.
+
 ## IdentityProof
 
 [Source](../../../../internal/ssaflow/proof_types.go)

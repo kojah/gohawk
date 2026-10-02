@@ -263,16 +263,7 @@ func (projection *heapProjection) receiverRequirements(common *ssa.CallCommon) [
 // completion search, asked of the flow directly. A function that never
 // returns, or never makes such a call, requires nothing.
 func onEveryReturn(function *ssa.Function, budget *ssaflow.SearchBudget, calls func(ssa.Instruction) bool) bool {
-	hasReturn, hasCall := false, false
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if _, ok := instruction.(*ssa.Return); ok {
-				hasReturn = true
-			}
-			hasCall = hasCall || calls(instruction)
-		}
-	}
-	if !hasReturn || !hasCall {
+	if !ssaflow.HasReturnAndAction(function.Blocks, calls) {
 		return false
 	}
 	flow := ssaflow.ObligationFlow{Instruction: ssaflow.ExactOrNone(calls), Budget: budget}

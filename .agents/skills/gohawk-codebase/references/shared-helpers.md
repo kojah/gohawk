@@ -68,6 +68,7 @@ that only need to know whether some return is uncovered.
 | `WalkStates(initial, key, step)` | a keyed work list over path-sensitive states; the caller owns the state type and transfer, the driver owns termination |
 | `InstructionsReachableAfter(start)` | every instruction reachable forward from a point |
 | `InstructionsOf[T](function)` | every instruction of one type in a function |
+| `HasReturnAndAction(blocks, action)` | independent normal-return and matching-action witnesses in selected blocks; does not prove ordering or path coverage |
 
 ## Did the callee finish the obligation?
 

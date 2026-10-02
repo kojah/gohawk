@@ -60,16 +60,8 @@ func methodCallCoverageAssuming(
 	}
 	switch coverage {
 	case CoverageEveryReturn:
-		hasReturn, hasCall := false, false
-		for _, block := range blocks {
-			for _, candidate := range block.Instrs {
-				if _, ok := candidate.(*ssa.Return); ok {
-					hasReturn = true
-				}
-				hasCall = hasCall || calls(candidate)
-			}
-		}
-		return hasReturn && hasCall && ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Assume: assumptions, Owns: calls}) == nil
+		return ssaflow.HasReturnAndAction(blocks, calls) &&
+			ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Assume: assumptions, Owns: calls}) == nil
 	case CoverageAnywhere:
 	}
 	return slices.ContainsFunc(blocks, func(block *ssa.BasicBlock) bool {

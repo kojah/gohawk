@@ -44,14 +44,11 @@ func requestedChecks(arguments []string, metadata map[string]gohawk.AnalyzerInfo
 			remaining = append(remaining, argument)
 			continue
 		}
-		if !hasValue {
-			trailing := arguments[index+1:]
-			if len(trailing) == 0 {
-				return checkSelection{}, nil, fmt.Errorf("-%s requires a comma-separated value", name)
-			}
-			raw = trailing[0]
-			index++
+		raw, consumed, err := selectionFlagValue(name, raw, hasValue, arguments[index+1:])
+		if err != nil {
+			return checkSelection{}, nil, err
 		}
+		index += consumed
 		if raw == "" {
 			return checkSelection{}, nil, fmt.Errorf("-%s requires at least one check", name)
 		}
@@ -206,13 +203,11 @@ func requestedAnalyzers(arguments []string, available map[string]bool) (analyzer
 		if name == "disable" {
 			target, action = requested.disabled, "disabled"
 		}
-		if !hasValue {
-			index++
-			if index >= len(arguments) {
-				return analyzerNameSelection{}, nil, fmt.Errorf("-%s requires a comma-separated value", name)
-			}
-			raw = arguments[index]
+		raw, consumed, err := selectionFlagValue(name, raw, hasValue, arguments[index+1:])
+		if err != nil {
+			return analyzerNameSelection{}, nil, err
 		}
+		index += consumed
 		if raw == "" {
 			return analyzerNameSelection{}, nil, fmt.Errorf("-%s requires at least one analyzer", name)
 		}
@@ -259,13 +254,11 @@ func requestedAnalyzerGroups(arguments []string, groups []gohawk.AnalyzerGroup) 
 		if name == "disable-groups" {
 			target, action = requested.disabled, "disabled"
 		}
-		if !hasValue {
-			index++
-			if index >= len(arguments) {
-				return analyzerGroupSelection{}, nil, fmt.Errorf("-%s requires a comma-separated value", name)
-			}
-			raw = arguments[index]
+		raw, consumed, err := selectionFlagValue(name, raw, hasValue, arguments[index+1:])
+		if err != nil {
+			return analyzerGroupSelection{}, nil, err
 		}
+		index += consumed
 		if raw == "" {
 			return analyzerGroupSelection{}, nil, fmt.Errorf("-%s requires at least one group", name)
 		}
@@ -354,4 +347,17 @@ func analyzerSelection(argument string, names map[string]bool) (string, bool, bo
 	}
 	enabled, err := strconv.ParseBool(raw)
 	return name, enabled, err == nil
+}
+
+// selectionFlagValue extracts one recognized selector's value. A following
+// flag is consumed as a value too, preserving the selectors' existing parser
+// behavior; kind-specific validation and empty-value errors stay with callers.
+func selectionFlagValue(name, raw string, inline bool, trailing []string) (string, int, error) {
+	if inline {
+		return raw, 0, nil
+	}
+	if len(trailing) == 0 {
+		return "", 0, fmt.Errorf("-%s requires a comma-separated value", name)
+	}
+	return trailing[0], 1, nil
 }

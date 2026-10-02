@@ -34,3 +34,21 @@ func InstructionsOf[T ssa.Instruction](function *ssa.Function) []T {
 	}
 	return result
 }
+
+// HasReturnAndAction reports independent witnesses for a normal return and a
+// matching instruction in blocks. It proves neither ordering nor coverage;
+// callers select the blocks and must still ask their path-sensitive query.
+// The predicate is evaluated in block/instruction order only until its first
+// match; finding a return does not stop enumeration before an action is found.
+func HasReturnAndAction(blocks []*ssa.BasicBlock, action func(ssa.Instruction) bool) bool {
+	hasReturn, hasAction := false, false
+	for _, block := range blocks {
+		for _, instruction := range block.Instrs {
+			if _, ok := instruction.(*ssa.Return); ok {
+				hasReturn = true
+			}
+			hasAction = hasAction || action(instruction)
+		}
+	}
+	return hasReturn && hasAction
+}

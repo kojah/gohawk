@@ -422,6 +422,58 @@ Both resource scans exit 3 with empty stderr and identical nonempty diagnostic
 JSON (335,147 bytes). No FP correction, full precision corpus replay or local
 race run is credited.
 
+## Return/action witnesses and selector values
+
+Beads `gohawk-dho.35` and `gohawk-dho.36` review the remaining scan and parser
+candidates at baseline `9853502`. The return/action enumeration in heap
+requirements and lifecycle completion has the same contract and now belongs
+to `ssaflow.HasReturnAndAction`. It supplies independent witnesses only, not
+evidence that an action covers a return. The predicate remains short-circuited
+after its first match, while normal-return enumeration continues; this retains
+the query order of predicates that charge a budget. The helper adds no budget
+or feasibility policy. Heap requirements retain their bounded obligation flow;
+lifecycle completion retains its selected reachable blocks, entry assumptions
+and uncovered-return query. Nonreturning functions establish no guarantee.
+
+The CLI review found the same value extraction in check selectors, outside the
+two exact block matches for analyzer and group selectors. `selectionFlagValue`
+now owns inline-versus-following extraction for all three. It returns the
+number of trailing arguments consumed. Missing-value wording stays identical;
+empty-value wording, supported-name validation, duplicate/conflict checks and
+selection precedence remain with the callers. A following flag is still
+consumed as the value and rejected by name validation; this extraction does
+not introduce a general argument parser or change that existing behavior.
+
+Focused SSA, heap and lifecycle package tests and CLI selector tests pass. The
+new witness control uses actual SSA to cover absent returns, absent actions,
+optional actions, blocks excluded by a fixed condition and predicate calls
+stopping after the first action while the later return is still observed.
+Existing heap budget-cut and lifecycle condition controls retain the subsequent
+coverage proof. The normal-return witness is deliberately separate from the
+flow's vacuous acceptance of a function without a normal exit.
+
+The nested-block scan now covers 271 production files and 1,999 functions,
+with 14 candidate groups at 35 tokens
+(`.build/goal-duplicate-blocks-after-witness-selection.json`). The remaining
+groups still require contract dispositions; this reduction is not a broader
+absence proof. Generated helper documentation includes the witness API.
+
+The canonical local gate passes all targets
+(`.build/goal-witness-selection-verify.log`), including ordinary tests
+(91 seconds). Parent/current comparison of 24 CLI invocations retains every
+exit status and exact stdout/stderr: six valid enable/disable selections across
+analyzers, groups and checks exit 0; 18 missing, empty and following-flag values
+exit 2. Receipts use `.build/goal-witness-selection-{parent,current}-cases.json`
+and the prior two-file local probe. The resource fixture comparison retains
+identical nonempty diagnostic JSON (335,147 bytes), exit 3 and empty stderr,
+reusing the previous receipt from the unchanged baseline executable hash.
+The retained baseline hash is
+`20ce2f13e30a204de684fb0ae18dd5defa2b13b42c5116b9fc05cc9185ff3c25`;
+the corrected hash is
+`735f414e60f1a599f8b2930e4a8b0239d7d9ea08f97b358353018e5558c343d7`.
+These identify pre-commit executables, not clean VCS stamps. No FP removal,
+fact-schema change, full precision corpus replay or local race run is credited.
+
 ## Next verification
 
 After the catalog reporting-boundary consolidations, the architecture audit
