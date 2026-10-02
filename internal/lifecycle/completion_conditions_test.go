@@ -22,6 +22,9 @@ func nilSuccess(r *resource, yes bool, err error) error { if yes { r.Close(); re
 func recurse(r *resource, yes bool) bool { return recurse(r, yes) }
 func invoke(fn func(), yes bool) bool { if yes { fn(); return true }; return false }
 func good(r *resource, yes bool) { if maybe(r, yes) { return }; r.Close() }
+func storedDouble(r *resource, yes bool) { a := !maybe(r, yes); b := !a; if b { return }; r.Close() }
+func storedOddFalse(r *resource, yes bool) { a := !lie(r, yes); if a { return }; r.Close() }
+func storedOddLie(r *resource, yes bool) { a := !maybe(r, yes); if a { return }; r.Close() }
 func forwarded(r *resource, yes bool) { if forward(r, yes) { return }; r.Close() }
 func other(r, another *resource, yes bool) { if wrong(r, another, yes) { return }; r.Close() }
 func falseResult(r *resource, yes bool) { if !lie(r, yes) { return }; r.Close() }
@@ -58,6 +61,9 @@ func TestConditionalCompletion(t *testing.T) {
 		want bool
 	}{
 		{"good", true},
+		{"storedDouble", true},
+		{"storedOddFalse", true},
+		{"storedOddLie", false},
 		{"forwarded", true},
 		{"other", false},
 		{"falseResult", true},

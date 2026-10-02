@@ -499,6 +499,76 @@ documentation checks also pass after correcting the test reference. No full
 precision replay or local race run was performed. This bounded correction
 does not settle the deeper duplicate-classification review or overall objective.
 
+## Boolean-negation traversal and finite candidate dispositions
+
+Beads `gohawk-dho.38` reviews the current nested-block candidates at `9f19d82`.
+Graph discovery tools remain unavailable. The source-based scanner covers 271
+internal production files and 1,999 functions, yielding 14 groups. It normalizes
+all identifier names, including predeclared names, and compares whole nested AST
+blocks of at least 35 tokens. Tests, generated files, fixtures and vendor trees
+are excluded. It does not find arbitrary subsequences, differently structured
+logic, smaller blocks, or code outside its scope; this is a finite review rather
+than a proof that the repository has no remaining duplication.
+
+The NOT-chain traversal shared by fixed branch evaluation and concurrency
+condition binding is now `ssaflow.BooleanNegationSource`. Two recursive copies
+in guard decoding and conditional completion use the same helper. It returns
+only the exact leaf and odd/even inversion parity. Loads, comparisons,
+conversions and phi merges remain leaves; stability, binding and cleanup
+semantics stay with each caller. Concurrency binding still declines prior call
+contexts, captured parameters and negation peeling for a compared condition.
+The goroutine analyzer's separate single-negation acceptance rules are unchanged.
+
+Actual probe SSA is `.build/goal-negation-probe.ssa.txt`, with empty stderr and
+exit 0. It shows explicit stored one-, two- and three-NOT chains, a pointer load,
+a named Boolean conversion, a comparison and a phi. Focused tests in the flow,
+lifecycle and concurrency-facts packages pass (0.423, 0.529 and 3.294 seconds).
+The added controls check parity and opaque leaves, exact fixed bindings,
+concurrency binding gates, and stored-negation conditional cleanup. Generated
+helper references include the new contract.
+
+The current scanner then covers 271 files and 2,001 functions with 13 groups
+(`.build/goal-duplicate-blocks-after-negation.json`). Each remaining group was
+read at its named decision point; the following dispositions apply to this
+finite set:
+
+| Tokens | Candidate | Contract disposition |
+| --- | --- | --- |
+| 64 | Resource and generic obligation state keys | Both use the work-list driver; one keys rich resource obligations, the other the generic coverage lattice. Domain state and guard keys remain caller-owned. |
+| 56 | Spawn/resource classifier caches | Both invoke their authoritative classifier once and trace that result; actions, reasons and trace details belong to different evidence families. No parallel acceptance decision is introduced. |
+| 55 | Field/global/enclosing-scope stores | Field/global transfers ask possible alias; captured-scope transfer asks derivation and a distinct destination. Shared provenance already supplies those queries. |
+| 52 and 41 | Callback address / aggregate root | Callback locality walks only index/slice forms, with an eight-step bound; aggregate ownership follows field/index addresses without that bound and returns a root for exact access-path queries. A shared unconditional unwrap would change their precision boundaries. The inner 41-token match is part of the same comparison. |
+| 51 | Stable Boolean identity arms | Same Boolean type and identity construction repeated for two stability sources. Actionable consolidation is tracked in `gohawk-dho.39`; computed values must retain cycle restrictions and comparisons must retain their separate policy. |
+| 44 | Spawn/resource budget adapters | Candidate pool ownership, domain limits and observers differ; charging and exhaustion already use the shared search budget. |
+| 42 | Lock handoff / returned ownership | Argument alias/derivation differs from result alias/aggregate ownership. Their traversal inputs and proof polarity cannot be exchanged. |
+| 40 | Unproven completion results | Distinct unknown reasons share proof construction. Actionable consolidation is tracked in `gohawk-dho.39`; unavailable provenance and budget/cycle/incomplete priority must stay exact. |
+| 38 | Deferred command capture/argument waits | Capture matching precedes argument alias matching intentionally: unknown captured completion must not be reordered behind argument success. Positional mapping and completion machinery are already shared. |
+| 36 | HTTP error/nil claims | Error claims use derivation of the paired error; nil claims use alias of the resource. These are different assertion contracts, with repeated argument matches retained. |
+| 36 | Parameter/result heap truncation | Two disjoint root inventories are explicitly marked truncated on unavailable projection. Parameter count and result count are different schema contracts. |
+| 35 | Identity/projection/transfer proof literals | Similar record syntax carries different proof types and semantic reasons. These are domain conclusions, not duplicated evidence searches. |
+
+Parent/current all-check scans of the resource and cancellation fixture packages
+retain byte-identical nonempty diagnostic JSON (370,210 bytes), exit 3 and empty
+stderr. Receipts are `.build/goal-negation-{parent,current}.json`. The retained
+baseline executable, built before this change from production source `9f19d82`,
+has SHA-256 `9074dc85a17845ea0adfc7f929a34946f9c281796d839fcb7ed6446a47141cff`;
+the corrected executable has
+`1250bd66cbbe9c083182bb25f0566e557413393269a0ceba290f0431eb714a28`.
+These are pre-commit executable identities, not clean Git stamps. Their files
+were not replaced during scans. The stable canonical gate passes all targets
+(`.build/goal-negation-final-verify.log`), including ordinary tests (3 seconds).
+The first gate found only new-table formatting; the canonical formatter corrected
+it before the stable gate. The first ordinary suite also passed (76 seconds). No
+precision FP removal, fact-schema change, full corpus replay or local race run
+is credited; the production queue remains 15 sites.
+
+Rune `gohawk-cnx` was separately reassessed from pinned source and current
+`exclusive.go`. Its new mutex is stored in a shared map before acquisition, so
+`heapmodel.ExclusiveAt` cannot supply the existing before-publication proof.
+Proving registry-guarded first acquisition needs participant and publication
+relationships not supplied by that query. This source assessment makes no new
+latest-binary replay or correction claim; the issue remains open.
+
 ## Next verification
 
 After the catalog reporting-boundary consolidations, the architecture audit

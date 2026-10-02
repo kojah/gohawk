@@ -64,11 +64,12 @@ const (
 // the true arm makes the guard false (as a != comparison does), and whether
 // the guard is stable. A condition with no identity reports false.
 func GuardCondition(condition ssa.Value) (identity string, negated, stable, ok bool) {
-	// !x tests x with the arms swapped.
-	if negation, isNot := condition.(*ssa.UnOp); isNot && negation.Op == token.NOT {
-		identity, negated, stable, ok = GuardCondition(negation.X)
-		return identity, !negated, stable, ok
-	}
+	condition, inverted := BooleanNegationSource(condition)
+	identity, negated, stable, ok = guardConditionSource(condition)
+	return identity, negated != inverted, stable, ok
+}
+
+func guardConditionSource(condition ssa.Value) (identity string, negated, stable, ok bool) {
 	if identity, negated, ok := loadedGuard(condition); ok {
 		return identity, negated, false, true
 	}

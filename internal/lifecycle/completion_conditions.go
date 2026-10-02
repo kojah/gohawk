@@ -48,9 +48,8 @@ func completionEdgeCondition(from, to *ssa.BasicBlock) (*ssa.Call, ssaflow.CallC
 }
 
 func completionTest(value ssa.Value, truth bool) (ssa.Value, ssaflow.Outcome) {
-	if not, ok := value.(*ssa.UnOp); ok && not.Op == token.NOT {
-		return completionTest(not.X, !truth)
-	}
+	value, negated := ssaflow.BooleanNegationSource(value)
+	truth = truth != negated
 	if comparison, ok := value.(*ssa.BinOp); ok {
 		return completionComparison(comparison, truth)
 	}

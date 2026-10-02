@@ -33,6 +33,7 @@ that fans out over phi edges or threads its own visited set.
 | `Storage.Resolve`, `Storage.Content`, `Storage.Same` | what value does local storage contain at this point, and does its identity agree? |
 | `Storage.StableContent`, `Storage.Projection` | is captured storage stable, or is an acquired owner's projection still unmodified? |
 | `IdentitySource` | the identity-only source behind wrappers and loads (not for ownership) |
+| `BooleanNegationSource` | the exact operand and odd/even parity of a Boolean NOT chain; loads, comparisons, conversions and merges remain leaves |
 | `PhiIncoming`, `PhiEdgeCount` | inspect one phi without walking it yourself |
 | `UnwrapTransparentValue(value, forms)` | peel exactly the wrapper forms the caller selects |
 

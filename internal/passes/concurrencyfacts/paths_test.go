@@ -1,10 +1,14 @@
 package concurrencyfacts
 
 import (
+	"go/constant"
+	"go/token"
+	"go/types"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
+	"golang.org/x/tools/go/ssa"
 )
 
 func TestBoundedBranchPaths(t *testing.T) {
@@ -53,6 +57,49 @@ func many(a chan int, x, y, z, w bool) {
 		got := engine.Function(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
 		if got.Complete() || len(got.Paths) != 0 {
 			t.Errorf("%s must remain unavailable, got %+v", name, got)
+		}
+	}
+}
+
+func TestParameterConditionNegationBoundaries(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "negated", `package negated
+func direct(flag bool) bool { return flag }
+func odd(flag bool) bool { a := !flag; return a }
+func even(flag bool) bool { a := !flag; b := !a; return b }
+func loaded(flag *bool) bool { return !*flag }
+func caller(supplied bool) {}
+`)
+	supplied := pkg.Func("caller").Params[0]
+	literal := ssa.NewConst(constant.MakeBool(true), types.Typ[types.Bool])
+	for _, test := range []struct {
+		name     string
+		context  bool
+		compared bool
+		captured bool
+		wantOK   bool
+		wantHold bool
+	}{
+		{"direct", false, false, false, true, true},
+		{"odd", false, false, false, true, false},
+		{"even", false, false, false, true, true},
+		{"loaded", false, false, false, false, false},
+		{"odd", true, false, false, false, false},
+		{"odd", false, true, false, false, false},
+		{"direct", false, true, false, true, true},
+		{"odd", false, false, true, false, false},
+	} {
+		fn := pkg.Func(test.name)
+		condition := Condition{Value: ssaflow.InstructionsOf[*ssa.Return](fn)[0].Results[0], Holds: true}
+		if test.context {
+			condition.Context = []token.Pos{1}
+		}
+		if test.compared {
+			condition.Compared = literal
+		}
+		bindings := []ssaflow.CallBinding{{Local: fn.Params[0], Supplied: supplied, Captured: test.captured}}
+		value, holds, ok := parameterCondition(condition, bindings)
+		if ok != test.wantOK || holds != test.wantHold || ok && value != supplied || !ok && value != nil {
+			t.Errorf("%+v: bound %v, holds=%t ok=%t", test, value, holds, ok)
 		}
 	}
 }

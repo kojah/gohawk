@@ -121,6 +121,19 @@ func BlockReachable(from, target *ssa.BasicBlock) bool
 BlockReachable reports whether target is reachable from within their
 shared function. A block is reachable from itself without traversing an edge.
 
+## BooleanNegationSource
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func BooleanNegationSource(value ssa.Value) (ssa.Value, bool)
+```
+
+BooleanNegationSource returns the operand behind a chain of SSA Boolean NOT
+instructions and whether an odd number of negations reverses its truth. It
+stops at every other form, including loads, conversions, comparisons and phi
+merges; it neither evaluates the operand nor establishes its stability.
+
 ## BoundedLoop
 
 [Source](../../../../internal/ssaflow/natural_loops.go)

@@ -246,12 +246,10 @@ func parameterCondition(condition Condition, bindings []ssaflow.CallBinding) (ss
 		return nil, false, false
 	}
 	value, holds := condition.Value, condition.Holds
-	for condition.Compared == nil {
-		negation, ok := value.(*ssa.UnOp)
-		if !ok || negation.Op != token.NOT {
-			break
-		}
-		value, holds = negation.X, !holds
+	if condition.Compared == nil {
+		var negated bool
+		value, negated = ssaflow.BooleanNegationSource(value)
+		holds = holds != negated
 	}
 	parameter, ok := value.(*ssa.Parameter)
 	if !ok {

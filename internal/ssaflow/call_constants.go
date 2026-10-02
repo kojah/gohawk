@@ -202,14 +202,7 @@ func (fixed FixedValues) DecidedSuccessor(block *ssa.BasicBlock) (*ssa.BasicBloc
 // Holds decides a Boolean value from the bindings: a bound Boolean, possibly
 // negated, or a bound nilable value compared with nil.
 func (fixed FixedValues) Holds(condition ssa.Value) (holds, decided bool) {
-	negated := false
-	for {
-		not, ok := condition.(*ssa.UnOp)
-		if !ok || not.Op != token.NOT {
-			break
-		}
-		condition, negated = not.X, !negated
-	}
+	condition, negated := BooleanNegationSource(condition)
 	if comparison, ok := condition.(*ssa.BinOp); ok && (comparison.Op == token.EQL || comparison.Op == token.NEQ) {
 		operand := comparison.X
 		if !DefinitelyNil(comparison.Y) {
@@ -230,6 +223,21 @@ func (fixed FixedValues) Holds(condition ssa.Value) (holds, decided bool) {
 		return false, false
 	}
 	return (outcome == OutcomeTrue) != negated, true
+}
+
+// BooleanNegationSource returns the operand behind a chain of SSA Boolean NOT
+// instructions and whether an odd number of negations reverses its truth. It
+// stops at every other form, including loads, conversions, comparisons and phi
+// merges; it neither evaluates the operand nor establishes its stability.
+func BooleanNegationSource(value ssa.Value) (ssa.Value, bool) {
+	negated := false
+	for {
+		not, ok := value.(*ssa.UnOp)
+		if !ok || not.Op != token.NOT {
+			return value, negated
+		}
+		value, negated = not.X, !negated
+	}
 }
 
 // boundKey names the binding a value reads: the value itself, or the
