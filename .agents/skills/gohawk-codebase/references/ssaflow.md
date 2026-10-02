@@ -1604,6 +1604,19 @@ func InstructionTerminatesWith(instruction ssa.Instruction, terminates Terminato
 InstructionTerminatesWith is InstructionTerminatesControlFlow extended by
 a terminator; a nil terminator leaves the catalog alone.
 
+## InstructionTerminatesWithin
+
+[Source](../../../../internal/ssaflow/flow_termination.go)
+
+```go
+func InstructionTerminatesWithin(instruction ssa.Instruction, terminates Terminator, budget *SearchBudget) bool
+```
+
+InstructionTerminatesWithin shares the allowance across call dispatch,
+deferred registration census and dominance. Exhaustion supplies no positive
+termination evidence; callers retain availability before continuing a path.
+A nil budget preserves the default termination policy.
+
 ## InstructionsOf
 
 [Source](../../../../internal/ssaflow/value_instructions.go)
@@ -1909,7 +1922,7 @@ type ObligationFlow struct {
 	NonNil	ssa.Value
 	// Budget, when set, charges initial setup, queued states, instructions and
 	// guard transitions. Callbacks may share it for their own work; feasibility
-	// and termination internals have separate costs. Exhaustion is uncertain:
+	// and library-contract internals have separate costs. Exhaustion is uncertain:
 	// it cannot establish either a violation or an exact discharge.
 	Budget	*SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,

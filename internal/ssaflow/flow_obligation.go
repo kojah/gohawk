@@ -57,7 +57,7 @@ type ObligationFlow struct {
 	NonNil ssa.Value
 	// Budget, when set, charges initial setup, queued states, instructions and
 	// guard transitions. Callbacks may share it for their own work; feasibility
-	// and termination internals have separate costs. Exhaustion is uncertain:
+	// and library-contract internals have separate costs. Exhaustion is uncertain:
 	// it cannot establish either a violation or an exact discharge.
 	Budget *SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
@@ -194,7 +194,7 @@ func (walk *obligationWalk) step(state obligationState) ([]obligationState, bool
 		if !walk.instruction(&state, instruction) {
 			return nil, false
 		}
-		if InstructionTerminatesWith(instruction, walk.flow.Terminates) {
+		if InstructionTerminatesWithin(instruction, walk.flow.Terminates, walk.flow.Budget) {
 			return nil, !walk.stopAtCutoff()
 		}
 		if walk.stopAtCutoff() {

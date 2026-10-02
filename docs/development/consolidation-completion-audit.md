@@ -2296,3 +2296,54 @@ this is not a whole-query wall-clock bound. Graph MCP tools remain unavailable;
 evidence uses scoped source and actual SSA. The 15-site production FP queue and
 broader goal remain open. No full precision-regression, local race or candidate
 tests/generators/apps are run.
+
+
+## Deferred termination allowance (dho.44.11.5.8)
+
+At parent `945acbe`, the obligation engine rejected exhausted callback answers
+but deferred termination still collected every registration and checked default
+dominance beneath the flow allowance. `InstructionTerminatesWithin` now owns
+that same termination policy with caller-supplied allowance. Its default facade
+delegates with nil allowance. Direct call dispatch spends before consulting a
+callback and rejects its interrupted positive answer. `RunDefers` uses the lazy
+shared instruction census and budgeted exact dominance. Conditional registration
+is still insufficient; a terminating defer must dominate its execution point.
+The obligation driver supplies its existing allowance and becomes uncertain
+when termination work is unavailable before it can prune the path.
+
+Actual SSA controls in `flow_termination_budget_test.go` cover unconditional,
+conditional and unrelated defers, every allowance shorter than a complete query,
+candidate-pool cutoff, call callback cutoff and fresh callback evidence.
+A nested-census flow control retains honored coverage for a fresh unconditional
+deferred exit and returns uncertain at cutoff. Focused ssaflow/lifecycle controls
+pass in `.build/goal-deferred-termination-focused.log`. A one-file overlay
+restores the parent obligation consumer while retaining current helpers/tests;
+the nested-census cutoff control fails in
+`.build/goal-deferred-termination-parent-counterfactual.log` (exit 1), detecting
+the uncharged consumer. Early lint passes in
+`.build/goal-deferred-termination-lint-final.log` after correcting an integer-range
+style issue. Canonical `make verify` passes in
+`.build/goal-deferred-termination-verify.log`, including ordinary tests
+(69 seconds), formatting, vet, lint, generated inventory, dead-code and dogfood.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-flow-state-current`
+has SHA-256 `aa3ea696c593af44b7dee90aa7b3ad3c4baf480d6e24802fe39f3cb3a2fe9cf2`;
+current `.build/goal-deferred-termination-current` has SHA-256
+`14dea83235d978e6d92e932a810eee76a813782b18c28a3cdeef344c256d1bd0`.
+Fresh `.build/goal-deferred-termination-stargz-{flow-state,deferred}.{json,err}`
+scans both exit 3 with identical 827-byte diagnostic JSON, empty stderr and the
+reviewed worker TP at `store/manager.go:193:2`. Hashes identify immutable
+pre-commit binaries, not clean-tree VCS stamps.
+
+Parent `gohawk-dho.44.11.5` remains active for successor feasibility internals,
+library-contract inference, nested callback work, heap graph costs and other
+consumers. `gohawk-dho.44.11.5.9` records default literal/phi/helper-return
+feasibility charging, preserving the existing helper's independent 128-instruction
+cap. Bound-value and assumed-non-nil feasibility remain distinct review scope.
+Leaf rendering and allocation also retain independent costs; this is not a
+whole-query wall-clock bound. Graph MCP tools remain unavailable; evidence uses
+scoped source and actual SSA. No production FP removal is credited; the 15-site
+queue and broader goal remain open. No full precision-regression, local race or
+candidate tests/generators/apps are run.

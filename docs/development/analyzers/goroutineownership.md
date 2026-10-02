@@ -480,6 +480,31 @@ actual SSA stable/loaded guards, mutation/key/edge cutoffs and callback cutoffs.
 Existing default flow controls pin fresh honored and violated paths.
 
 These charges cover the listed visits, not complete callback internals.
-Successor feasibility, deferred termination census, graph construction/waiting,
+Successor feasibility, graph construction/waiting,
 leaf string/type rendering and allocation costs remain independent review
 scope. This is not a whole-query wall-clock bound.
+
+
+### Deferred termination allowance
+
+The obligation walk asks `InstructionTerminatesWithin` with its shared allowance.
+Direct call dispatch spends before consulting the termination callback and
+rejects an interrupted callback's positive answer. At `RunDefers`, the engine
+lazily inspects instructions through `InstructionsWithin` and asks
+`InstructionDominatesWithin` for a catalog terminating defer. Conditional
+registration remains insufficient: only a registration dominating deferred
+execution can end that path. Default termination facades use the same engine
+with nil allowance, retaining the documented library contracts.
+
+An interrupted census or dominance query provides no termination evidence;
+the obligation walk sees exhaustion and returns uncertain rather than pruning
+the path or reporting a return reached with incomplete evidence.
+`flow_termination_budget_test.go` builds actual SSA for unconditional,
+conditional and unrelated defers, checks all interrupted allowance sizes and a
+candidate-pool cutoff, and verifies fresh versus interrupted call callbacks.
+The flow control preserves honored coverage for a fresh unconditional deferred
+exit and uncertain coverage when its nested census cuts off.
+
+Library-contract inference and callback internals retain separate work costs,
+as do successor feasibility and heap graph construction. This step charges the
+listed termination visits without claiming a whole-query wall-clock bound.

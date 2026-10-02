@@ -155,6 +155,7 @@ unknown; do not convert them into ownership transfers.
 | `CallBindingsWithin`, `ClosureBindingPairsWithin` | lazy argument/capture census; early stop avoids materializing later bindings |
 | `SourceSSAFunctions`, `FunctionFile` | source functions and their files |
 | `InstructionTerminatesControlFlow`, `SpawnedValueAtCall`, `ChannelType`, `DefinitelyNil` | miscellaneous facts about instructions and values |
+| `InstructionTerminatesWithin` | shared call/deferred termination evidence; census and dominance share allowance, cutoff supplies no positive termination |
 
 Match well-known functions through `syntax.Symbol`; do not reconstruct
 identity from package paths and raw names.

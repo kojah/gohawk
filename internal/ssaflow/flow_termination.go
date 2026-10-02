@@ -17,8 +17,20 @@ func InstructionTerminatesControlFlow(instruction ssa.Instruction) bool {
 // InstructionTerminatesWith is InstructionTerminatesControlFlow extended by
 // a terminator; a nil terminator leaves the catalog alone.
 func InstructionTerminatesWith(instruction ssa.Instruction, terminates Terminator) bool {
+	return InstructionTerminatesWithin(instruction, terminates, nil)
+}
+
+// InstructionTerminatesWithin shares the allowance across call dispatch,
+// deferred registration census and dominance. Exhaustion supplies no positive
+// termination evidence; callers retain availability before continuing a path.
+// A nil budget preserves the default termination policy.
+func InstructionTerminatesWithin(instruction ssa.Instruction, terminates Terminator, budget *SearchBudget) bool {
 	if call, ok := instruction.(*ssa.Call); ok {
-		return callTerminatesControlFlow(call.Common()) || terminates != nil && terminates(call)
+		if !budget.Spend() {
+			return false
+		}
+		terminatesPath := callTerminatesControlFlow(call.Common()) || terminates != nil && terminates(call)
+		return terminatesPath && !budget.Exhausted()
 	}
 	if _, ok := instruction.(*ssa.RunDefers); !ok {
 		return false
@@ -27,9 +39,16 @@ func InstructionTerminatesWith(instruction ssa.Instruction, terminates Terminato
 	// registration on every path; a conditional defer alone is insufficient.
 	// Process-owned descriptors can intentionally live until this exit.
 	// https://github.com/golang/sys/blob/01b91195d9aeaba1dab70b882a12f741f568a510/unix/syscall_unix_test.go#L274
-	for _, deferred := range InstructionsOf[*ssa.Defer](instruction.Parent()) {
-		if callTerminatesControlFlow(deferred.Common()) && InstructionDominates(deferred, instruction) {
-			return true
+	for candidate := range InstructionsWithin(instruction.Parent(), budget) {
+		deferred, ok := candidate.(*ssa.Defer)
+		if !ok || !callTerminatesControlFlow(deferred.Common()) {
+			continue
+		}
+		if InstructionDominatesWithin(deferred, instruction, budget) {
+			return !budget.Exhausted()
+		}
+		if budget.Exhausted() {
+			return false
 		}
 	}
 	return false
