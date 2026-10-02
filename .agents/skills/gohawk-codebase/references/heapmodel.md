@@ -1215,6 +1215,18 @@ one of its fields is not crossed: the field a later load returns may be the
 replacement rather than a component of the stored aggregate, and the
 analyzer must keep such a replaced resource reportable.
 
+## ValueDerivesFromWithin
+
+[Source](../../../../internal/heapmodel/store_derivation.go)
+
+```go
+func ValueDerivesFromWithin(value, source ssa.Value, budget *ssaflow.SearchBudget) bool
+```
+
+ValueDerivesFromWithin shares derivation visits with budget. Alias dispatch
+is charged, but graph construction and alias-query internals remain separate
+costs. Exhaustion is unavailable, never evidence that source is absent.
+
 ## WriteOnceFields
 
 [Source](../../../../internal/heapmodel/store_write_once.go)

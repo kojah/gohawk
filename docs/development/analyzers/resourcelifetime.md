@@ -56,9 +56,39 @@ The existing bounded guard and successor engines are exposed for this custom
 resource state machine; the generic obligation walk uses those same engines.
 Termination-summary inference receives the walk allowance, and a truncated
 literal feasibility query retains all successors. Pre-acquisition policy and
-ownership queries, resource-specific presence/error predicates, heap graph
+ownership queries, resource-specific error predicates, heap graph
 construction, type-system internals and custom library contracts retain
 independent costs. This is not a whole-query wall-clock bound.
+
+Resource presence now returns one structured proof from `flow_presence.go`.
+Incoming-phi selection, nil evidence, assertion storage identity and possible
+derivation spend the flow allowance. Only a completed presence proof can remove
+an obligation on its absent arm. Assertion and nil-comparison policies remain
+unchanged; possible derivation is not strengthened into exact identity.
+`flow_presence_test.go` checks both arms, reversed nil comparisons, assertions,
+unrelated values and every insufficient allowance on actual SSA.
+
+The shared `ssaflow.DerivesFromWithin` engine charges queued values, arbitrary
+operands, load/store referrers and aggregate-address use scans. Heap derivation
+adds an alias-dispatch charge without bounding graph construction or the alias
+query's internals. Default callers retain their existing unbounded traversal.
+`value_derivation_budget_test.go` checks calls, stores, nested whole-aggregate
+loads, replaced fields, cycles and callback cutoff. The remaining resource cost
+families are pre-acquisition evidence and returned-owner evidence; those still
+need separate review rather than a whole-query bound claim.
+
+Scoped resource controls for Beads `gohawk-dho.44.11.5.16` use the immutable
+`.build/goal-resource-presence-current` binary, SHA-256
+`391b8283a29e4ab972edf3babac837fcffada2d9c1619b462bffb4dd1e0e75a8`.
+Cute at `9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3`, scope `./...`, retains
+its reviewed TP (exit 3, 980-byte JSON). Ferro at
+`d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4`, scopes
+`./internal/admin/repository ./mcp`, retains the corrected FP's absence
+(exit 0, `{}`). Both use `-enable=resourcelifetime -json`, `CGO_ENABLED=0`,
+`GOFLAGS=-mod=readonly`, `GOWORK=off`; stderr is empty and JSON is identical
+to the previous resource-flow binary. These are scoped controls, not a corpus
+replay or new verdicts. An unbounded derivation overlay fails all five positive
+allowance controls; fresh queries and sibling-pool cutoff controls pass.
 
 ## Detection boundaries
 
@@ -477,7 +507,7 @@ therefore covers every feasible path, and so does the negated `||` form that
 returns first. Short-circuit operators are separate branches in SSA, so each
 operand's edge is judged on its own. A guard computed into a variable first,
 `ok := resp != nil && resp.Body != nil; if ok { … }`, branches on a phi of
-Booleans. `ssaflow.BranchValue` selects only the incoming operand belonging to
+Booleans. `ssaflow.BranchValueWithin` selects only the incoming operand belonging to
 the flow state's predecessor, so the same presence proof applies to that exact
 comparison. A missing predecessor, a phi from an earlier block, an unrelated
 flag, or another response's body supplies no absence evidence. Fixtures:

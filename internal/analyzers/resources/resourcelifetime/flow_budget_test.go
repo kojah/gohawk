@@ -37,14 +37,15 @@ func (*resource) Close() {}
 func acquire() *resource { return new(resource) }
 func leaky(flag bool) { if !flag { return }; value := acquire(); println(value) }
 func closed(flag bool) { if !flag { return }; value := acquire(); value.Close() }
+func presence(flag bool) { value := acquire(); if value != nil { value.Close() } }
 `)
 	for _, test := range []struct {
 		name string
 		want ssaflow.EvidenceState
-	}{{"leaky", ssaflow.EvidenceProven}, {"closed", ssaflow.EvidenceDisproven}} {
+	}{{"leaky", ssaflow.EvidenceProven}, {"closed", ssaflow.EvidenceDisproven}, {"presence", ssaflow.EvidenceDisproven}} {
 		function := pkg.Func(test.name)
 		acquisition := ssaflow.InstructionsOf[*ssa.Call](function)[0]
-		if len(ssaflow.GuardsDominatingWithin(acquisition, nil)) == 0 {
+		if test.name != "presence" && len(ssaflow.GuardsDominatingWithin(acquisition, nil)) == 0 {
 			t.Fatal("fixture must establish a dominating guard in actual SSA")
 		}
 		completed := false

@@ -1,7 +1,6 @@
 package resourcelifetime
 
 import (
-	"go/token"
 	"go/types"
 	"slices"
 	"strconv"
@@ -285,90 +284,6 @@ func errorAssertionDominatesNil(assertedError ssa.Instruction, nilAssertions []s
 func fatalErrorAssertion(instruction ssa.Instruction) bool {
 	common := ssaflow.InstructionCall(instruction)
 	return ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyFatalError)
-}
-
-// holdsResource reports whether a compared value may be the resource: it
-// derives from the resource and its type can hold it. An error returned by a
-// helper that was handed the file derives from the file, but no error value
-// is the file, so its nil check says nothing about whether the file exists.
-func holdsResource(value, resource ssa.Value) bool {
-	return types.AssignableTo(resource.Type(), value.Type()) && heapmodel.ValueDerivesFrom(value, resource)
-}
-
-// presenceOperand reports whether a nil comparison of value decides whether
-// the resource holds anything to release: value is the resource itself, or
-// the Body of the net/http response that is the resource. A response whose
-// Body is nil has nothing to close, and net/http documents that a response
-// returned without error always has a non-nil Body, so a close guarded by
-// `resp != nil && resp.Body != nil` covers every feasible path:
-// https://github.com/Authula/authula/blob/87a880a2872fae95d749d7a250db0274524fafce/plugins/oauth2/services/base_provider.go#L63-L74
-func presenceOperand(value, resource ssa.Value) bool {
-	if holdsResource(value, resource) {
-		return true
-	}
-	field := lifecyclefacts.ResponseBodyField(value)
-	return field != nil && holdsResource(field.X, resource)
-}
-
-func resourcePresenceBranch(block, predecessor, successor *ssa.BasicBlock, resource ssa.Value) (bool, bool) {
-	if resource == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 {
-		return false, false
-	}
-	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
-	if !ok {
-		return false, false
-	}
-	// A comma-ok assertion of the resource's own static type, or of an
-	// interface it implements, holds when the asserted value is the
-	// resource: the false arm has no owned value to release. moby keeps an
-	// io.Reader that may be a file and defers Close under the assertion:
-	// https://github.com/moby/moby/blob/3f6733064ea2ea9c00a4a2a9c5c9c5fbd7b7b1d5/daemon/builder/remotecontext/internal/tarsum/tarsum_test.go#L347-L349
-	// Saving a short-circuit condition introduces a phi. Only the incoming
-	// comparison on this path supplies evidence: an unrelated flag or a phi
-	// from an earlier block cannot establish that this resource is absent.
-	condition := ssaflow.BranchValue(branch.Cond, block, predecessor)
-	if asserted := assertedResource(condition, resource); asserted {
-		return successor == block.Succs[0], true
-	}
-	comparison, ok := condition.(*ssa.BinOp)
-	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
-		return false, false
-	}
-	comparesResourceToNil := presenceOperand(comparison.X, resource) && ssaflow.DefinitelyNil(comparison.Y) ||
-		presenceOperand(comparison.Y, resource) && ssaflow.DefinitelyNil(comparison.X)
-	if !comparesResourceToNil {
-		return false, false
-	}
-	trueBranch := successor == block.Succs[0]
-	// On the nil branch there is no owned value to release. This matters when
-	// callers defensively close a response whenever net/http returns one, even
-	// on an error path:
-	// https://github.com/caidaoli/ccLoad/blob/9ed11fe1b1dd2bfed12a32c9290354ff3cdc9b77/internal/app/codex_utls_transport_test.go#L305-L319
-	if comparison.Op == token.NEQ {
-		return trueBranch, true
-	}
-	return !trueBranch, true
-}
-
-// assertedResource reports whether condition is the ok result of a comma-ok
-// type assertion whose operand resolves to the resource and whose asserted
-// type the resource's static type satisfies, so the assertion succeeds.
-func assertedResource(condition, resource ssa.Value) bool {
-	okResult, ok := condition.(*ssa.Extract)
-	if !ok || okResult.Index != 1 {
-		return false
-	}
-	assertion, ok := okResult.Tuple.(*ssa.TypeAssert)
-	if !ok || !assertion.CommaOk {
-		return false
-	}
-	// The asserted operand is usually a load of the cell the resource was
-	// stored into, which other paths may have written too; possible
-	// derivation suffices, because the rule only ever removes an
-	// obligation from the arm where the assertion failed.
-	held := heapmodel.NewStorage(nil).Same(assertion.X, resource).Proven() ||
-		heapmodel.ValueDerivesFrom(assertion.X, resource)
-	return held && types.AssignableTo(resource.Type(), assertion.AssertedType)
 }
 
 // deferredBeforeAcquisitionMayRelease reports whether a defer registered on

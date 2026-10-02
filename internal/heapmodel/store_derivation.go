@@ -26,5 +26,14 @@ import (
 // replacement rather than a component of the stored aggregate, and the
 // analyzer must keep such a replaced resource reportable.
 func ValueDerivesFrom(value, source ssa.Value) bool {
-	return ssaflow.DerivesFrom(value, source, MayAlias)
+	return ValueDerivesFromWithin(value, source, nil)
+}
+
+// ValueDerivesFromWithin shares derivation visits with budget. Alias dispatch
+// is charged, but graph construction and alias-query internals remain separate
+// costs. Exhaustion is unavailable, never evidence that source is absent.
+func ValueDerivesFromWithin(value, source ssa.Value, budget *ssaflow.SearchBudget) bool {
+	return ssaflow.DerivesFromWithin(value, source, func(left, right ssa.Value) bool {
+		return budget.Spend() && MayAlias(left, right)
+	}, budget)
 }

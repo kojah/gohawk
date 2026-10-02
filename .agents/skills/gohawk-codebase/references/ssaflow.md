@@ -173,19 +173,6 @@ BranchBoolWithin decides the existing literal-only branch policy under a
 shared allowance. Exhaustion supplies no decided truth value. A nil budget
 retains the default policy.
 
-## BranchValue
-
-[Source](../../../../internal/ssaflow/flow_branch_literals.go)
-
-```go
-func BranchValue(value ssa.Value, block, predecessor *ssa.BasicBlock) ssa.Value
-```
-
-BranchValue selects a phi's incoming value only when it belongs to block
-and predecessor identifies the edge the current path took into that block.
-Other values, missing predecessors, and phis from earlier blocks are returned
-unchanged. It neither enumerates alternatives nor infers their truth values.
-
 ## BranchValueWithin
 
 [Source](../../../../internal/ssaflow/flow_branch_literals.go)
@@ -195,7 +182,9 @@ func BranchValueWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budg
 ```
 
 BranchValueWithin charges value and incoming-edge visits before selecting
-an operand. Nil at cutoff is unavailable; callers inspect the budget.
+an operand from a phi in block for the exact predecessor. Missing or foreign
+predecessors and phis from earlier blocks leave value unchanged. Nil at
+cutoff is unavailable; callers inspect the budget. A nil budget is unbounded.
 
 ## CallBinding
 
@@ -886,6 +875,19 @@ func DerivesFrom(value, source ssa.Value, same func(ssa.Value, ssa.Value) bool) 
 DerivesFrom is the walk behind ValueDerivesFrom, with the identity step
 chosen by the caller: the points-to graph's may-alias for the store
 family, the structural walk for a family beneath it.
+
+## DerivesFromWithin
+
+[Source](../../../../internal/ssaflow/value_derivation.go)
+
+```go
+func DerivesFromWithin(value, source ssa.Value, same func(ssa.Value, ssa.Value) bool, budget *SearchBudget) bool
+```
+
+DerivesFromWithin shares queued values, operands, aggregate address uses and
+store referrers with budget. The identity callback may share it too; its
+internals and operand allocation retain independent costs. Cutoff contributes
+no may-evidence and must remain unknown to callers, never prove absence.
 
 ## DirectCallee
 

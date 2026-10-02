@@ -25,17 +25,17 @@ func later(a, b, gate bool) bool {
 			t.Fatalf("%s has no saved-condition phi", name)
 		}
 		phi := phis[0]
-		if got := ssaflow.BranchValue(phi, phi.Block(), nil); got != phi {
+		if got := ssaflow.BranchValueWithin(phi, phi.Block(), nil, nil); got != phi {
 			t.Fatalf("missing predecessor selected %v", got)
 		}
-		if got := ssaflow.BranchValue(phi, phi.Block(), &ssa.BasicBlock{}); got != phi {
+		if got := ssaflow.BranchValueWithin(phi, phi.Block(), &ssa.BasicBlock{}, nil); got != phi {
 			t.Fatalf("unrelated predecessor selected %v", got)
 		}
 		for predecessor, operand := range ssaflow.PhiIncoming(phi) {
-			if got := ssaflow.BranchValue(phi, phi.Block(), predecessor); got != operand {
+			if got := ssaflow.BranchValueWithin(phi, phi.Block(), predecessor, nil); got != operand {
 				t.Fatalf("%s: incoming value = %v, want %v", name, got, operand)
 			}
-			if got := ssaflow.BranchValue(phi, function.Blocks[0], predecessor); got != phi {
+			if got := ssaflow.BranchValueWithin(phi, function.Blocks[0], predecessor, nil); got != phi {
 				t.Fatalf("%s: historical phi selected %v in a different block", name, got)
 			}
 		}

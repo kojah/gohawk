@@ -191,10 +191,9 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 				obligation = obligation.Absent()
 			}
 		}
-		if present, known := resourcePresenceBranch(state.block, state.predecessor, successor, resource); known {
-			if !present {
-				obligation = obligation.Absent()
-			}
+		presence := proveResourcePresenceBranch(state.block, state.predecessor, successor, resource, budget)
+		if presence.Proven() && !presence.Present {
+			obligation = obligation.Absent()
 		}
 		// Error and presence evidence change activation only on this edge.
 		// Repeated guard contradictions instead retain an unknown obligation:

@@ -33,16 +33,10 @@ func FeasibleSuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *Search
 	return block.Succs[1:]
 }
 
-// BranchValue selects a phi's incoming value only when it belongs to block
-// and predecessor identifies the edge the current path took into that block.
-// Other values, missing predecessors, and phis from earlier blocks are returned
-// unchanged. It neither enumerates alternatives nor infers their truth values.
-func BranchValue(value ssa.Value, block, predecessor *ssa.BasicBlock) ssa.Value {
-	return BranchValueWithin(value, block, predecessor, nil)
-}
-
 // BranchValueWithin charges value and incoming-edge visits before selecting
-// an operand. Nil at cutoff is unavailable; callers inspect the budget.
+// an operand from a phi in block for the exact predecessor. Missing or foreign
+// predecessors and phis from earlier blocks leave value unchanged. Nil at
+// cutoff is unavailable; callers inspect the budget. A nil budget is unbounded.
 func BranchValueWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *SearchBudget) ssa.Value {
 	if !budget.Spend() {
 		return nil
