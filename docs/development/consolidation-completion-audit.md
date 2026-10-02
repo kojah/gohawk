@@ -4824,3 +4824,19 @@ records parent-failing accepted forms, shared heap controls, scoped output and
 final gates. This removes a reproduced fixture FP class without claiming a
 recorded corpus correction. Skywalking head/current writes still lack an exact
 field/participant relation; seven production sites plus Rune remain unresolved.
+
+
+## Deferred contracts and conditional atomic writes
+
+Beads `gohawk-dho.23.8` addresses two reproduced shared heap errors. Exactly
+registered deferred calls now use the direct-call contract dispatcher after
+registration certainty checks. Atomic compare-and-swap retains old and possible
+replacement contents through the existing weak-store mechanics, while Store
+and Swap keep definite-write semantics. One store implementation supplies both
+forms; atomic API identity and conditionality have one focused owner.
+
+The [deferred-contract review](../../benchmarks/precision/audits/deferred-known-contracts-2026-10-03.md)
+records actual SSA, publication, capture and uncertainty controls, assertion
+counterfactuals, scoped diagnostics and validation. No recorded production FP
+correction is credited; seven production sites plus Rune and overall completion
+remain open.

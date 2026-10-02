@@ -1091,6 +1091,23 @@ and previous exposure. Launched calls, opaque interface receivers, `RLocker`
 adapters and project-defined lookalikes do not use this contract. No cleanup,
 completion, try-result or field-protection guarantee is inferred from it.
 
+Exactly registered deferred calls use the same known-call dispatcher at
+`RunDefers`, in reverse registration order, with the receiver and arguments
+evaluated at registration. Conditional or repeated registrations remain opaque;
+the known contract cannot bypass that boundary. Unmodeled calls retain the
+existing summary lookup and conservative invalidation. Deferred builtins retain
+their existing separate policy.
+
+For `sync/atomic.Pointer` and `sync/atomic.Value`, `Store` and `Swap` replace
+contents on normal completion. `CompareAndSwap` retains both the prior contents
+and the possible replacement, using the existing weak-store mechanics. Its heap
+publication cannot claim that the replacement is the only value at exit. The
+contract establishes neither CAS success nor the value returned by `Swap`.
+Asynchronous atomic calls and project-defined lookalikes remain opaque.
+Compiled SSA controls in `store_atomic_calls_test.go`,
+`store_atomic_boundaries_test.go`, and `store_deferred_contracts_test.go` cover
+direct/deferred updates, publication, captured values and uncertain execution.
+
 `ExclusiveAt` asks whole-object identity rather than exact content identity.
 Different or unknown selections of one non-stale object can still be private;
 unknown/stale/mixed origins cannot. Fresh `make` maps, slices and channels can

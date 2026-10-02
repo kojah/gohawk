@@ -1,0 +1,7 @@
+case	parent_findings	current_findings	full_payload_equal	parent_exit	current_exit	parent_stderr_bytes	current_stderr_bytes	repository_pin
+goroutine-fixture	128	128	True	0	0	0	0	local-fixture
+lock-fixture	117	117	True	0	0	0	0	local-fixture
+private-fixture	6	6	True	0	0	0	0	local-fixture
+process-fixture	40	40	True	0	0	0	0	local-fixture
+resource-fixture	318	318	True	0	0	0	0	local-fixture
+skywalking	2	2	True	0	0	0	0	e83d5925500a7e63dd55c080a9b1542d6cedaefb
