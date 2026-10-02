@@ -80,21 +80,22 @@ func (storage *Storage) Budget() *ssaflow.SearchBudget {
 
 // Same proves equality after resolving local loads. Failure means unknown,
 // never inequality: two opaque loads might still contain the same value.
+// Structural comparisons share the storage allowance; exhaustion cannot fall
+// through to graph evidence. Graph construction has its own independent cost.
 func (storage *Storage) Same(left, right ssa.Value) ssaflow.IdentityProof {
-	// Writes-only queries also run while a graph is being replayed under its
-	// lock. Even the preliminary identity check must not reenter that graph.
-	if ssaflow.StructurallyIdentical(left, right) || !storage.writesOnly && DefinitelySame(left, right) {
-		return sameValueIdentity()
+	if proof := storage.directIdentity(left, right); proof.Proven() || storage.budget.Exhausted() {
+		return proof
 	}
-	a, b := storage.Resolve(left), storage.Resolve(right)
+	a := storage.Resolve(left)
 	if !a.Proven() {
 		return ssaflow.IdentityProof{Proof: a.Proof}
 	}
+	b := storage.Resolve(right)
 	if !b.Proven() {
 		return ssaflow.IdentityProof{Proof: b.Proof}
 	}
-	if ssaflow.StructurallyIdentical(a.Value, b.Value) || !storage.writesOnly && DefinitelySame(a.Value, b.Value) {
-		return sameValueIdentity()
+	if proof := storage.directIdentity(a.Value, b.Value); proof.Proven() || storage.budget.Exhausted() {
+		return proof
 	}
 	// The points-to graph sees identity the load-by-load resolution above
 	// cannot: through a copy of a pointee, a merge of one object, or two
@@ -106,6 +107,22 @@ func (storage *Storage) Same(left, right ssa.Value) ssaflow.IdentityProof {
 	return ssaflow.IdentityProof{Proof: storage.unknown(ssaflow.EvidenceStoredValuesDiffer, nil).Proof}
 }
 
+// Both raw and resolved values use the same structural/graph policy. Writes-only
+// queries run during graph replay under its lock, so they must never reenter it.
+// An interrupted structural comparison must not be rescued by a graph query.
+func (storage *Storage) directIdentity(left, right ssa.Value) ssaflow.IdentityProof {
+	if ssaflow.StructurallyIdenticalWithin(left, right, storage.budget) {
+		return sameValueIdentity()
+	}
+	if storage.budget.Exhausted() {
+		return ssaflow.IdentityProof{Proof: storage.unknown(ssaflow.EvidenceBudgetExhausted, nil).Proof}
+	}
+	if !storage.writesOnly && DefinitelySame(left, right) {
+		return sameValueIdentity()
+	}
+	return ssaflow.IdentityProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+}
+
 func sameValueIdentity() ssaflow.IdentityProof {
 	return ssaflow.IdentityProof{Proof: ssaflow.Proof{
 		State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameValue, Provenance: ssaflow.EvidenceFromLocalSSA,
@@ -114,10 +131,11 @@ func sameValueIdentity() ssaflow.IdentityProof {
 
 // Content returns the value agreed on by every reaching write. Conflicting
 // branch writes, dynamic indexes, and opaque mutation stop the proof. Writes
-// after observation do not invalidate an earlier snapshot.
+// after observation do not invalidate an earlier snapshot. Exhaustion of the
+// reaching-write query stays unknown rather than falling through to the graph.
 func (storage *Storage) Content(address ssa.Value, observation ssa.Instruction) StoredValue {
 	location, proof := storage.contentFromWrites(address, observation)
-	if location.root == nil || proof.Proven() || storage.writesOnly {
+	if location.root == nil || proof.Proven() || storage.writesOnly || storage.budget.Exhausted() {
 		return proof
 	}
 	// The graph resolves what the reaching-write walk could not: a cell

@@ -2090,3 +2090,49 @@ queries are not replaced by exact identity. Graph tools remain unavailable;
 evidence uses scoped source and actual SSA. No production FP correction is
 credited; the 15-site queue and broader goal remain open. No full
 precision-regression, local race or candidate tests/generators/apps are run.
+
+
+## Storage identity cutoff boundary (dho.44.11.5.4)
+
+At parent `02ffac2`, `Storage.Same` used unbounded structural identity before
+and after load resolution, and `Content` could replace an exhausted
+reaching-write proof with positive graph evidence. Storage now shares its
+allowance with the bounded structural engine. Raw and resolved identity phases
+use one structured structural/graph decision; writes-only graph exclusion is
+preserved. A first unavailable load stops before resolving the second one.
+Exhaustion remains observed unknown and cannot fall through to graph evidence.
+The final raw graph retry is retained because graph cache publication can
+change after registered summaries invalidate an entry; no fixed-generation
+assumption is introduced.
+
+Actual SSA controls in `store_identity_budget_test.go` cover distinct equivalent
+field selections, zero-budget direct identity, writes-only and ordinary policy,
+observed cutoff, shared candidate-pool availability and contents with a warmed
+graph. Existing snapshot/aggregate/deferred controls pass in
+`.build/goal-storage-identity-focused.log`; final cutoff controls pass in
+`.build/goal-storage-identity-focused-final.log`. A one-file Go overlay restores
+parent `store_model.go` while retaining the new tests: both cutoff tests fail
+with positive evidence in `.build/goal-storage-identity-parent-counterfactual.log`
+(exit 1), showing they distinguish the defect. Canonical `make verify` passes in
+`.build/goal-storage-identity-verify.log`, including ordinary tests, formatting,
+vet, lint, generated inventory, dead-code and local dogfood.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-identity-current` has
+SHA-256 `5769fca01d32e685caec4f65992bd805cb987a3fe6c2c06b60cc3525382d7190`;
+current `.build/goal-storage-identity-current` has SHA-256
+`d91268f500c0c1eb92ebbb6762f8bb7d34a9c24656544f3cdff23357510c35e8`.
+Fresh `.build/goal-storage-identity-stargz-{identity,storage-identity}.{json,err}`
+scans both exit 3 with identical 827-byte JSON, empty stderr and the reviewed TP
+at `store/manager.go:193:2`. Hashes identify immutable pre-commit binaries.
+
+Parent `gohawk-dho.44.11.5` remains active for graph construction/waiting and
+internal query costs, other structural consumers, dominance and flow setup.
+`Storage.collect` still uses unbounded `InstructionMayFollow`; reaching-write
+setup uses unbounded dominance and instruction indexing. These are concrete
+remaining routes, not covered by this identity cutoff correction. Graph MCP
+tools remain unavailable; evidence uses scoped source and actual SSA. No
+production FP correction is credited; the 15-site queue and broader goal remain
+open. No full precision-regression, local race or candidate tests/generators/apps
+are run.

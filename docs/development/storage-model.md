@@ -106,3 +106,23 @@ before replacement, stale cleanup, and channel sends after close. Storage unit
 tests cover uncertainty from opaque mutation, branch writes, dynamic indexes,
 closure mutation, and budget exhaustion. Existing callback regressions retain
 the distinction between eager defer arguments and later reads of captures.
+
+## Structural identity and fallback availability
+
+`Storage.Same` shares its allowance with `StructurallyIdenticalWithin` before
+and after load resolution. Both phases use one structural/graph identity
+policy. A first unavailable load stops resolution before the second query.
+Structural exhaustion returns observed unknown with the budget reason;
+it cannot borrow an exact graph answer. Writes-only queries still exclude
+graph lookup because they can run during graph replay under its lock.
+
+`Content` also retains a reaching-write budget cutoff before graph fallback.
+Fresh available queries keep the existing exact graph supplementation. The
+last raw-value graph retry in `Same` is retained: the graph cache can be
+invalidated by changing registered summaries, so this review does not assume
+all repeated graph lookups necessarily see the same published generation.
+`store_identity_budget_test.go` pins actual field selections, direct equality,
+shared-pool cutoff, observed unknown, and content cutoff with a warmed graph.
+Existing storage snapshot fixtures cover fresh load and aggregate resolution.
+Graph construction, waiting and internal traversal remain independent costs;
+this change does not establish a bound for the entire storage query.

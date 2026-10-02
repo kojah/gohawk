@@ -1005,7 +1005,8 @@ func (storage *Storage) Content(address ssa.Value, observation ssa.Instruction) 
 
 Content returns the value agreed on by every reaching write. Conflicting
 branch writes, dynamic indexes, and opaque mutation stop the proof. Writes
-after observation do not invalidate an earlier snapshot.
+after observation do not invalidate an earlier snapshot. Exhaustion of the
+reaching-write query stays unknown rather than falling through to the graph.
 
 ## Storage.ContentFromWrites
 
@@ -1054,6 +1055,8 @@ func (storage *Storage) Same(left, right ssa.Value) ssaflow.IdentityProof
 
 Same proves equality after resolving local loads. Failure means unknown,
 never inequality: two opaque loads might still contain the same value.
+Structural comparisons share the storage allowance; exhaustion cannot fall
+through to graph evidence. Graph construction has its own independent cost.
 
 ## Storage.StableContent
 
