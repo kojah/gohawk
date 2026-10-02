@@ -9,18 +9,13 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// CallEffects exposes local call-effect evidence beside lifecycle evidence,
-// without treating an absent Retained bit as a read-only contract. Effects are
-// possible uses, never proof of cleanup or ownership transfer. Imported bodies
-// remain unknown until a dedicated effect summary can establish their safety.
-func (evidence *LifecycleEvidence) CallEffects(instruction ssa.Instruction, target ssa.Value) ssaflow.CallEffectProof {
-	return evidence.CallEffectsWithin(instruction, target, nil)
-}
-
-// CallEffectsWithin shares existing effect visits with budget, retaining the
-// local QueryBudget cap. Cutoff is unknown even if the caller has allowance
-// left. Graph/alias/type and call-binding construction costs remain separate.
-// A nil budget preserves CallEffects' independent default allowance and trace.
+// CallEffectsWithin exposes local call-effect evidence beside lifecycle evidence.
+// Effects are possible uses, never proof of cleanup or ownership transfer;
+// an absent Retained bit is not a read-only contract. Imported bodies stay unknown.
+// Existing visits share budget while retaining the local QueryBudget cap. Cutoff
+// is unknown even if the caller has allowance left. Graph/alias/type and binding
+// construction costs remain separate. Nil selects an independent default allowance
+// through the same authoritative trace path.
 func (evidence *LifecycleEvidence) CallEffectsWithin(
 	instruction ssa.Instruction, target ssa.Value, budget *ssaflow.SearchBudget,
 ) ssaflow.CallEffectProof {

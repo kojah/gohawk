@@ -186,7 +186,10 @@ func (analysis *resourceAnalysis) proveAggregateOwnerEscapeWithin(
 		if syntax.PointerStruct(argument.Type()) == nil {
 			continue
 		}
-		effects := analysis.evidence.CallEffects(instruction, argument)
+		effects := analysis.evidence.CallEffectsWithin(instruction, argument, budget)
+		if effects.Reason == ssaflow.EvidenceBudgetExhausted {
+			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		}
 		if effects.Proven() {
 			if effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
 				return aggregateEscapeProof(true, budget)

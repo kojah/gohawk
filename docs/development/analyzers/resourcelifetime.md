@@ -335,10 +335,10 @@ reason. Complete read-only helpers, unrelated arguments and unavailable bodies
 retain their earlier exposure-policy result; other classifier stages still
 decide opaque calls. No exposure result proves cleanup.
 
-The default `CallEffects` API delegates to the same implementation with an
-independent allowance, preserving its cap and trace. Other resource effect
-consumers still use that default API; this does not claim a transitive bound
-over graph/alias/type or call-binding construction internals.
+The broker preserves its default cap and trace when passed a nil allowance.
+All resource effect consumers now pass their allowance through `CallEffectsWithin`;
+the unused default-only broker method has been removed. This does not claim a
+transitive bound over graph/alias/type or call-binding construction internals.
 `call_effects_budget_test.go` checks exact read/async/unavailable effects, every
 insufficient allowance and the local child cap. `asynchronous_exposure_test.go`
 covers imported and local exposure, accepted borrowing/unrelated forms, and
@@ -410,6 +410,39 @@ fallback fails both shared relation controls; ignoring the resource contents
 allowance fails the exact-field and sibling-field controls. No full precision
 replay or production FP removal is credited. The two remaining default effect
 consumers are tracked together by child `.18.1.5.9`.
+
+Those two consumers now request `LifecycleEvidence.CallEffectsWithin` with their
+current allowance: `ownership.go:proveAggregateOwnerEscapeWithin` and
+`possible_wrappers.go:provePossibleWrapperWithin`. The effect query retains
+its local cap and authoritative trace path. A shortened query returns resource
+unknown before kept-content fallback or possible wrapper retention, even when
+the caller still has allowance. Complete read/retention/async results retain
+each consumer's existing policy; unavailable bodies retain their prior fallback.
+Wrapper retention still requires its existing retain effect, rather than
+treating every possible asynchronous use as ownership of the returned wrapper.
+
+`ownership_effects_test.go` covers visible borrowing, retention and asynchronous
+exposure, unrelated values and unavailable bodies, then long read-only helpers
+whose effect child exhausts while the caller remains available. It checks both
+the aggregate and wrapper proofs and the aggregate-call/foreign-store
+classifiers, alongside short-helper recovery. Ignoring cutoff propagation must
+fail the independent proof and classifier controls. These visits share the
+candidate allowance; graph/alias/type/binding internals retain independent costs.
+
+Migrating the final consumers made the default-only `LifecycleEvidence` method
+unreachable. It is removed rather than retained solely for tests; the lower
+allowance and cap controls now compare against `CallEffectsWithin(..., nil)`.
+
+The final ownership-effect gate passed after that removal. Immutable
+`.build/goal-ownership-effects-final-current`, SHA-256
+`200e719c1382a4f78fc20eb47f688a68edad73752e54d5db4520985f13f35945`,
+retains byte-identical JSON against the observed-path binary in the same pinned
+Cute/Ferro scopes, with exits 3/0 and empty stderr. The ignored-cutoff overlay
+fails all three independent proof controls and both classifier controls.
+The nine-child ownership-integration source review is recorded in the
+consolidation completion audit. Pre-acquisition work remains `.44.11.5.17` and
+cleanup/context uncertainty remains `.44.11.5.19`; no production FP removal or
+full precision replay is credited.
 
 The resource projection decision propagates view-binding and storage-projection
 cutoff rather than treating it as missing evidence. A known non-cleaning view

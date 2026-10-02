@@ -32,7 +32,7 @@ func unreadable(p *resource) { opaque(p) }
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-			baseline := evidence.CallEffects(call, fn.Params[0])
+			baseline := evidence.CallEffectsWithin(call, fn.Params[0], nil)
 			if baseline.State != test.state || baseline.Effects != test.effects {
 				t.Fatalf("default effects = %+v, want state %v effects %v", baseline, test.state, test.effects)
 			}
@@ -75,7 +75,7 @@ func many(p *resource) {
 	if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted || budget.Exhausted() {
 		t.Fatalf("child cutoff with available caller = %+v, caller exhausted %v", got, budget.Exhausted())
 	}
-	if baseline := evidence.CallEffects(call, fn.Params[0]); baseline != got {
+	if baseline := evidence.CallEffectsWithin(call, fn.Params[0], nil); baseline != got {
 		t.Fatalf("default cap = %+v, want %+v", baseline, got)
 	}
 }

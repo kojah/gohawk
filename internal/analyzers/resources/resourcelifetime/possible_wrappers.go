@@ -124,7 +124,12 @@ func (analysis *resourceAnalysis) provePossibleWrapperWithin(value ssa.Value, de
 		if !budget.Spend() {
 			return carriedValueProof(false, resourceReasonUntouched, budget)
 		}
-		effects := analysis.evidence.CallEffects(call, argument)
+		effects := analysis.evidence.CallEffectsWithin(call, argument, budget)
+		// Missing body effects retain the existing possible-wrapper policy;
+		// shortened effects must preserve cutoff rather than claim retention.
+		if effects.Reason == ssaflow.EvidenceBudgetExhausted {
+			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		}
 		if !effects.Proven() || effects.Effects&ssaflow.EffectRetain != 0 {
 			return carriedValueProof(true, resourceReasonWrapperMayCarry, budget)
 		}

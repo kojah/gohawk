@@ -2743,3 +2743,45 @@ unavailable; scoped source and actual SSA supply the evidence. No whole-query
 wall-clock bound is claimed. The broader architecture and production FP work
 remain active. No full precision replay, local race or candidate tests,
 generators or applications were run.
+
+## Resource ownership classifier integration review
+
+Beads `gohawk-dho.44.11.5.18.1.5` covers integration of the shared ownership
+evidence into resource classifiers. Its nine children group the work by evidence
+family. The current source review checks their decision owners and consumers:
+
+| Family | Authoritative decision and availability boundary |
+| --- | --- |
+| Stored resource/destination | `storage.go:resourceStorage` delegates to `proveResourceStorage`; both settled classification and opaque consumption use the same result. Interrupted proofs are not memoized. |
+| Returned wrappers | `flow_returns.go:returnedWrapperWithin` delegates to one result/dominance/containment proof. Unknown results stay uncached and both return policy and instruction classification consume it. |
+| Direct/nested carrying and possible wrappers | `carried_values.go` owns the exact selected traversal forms; `possible_wrappers.go` owns the existing constructor depth and retention policy. These may-evidence queries remain distinct from every-return returned-ownership guarantees. |
+| Callback and imported loop consumption | `carried_callbacks.go` shares captured-binding matching and the carried-value proof. Callback retention and imported loop release consume its structured result. |
+| Observed aggregate escape and paths | `ownership.go` asks observation-time containment once, then effect or contents evidence. `proveAggregateContentsEscapeWithin` propagates the shared relation/path cutoff before the existing whole-aggregate fallback. |
+| Publication, async exposure and captured owners | `ownership.go` has one call-result publication census and async-exposure proof; `captured_cleanup.go` owns captured aggregate matching. Their classifiers preserve unknown cutoff reasons. |
+| Local call effects | All three resource broker consumers use `CallEffectsWithin` with their allowance and retain the local child cap. The now-unreachable default-only broker method is removed. |
+
+The source lookup covers the named files and their classifier/return consumers.
+Graph MCP remains unavailable, so this is scoped source evidence. Each child
+has actual SSA allowance/cutoff controls, focused validation and pinned scope
+receipts recorded in the resource design note. The final effect child adds
+independent aggregate/wrapper/foreign-store proofs, two authoritative classifier
+controls and an ignored-cutoff overlay. The first local gate exposed the dead
+default-only method; final validation follows its removal and reference update.
+
+Remaining work stays explicit in the larger cost audit: pre-acquisition owner
+discovery and the prior-registration callback adapter belong to
+`gohawk-dho.44.11.5.17`; completion/context queries and guarded cleanup are
+tracked by `gohawk-dho.44.11.5.19`. Graph, alias, type and binding internals
+have separate boundaries. The two default
+derivation calls still visible in `classify.go` concern ambiguous cleanup, not
+the ownership families in this table. This review earns no production FP removal
+and does not finish the broader consolidation objective or its 15-site queue.
+
+Final validation passed after removing the unreachable broker wrapper:
+`make verify` completed, including ordinary tests and repository dogfood.
+Immutable `.build/goal-ownership-effects-final-current`, SHA-256
+`200e719c1382a4f78fc20eb47f688a68edad73752e54d5db4520985f13f35945`,
+keeps pinned Cute/Ferro JSON byte-identical to the observed-path binary, with
+exits 3/0 and empty stderr. The ignored-cutoff overlay fails the three independent
+proofs and both classifier controls. These receipts complete the bounded
+ownership integration review; the larger cost and precision audits remain open.

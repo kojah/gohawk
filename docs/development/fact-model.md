@@ -535,7 +535,7 @@ consumption suppresses the diagnostic. Any tool that surfaces facts —
 including `gohawk dump facts` — must keep the summarized-versus-absent distinction
 visible for the same reason.
 
-`LifecycleEvidence.CallEffects` exposes the separate local call-effect proof
+`LifecycleEvidence.CallEffectsWithin` exposes the separate local call-effect proof
 and traces its read, mutation, retention, async, and invocation evidence. A
 clear `Retained` bit is not a read-only guarantee. This query requires a visible
 body and does not synthesize effects from missing lifecycle-summary bits; see
@@ -543,8 +543,10 @@ body and does not synthesize effects from missing lifecycle-summary bits; see
 
 `CallEffectsWithin` charges the same effect visits to a caller allowance while
 retaining the local query cap. A shortened query remains unknown even when
-the caller has budget left. The default method delegates to this path with an
-independent allowance; fact encoding and effect polarity do not change.
+the caller has budget left. A nil budget selects an independent default
+allowance; fact encoding and effect polarity do not change. All production
+consumers now pass their allowance, so the unused default-only broker method
+has been removed.
 
 `ClaimAsynchronouslyExposes` reads positive `HeapEscapedAsync` effects for an
 exact parameter object from the existing heap projection. It is a may-claim:
