@@ -62,6 +62,7 @@ that only need to know whether some return is uncovered.
 | `ReturnsOnlyNilOrErrors` | does a return contain only definitely nil values or builtin error values, including aliases? The caller decides whether this is unsuccessful construction. |
 | `SuccessorPolicy` | the one successor-feasibility view: the literal or an analyzer's view, bound constants, and a non-nil assumption, with `Edges` extending path guards |
 | `FeasibleSuccessors`, `SuccessBranch`, `BlockReachable`, `BlockInCycle` | control-flow feasibility primitives |
+| `FeasibleSuccessorsWithin`, `BranchValueWithin`, `BranchBoolWithin` | share incoming-phi and literal helper-return visits; caller cutoff supplies no branch pruning |
 | `InstructionDominates`, `InstructionMayFollow`, `InstructionIndex` | ordering between instructions |
 | `ProveCountedLoop` | exact bounded induction count and whether body operands depend on the counter; not termination or an unrolling policy |
 

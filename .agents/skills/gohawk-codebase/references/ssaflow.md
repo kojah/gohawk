@@ -161,17 +161,21 @@ iterations. Range loops over slices, arrays, strings, and integers, and
 ordinary counted for loops, have this shape. It says nothing about whether
 the calls in the body return; the caller decides that separately.
 
-## BranchBool
+## BranchBoolWithin
 
-[Source](../../../../internal/ssaflow/flow_paths.go)
+[Source](../../../../internal/ssaflow/flow_branch_literals.go)
 
 ```go
-func BranchBool(value ssa.Value, block, predecessor *ssa.BasicBlock) (bool, bool)
+func BranchBoolWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *SearchBudget) (bool, bool)
 ```
+
+BranchBoolWithin decides the existing literal-only branch policy under a
+shared allowance. Exhaustion supplies no decided truth value. A nil budget
+retains the default policy.
 
 ## BranchValue
 
-[Source](../../../../internal/ssaflow/flow_paths.go)
+[Source](../../../../internal/ssaflow/flow_branch_literals.go)
 
 ```go
 func BranchValue(value ssa.Value, block, predecessor *ssa.BasicBlock) ssa.Value
@@ -181,6 +185,17 @@ BranchValue selects a phi's incoming value only when it belongs to block
 and predecessor identifies the edge the current path took into that block.
 Other values, missing predecessors, and phis from earlier blocks are returned
 unchanged. It neither enumerates alternatives nor infers their truth values.
+
+## BranchValueWithin
+
+[Source](../../../../internal/ssaflow/flow_branch_literals.go)
+
+```go
+func BranchValueWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *SearchBudget) ssa.Value
+```
+
+BranchValueWithin charges value and incoming-edge visits before selecting
+an operand. Nil at cutoff is unavailable; callers inspect the budget.
 
 ## CallBinding
 
@@ -1218,7 +1233,7 @@ the current function invocation.
 
 ## FeasibleSuccessors
 
-[Source](../../../../internal/ssaflow/flow_paths.go)
+[Source](../../../../internal/ssaflow/flow_branch_literals.go)
 
 ```go
 func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
@@ -1227,6 +1242,18 @@ func FeasibleSuccessors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
 FeasibleSuccessors preserves constants selected by predecessor-sensitive
 phis and literal results of bounded, source-visible helpers. This prevents
 impossible loop exits and helper-error paths from faking leaks.
+
+## FeasibleSuccessorsWithin
+
+[Source](../../../../internal/ssaflow/flow_branch_literals.go)
+
+```go
+func FeasibleSuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock
+```
+
+FeasibleSuccessorsWithin shares allowance through incoming phi selection
+and literal helper return inspection. Cutoff keeps all successors; callers
+retain availability before judging paths. A nil budget preserves defaults.
 
 ## FixedArguments
 

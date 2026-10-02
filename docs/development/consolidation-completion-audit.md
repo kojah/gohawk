@@ -2347,3 +2347,61 @@ whole-query wall-clock bound. Graph MCP tools remain unavailable; evidence uses
 scoped source and actual SSA. No production FP removal is credited; the 15-site
 queue and broader goal remain open. No full precision-regression, local race or
 candidate tests/generators/apps are run.
+
+
+## Literal successor feasibility allowance (dho.44.11.5.9)
+
+At parent `e709dc6`, edge dispatch shared the flow allowance but default literal
+feasibility inspected predecessor phis and helper bodies independently of it.
+`FeasibleSuccessorsWithin`, `BranchValueWithin` and `BranchBoolWithin` now share
+that allowance through value/incoming-edge visits and the existing literal
+helper return census. Comparison operands use the same allowance and an
+interrupted first operand does not initiate the second query. An incomplete
+helper agreement never supplies a literal. The primitive keeps all successors
+at caller cutoff; the obligation driver sees exhaustion before judging paths.
+Custom successor callbacks are checked before further narrowing when they
+exhaust that shared allowance.
+
+The existing 128-instruction helper cap retains its independent policy:
+over-cap helpers supply no literal evidence without exhausting an available
+caller allowance. This does not expand inference through forwarding calls,
+deferred mutation, mixed returns or opaque bodies. Default value and feasibility
+facades delegate to the same engines; the Boolean facade had only test callers
+and is removed in favor of `BranchBoolWithin` with nil allowance in those tests.
+Literal evidence is extracted into `flow_branch_literals.go` (190 lines),
+leaving `flow_paths.go` (389 lines) with CFG/order and assumed-path evidence.
+Existing pinned precision rationale comments move with their owning code.
+
+Actual SSA controls in `flow_literal_budget_test.go` cover predecessor selection,
+agreeing/mixed helper returns, deferred mutation, result extraction, integer
+comparisons, interrupted visits and the exact helper-cap boundary. A flow
+control is honored with fresh literal evidence and uncertain when its helper
+census exceeds the caller's remaining allowance. Focused ssaflow/lifecycle
+controls pass in `.build/goal-literal-flow-focused-final.log`; early/final lint
+and deadcode pass in `.build/goal-literal-flow-{lint-final,deadcode}.log`.
+A one-file overlay restores the parent successor policy while retaining current
+helpers/tests. The nested helper-feasibility cutoff control fails in
+`.build/goal-literal-flow-parent-counterfactual.log` (exit 1), detecting the
+unbudgeted consumer. Canonical `make verify` passes in
+`.build/goal-literal-flow-verify.log`, including ordinary tests (67 seconds),
+formatting, vet, lint, generated inventory, dead-code and local dogfood.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-deferred-termination-current`
+has SHA-256 `14dea83235d978e6d92e932a810eee76a813782b18c28a3cdeef344c256d1bd0`;
+current `.build/goal-literal-flow-current` has SHA-256
+`f1f3df28738374173bf2b61f15a7b16664a6edee4beac88b40da109d9e0d1820`.
+Fresh `.build/goal-literal-flow-stargz-{deferred,literal}.{json,err}` scans both
+exit 3 with identical 827-byte diagnostic JSON, empty stderr and the reviewed
+worker TP at `store/manager.go:193:2`. Hashes identify immutable pre-commit
+binaries, not clean-tree VCS stamps.
+
+Parent `gohawk-dho.44.11.5` remains active for bound-value and assumed-successor
+feasibility (`gohawk-dho.44.11.5.10`), library-contract/custom-hook internals,
+heap graph costs and other consumers. Leaf rendering, type-system internals
+and allocation also retain independent costs; this is not a whole-query
+wall-clock bound. Graph MCP tools remain unavailable; evidence uses scoped
+source and actual SSA. No production FP removal is credited; the 15-site queue
+and broader goal remain open. No full precision-regression, local race or
+candidate tests/generators/apps are run.

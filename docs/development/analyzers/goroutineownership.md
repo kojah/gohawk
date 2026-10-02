@@ -480,7 +480,7 @@ actual SSA stable/loaded guards, mutation/key/edge cutoffs and callback cutoffs.
 Existing default flow controls pin fresh honored and violated paths.
 
 These charges cover the listed visits, not complete callback internals.
-Successor feasibility, graph construction/waiting,
+Bound-value and assumed-non-nil feasibility, graph construction/waiting,
 leaf string/type rendering and allocation costs remain independent review
 scope. This is not a whole-query wall-clock bound.
 
@@ -506,5 +506,36 @@ The flow control preserves honored coverage for a fresh unconditional deferred
 exit and uncertain coverage when its nested census cuts off.
 
 Library-contract inference and callback internals retain separate work costs,
-as do successor feasibility and heap graph construction. This step charges the
+as do remaining successor feasibility and heap graph construction. This step charges the
 listed termination visits without claiming a whole-query wall-clock bound.
+
+
+### Literal successor feasibility allowance
+
+Default successor policy shares the flow allowance through
+`FeasibleSuccessorsWithin`, `BranchBoolWithin` and `BranchValueWithin`.
+Predecessor-sensitive phi selection charges inspected edges; helper literal
+inspection uses the shared lazy instruction census and rejects incomplete
+return agreement. Comparison operands share the same allowance. Caller cutoff
+supplies no decided branch and keeps the primitive's successor set unpruned;
+the obligation engine sees exhaustion and returns uncertain before judging
+paths. Custom feasibility hooks are checked before further narrowing if they
+exhaust that same allowance.
+
+The helper-local 128-instruction cap retains its separate policy: a helper
+over that cap supplies no literal evidence without exhausting an otherwise
+available caller allowance. Deferred mutation, mixed returns, forwarding calls
+and unreadable bodies remain opaque. Default feasibility/value facades use the
+same engines with nil allowance. The Boolean primitive is `BranchBoolWithin`;
+its old facade had only test callers and is removed.
+
+`flow_literal_budget_test.go` covers actual SSA incoming phi selection,
+agreeing/mixed helper returns, deferred mutation, result extraction, integer
+comparison, interrupted visits, the independent helper-cap boundary and fresh
+versus interrupted obligation coverage. Existing historical-phi and literal
+Boolean controls retain their policy. Literal branch evidence now lives in
+`flow_branch_literals.go`, separate from CFG reachability/order in `flow_paths.go`.
+
+Bound-value negation, assumed-non-nil identity/type checks, custom feasibility
+hook internals, library-contract inference and heap graph costs remain separate
+review scope. This is not a whole-query wall-clock bound.

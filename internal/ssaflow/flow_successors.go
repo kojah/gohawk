@@ -30,11 +30,18 @@ type SuccessorPolicy struct {
 // Successors returns the successors of block a path arriving from
 // predecessor may take.
 func (policy SuccessorPolicy) Successors(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
+	return policy.successorsWithin(block, predecessor, nil)
+}
+
+func (policy SuccessorPolicy) successorsWithin(block, predecessor *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock {
 	var successors []*ssa.BasicBlock
 	if policy.Feasible != nil {
 		successors = policy.Feasible(block, predecessor)
 	} else {
-		successors = FeasibleSuccessors(block, predecessor)
+		successors = FeasibleSuccessorsWithin(block, predecessor, budget)
+	}
+	if budget.Exhausted() {
+		return nil
 	}
 	successors = policy.Constants.Narrow(successors, block)
 	return assumedSuccessors(successors, block, policy.NonNil, policy.NonNilType)
@@ -58,7 +65,7 @@ func (policy SuccessorPolicy) edgesWithin(block, predecessor *ssa.BasicBlock, gu
 	if !budget.Spend() {
 		return nil
 	}
-	successors := policy.Successors(block, predecessor)
+	successors := policy.successorsWithin(block, predecessor, budget)
 	if budget.Exhausted() {
 		return nil
 	}
