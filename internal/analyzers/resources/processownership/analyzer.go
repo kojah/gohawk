@@ -71,14 +71,14 @@ func startedCommand(instruction ssa.Instruction) (*ssa.Call, ssa.Value, bool) { 
 func commandOwnedElsewhere(
 	pass *analysis.Pass, proof *commandProof, function *ssa.Function, start *ssa.Call, command ssa.Value,
 ) bool {
-	prefix := collectProcessStartInstructions(start, proof.budget())
+	prefix := collectProcessStartInstructions(start, command, proof.budget())
 	if !prefix.Proven() {
 		analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos()).Decision(analysisTrace.Step{
 			Reason: prefix.Reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: start.Pos(),
 		})
 		return true
 	}
-	owners := processOwnersRegisteredBefore(prefix.instructions, command)
+	owners := prefix.owners
 	// A helper returning *exec.Cmd may already have registered cleanup
 	// or wait ownership. Without interprocedural evidence either way,
 	// reporting here would trade precision for recall. containerd wraps
@@ -111,7 +111,13 @@ func commandOwnedElsewhere(
 		commandStoredExternallyBeforeStart(prefix.instructions, command) {
 		return true
 	}
-	return successfulStartCannotReturn(start)
+	returns := successfulStartCannotReturn(start, proof.budget())
+	if returns.Reason == ssaflow.EvidenceBudgetExhausted {
+		analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos()).Decision(analysisTrace.Step{
+			Reason: returns.Reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: start.Pos(),
+		})
+	}
+	return returns.State != ssaflow.EvidenceDisproven
 }
 
 // reportStartedCommand asks the flow whether every successful return waits on

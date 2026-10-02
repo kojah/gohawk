@@ -1,0 +1,7 @@
+scope	version	pin	exit	stderr_bytes	diagnostics	sha256	receipt
+process-fixture: processownership,processchoices	parent	local fixtures	0	0	40	f4aaa34926a705750e7a908497b3697f715f748a45cd6c99934275677986d940	.build/goal-process-prestart-family-complete/process-fixture-parent-receipt.json
+ferro: ./mcp	parent	d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4	0	0	1	f4aaa34926a705750e7a908497b3697f715f748a45cd6c99934275677986d940	.build/goal-process-prestart-family-complete/ferro-parent-receipt.json
+revdep: ./internal/telemetry	parent	8a2fdb0927e2fc9b2a5b178c94f55d1887659152	0	0	0	f4aaa34926a705750e7a908497b3697f715f748a45cd6c99934275677986d940	.build/goal-process-prestart-family-complete/revdep-parent-receipt.json
+process-fixture: processownership,processchoices	current	local fixtures	0	0	40	a8ae71c4f8849f4ae2a4723e38cbab40432d2d020f4b21fbe500e72c924212a3	.build/goal-process-prestart-family-complete/process-fixture-current-receipt.json
+ferro: ./mcp	current	d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4	0	0	1	a8ae71c4f8849f4ae2a4723e38cbab40432d2d020f4b21fbe500e72c924212a3	.build/goal-process-prestart-family-complete/ferro-current-receipt.json
+revdep: ./internal/telemetry	current	8a2fdb0927e2fc9b2a5b178c94f55d1887659152	0	0	0	a8ae71c4f8849f4ae2a4723e38cbab40432d2d020f4b21fbe500e72c924212a3	.build/goal-process-prestart-family-complete/revdep-current-receipt.json

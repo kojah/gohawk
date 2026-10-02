@@ -9,39 +9,60 @@ import (
 )
 
 func TestProcessStartCensusCutoff(t *testing.T) {
-	pkg := ssaflowtest.BuildPackage(t, "startcensus", `package startcensus
- import "os/exec"
- func hold(*exec.Cmd){}
- func subject(flag bool){cmd:=exec.Command("tool");hold(cmd)
- if flag {hold(cmd)};cmd.Start();hold(cmd)}
- `)
+	pkg := startCensusPackage(t)
 	fn := pkg.Func("subject")
-	var start *ssa.Call
-	for _, call := range ssaflow.InstructionsOf[*ssa.Call](fn) {
-		if candidate, _, ok := startedCommand(call); ok {
-			start = candidate
-		}
-	}
-	if start == nil {
-		t.Fatal("missing actual Start")
-	}
+	start := startupTestCall(t, fn)
 	pool := ssaflow.NewSearchBudget(processPoolBudget)
 	for limit := range 1000 {
 		child := pool.Within(limit)
-		result := collectProcessStartInstructions(start, child)
+		result := collectProcessStartInstructions(start, ssaflow.CallReceiver(start.Common()), child)
 		if result.Proven() {
-			if child.Exhausted() || len(result.instructions) == 0 {
+			if child.Exhausted() || len(result.instructions) == 0 || len(result.owners) != 3 {
 				t.Fatal("incomplete published census")
 			}
 			return
 		}
-		if result.State != ssaflow.EvidenceUnknown || result.Reason != ssaflow.EvidenceBudgetExhausted || len(result.instructions) != 0 || pool.Exhausted() {
+		unknownCutoff := result.State == ssaflow.EvidenceUnknown && result.Reason == ssaflow.EvidenceBudgetExhausted
+		publishedPrefix := len(result.instructions) != 0 || len(result.owners) != 0
+		if !unknownCutoff || publishedPrefix || pool.Exhausted() {
 			t.Fatalf("cutoff: %+v", result)
 		}
-		fresh := collectProcessStartInstructions(start, pool.Within(processQueryBudget))
-		if !fresh.Proven() || len(fresh.instructions) == 0 {
+		fresh := collectProcessStartInstructions(start, ssaflow.CallReceiver(start.Common()), pool.Within(processQueryBudget))
+		if !fresh.Proven() || len(fresh.instructions) == 0 || len(fresh.owners) != 3 {
 			t.Fatal("fresh child lost census")
 		}
 	}
 	t.Fatal("census never completed")
+}
+
+func TestRegisteredOwnerAllowance(t *testing.T) {
+	fn := startCensusPackage(t).Func("subject")
+	start := startupTestCall(t, fn)
+	command := ssaflow.CallReceiver(start.Common())
+	var before []ssa.Instruction
+	for instruction := range ssaflow.InstructionsStrictlyDominatingWithin(start, nil) {
+		before = append(before, instruction)
+	}
+	pool := ssaflow.NewSearchBudget(processPoolBudget)
+	child := pool.Within(len(before))
+	if owners := processOwnersRegisteredBefore(before, command, child); len(owners) != 0 || !child.Exhausted() || pool.Exhausted() {
+		t.Fatalf("owner metadata bypassed body-only allowance: %v", owners)
+	}
+	if owners := processOwnersRegisteredBefore(before, command, pool.Within(processQueryBudget)); len(owners) != 3 {
+		t.Fatalf("fresh multi-result owner inventory: %v", owners)
+	}
+	if result := collectProcessStartInstructions(nil, nil, nil); result.State != ssaflow.EvidenceUnknown || result.Reason != ssaflow.EvidenceUnavailable {
+		t.Fatalf("nil Start invented completed census: %+v", result)
+	}
+}
+
+func startCensusPackage(t *testing.T) *ssa.Package {
+	t.Helper()
+	return ssaflowtest.BuildPackage(t, "startcensus", `package startcensus
+ import "os/exec"
+ type holder struct{cmd *exec.Cmd}
+ func hold(cmd *exec.Cmd)(*holder,func()){return &holder{cmd},func(){cmd.Wait()}}
+ func subject(flag bool){cmd:=exec.Command("tool");owner,cleanup:=hold(cmd);defer cleanup()
+ if flag {hold(cmd)};cmd.Start();println(owner)}
+ `)
 }

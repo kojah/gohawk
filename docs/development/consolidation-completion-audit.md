@@ -4766,3 +4766,24 @@ counterfactuals, canonical validation and affected scoped parent/current output.
 No recorded production FP correction is credited; seven sites plus Rune remain,
 and overall architecture completion remains unproven. Watcher, binding, heap,
 type and remaining pre/post-Start query costs stay explicitly outside this census.
+
+## Process startup family ownership
+
+Beads `gohawk-dho.23.5` reviews the remaining startup owner path together.
+Registered owner arguments and result projections now share the completed
+pre-Start census allowance; interrupted discovery publishes neither prefix.
+Watcher bodies and possible containment use existing bounded APIs, retaining
+literal-closure and source-position selection. Successful-return reachability
+has a structured proof: only a completed negative establishes no normal return;
+cutoff remains unknown. Startup evidence lives in one focused `prestart.go`;
+ordinary post-Start handoff and completion stay in their existing files.
+
+The [startup family review](../../benchmarks/precision/audits/process-startup-family-2026-10-02.md)
+records multi-result owner, late/early/unrelated watcher, normal-return and
+nonreturning branch SSA controls, all intermediate cuts and fresh recovery.
+Three assertion-failing counterfactuals protect metadata charging, containment
+charging and unknown reachability polarity. Scoped parent/current outputs and
+canonical checks preserve their stated boundaries. The candidate budget comments
+now describe request ownership without claiming one bound on independent heap,
+type, symbol and other query costs. No production FP removal is credited;
+seven recorded sites plus Rune and overall consolidation completion remain open.

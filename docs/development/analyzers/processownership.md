@@ -201,5 +201,27 @@ same-block instructions, including loop bodies. A child cutoff discards the
 prefix and traces unknown ownership before reporting can use it. The policies
 retain their distinct method sets, owner/watcher requirements and destination
 rules; the census does not publish unconditional cleanup facts.
-`prestart_test.go` pins intermediate cutoffs and fresh child recovery. Nested
-binding, watcher, heap and type query costs retain their existing boundaries.
+`prestart_test.go` pins intermediate cutoffs and fresh child recovery. Owner
+arguments and result references share the census allowance; watcher discovery
+and containment use a candidate child allowance. Heap, type and symbol-query
+internals retain independent costs.
+
+## Startup owner and successful-return queries
+
+Registered wrapper candidates are part of the completed pre-Start inventory.
+Argument and result-referrer visits share that census allowance; cutoff discards
+both instruction and owner prefixes. Later watcher discovery uses a bounded
+body traversal and bounded containment, retaining its literal-closure and
+source-position policy. A capture is possible supervision, never exact Wait.
+The enclosing cleanup-registration policy keeps that uncertainty distinct from
+unconditional callee guarantees.
+
+Successful-Start return reachability has a structured result. Proven no-return
+branches can end startup analysis; a cutoff leaves ownership unknown and cannot
+be inverted into a no-return guarantee. The ordinary success-branch selector,
+termination catalogue and unrelated owner policies retain their meanings.
+`startup_queries_test.go` compiles literal watcher, early/unrelated watcher,
+returning, looping and panicking branches and exercises every child cutoff
+with fresh recovery. The multi-result factory in `prestart_test.go` verifies
+that completed owner inventories keep both returned projections while truncated
+ones publish neither. These controls complement the existing analyzer fixtures.
