@@ -4329,3 +4329,42 @@ lint and deadcode. Scoped pinned XD/goiardi scans retain all four reviewed lock
 findings unchanged. Parent/current goiardi transaction scans also remain
 byte-identical, including the two open transaction FPs; the other transaction
 findings are not relabelled by this replay. No FP removal is credited.
+
+
+## Storage-owner query and current duplicate scan
+
+Beads `gohawk-dho.44.11.5.27.7` evaluates the successful argument's
+`sameValueStorageOwner` once, reusing its returned owner in the mapping.
+Exact storage/identity, callback and strict projection keep their priority;
+owner mapping still precedes aggregate containment. The existing centrifuge
+rationale and actual SSA once-written/reassigned/nested-owner controls remain.
+This removes repeated proof work without extending ownership policy or claiming
+the transitive identity/heap cost review complete. Graph tools were unavailable.
+
+The same normalized complete-function scanner described above now examines
+315 production files and 2,137 bodies under `internal/`, with seven candidate
+groups (35-token minimum). Receipt:
+`.build/goal-duplicate-functions-current-2026-10-02.json` at `ed3725b` plus the
+owner-query change. Each group's source was inspected; normalization still
+hides type, literal-identifier and policy differences.
+
+| Current candidate | Disposition |
+| --- | --- |
+| Resource/obligation state keys | Different obligation state; shared guard key machinery, no generic domain-state merge. |
+| Carried-value/captured-Body proof results | A found carry is Proven; guarded Body evidence is Unknown. Reasons and fallback meanings differ. |
+| Spawn/resource classifier memo adapters | Different action/reason policies; each caches and traces its own authoritative classifier. |
+| Field/global/enclosing-scope stores | Destination and may-alias/derivation policies differ; shared provenance is already underneath them. |
+| Spawn/resource budget adapters | Different candidate limits and observers over one shared pool mechanic. |
+| Resource-presence/stored-value constructors | Different payloads and evidence reasons; a path-presence proof is not a storage identity proof. |
+| HEAD/local-header-only cutoff wrappers | The post-query budget projection is mechanically identical. New Beads `gohawk-dho.44.11.5.28` tracks sharing it while keeping the finders' policies separate. |
+
+This is a refreshed bounded candidate inventory, not proof that differently
+structured or partial duplication is absent. The confirmed acquisition wrapper
+work, transitive identity/heap/alias/type review and eleven production FP sites
+plus Rune remain open. No FP removal is credited by the owner-query change.
+
+The focused existing SSA mapping controls pass in
+`.build/goal-owner-once-focused.log`. Canonical `make verify` passes all local
+targets in `.build/goal-owner-once-verify.log`, including ordinary tests and
+self-dogfood. No new test duplicates the unchanged policy, no production FP
+relabel is made, and no full precision replay or local race run is performed.

@@ -161,14 +161,17 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{local: parameter, supplied: argument, kind: localCallback}, true
 	case heapmodel.StrictProjectionPath(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localProjection}, true
-	case sameValueStorageOwner(target, argument) != nil:
+	}
+	if owner := sameValueStorageOwner(target, argument); owner != nil {
 		// The same storage beneath an owner proven to be the argument: a
 		// receiver captured by a closure is spilled to a cell written once,
 		// so the lock's owner and the helper's argument are two loads of
 		// one value. centrifuge-go locks s.mu and hands s to a helper that
 		// unlocks it, with s captured by the function's closures:
 		// https://github.com/centrifugal/centrifuge-go/blob/080126041ccc71654718bd0601b920ff8b22a8bf/subscription.go#L1156-L1183
-		return mappedLocal{local: parameter, supplied: sameValueStorageOwner(target, argument), kind: localOwner}, true
+		return mappedLocal{local: parameter, supplied: owner, kind: localOwner}, true
+	}
+	switch {
 	case MayContainValue(argument, target):
 		path, _ := heapmodel.StoredPath(argument, target, invocation)
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact, path: path}, true
