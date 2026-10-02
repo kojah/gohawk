@@ -866,7 +866,7 @@ resource exhaustion labels (`dho.42`) and ordinary completion budget ownership
 | --- | --- |
 | `resourcelifetime/local_collections.go` | `resourceAppends` requires an explicit appended acquisition (with only the selected interface boxing); `findLocalCollection` requires all append results to belong to one `SliceVersions` closure, a fresh origin and every version use to be understood. Whole-slice returns transfer; exact whole-slice helpers and complete element-release loops settle at their call/exit edge. Any other use declines the entire model and leaves ordinary append uncertainty. This is collection coverage, not scalar identity or a guessed loop count. |
 | Selected collection adapters | `ssaflow/slice_elements.go:AppendedValues/SliceVersions/RangeElementLoop/ReadsElement` supply SSA append/version/index mechanics. `lifecycle/completion_element_releases.go:ElementLoopReleasesEach` is already shared by caller collections and summary inference: release must dominate every backedge, and element uses must match the cleanup receiver. `lifecyclefacts/element_discharges.go:ReleasesEachElement` selects an unconditional each-element discharge or a local same-package inference. No second per-element policy was introduced downstream. |
-| `resourcelifetime/captured_cleanup.go` | `opaqueClosureCall` combines possible captured-cell cleanup, narrowly guarded HTTP Body cleanup, aggregate capture, asynchronous invocation and unreadable/retaining callees. `cleanupRegisteredBefore` supplies the same uncertain cell/parent-cleanup boundaries before acquisition. A cleanup witness for a cell proves possible cleanup, never which stored acquisition was released. Deferred by-value arguments and read-only captures remain outside this cell contract. |
+| `resourcelifetime/captured_cleanup.go` | `opaqueClosureCall` combines possible captured-cell cleanup, narrowly guarded HTTP Body cleanup, aggregate capture, asynchronous invocation and unreadable/retaining callees. `provePriorCleanupWithin` supplies the same uncertain cell/parent-cleanup boundaries before acquisition. A cleanup witness for a cell proves possible cleanup, never which stored acquisition was released. Deferred by-value arguments and read-only captures remain outside this cell contract. |
 | Guarded captured HTTP cleanup | `guardedCapturedBodyCleanup` requires current stable content equal to this acquisition, and both caller/callee exposure checks must pass under one candidate allowance. `guardedBodyCoverage` uses Body-load identity and every-normal-return coverage with a nonnil assumption. Exhaustion cannot make that narrower positive witness succeed. This differs from cancellation's written-once cell/direct-defer ownership proof; a common broad capture traversal would erase the distinction. |
 | Selected coverage adapter | `lifecycle/completion_search.go:MethodCallCoverage` delegates every-return coverage to the existing return/action witness and shared obligation walk, while anywhere coverage is an existential instruction witness. Captured-cell callers request anywhere coverage only for unknown classification; the guarded Body proof requests every-return coverage. These polarities remain explicit at their callers. |
 | `resourcelifetime/optional_acquisition.go` | `proveOptionalAcquisition` requires one acyclic diamond, exact resource and paired-error phis, nil alternate edges and a repeated equality of the same operands. It pairs phi values with predecessor blocks through the shared adapter. Only the acquired merge successor is selected, and cleanup must target the exact resource phi through the selected transparent wrappers. Generic existential derivation and helper/edge completion remain excluded. |
@@ -2879,3 +2879,42 @@ ownership-effects binary. Terminal exits are 3/0 and stderr is empty. Cute's
 known TP remains and Ferro's corrected statement-storage FP stays absent.
 No additional FP removal, new full-corpus precision result or full precision
 replay is credited.
+
+## Prior cleanup registration census
+
+`gohawk-dho.44.11.5.17.2` replaces the default Boolean prior-registration
+query with `provePriorCleanupWithin`. Both instruction censuses share the
+existing candidate pool; the result carries the authoritative reason and
+witness instruction for tracing. Deferred witnesses retain precedence over
+known testing cleanup registrations. Interrupted evidence returns budget
+uncertainty before the ordinary resource flow; a complete may-cleanup witness
+still supplies opaque consumption, never exact release.
+
+The captured-cell query now uses shared bounded binding, instruction and access-
+path traversal. It preserves the former anywhere cleanup policy without adding
+an every-return guarantee. The same proof feeds `opaqueClosureCall`; cutoff
+cannot make a deferred callback transparent. Prior testing registrations use
+the existing single-step closure recognizer and ordinary carried-value proof,
+so the obsolete `carriedWithinClosure` adapter is removed. SQL parent identity
+queries retain independent storage costs; child `.17.3` tracks those shared
+contracts across both prior registration and ordinary classification. Earlier
+acquisition predicates and graph/alias/type internals remain separate work.
+
+`prior_cleanup_test.go` records actual SSA for mutable captured cleanup, testing
+registration, unrelated captures, by-value defers, later registration, a leak
+and exact release. Controls cover every insufficient allowance, a child cutoff
+while the parent remains available, fresh recovery and deferred-closure
+classifier cutoff. An overlay ignoring both proof allowances fails all six
+prior-registration controls, all three captured-cell controls, the child cutoff
+and the classifier cutoff. Focused controls pass in 0.060 seconds.
+
+The first focused gates exposed nested control flow and missing reason-
+precedence rationale; both are corrected. The canonical `make verify` gate
+passes (ordinary tests 75 seconds, repository dogfood 38 seconds). The immutable
+`.build/goal-prior-cleanup-current`, SHA-256
+`a261d98b3bcc8c7c3affa5df5b4050866de58ab44de14ef5720925ca9e6ba3e5`,
+keeps the prior owner-discovery Cute/Ferro JSON byte-identical, terminal exits
+3/0 with empty stderr. Pins and scopes remain those recorded above. The known
+Cute TP remains; Ferro's corrected storage report stays absent. These scoped
+receipts credit no new FP correction or full-corpus precision result. No full
+precision replay ran.

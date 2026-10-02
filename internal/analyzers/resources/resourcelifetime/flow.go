@@ -68,7 +68,12 @@ func evaluateResourceFlow(
 	}
 	analysis.collection = analysis.localCollection()
 	analysis.guardedDefers = analysis.findResultGuardedDefers()
-	if analysis.cleanupRegisteredBefore(call) {
+	prior := analysis.provePriorCleanupWithin(call, analysis.budget(releaseSearchBudget))
+	if prior.State == ssaflow.EvidenceUnknown {
+		return unknownResourceLifetime(prior.Reason)
+	}
+	if prior.Proven() {
+		analysis.emitAction(prior.Instruction, actionUnknown, prior.Reason)
 		return unknownResourceLifetime(resourceReasonOpaqueConsumption)
 	}
 	flow := analysis.proveResourceFlow(errorValue)

@@ -9,8 +9,8 @@ import (
 // Callback carrying shares the ordinary carried-value proof after resolving
 // captures. These are possible ownership boundaries, never cleanup guarantees.
 // Binding/argument visits share the allowance; alias/graph/type and effect
-// internals remain independent. Prior-registration analysis retains a default
-// adapter until its pre-acquisition allowance is integrated.
+// internals remain independent. Prior-registration analysis uses the same
+// bounded capture proof without a separate Boolean adapter.
 
 // Retaining a callback also retains its captured resource. A known test
 // cleanup registration has its own coverage proof; a visible observer that
@@ -71,10 +71,6 @@ func (analysis *resourceAnalysis) proveCarriedAggregateArgumentsWithin(common *s
 		}
 	}
 	return carriedValueProof(false, resourceReasonUntouched, budget)
-}
-
-func (analysis *resourceAnalysis) carriedWithinClosure(argument ssa.Value) bool {
-	return analysis.proveCarriedClosureWithin(argument, nil).Proven()
 }
 
 // Keep the existing single transparent step: recognizing a callback argument

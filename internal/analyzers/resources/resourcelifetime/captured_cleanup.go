@@ -23,8 +23,11 @@ func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction,
 	// its registration-time value. Reuse the prior-registration uncertainty
 	// boundary rather than treating an unresolved release as a transparent call.
 	// https://github.com/anton48/vk-turn-proxy-ios/blob/001caf2ae24ecd07b021d7ca7b14a98a006bff65/third_party/speedtest-go/speedtest/server.go#L262-L285
-	if deferred, ok := instruction.(*ssa.Defer); ok && analysis.capturedCellCleanup(deferred).Proven() {
-		return resourceReasonCapturedCellMayCleanup, true
+	if deferred, ok := instruction.(*ssa.Defer); ok {
+		proof := analysis.proveCapturedCellCleanupWithin(deferred, analysis.budget(ssaflow.SummaryBudget))
+		if proof.State != ssaflow.EvidenceDisproven {
+			return proof.Reason, true
+		}
 	}
 	if proof := analysis.guardedCapturedBodyCleanup(instruction, closure); proof.State == ssaflow.EvidenceUnknown {
 		return proof.Reason, true
@@ -104,44 +107,66 @@ func (analysis *resourceAnalysis) proveCapturedAggregateOwnerWithin(closure *ssa
 	return carriedValueProof(false, resourceReasonUntouched, budget)
 }
 
-// cleanupRegisteredBefore handles a retained callback registered before a
+type priorCleanupProof struct {
+	resourceProof
+	Instruction ssa.Instruction
+}
+
+// provePriorCleanupWithin handles a retained callback registered before a
 // captured variable is reassigned to this acquisition. The callback observes
 // the cell at cleanup time, not its registration-time value. Mutable guards
 // prevent proving release, so this is unknown rather than a settled resource.
 // https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/admin/handler_test.go#L1398-L1447
-func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call) bool {
-	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](analysis.function) {
-		if !ssaflow.InstructionDominates(deferred, acquisition) {
+func (analysis *resourceAnalysis) provePriorCleanupWithin(acquisition *ssa.Call, budget *ssaflow.SearchBudget) priorCleanupProof {
+	for instruction := range ssaflow.InstructionsWithin(analysis.function, budget) {
+		deferred, ok := instruction.(*ssa.Defer)
+		if !ok || !ssaflow.InstructionDominates(deferred, acquisition) {
 			continue
 		}
-		if analysis.capturedCellCleanup(deferred).Proven() {
-			analysis.emitAction(deferred, actionUnknown, resourceReasonPriorDeferMayCleanCapturedCell)
-			return true
+		proof := analysis.proveCapturedCellCleanupWithin(deferred, budget)
+		if proof.State == ssaflow.EvidenceUnknown {
+			return priorCleanupProof{resourceProof: proof}
 		}
-		if closesStatementDatabase(acquisition, deferred) {
-			analysis.emitAction(deferred, actionUnknown, resourceReasonStatementParentClosed)
-			return true
+		reason := resourceReasonNone
+		switch {
+		case proof.Proven():
+			reason = resourceReasonPriorDeferMayCleanCapturedCell
+		case closesStatementDatabase(acquisition, deferred):
+			reason = resourceReasonStatementParentClosed
+		case finishesRowsTransaction(acquisition, deferred):
+			reason = resourceReasonRowsTransactionFinished
+		case cancelsTransactionContext(acquisition, deferred):
+			reason = resourceReasonTransactionContextCanceled
 		}
-		if finishesRowsTransaction(acquisition, deferred) {
-			analysis.emitAction(deferred, actionUnknown, resourceReasonRowsTransactionFinished)
-			return true
-		}
-		if cancelsTransactionContext(acquisition, deferred) {
-			analysis.emitAction(deferred, actionUnknown, resourceReasonTransactionContextCanceled)
-			return true
+		if reason != resourceReasonNone {
+			return priorCleanupProof{resourceProof: carriedValueProof(true, reason, budget), Instruction: deferred}
 		}
 	}
-	for _, call := range ssaflow.InstructionsOf[*ssa.Call](analysis.function) {
-		if !ssaflow.InstructionDominates(call, acquisition) ||
+	if resourceFlowExhausted(budget) {
+		return priorCleanupProof{resourceProof: carriedValueProof(false, resourceReasonUntouched, budget)}
+	}
+	// Keep deferred cleanup ahead of registration witnesses, preserving the
+	// existing reason precedence. A known testing callback may retain this
+	// resource without providing any synchronous cleanup guarantee.
+	for instruction := range ssaflow.InstructionsWithin(analysis.function, budget) {
+		call, ok := instruction.(*ssa.Call)
+		if !ok || !ssaflow.InstructionDominates(call, acquisition) ||
 			!ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup) {
 			continue
 		}
-		if slices.ContainsFunc(call.Common().Args, analysis.carriedWithinClosure) {
-			analysis.emitAction(call, actionUnknown, resourceReasonCapturedByPriorCleanup)
-			return true
+		for _, argument := range call.Common().Args {
+			proof := analysis.proveCarriedClosureWithin(argument, budget)
+			if proof.State == ssaflow.EvidenceUnknown {
+				return priorCleanupProof{resourceProof: proof}
+			}
+			if proof.Proven() {
+				return priorCleanupProof{
+					resourceProof: carriedValueProof(true, resourceReasonCapturedByPriorCleanup, budget), Instruction: call,
+				}
+			}
 		}
 	}
-	return false
+	return priorCleanupProof{resourceProof: carriedValueProof(false, resourceReasonUntouched, budget)}
 }
 
 // A defer observes the captured cell at return, not at registration.
@@ -150,24 +175,37 @@ func (analysis *resourceAnalysis) cleanupRegisteredBefore(acquisition *ssa.Call)
 // not prove which stored value will be closed. Read-only captures and by-value
 // deferred arguments do not qualify. Overwritten-cell leaks may be missed.
 // https://github.com/wind-c/comqtt/blob/11282b91abb06d5169b857a2c38fad5d54502050/plugin/auth/http/http.go#L89-L127
-func (analysis *resourceAnalysis) capturedCellCleanup(deferred *ssa.Defer) resourceProof {
-	if closure, ok := deferred.Common().Value.(*ssa.MakeClosure); ok {
-		function, _ := closure.Fn.(*ssa.Function)
-		for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
-			if !heapmodel.CapturedBindingMatches(pair.Binding, analysis.resource) {
-				continue
+func (analysis *resourceAnalysis) proveCapturedCellCleanupWithin(deferred *ssa.Defer, budget *ssaflow.SearchBudget) resourceProof {
+	if !budget.Spend() {
+		return carriedValueProof(false, resourceReasonUntouched, budget)
+	}
+	closure, ok := deferred.Common().Value.(*ssa.MakeClosure)
+	if !ok {
+		return carriedValueProof(false, resourceReasonUntouched, budget)
+	}
+	function, _ := closure.Fn.(*ssa.Function)
+	for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
+		if !budget.Spend() || !heapmodel.CapturedBindingMatchesWithin(pair.Binding, analysis.resource, budget) {
+			if resourceFlowExhausted(budget) {
+				return carriedValueProof(false, resourceReasonUntouched, budget)
 			}
-			mayClean := lifecycle.MethodCallCoverage(function, func(instruction ssa.Instruction) bool {
-				common := ssaflow.InstructionCall(instruction)
-				return common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
-					ssaflow.ValueIsAccessPathFrom(ssaflow.CallReceiver(common), pair.Free)
-			}, lifecycle.CoverageAnywhere, nil)
-			if mayClean {
-				return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonCapturedCellMayCleanup}
+			continue
+		}
+		// Anywhere coverage preserves the former may-cleanup boundary. This
+		// witness never establishes release before every normal return.
+		for instruction := range ssaflow.InstructionsWithin(function, budget) {
+			common := ssaflow.InstructionCall(instruction)
+			if common != nil && slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) &&
+				ssaflow.ValueIsAccessPathFromWithin(ssaflow.CallReceiver(common), pair.Free, budget) {
+				return carriedValueProof(true, resourceReasonCapturedCellMayCleanup, budget)
+			}
+			if resourceFlowExhausted(budget) {
+				return carriedValueProof(false, resourceReasonUntouched, budget)
 			}
 		}
 	}
-	return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonEvidenceNotFound}
+
+	return carriedValueProof(false, resourceReasonUntouched, budget)
 }
 
 // A called literal may own HTTP body cleanup while guarding a distinct load

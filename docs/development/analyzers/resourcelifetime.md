@@ -280,10 +280,9 @@ Imported loop-release claims still establish uncertainty, never completion.
 `carried_callbacks_test.go` covers exact and nested captures, unrelated and
 empty callbacks, one/two wrapper recognition, retaining/observing helpers,
 mixed direct/aggregate arguments, callback exclusion, imported loop consumption
-and started-closure classifier recovery at insufficient allowances. A default
-`carriedWithinClosure` adapter remains only for prior-registration analysis
-until pre-acquisition budget integration. Old Boolean carrying/aggregate/capture
-engines are removed. Effect, closure-retention, graph/alias/type, result-transfer
+and started-closure classifier recovery at insufficient allowances. Prior
+registration now uses the same bounded callback proof directly; the default
+Boolean adapter and old carrying/aggregate/capture engines are removed. Effect, closure-retention, graph/alias/type, result-transfer
 and aggregate-owner capture queries retain separate cost reviews; this step
 does not claim an end-to-end query bound. Beads child `.18.1.5.4.3` tracks this
 integration under `gohawk-dho.44.11.5`.
@@ -885,7 +884,7 @@ do not qualify for this merged-value boundary.
 A deferred closure may close a captured variable assigned several acquisitions.
 Its body must contain cleanup derived from that cell. A registration preceding
 the acquisition must dominate it; a later registration is classified by the
-ordinary path walk. Both use `capturedCellCleanup` to make the result unknown:
+ordinary path walk. Both use `proveCapturedCellCleanupWithin` to make the result unknown:
 neither proves which value is closed, and either can miss overwritten-cell leaks.
 Read-only captures, unrelated cleanup, and deferred arguments evaluated by value
 do not establish this boundary. `deferred_reassigned_response.go` covers later
@@ -962,3 +961,24 @@ Some cases are deliberately not reported:
 - a file, response body, or rows value acquired once in `main.main` of package
   `main`, which program exit closes. Compressors and transactions there are
   still reported, because exit would lose their flush or commit.
+
+### Prior cleanup registration allowance
+
+The prior-registration query now returns one structured proof with its witness
+instruction. Deferred captured-cell cleanup and known testing cleanup callback
+registration retain their may-cleanup/opaque-consumption polarity; neither
+settles the resource. Both instruction censuses, capture/binding visits,
+callback argument recognition and captured-body access-path matching share the
+candidate pool. A child cutoff returns budget uncertainty before resource flow.
+The same captured-cell proof supplies the ordinary deferred-closure classifier,
+so that path cannot treat interrupted evidence as transparent consumption.
+Tracing uses the returned witness rather than repeating the cleanup decision.
+
+The callback recognizer retains its single transparent wrapper step. Database
+statement-parent, rows-transaction and paired transaction-context contracts keep
+their existing independent identity queries; graph/alias/type internals and
+earlier acquisition predicates remain separate cost work. Deferred witnesses
+keep precedence over callback registrations. `prior_cleanup_test.go` covers
+mutable captured cleanup, exact testing registration, unrelated captures,
+by-value defers, later registration, all insufficient allowances, child/pool
+cutoff, fresh recovery and full-flow leak/release controls using actual SSA.
