@@ -5,7 +5,6 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
-	"github.com/kojah/gohawk/internal/ssaflow"
 
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -50,16 +49,8 @@ type exclusiveKey struct {
 	index    int
 }
 
-func newExclusiveCallers(pass *analysis.Pass, functions []*ssa.Function) *exclusiveCallers {
-	callers := &exclusiveCallers{pass: pass, sites: map[*ssa.Function][]*ssa.Call{}, exclusive: map[exclusiveKey]bool{}}
-	for _, function := range functions {
-		for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
-			if callee := call.Common().StaticCallee(); callee != nil && !call.Common().IsInvoke() {
-				callers.sites[callee] = append(callers.sites[callee], call)
-			}
-		}
-	}
-	return callers
+func newExclusiveCallers(pass *analysis.Pass, sites map[*ssa.Function][]*ssa.Call) *exclusiveCallers {
+	return &exclusiveCallers{pass: pass, sites: sites, exclusive: map[exclusiveKey]bool{}}
 }
 
 // parameterExclusive reports whether every call of the function in the

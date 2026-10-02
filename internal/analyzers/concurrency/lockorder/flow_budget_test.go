@@ -82,7 +82,7 @@ func (fixture *lockWalkFixture) run(budget *ssaflow.SearchBudget) (bool, []analy
 		Report:   func(d analysis.Diagnostic) { reports = append(reports, d) },
 	}
 	orders := newLockOrders()
-	exclusive := newExclusiveCallers(pass, []*ssa.Function{fn})
+	exclusive := newExclusiveCallers(pass, collectLockCallers(nil, []*ssa.Function{fn}, nil).exclusive)
 	complete := walkLockOrderWithin(pass, fn, orders, fixture.calleeLocks, &fixture.evidence, nil, exclusive, budget)
 	return complete, reports, len(orders.edges)
 }

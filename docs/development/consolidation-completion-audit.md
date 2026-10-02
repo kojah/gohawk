@@ -4471,3 +4471,21 @@ records receipts, retained metadata costs and source scope. Graph build/replay,
 pointee/alias/type internals, package inventories and other fact consumers remain
 open. The five complete-body candidate groups retain distinct contracts; partial
 duplication is not ruled out. Ten production FP sites plus Rune remain unresolved.
+
+## Lock package caller discovery
+
+Beads `gohawk-dho.44.11.5.27.18` shares package instruction discovery between
+conditional release and exclusive ownership. Their policies remain separate:
+initialization and escaped private function operands belong to conditional
+release; the exclusive view retains synchronous static sites outside
+initialization. A conditional cutoff drops every conditional caller set while
+exclusive discovery continues. No second body-scanning constructor remains.
+
+Actual SSA controls and three assertion-failing counterfactuals pin scope,
+escape, caller count and prefix discard. Canonical verification passes all eight
+targets; 551 fixture diagnostics, four pinned production controls and the two
+SkyWalking FP sites retain byte-identical output. The [caller inventory review](../../benchmarks/precision/audits/lock-caller-inventory-consolidation-2026-10-02.md)
+records receipts and the remaining private-function escape question in
+`gohawk-dho.44.11.5.27.19`. That follow-up must verify completeness before the
+exclusive precondition can be certified. Broader graph/alias/type and fact
+consumer reviews, ten production FP sites and Rune remain open.

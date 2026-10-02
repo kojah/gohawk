@@ -79,8 +79,9 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	calleeLocks := newCalleeLockSearch()
 	ssaResult := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 	packageFunctions := ssaflow.PackageFunctions(pass)
-	callers := conditionalCallerSets(append([]*ssa.Function{ssaResult.Pkg.Func("init")}, packageFunctions...))
-	exclusive := newExclusiveCallers(pass, packageFunctions)
+	inventory := collectLockCallers(ssaResult.Pkg.Func("init"), packageFunctions, ssaflow.NewSearchBudget(callerSetBudget))
+	callers := inventory.conditional
+	exclusive := newExclusiveCallers(pass, inventory.exclusive)
 	for _, function := range functions {
 		var evidence lifecycle.LocalEvidence
 		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers, exclusive)

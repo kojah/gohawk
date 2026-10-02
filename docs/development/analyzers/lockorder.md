@@ -271,6 +271,18 @@ new readers when a writer is waiting, so opposing read acquisition orders can
 participate in a deadlock with queued writers. Modes explain the evidence;
 they do not imply that a read-only pair necessarily deadlocks by itself.
 
+### Package caller inventories
+
+Package caller discovery uses one instruction census for conditional release
+and exclusive ownership. Conditional release records private non-method
+function operands, including initialization, and rejects escaped values or more
+than 32 synchronous callers. Its 20,000-instruction cutoff discards the entire
+set. Exclusive ownership retains a separate static synchronous-call view outside
+initialization; discovery continues after the conditional allowance is exhausted.
+These views supply different preconditions and do not infer a field's guard or
+participant confinement. `callers_test.go` pins scope, escape, call-count and
+cutoff boundaries with compiled SSA.
+
 ### Writes under a read lock
 
 A read lock is shared: any number of readers may hold it at once. Writing to

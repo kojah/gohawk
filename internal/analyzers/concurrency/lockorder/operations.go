@@ -11,62 +11,9 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-type conditionalCallerSet struct {
-	calls   []*ssa.Call
-	escaped bool
-}
-
 type callerReleaseProof struct {
 	proven bool
 	reason lockReason
-}
-
-// callerSetBudget bounds the one walk over every instruction of the
-// package that collects callers of private function values. It is a
-// whole-package pass rather than a question about one candidate, so it is
-// far larger than a query; exhaustion leaves every caller set incomplete,
-// which no proof may then rely on.
-const callerSetBudget = 20_000
-
-// Private function values must have a complete, bounded synchronous caller set.
-// Include generated source bodies when collecting uses; skipping their callers
-// would turn an incomplete set into a cleanup guarantee.
-func conditionalCallerSets(functions []*ssa.Function) map[*ssa.Function]conditionalCallerSet {
-	callers := make(map[*ssa.Function]conditionalCallerSet)
-	budget := ssaflow.NewSearchBudget(callerSetBudget)
-	for _, function := range functions {
-		if function == nil {
-			continue
-		}
-		for _, block := range function.Blocks {
-			for _, instruction := range block.Instrs {
-				if !budget.Spend() {
-					return nil
-				}
-				if _, debug := instruction.(*ssa.DebugRef); debug {
-					continue
-				}
-				for _, operand := range instruction.Operands(nil) {
-					if operand == nil {
-						continue
-					}
-					callee, ok := (*operand).(*ssa.Function)
-					if !ok || callee.Object() == nil || callee.Object().Exported() || callee.Signature.Recv() != nil {
-						continue
-					}
-					entry := callers[callee]
-					call, synchronous := instruction.(*ssa.Call)
-					if synchronous && operand == &call.Common().Value && len(entry.calls) < 32 {
-						entry.calls = append(entry.calls, call)
-					} else {
-						entry.escaped = true
-					}
-					callers[callee] = entry
-				}
-			}
-		}
-	}
-	return callers
 }
 
 func appendUniqueString(values []string, candidate string) []string {
