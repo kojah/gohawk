@@ -38,7 +38,7 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 	case ContractTestingCleanup:
 		// testing.T and testing.B promote Cleanup from the shared common
 		// implementation type, which is the declaration retained in SSA.
-		return matchesAnySymbol(
+		return CallMatchesAnySymbol(
 			common,
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "testing", Receiver: "common", Name: "Cleanup"}),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "testing", Receiver: "TB", Name: "Cleanup"}),
@@ -52,7 +52,7 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 	case ContractTestifyFatalError:
 		// require.NotNil applied to an error value is the same fatal claim as
 		// require.Error; callers must check that the argument is the error.
-		return matchesAnySymbol(
+		return CallMatchesAnySymbol(
 			common,
 			syntax.PackageFunction("github.com/stretchr/testify/require", "Error"),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "github.com/stretchr/testify/require", Receiver: "Assertions", Name: "Error"}),
@@ -60,13 +60,13 @@ func HasLibraryContract(common *ssa.CallCommon, contract LibraryContract) bool {
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "github.com/stretchr/testify/require", Receiver: "Assertions", Name: "NotNil"}),
 		)
 	case ContractGoMockReturn:
-		return matchesAnySymbol(
+		return CallMatchesAnySymbol(
 			common,
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "go.uber.org/mock/gomock", Receiver: "Call", Name: "Return"}),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "github.com/golang/mock/gomock", Receiver: "Call", Name: "Return"}),
 		)
 	case ContractAfterFunc:
-		return matchesAnySymbol(
+		return CallMatchesAnySymbol(
 			common,
 			syntax.PackageFunction("time", "AfterFunc"),
 			syntax.PackageFunction("context", "AfterFunc"),
@@ -108,7 +108,7 @@ func strictIsFailure(common *ssa.CallCommon) bool {
 	}
 	return NewReachingWalk(TransparentChangeType).Every(CallReceiver(common), func(_ ReachingWalk, value ssa.Value) bool {
 		constructor, ok := value.(*ssa.Call)
-		return ok && matchesAnySymbol(constructor.Common(), syntax.PackageFunction(packagePath, "New"),
+		return ok && CallMatchesAnySymbol(constructor.Common(), syntax.PackageFunction(packagePath, "New"),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: packagePath, Receiver: "I", Name: "New"}))
 	})
 }
@@ -122,7 +122,7 @@ func testifyUnconditionalTermination(common *ssa.CallCommon) bool {
 		return true
 	}
 	for _, name := range []string{"Fail", "Failf"} {
-		if matchesAnySymbol(common,
+		if CallMatchesAnySymbol(common,
 			syntax.PackageFunction("github.com/stretchr/testify/require", name),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "github.com/stretchr/testify/require", Receiver: "Assertions", Name: name})) {
 			return true
@@ -136,7 +136,7 @@ func processExitContract(common *ssa.CallCommon) bool {
 		return true
 	}
 	for _, name := range []string{"Fatal", "Fatalf", "Fatalln"} {
-		if matchesAnySymbol(common, syntax.PackageFunction("log", name),
+		if CallMatchesAnySymbol(common, syntax.PackageFunction("log", name),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "log", Receiver: "Logger", Name: name})) {
 			return true
 		}
@@ -146,20 +146,11 @@ func processExitContract(common *ssa.CallCommon) bool {
 
 func testifyAssertion(common *ssa.CallCommon, name string) bool {
 	for _, packagePath := range []string{"github.com/stretchr/testify/assert", "github.com/stretchr/testify/require"} {
-		if matchesAnySymbol(
+		if CallMatchesAnySymbol(
 			common,
 			syntax.PackageFunction(packagePath, name),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: packagePath, Receiver: "Assertions", Name: name}),
 		) {
-			return true
-		}
-	}
-	return false
-}
-
-func matchesAnySymbol(common *ssa.CallCommon, symbols ...syntax.Symbol) bool {
-	for _, symbol := range symbols {
-		if CallMatchesSymbol(common, symbol) {
 			return true
 		}
 	}

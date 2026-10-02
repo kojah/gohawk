@@ -32,11 +32,8 @@ type resourceFlowState struct {
 }
 
 type resourceFlowKey struct {
-	block       int
-	predecessor int
-	index       int
-	obligation  resourcemodel.Obligation
-	guards      string
+	location   ssaflow.FlowLocationKey
+	obligation resourcemodel.Obligation
 }
 
 // proveResourceFlow owns setup, coverage and cutoff availability together.
@@ -93,16 +90,9 @@ func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resour
 }
 
 func resourceStateKey(state resourceFlowState, budget *ssaflow.SearchBudget) resourceFlowKey {
-	predecessor := -1
-	if state.predecessor != nil {
-		predecessor = state.predecessor.Index
-	}
 	return resourceFlowKey{
-		block:       state.block.Index,
-		predecessor: predecessor,
-		index:       state.index,
-		obligation:  state.obligation,
-		guards:      state.guards.KeyWithin(budget),
+		location:   ssaflow.FlowLocationKeyWithin(state.block, state.predecessor, state.index, state.guards, budget),
+		obligation: state.obligation,
 	}
 }
 

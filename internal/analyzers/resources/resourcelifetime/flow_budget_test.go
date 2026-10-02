@@ -3,10 +3,29 @@ package resourcelifetime
 import (
 	"testing"
 
+	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
+
+func TestResourceKeyKeepsObligationAtSameLocation(t *testing.T) {
+	analysis, _ := helperBudgetAnalysis(t, "println(value)")
+	block := analysis.acquisition.Block()
+	obligation := resourcemodel.Acquired()
+	states := []resourceFlowState{
+		{block: block, obligation: obligation},
+		{block: block, obligation: obligation.Discharged()},
+		{block: block, obligation: obligation.Uncertain()},
+		{block: block, obligation: obligation.Absent()},
+	}
+	expanded := 0
+	ssaflow.WalkStates(states, func(state resourceFlowState) resourceFlowKey { return resourceStateKey(state, nil) },
+		func(resourceFlowState) ([]resourceFlowState, bool) { expanded++; return nil, true })
+	if expanded != len(states) {
+		t.Fatalf("obligation collapsed at one guarded position: expanded=%d", expanded)
+	}
+}
 
 func TestResourceFlowCandidateAllowance(t *testing.T) {
 	for _, test := range []struct {

@@ -136,6 +136,12 @@ for each; these times include each check's prerequisite passes.
   The engine reports which kind a contradiction is and each walk chooses:
   the obligation walk and lock order prune the other arm of a stable guard,
   resource lifetime and every walk treat a loaded contradiction as unknown.
+- `ssaflow.FlowLocationKeyWithin` names a function-local block, predecessor,
+  instruction position and path guards. The obligation and resource walks
+  compose this shared location with their own coverage or resource state.
+  A missing predecessor differs from entry block zero. Interrupted guard
+  rendering is unavailable and cannot enter the work list. Location identity
+  supplies no cleanup, activation or contradiction policy.
 - External ownership provenance uses `ReachingWalk.Any` for transparent forms,
   phi alternatives and cycle handling. Its leaves follow storage sources and
   exact stores into local cells. A possible external source supplies uncertain

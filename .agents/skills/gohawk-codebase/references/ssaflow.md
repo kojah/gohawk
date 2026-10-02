@@ -1404,6 +1404,34 @@ func (fixed FixedValues) NarrowWithin(successors []*ssa.BasicBlock, block *ssa.B
 NarrowWithin shares bound-condition and successor-filter visits. Cutoff
 keeps the primitive's input edges; callers retain availability before use.
 
+## FlowLocationKey
+
+[Source](../../../../internal/ssaflow/flow_worklist.go)
+
+```go
+type FlowLocationKey struct {
+	// contains filtered or unexported fields
+}
+```
+
+FlowLocationKey identifies one guarded instruction position within a
+function. It does not include the caller's obligation or other domain state;
+callers must compose those into their work-list key. A missing predecessor
+stays distinct from entry block zero.
+
+## FlowLocationKeyWithin
+
+[Source](../../../../internal/ssaflow/flow_worklist.go)
+
+```go
+func FlowLocationKeyWithin(block, predecessor *ssa.BasicBlock, index int, guards PathGuards, budget *SearchBudget) FlowLocationKey
+```
+
+FlowLocationKeyWithin names a valid block position and its path guards using
+budget. Block indexes are function-local, so keys must not be shared between
+functions. Guard cutoff makes the key unavailable; WalkStatesWithin checks
+that allowance before admitting it. A nil budget preserves guard rendering.
+
 ## ForwardedValue
 
 [Source](../../../../internal/ssaflow/value_forms.go)

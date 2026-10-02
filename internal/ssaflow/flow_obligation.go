@@ -133,20 +133,14 @@ type obligationState struct {
 }
 
 type obligationKey struct {
-	block       int
-	predecessor int
-	index       int
-	covered     ObligationAction
-	guards      string
+	location FlowLocationKey
+	covered  ObligationAction
 }
 
 func (state obligationState) keyWithin(budget *SearchBudget) obligationKey {
-	predecessor := -1
-	if state.predecessor != nil {
-		predecessor = state.predecessor.Index
-	}
 	return obligationKey{
-		block: state.block.Index, predecessor: predecessor, index: state.index, covered: state.covered, guards: state.guards.KeyWithin(budget),
+		location: FlowLocationKeyWithin(state.block, state.predecessor, state.index, state.guards, budget),
+		covered:  state.covered,
 	}
 }
 
