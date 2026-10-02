@@ -22,6 +22,10 @@ func TestRegionHistoryWidensConservatively(t *testing.T) {
 	if got := graph.history[held]; len(got) != 1 || !got.unknown() {
 		t.Fatalf("widened history grew again: %v", got)
 	}
+	from, target := pointees{{region: owner}: false}, pointees{objects[0]: false}
+	if !containsThroughSlots(graph.history, from, target) {
+		t.Fatal("widened slot history must admit possible transitive containment")
+	}
 	if !graph.everContainedUnlocked(slot{region: owner}, pointees{objects[0]: false}) {
 		t.Fatal("unknown history must admit possible containment")
 	}

@@ -104,6 +104,18 @@ captured cells where the walk gave up.
   visible callees, and take their identity steps from `may alias`, so a
   copy or a join the graph resolves is followed there too.
 
+Graph containment has one private region search in
+`store_regions_containment.go`. `Contains` selects the whole-build slot history;
+`ContainsAt` selects the state immediately before its observation. Both hold
+the graph lock and follow the same depth-limited search, including cycles,
+stale may-pointees and unknown contents. Later or replaced storage remains in
+history but cannot become current containment. A missing observation is
+unavailable rather than a known negative. No search result establishes cleanup
+or exact identity. Real SSA controls in `store_regions_containment_test.go`
+pin later/replaced stores, unrelated objects, nested and cyclic containment,
+and both sides of the existing depth limit; the history widening test retains
+possible containment after an overfull slot becomes unknown.
+
 A may-answer is deliberately weaker inside a loop than outside it: a stale
 entry counts, so `true` there means "possibly, in some iteration". Only
 `must same` filters stale entries. A `false` from `may alias` is the one

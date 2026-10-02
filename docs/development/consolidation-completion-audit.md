@@ -4415,3 +4415,22 @@ unknown-reason traces, two failing counterfactuals and final canonical validatio
 support the correction. This leaves ten unresolved production sites plus Rune;
 budget-driven silence remains open. It does not complete the broader graph,
 alias, type, package-inventory or fact-consumer consolidation reviews.
+
+## Graph containment traversal
+
+Beads `gohawk-dho.44.11.5.27.15` consolidates the identical bounded region
+search in whole-build and point-in-time containment. Each query retains its
+selected slot map, graph lock and availability gates; the shared private
+search retains unknown/stale may-pointees, cycles and the existing depth limit.
+Actual SSA tests distinguish later and overwritten storage from history and
+pin nested/cyclic owners and both depth boundaries. Three counterfactuals fail
+assertions. Final canonical verification and byte-identical resource/goroutine
+fixtures and four pinned production lock controls pass.
+
+The [containment review](../../benchmarks/precision/audits/graph-containment-consolidation-2026-10-02.md)
+records neighboring query/effect dispositions and source scope. The normalized
+complete-body scan still has five distinct-contract groups across 316 files and
+2,146 functions; it did not expose this partial traversal duplication. Graph
+construction, deferred observation costs, alias/type internals, cycle metadata,
+package inventories and other fact consumers remain open. Ten production FP
+sites plus Rune remain unresolved; no FP correction is credited by this refactor.
