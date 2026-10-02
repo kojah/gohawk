@@ -60,6 +60,7 @@ that only need to know whether some return is uncovered.
 | `UnownedReturn(UnownedReturnQuery)` | the reachable normal return with no owning action before it, or nil; the query starts after an instruction, on a call's success branch, or at entry, and may add edge actions, allowed returns, and `EntryAssumptions` |
 | `NormalReturnReachableFrom` | can a normal return be reached from here? |
 | `ProveNormalReturnWithin` | structured return reachability under shared queue/instruction/termination allowance; unknown never proves no return |
+| `lifecycle.ProveReturnedParameterWithin` | exact same-type returned parameter under shared reachability, return coverage and storage allowance; cutoff remains unknown |
 | `ReturnsOnlyNilOrErrors` | does a return contain only definitely nil values or builtin error values, including aliases? The caller decides whether this is unsuccessful construction. |
 | `SuccessorPolicy` | the one successor-feasibility view: the literal or an analyzer's view, bound constants, and a non-nil assumption, with `Edges` extending path guards |
 | `FeasibleSuccessors`, `SuccessBranch`, `BlockReachable`, `BlockInCycle` | control-flow feasibility primitives |

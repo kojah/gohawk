@@ -51,12 +51,14 @@ func Conditional(flag bool) { if flag { defer os.Exit(0) } }
 	}
 }
 
-func TestTerminationPublicationRejectsReachabilityCutoff(t *testing.T) {
+func TestResultPublicationRejectsProofCutoff(t *testing.T) {
 	source := `package publication
 import "os"
 func marker() {}
 func Die() { os.Exit(0) }
 func Heavy() { ` + strings.Repeat("marker();", 600) + `os.Exit(0) }
+func Identity(p *int) *int { return p }
+func HeavyIdentity(p *int) *int { ` + strings.Repeat("*p = 1;", 550) + `return p }
 `
 	directory, cleanup, err := analysistest.WriteFiles(map[string]string{"publication/source.go": source})
 	if err != nil {
@@ -69,12 +71,15 @@ func Heavy() { ` + strings.Repeat("marker();", 600) + `os.Exit(0) }
 		if pass.Pkg.Path() != "publication" {
 			return run(pass)
 		}
-		diePublished := false
+		diePublished, identityPublished := false, false
 		// Observe the domain's actual publication boundary without forwarding
 		// facts to analysistest's golden matcher; wire-format tests are separate.
 		pass.ExportObjectFact = func(object types.Object, published analysis.Fact) {
-			if object.Name() == "Heavy" {
-				t.Error("interrupted Heavy inference must not publish a fact")
+			if object.Name() == "Heavy" || object.Name() == "HeavyIdentity" {
+				t.Errorf("interrupted %s inference must not publish a fact", object.Name())
+			}
+			if object.Name() == "Identity" {
+				identityPublished = len(published.(*publishedFact).Value().Returned) == 1
 			}
 			if object.Name() == "Die" {
 				diePublished = published.(*publishedFact).Value().NeverReturns
@@ -84,6 +89,9 @@ func Heavy() { ` + strings.Repeat("marker();", 600) + `os.Exit(0) }
 		if runErr != nil {
 			return nil, runErr
 		}
+		if !identityPublished {
+			t.Error("fresh identity control must publish its relation")
+		}
 		if !diePublished {
 			t.Error("fresh direct-exit control must publish termination")
 		}
@@ -92,6 +100,13 @@ func Heavy() { ` + strings.Repeat("marker();", 600) + `os.Exit(0) }
 			return nil, sourceErr
 		}
 		for _, function := range functions {
+			if function.Name() == "HeavyIdentity" {
+				got := result.(*Engine).Function(function, ssaflow.NewSearchBudget(4*ssaflow.SummaryBudget))
+				parameter, proven := got.ReturnedParameter(0)
+				if !got.Available || !proven || parameter != 0 {
+					t.Error("publication cutoff poisoned fresh returned-parameter inference")
+				}
+			}
 			if function.Name() == "Heavy" {
 				got := result.(*Engine).Function(function, ssaflow.NewSearchBudget(2*ssaflow.SummaryBudget))
 				if !got.Available || !got.NeverReturns() {

@@ -73,7 +73,10 @@ func (engine *Engine) relations(function *ssa.Function, budget *ssaflow.SearchBu
 	for result := range results.Len() {
 		resultType := results.At(result).Type()
 		for index, parameter := range function.Params {
-			if budget.Spend() && types.Identical(parameter.Type(), resultType) && lifecycle.ReturnsParameterUnchanged(function, parameter, result) {
+			if !budget.Spend() || !types.Identical(parameter.Type(), resultType) {
+				continue
+			}
+			if lifecycle.ProveReturnedParameterWithin(function, parameter, result, budget).Proven() {
 				returned = append(returned, ReturnedParameter{Result: result, Parameter: index})
 			}
 		}

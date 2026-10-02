@@ -2541,3 +2541,45 @@ wall-clock bound. Graph MCP tools remain unavailable; evidence uses scoped
 source and actual SSA. No production FP removal is credited; the 15-site queue
 and broader goal remain open. No full precision-regression, local race or
 candidate tests/generators/apps are run.
+
+
+## Returned-parameter allowance consolidation (2026-10-02)
+
+Beads `gohawk-dho.44.11.5.12` replaces the default return-identity consumer
+with `lifecycle.ProveReturnedParameterWithin`. Positive normal-return
+reachability and exact same-type identities at every return use the shared
+reachability, obligation and storage engines with one caller allowance.
+Unknown identity never settles a return; exhaustion never proves absence of
+a counterexample. The Boolean facade delegates to that authoritative proof.
+No fact schema or application-specific declaration assumption is added.
+
+Actual SSA controls cover direct and branching identity, mixed phi values,
+interface boxing, aggregate wrappers, no-return loops and the existing
+entry-reachable deferred/recovery shape. Every insufficient allowance and an
+exhausted parent pool return unknown. Result inference retries successfully
+after cutoff. The existing publication harness now also covers a large
+identity body: the current writer declines the interrupted fact, retains a
+small identity control and recovers on a fresh wider query. Restoring only
+parent relations.go fails that publication control; this demonstrates work
+allowance enforcement, not a production false-positive correction.
+
+Focused lifecycle/result tests and early lint pass. Canonical make verify
+passes generation, module verification, vet, formatting, lint, dead-code,
+local dogfood and ordinary tests. Receipts are
+`.build/goal-returned-identity-{focused-final,lint,verify,counterfactual}.log`.
+The pinned stargz store comparison at
+624678b4e421947534cbf0618f9609853cccee0f retains the reviewed worker report:
+both static scans exit 3 with identical 827-byte JSON and empty stderr.
+Parent `.build/goal-return-flow-current` SHA-256 is
+778d89ecf968803aadc643c433e62d94ee8c6a8667fb68a51482290ce99fc1d1;
+current `.build/goal-returned-identity-current` SHA-256 is
+45d9beaf864df89248c0a8f9b807e82089329b489615fe3c5870a19a60cb0663.
+These identify immutable precommit binaries, not clean-tree VCS stamps.
+
+Child `.13` tracks conditional result relation consumers that still call
+default state walks, assumption folds/successors and forwarded-call metadata.
+Heap graph construction, type-system internals, custom/library contracts,
+other consumers and allocation costs remain independent scope. Graph MCP
+is unavailable; claims use scoped source and actual SSA. The broader goal
+and 15-site production FP queue remain open. No full precision replay,
+local race or candidate tests/generators/applications were run.

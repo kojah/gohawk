@@ -138,6 +138,14 @@ same mechanic to keep an unchanged return from becoming a view. It is exact
 storage identity: a wrapper, an interface conversion, or a value chosen
 between the parameter and something else is not the parameter.
 
+Returned-parameter inference uses `lifecycle.ProveReturnedParameterWithin`:
+a positive normal-return witness precedes the shared obligation coverage walk,
+and one storage query compares exact same-type identities at its returns.
+Reachability, coverage and storage queries spend the result query's allowance.
+Cutoff remains unknown; the summary memo discards interrupted answers and the
+writer cannot publish their identity relations. A fresh query can retry.
+Graph construction and type-system internals retain independent costs.
+
 Every analyzer that walks an obligation to its returns consumes these through
 `summaries.Provider.FeasibleSuccessors`, either directly or through the
 obligation walk's successor hook, so a branch a callee's result rules out is

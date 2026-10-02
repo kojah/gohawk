@@ -456,6 +456,21 @@ ProveReturnedCleanup proves a factory relation using the completion request's
 methods or InvokeTarget mode, budget, and imported-summary policies. Target
 and Instruction are unused: relation identifies values inside the factory.
 
+## ProveReturnedParameterWithin
+
+[Source](../../../../internal/lifecycle/store_return_identity.go)
+
+```go
+func ProveReturnedParameterWithin(function *ssa.Function, parameter ssa.Value, index int, budget *ssaflow.SearchBudget) ssaflow.Proof
+```
+
+ProveReturnedParameterWithin requires a reachable normal return and exact
+same-type parameter identity at every return. Reachability, coverage and
+storage comparisons share budget. Cutoff and unresolved identity are unknown,
+never evidence that no counterexample exists. A nil budget retains default
+flow policy and the storage engine's own allowance; graph construction and
+type-system internals have independent costs.
+
 ## ProveSpawnedInvocation
 
 [Source](../../../../internal/lifecycle/completion_callbacks.go)
