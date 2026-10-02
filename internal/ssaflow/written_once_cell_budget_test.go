@@ -20,7 +20,7 @@ func TestWrittenOnceCellAllowance(t *testing.T) {
 			}
 			t.Log(dump.String())
 			cell := ssaflow.InstructionsOf[*ssa.Alloc](fn)[0]
-			want, once := ssaflow.WrittenOnceCell(cell)
+			want, once := ssaflow.WrittenOnceCellWithin(cell, nil)
 			completed := false
 			for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
 				budget := ssaflow.NewSearchBudget(limit)

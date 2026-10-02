@@ -39,6 +39,7 @@ const (
 	reasonLabelResultGuardedUnknown
 	reasonLabelReturnedOwner
 	reasonLabelProcessLifetimeContext
+	reasonLabelOwnerUnavailable
 	cancellationReasonCount
 )
 
@@ -76,6 +77,7 @@ var cancellationReasonCodes = [...]string{
 	reasonLabelResultGuardedUnknown:   "result-guarded-unknown",
 	reasonLabelReturnedOwner:          "returned-owner",
 	reasonLabelProcessLifetimeContext: "process-lifetime-context",
+	reasonLabelOwnerUnavailable:       "owner-evidence-unavailable",
 }
 
 func (reason cancellationReason) String() string {

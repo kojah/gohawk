@@ -120,7 +120,8 @@ this function, the cancel reaches exactly one of its fields, and the struct is
 used only through field addresses and returns, the struct owns the cancel:
 returning it is a transfer, and a return that drops it leaves the cancel
 uncalled. A closure qualifies when it captures a cell written once with the
-cancel (`ssaflow.WrittenOnceCell`) and is stored straight into the field. Any
+cancel, initialized before capture (`ssaflow.WrittenOnceCellAtWithin`), and
+is stored straight into the field. Any
 other use of the struct, such as passing it to a function, publishing it, or
 capturing it, keeps the ordinary classification and the obligation unknown;
 so do a cell written twice, written after capture, or read before the store,
@@ -194,3 +195,23 @@ cancellation outcomes. Shared cell tests cover rejection causes and a large
 nested reader whose child expires while its parent remains available. Other
 default once-stored-cell consumers remain tracked separately in
 `gohawk-dho.44.11.5.25`; no whole-cancellation cost bound is claimed here.
+
+
+## Constructor-owner availability
+
+Constructor owner discovery returns one structured proof. Its cancel, cell,
+closure, owner and sibling-field referrer censuses share one classifier child
+and the candidate-wide pool. Shared once-store and dominance evidence uses
+`ssaflow.WrittenOnceCellAtWithin` at closure creation; no separate analyzer
+store-order check remains. The completed owner-use census also names exact
+owner returns, so return classification reuses it instead of scanning results.
+
+Cutoff drops every partial hold and supplies `owner-evidence-unavailable`
+unknown labels. A complete missing owner remains ordinary classification.
+Exact direct cleanup and result-guarded or directly returned cancellation retain
+precedence over unavailable owner evidence. The proof is cached only for the
+current classifier, including its stopping reason; a fresh candidate has a new
+classifier and allowance. Actual SSA contract, child/parent/fresh, padded capture,
+ordering and sibling-field controls, and flow cut/cleanup precedence are in
+[owner_budget_test.go](../../../internal/analyzers/resources/cancellationownership/owner_budget_test.go).
+No package or callee guarantee is inferred from this caller-local owner proof.

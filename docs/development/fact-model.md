@@ -770,7 +770,7 @@ with nil or captures, so an untested pointer argument adds no binding. The
 binding reaches a value a deferred closure captures: Go captures by reference,
 so the closure's free variable is a cell, bound only when
 the once-stored census proves all captures are read-only and the exact store
-dominates closure creation. `ssaflow.WrittenOnceCell` alone supplies identity
+dominates closure creation. `ssaflow.WrittenOnceCellWithin` alone supplies identity
 after its store. `ssaflow.WrittenOnceCellAtWithin` combines that census with
 instruction dominance at the caller-selected observation; fixed-argument
 binding selects closure creation, while concurrency spill paths select the

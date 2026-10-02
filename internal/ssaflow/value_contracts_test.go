@@ -25,7 +25,7 @@ func TestWrittenOnceCellRejectionsByCause(t *testing.T) {
 		if len(allocs) != 1 {
 			t.Fatalf("%s: %d cells", name, len(allocs))
 		}
-		stored, once := ssaflow.WrittenOnceCell(allocs[0])
+		stored, once := ssaflow.WrittenOnceCellWithin(allocs[0], nil)
 		if once != want {
 			t.Errorf("%s: written once = %t, want %t", name, once, want)
 		}

@@ -29,6 +29,7 @@ func TestCancellationReasonCodes(t *testing.T) {
 		reasonLabelResultGuardedRelease: "result-guarded-release", reasonLabelResultGuardedUnknown: "result-guarded-unknown",
 		reasonLabelPassedToCallee: "passed-to-callee", reasonLabelReturnedOwner: "returned-owner",
 		reasonLabelProcessLifetimeContext: "process-lifetime-context",
+		reasonLabelOwnerUnavailable:       "owner-evidence-unavailable",
 	}
 	if len(want) != int(cancellationReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

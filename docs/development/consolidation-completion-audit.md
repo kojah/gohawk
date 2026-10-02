@@ -4166,3 +4166,23 @@ applications are not executed. This local identity correction earns no removal
 against the eleven recorded unresolved production sites. Parent .25 remains
 active for cancellation owner cells and publication metadata; the broader
 consolidation requirements remain unproven.
+
+## Once-cell consumer family completion, October 2
+
+The remaining cancellation constructor-owner consumer now uses one bounded
+structured proof and shared store-before-capture evidence; its completed use
+census also supplies exact owner returns. The
+[cancellation owner follow-up](../../benchmarks/precision/audits/cancellation-owner-followup-2026-10-02.md)
+records actual SSA, cutoff/fresh/flow controls and scoped production evidence.
+The [publication allowance](../../benchmarks/precision/audits/concurrency-publication-followup-2026-10-02.md)
+and [imported declaration isolation](../../benchmarks/precision/audits/concurrency-declaration-copy-followup-2026-10-02.md)
+follow-ups complete the metadata boundaries found during the spill-path review.
+
+A current source inventory of the once-cell APIs finds the remaining production
+callers in fixed binding, concurrency spill paths, deferred result guards and
+constructor owners passing their request allowance. The old default wrapper
+had only test callers and was removed, preserving explicit nil-budget lookup.
+The seven scoped children of `gohawk-dho.44.11.5.25` account for that family's
+migration and follow-ups. This completion is limited to the recorded consumer
+family: the broader transitive heap/type/flow/setup review and eleven unresolved
+production FP sites remain open, and the overall consolidation is unproven.

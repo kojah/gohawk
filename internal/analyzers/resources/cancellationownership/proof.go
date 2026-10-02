@@ -58,8 +58,7 @@ type cancellationClassifier struct {
 	guards    []lifecycle.ResultGuard
 	// owner is the struct this function allocates and stores the cancel
 	// into, directly or through a capturing closure; see owner_structs.go.
-	owner       *cancellationOwner
-	ownerProved bool
+	owner *cancellationOwnerProof
 	// pool is this cancellation's total across every query its proof asks;
 	// see budget.
 	pool *ssaflow.SearchBudget
@@ -206,12 +205,16 @@ func (classifier *cancellationClassifier) classifyAction(instruction ssa.Instruc
 		return label
 	}
 
-	if classifier.ownerHolds(instruction) {
+	owner := classifier.cancellationOwner()
+	if owner.Owner != nil && owner.Owner.holds[instruction] {
 		return cancellationLabel{}
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if label, recognized := classifier.recognizedAction(instruction, common); recognized {
 		return label
+	}
+	if !owner.Known() {
+		return labelled(cancellationActionUnknown, reasonLabelOwnerUnavailable)
 	}
 	if _, returned := instruction.(*ssa.Return); returned && classifier.processLifetime {
 		// A standard context acquired once by the true program entry may span
@@ -372,8 +375,8 @@ func (classifier *cancellationClassifier) returnLabel(returned *ssa.Return) canc
 	if slices.Contains(returned.Results, classifier.cancel) {
 		return labelled(cancellationActionTransfer, reasonLabelReturned)
 	}
-	if classifier.returnsOwner(returned) {
-		return labelled(cancellationActionTransfer, reasonLabelReturnedOwner)
+	if label := classifier.ownerReturnLabel(returned); label.action != cancellationActionNone {
+		return label
 	}
 	if lifecycle.ReturnedValueOwnsValue(returned, classifier.cancel) {
 		return labelled(cancellationActionUnknown, reasonLabelReturned)

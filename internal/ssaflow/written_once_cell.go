@@ -6,20 +6,13 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// WrittenOnceCell returns the value stored in cell when that store is the
-// cell's only write anywhere: the function only reads the cell, and every
+// WrittenOnceCellWithin returns the value stored in cell when that store is
+// the cell's only write anywhere: the function only reads the cell, and every
 // closure that captures it, nested ones included, only reads it too. Every
-// read then yields that value, in any goroutine and at any time after the
-// store, which is how a variable captured by several goroutines names one
-// object. It answers identity only; whether the value itself is stable is the
-// caller's question.
-func WrittenOnceCell(cell *ssa.Alloc) (ssa.Value, bool) {
-	return WrittenOnceCellWithin(cell, nil)
-}
-
-// WrittenOnceCellWithin applies the same once-stored identity contract under
-// budget, including nested lexical captures. Cutoff discards the stored value;
-// callers inspect the budget before interpreting rejection as complete.
+// read after the store then yields that value. This is identity evidence, not
+// initialization at an earlier capture or observation; use WrittenOnceCellAtWithin
+// when that execution boundary matters. Nested census work shares budget;
+// cutoff discards the stored value. Nil budget retains the unbounded query.
 func WrittenOnceCellWithin(cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bool) {
 	store, ok := writtenOnceStoreWithin(cell, budget)
 	if !ok {
