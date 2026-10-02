@@ -1,6 +1,10 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	"iter"
+
+	"golang.org/x/tools/go/ssa"
+)
 
 // CallBinding pairs one callee-local parameter or capture with its caller value.
 // Captured distinguishes lexical cells from eagerly evaluated arguments. No
@@ -14,21 +18,40 @@ type CallBinding struct {
 // supports a closure examined before invocation. Matching values and deciding
 // what their uses mean remain the consumer's responsibility.
 func CallBindings(common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure) []CallBinding {
-	if callee == nil {
-		return nil
-	}
 	var bindings []CallBinding
-	if common != nil {
-		for index, argument := range common.Args {
-			if index < len(callee.Params) {
-				bindings = append(bindings, CallBinding{Local: callee.Params[index], Supplied: argument})
+	for binding := range CallBindingsWithin(common, callee, closure, nil) {
+		bindings = append(bindings, binding)
+	}
+	return bindings
+}
+
+// CallBindingsWithin yields arguments followed by captures, charging metadata
+// visits before yielding. It allocates no binding slice and stops when the
+// consumer stops. A cutoff does not prove an unvisited binding is absent;
+// callers inspect budget availability. A nil budget retains default policy.
+func CallBindingsWithin(
+	common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure, budget *SearchBudget,
+) iter.Seq[CallBinding] {
+	return func(yield func(CallBinding) bool) {
+		if callee == nil {
+			return
+		}
+		if common != nil {
+			for index, argument := range common.Args {
+				if !budget.Spend() {
+					return
+				}
+				if index < len(callee.Params) && !yield(CallBinding{Local: callee.Params[index], Supplied: argument}) {
+					return
+				}
+			}
+		}
+		for capture := range ClosureBindingPairsWithin(callee, closure, budget) {
+			if !yield(CallBinding{Local: capture.Free, Supplied: capture.Binding, Captured: true}) {
+				return
 			}
 		}
 	}
-	for _, capture := range ClosureBindingPairs(callee, closure) {
-		bindings = append(bindings, CallBinding{Local: capture.Free, Supplied: capture.Binding, Captured: true})
-	}
-	return bindings
 }
 
 // DirectCallee returns only the statically named function or literal body.

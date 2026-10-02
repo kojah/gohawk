@@ -2002,3 +2002,48 @@ for that transitive scope. Graph tools remain unavailable; evidence uses scoped
 source and actual SSA rather than an exhaustive graph audit. No production FP
 correction is credited; the 15-site queue and broader goal remain open. No full
 precision-regression, local race or candidate tests/generators/apps are run.
+
+
+## Shared call metadata allowance (dho.44.11.5.2)
+
+At parent `b652eb8`, bounded caller/retained-owner queries charged enumeration
+only after `CallBindings` and `ClosureBindingPairs` had materialized slices;
+result selection scanned call referrers without charging. Shared lazy
+`CallBindingsWithin` and `ClosureBindingPairsWithin` now charge before yielding
+and avoid binding slices. Existing default collectors use the same drivers.
+Argument/capture order and the two-pass capture-first spawned selection remain.
+The shared lifecycle unreadable-callback query uses the same capture driver.
+
+`CallResultWithin` retains exact tuple-slot selection and the single-result
+call representation, charging referrers before inspection and stopping at the
+first matching result. Cleanup-target, local cancellation and pipe-peer
+lookups use it. Cleanup and cancellation stop before downstream work on
+selection cutoff; existing authoritative availability checks preserve unknown.
+The partial census/result answer cannot become a negative absence proof.
+
+`call_metadata_budget_test.go` constructs actual SSA to test argument/capture
+order, shared-pool cutoff, early stop, default parity, tuple lookup cutoff,
+completed absent-slot lookup and single-result spending. Focused tests pass in
+`.build/goal-metadata-focused.log` for ssaflow and goroutineownership; the
+selected lifecyclefacts regex matches no tests, so its domain coverage comes
+from canonical `make verify` in `.build/goal-metadata-verify.log`. That gate
+passes ordinary tests, formatting, vet, lint, generated inventory, dead-code
+and local dogfood.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-fold-budget-current` has
+SHA-256 `38b02d28c1703ee204c070fc37df7bcd32891a92fb4ec7d3b98ebc6875a5b60f`;
+current `.build/goal-metadata-current` has SHA-256
+`74d19d6dfce3bc04e4c5156c8e2f2208a54bc6878006d0de86c402d9ddcfc4ca`.
+Fresh `.build/goal-metadata-stargz-{fold-budget,metadata}.{json,err}` scans
+both exit 3 with identical 827-byte JSON, empty stderr and the reviewed TP
+at `store/manager.go:193:2`. Hashes identify immutable pre-commit binaries.
+
+Parent `gohawk-dho.44.11.5` remains active for heap identity, access paths,
+dominance and initial flow setup. In particular, heap graph result publication
+in `internal/heapmodel/store_heap_apply.go` retains its own unbounded result
+lookup; this change is not a whole-engine bound. Graph tools remain unavailable;
+evidence uses scoped source and actual SSA. No production FP correction is
+credited; the 15-site queue and broader goal remain open. No full
+precision-regression, local race or candidate tests/generators/apps are run.

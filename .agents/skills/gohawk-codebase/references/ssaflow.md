@@ -197,6 +197,21 @@ CallBindings maps arguments and captures onto a known callee. A nil common
 supports a closure examined before invocation. Matching values and deciding
 what their uses mean remain the consumer's responsibility.
 
+## CallBindingsWithin
+
+[Source](../../../../internal/ssaflow/call_bindings.go)
+
+```go
+func CallBindingsWithin(
+	common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure, budget *SearchBudget,
+) iter.Seq[CallBinding]
+```
+
+CallBindingsWithin yields arguments followed by captures, charging metadata
+visits before yielding. It allocates no binding slice and stops when the
+consumer stops. A cutoff does not prove an unvisited binding is absent;
+callers inspect budget availability. A nil budget retains default policy.
+
 ## CallCondition
 
 [Source](../../../../internal/ssaflow/call_conditions.go)
@@ -573,6 +588,19 @@ func CallResultSource(value ssa.Value) (*ssa.Call, int, bool)
 CallResultSource identifies a direct call result and its zero-based slot.
 It does not follow wrappers, loads, or aliases; consumers select that policy.
 
+## CallResultWithin
+
+[Source](../../../../internal/ssaflow/call_resolution.go)
+
+```go
+func CallResultWithin(call *ssa.Call, index int, budget *SearchBudget) ssa.Value
+```
+
+CallResultWithin selects the same exact result under a shared allowance.
+Referrers are charged before inspection; a single-result lookup costs one
+visit. Nil at cutoff means unavailable, not an absent result. It never follows
+aliases or substitutes a sibling result. A nil budget retains default policy.
+
 ## CallbackCaptureReadOnly
 
 [Source](../../../../internal/ssaflow/callback_storage.go)
@@ -664,6 +692,18 @@ that passes the channel to a callee without a body is returned as a use.
 ```go
 func ClosureBindingPairs(function *ssa.Function, closure *ssa.MakeClosure) []CapturedBinding
 ```
+
+## ClosureBindingPairsWithin
+
+[Source](../../../../internal/ssaflow/value_instructions.go)
+
+```go
+func ClosureBindingPairsWithin(function *ssa.Function, closure *ssa.MakeClosure, budget *SearchBudget) iter.Seq[CapturedBinding]
+```
+
+ClosureBindingPairsWithin yields matched lexical captures in free-variable
+order, charging each pair before yielding it. A cutoff leaves later captures
+unknown. A nil budget retains default policy; stopping needs no later work.
 
 ## ComparesWithNil
 

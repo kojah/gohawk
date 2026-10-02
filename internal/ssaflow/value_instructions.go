@@ -18,13 +18,27 @@ func ClosureBindingPairs(function *ssa.Function, closure *ssa.MakeClosure) []Cap
 		return nil
 	}
 	pairs := make([]CapturedBinding, 0, len(function.FreeVars))
-	for index, free := range function.FreeVars {
-		if index >= len(closure.Bindings) {
-			break
-		}
-		pairs = append(pairs, CapturedBinding{Free: free, Binding: closure.Bindings[index]})
+	for pair := range ClosureBindingPairsWithin(function, closure, nil) {
+		pairs = append(pairs, pair)
 	}
 	return pairs
+}
+
+// ClosureBindingPairsWithin yields matched lexical captures in free-variable
+// order, charging each pair before yielding it. A cutoff leaves later captures
+// unknown. A nil budget retains default policy; stopping needs no later work.
+func ClosureBindingPairsWithin(function *ssa.Function, closure *ssa.MakeClosure, budget *SearchBudget) iter.Seq[CapturedBinding] {
+	return func(yield func(CapturedBinding) bool) {
+		if function == nil || closure == nil {
+			return
+		}
+		for index, free := range function.FreeVars {
+			if index >= len(closure.Bindings) || !budget.Spend() ||
+				!yield(CapturedBinding{Free: free, Binding: closure.Bindings[index]}) {
+				return
+			}
+		}
+	}
 }
 
 // InstructionsWithin yields instructions in block order, charging each one

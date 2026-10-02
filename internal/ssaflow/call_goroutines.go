@@ -23,13 +23,10 @@ func SpawnedValueAtCall(
 func SpawnedValueAtCallWithin(
 	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *SearchBudget,
 ) ssa.Value { //nolint:ireturn // SSA values retain their concrete representations.
-	bindings := CallBindings(spawn.Common(), function, closure)
+	bindings := CallBindingsWithin(spawn.Common(), function, closure, budget)
 	// Captures are considered before arguments, preserving the candidate
 	// selection order when possible identity matches more than one binding.
-	for _, binding := range bindings {
-		if !budget.Spend() {
-			return nil
-		}
+	for binding := range bindings {
 		if binding.Captured && MayAliasThroughLoadsWithin(value, binding.Local, budget) {
 			captured := CapturedBindingValueWithin(binding.Supplied, budget)
 			// Keep the address when the first observed value is nil. The value
@@ -41,10 +38,10 @@ func SpawnedValueAtCallWithin(
 			return captured
 		}
 	}
-	for _, binding := range bindings {
-		if !budget.Spend() {
-			return nil
-		}
+	if budget.Exhausted() {
+		return nil
+	}
+	for binding := range bindings {
 		if !binding.Captured && MayAliasThroughLoadsWithin(value, binding.Local, budget) {
 			return binding.Supplied
 		}

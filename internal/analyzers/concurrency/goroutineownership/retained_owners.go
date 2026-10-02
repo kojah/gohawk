@@ -62,10 +62,7 @@ func (analysis *spawnAnalysis) observesOpaqueWorkerContextWithin(channel ssa.Val
 	retained := analysis.retainedWorkerOwner(ssaflow.CallReceiver(call.Common()), budget)
 	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	evidence.ForCandidate(analysis.spawn.Pos())
-	for _, pair := range ssaflow.CallBindings(analysis.spawn.Common(), function, closure) {
-		if !budget.Spend() {
-			return false
-		}
+	for pair := range ssaflow.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget) {
 		if ssaflow.NewReachingWalk(carryForms).Within(budget).Any(pair.Supplied, retained) &&
 			evidence.ClosureHandsValueToUnreadableCalleeWithin(closure, pair.Supplied, budget) {
 			return true
@@ -120,10 +117,7 @@ func (analysis *spawnAnalysis) closesRetainedWorkerOwnerWithin(
 			return false
 		}
 		retained := analysis.retainedWorkerOwner(receiver, budget)
-		for _, pair := range ssaflow.CallBindings(analysis.spawn.Common(), function, closure) {
-			if !budget.Spend() {
-				return false
-			}
+		for pair := range ssaflow.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget) {
 			if ssaflow.NewReachingWalk(carryForms).Within(budget).Any(pair.Supplied, retained) {
 				return true
 			}
@@ -144,7 +138,7 @@ func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(
 	function *ssa.Function, closure *ssa.MakeClosure, receiver ssa.Value, budget *ssaflow.SearchBudget,
 ) bool {
 	storage := heapmodel.NewStorage(budget)
-	bindings := ssaflow.CallBindings(analysis.spawn.Common(), function, closure)
+	bindings := ssaflow.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget)
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		call, ok := instruction.(*ssa.Call)
 		if !ok {
@@ -156,10 +150,7 @@ func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(
 		if used == nil || callee != nil && len(callee.Blocks) != 0 || !opaqueCallEndsWorkerWork(call, budget) {
 			continue
 		}
-		for _, pair := range bindings {
-			if !budget.Spend() {
-				return false
-			}
+		for pair := range bindings {
 			if !ssaflow.ValueIsAccessPathFrom(receiver, pair.Supplied) {
 				continue
 			}
@@ -277,16 +268,13 @@ func (analysis *spawnAnalysis) spawnedPipePeers(budget *ssaflow.SearchBudget) []
 		if !ok || !pipeConstructor(call.Common()) {
 			return false
 		}
-		if peer := ssaflow.CallResult(call, 1-result.Index); peer != nil {
+		if peer := ssaflow.CallResultWithin(call, 1-result.Index, budget); peer != nil {
 			peers = append(peers, trackedValue{value: peer, kind: trackedOwner})
 			return true
 		}
 		return false
 	}
-	for _, pair := range ssaflow.CallBindings(analysis.spawn.Common(), function, closure) {
-		if !budget.Spend() {
-			return peers
-		}
+	for pair := range ssaflow.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget) {
 		ssaflow.NewReachingWalk(carryForms).Within(budget).Any(pair.Supplied, find)
 	}
 	return peers

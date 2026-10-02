@@ -41,7 +41,10 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int, budget *ssaflow
 		if !budget.Spend() {
 			return targets
 		}
-		target := ssaflow.CallResult(factory, index)
+		target := ssaflow.CallResultWithin(factory, index, budget)
+		if budget.Exhausted() {
+			return targets
+		}
 		if !lifecycleOwnerWithin(target, budget) {
 			continue
 		}
@@ -72,7 +75,10 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int, budget *ssaflow
 				if !budget.Spend() {
 					return targets
 				}
-				target := ssaflow.CallResult(factory, index)
+				target := ssaflow.CallResultWithin(factory, index, budget)
+				if budget.Exhausted() {
+					return targets
+				}
 				if lifecycleOwnerWithin(target, budget) && callbackClosesSibling(closure, lifecycle.ReturnedResult(returned, index), budget) {
 					targets = append(targets, target)
 				}
@@ -87,10 +93,7 @@ func callbackClosesSibling(closure *ssa.MakeClosure, sibling ssa.Value, budget *
 	if function == nil {
 		return false
 	}
-	for _, pair := range ssaflow.CallBindings(nil, function, closure) {
-		if !budget.Spend() {
-			return false
-		}
+	for pair := range ssaflow.CallBindingsWithin(nil, function, closure, budget) {
 		if !heapmodel.DefinitelySameValue(ssaflow.CapturedBindingValueWithin(pair.Supplied, budget), sibling) {
 			continue
 		}

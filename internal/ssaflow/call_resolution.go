@@ -49,13 +49,27 @@ func CallResultSource(value ssa.Value) (*ssa.Call, int, bool) {
 // CallResult returns the selected SSA result of call. A negative index denotes
 // a single-result call represented by the call instruction itself.
 func CallResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // SSA call results have several concrete forms.
+	return CallResultWithin(call, index, nil)
+}
+
+// CallResultWithin selects the same exact result under a shared allowance.
+// Referrers are charged before inspection; a single-result lookup costs one
+// visit. Nil at cutoff means unavailable, not an absent result. It never follows
+// aliases or substitutes a sibling result. A nil budget retains default policy.
+func CallResultWithin(call *ssa.Call, index int, budget *SearchBudget) ssa.Value { //nolint:ireturn // SSA results have several concrete forms.
 	if index < 0 {
+		if !budget.Spend() {
+			return nil
+		}
 		return call
 	}
 	if call.Referrers() == nil {
 		return nil
 	}
 	for _, reference := range *call.Referrers() {
+		if !budget.Spend() {
+			return nil
+		}
 		if extract, ok := reference.(*ssa.Extract); ok && extract.Index == index {
 			return extract
 		}

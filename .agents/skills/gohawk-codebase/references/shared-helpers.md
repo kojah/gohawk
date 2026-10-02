@@ -146,6 +146,8 @@ unknown; do not convert them into ownership transfers.
 | `CallMatchesSymbol`, `CallMatchesAnySymbol`, `ValueMatchesSymbol`, `ValueMatchesAnySymbol` | does this call or value resolve to an exact well-known declaration? |
 | `HasLibraryContract` | does this call match a registered external API contract? |
 | `InstructionCall`, `CallName`, `CallReceiver`, `CallResult` | call metadata |
+| `CallResultWithin(call, index, budget)` | exact result selection with referrer visits charged; nil at cutoff is unavailable |
+| `CallBindingsWithin`, `ClosureBindingPairsWithin` | lazy argument/capture census; early stop avoids materializing later bindings |
 | `SourceSSAFunctions`, `FunctionFile` | source functions and their files |
 | `InstructionTerminatesControlFlow`, `SpawnedValueAtCall`, `ChannelType`, `DefinitelyNil` | miscellaneous facts about instructions and values |
 

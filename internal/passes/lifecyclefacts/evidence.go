@@ -146,10 +146,7 @@ func capturedTargetUsesWithin(
 	function *ssa.Function, closure *ssa.MakeClosure, target ssa.Value, budget *ssaflow.SearchBudget,
 ) iter.Seq[[]ssa.Value] {
 	return func(yield func([]ssa.Value) bool) {
-		for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-			if !budget.Spend() {
-				return
-			}
+		for captured := range ssaflow.ClosureBindingPairsWithin(function, closure, budget) {
 			if !heapmodel.CapturedBindingMatches(captured.Binding, target) &&
 				!heapmodel.ValueDerivesFrom(captured.Binding, target) {
 				continue

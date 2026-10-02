@@ -82,10 +82,7 @@ func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go, budget
 	bounded := func(local ssa.Value) bool {
 		return contextFieldReceivedAnywhere(function, local, spawn.Parent(), budget)
 	}
-	for _, binding := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		if !budget.Spend() {
-			return false
-		}
+	for binding := range ssaflow.CallBindingsWithin(spawn.Common(), function, closure, budget) {
 		if bindingIsExternallyOwned(binding, budget) && bounded(binding.Local) {
 			return true
 		}
@@ -147,10 +144,7 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go,
 		return false
 	}
 	storage := heapmodel.NewStorage(budget)
-	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		if !budget.Spend() {
-			return false
-		}
+	for pair := range ssaflow.CallBindingsWithin(spawn.Common(), function, closure, budget) {
 		value := pair.Supplied
 		if _, cell := value.(*ssa.Alloc); cell {
 			content := storage.StableContent(value, spawn)
@@ -168,7 +162,10 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go,
 			!ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageFunction("context", "WithCancel")) {
 			continue
 		}
-		cancel := ssaflow.CallResult(call, 1)
+		cancel := ssaflow.CallResultWithin(call, 1, budget)
+		if budget.Exhausted() {
+			return false
+		}
 		owned := cancelCoversSpawn(spawn, cancel, storage)
 		if owned && receivesAnywhere(function, pair.Local, budget) {
 			return true
@@ -245,10 +242,7 @@ func callerSuppliedValue(
 	if closure == nil {
 		return false
 	}
-	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !budget.Spend() {
-			return false
-		}
+	for captured := range ssaflow.ClosureBindingPairsWithin(function, closure, budget) {
 		if ssaflow.ValueIsAccessPathFrom(value, captured.Free) &&
 			ssaflow.ExternallyOwnedValue(ssaflow.CapturedBindingValueWithin(captured.Binding, budget)) {
 			return true
@@ -267,10 +261,7 @@ func spawnedParameterIsReceived(
 	typed func(ssa.Value) bool,
 	budget *ssaflow.SearchBudget,
 ) bool {
-	for _, binding := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		if !budget.Spend() {
-			return false
-		}
+	for binding := range ssaflow.CallBindingsWithin(spawn.Common(), function, closure, budget) {
 		if typed(binding.Local) && bindingIsExternallyOwned(binding, budget) &&
 			receivesAnywhere(function, binding.Local, budget) {
 			return true

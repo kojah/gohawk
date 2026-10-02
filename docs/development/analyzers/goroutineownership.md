@@ -390,3 +390,22 @@ check branch sharing, candidate-pool cutoffs, early possible witnesses,
 unchanged opaque forms and nested-leaf exhaustion. This bounds value visits;
 it does not bound visited-map cloning, all heap queries, metadata scans or
 flow setup. Those remain the transitive-cost review in `gohawk-dho.44.11.5`.
+
+### Call metadata allowance
+
+Retained-owner and caller-bound queries enumerate arguments/captures through
+`ssaflow.CallBindingsWithin` or `ClosureBindingPairsWithin`. These iterators
+charge before yielding and allocate no binding slice. Default collectors use
+the same enumeration policy. Arguments precede captures; possible spawned-value
+selection still makes its capture-first pass before its argument pass.
+The shared lifecycle callback query uses the same capture iterator.
+
+Cleanup-target, local cancellation and pipe-peer queries select tuple results
+through `CallResultWithin`, charging referrer inspection and stopping at the
+exact selected result. Cleanup and cancellation stop before downstream queries
+when selection exhausts the allowance. Cutoffs retain the existing authoritative
+unknown decisions; a missing result at cutoff is not evidence of absence.
+`internal/ssaflow/call_metadata_budget_test.go` pins actual SSA argument/capture
+order, shared-pool partial census, early stop, tuple lookup and single-result
+representation. Heap identity, access paths, dominance and flow setup remain
+open in `gohawk-dho.44.11.5`; this is not a complete wall-clock bound.
