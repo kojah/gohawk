@@ -5,38 +5,18 @@ import (
 	"go/types"
 	"slices"
 
-	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
-
-// lockCompletionBudget bounds one "does this callee release my lock?" question
-// by the instructions it may examine. Mutually recursive helpers make the
-// number of routes through a call graph explode, and an answer the cycle guard
-// cuts short cannot be memoized, so an unbounded search re-walks the graph once
-// per route. A package of eighteen mutually recursive methods with four calls
-// each took over seven seconds before this bound and is instant with it.
-const lockCompletionBudget = 250_000
-
-// releaseSettled reports whether the analyzer may treat the lock as released
-// at this instruction: the search proved the release with the launch form the
-// rule accepts, or it was abandoned before it could decide. missing-release
-// reports a lock the analysis proves is still held, so an undecided release
-// has to suppress. Leaving it held would let a walk the analyzer gave up on
-// produce a defect-tier diagnostic.
-func releaseSettled(proof ssaflow.CompletionProof, reason ssaflow.EvidenceReason) bool {
-	return proof.Reason == ssaflow.EvidenceBudgetExhausted || proof.Proven() && proof.Reason == reason
-}
 
 type lockFlowContext struct {
 	pass            *analysis.Pass
 	function        *ssa.Function
 	exclusive       *exclusiveCallers
-	evidence        *lifecycle.LocalEvidence
+	releases        *lockReleaseQueries
 	relations       *lockOrders
 	calleeLocks     *calleeLockSearch
 	lockValues      map[string][]ssa.Value
@@ -161,159 +141,6 @@ func successfulReturn(function *ssa.Function, returned *ssa.Return) bool {
 	return true
 }
 
-func possiblyDeferredUnlock(
-	evidence *lifecycle.LocalEvidence,
-	acquisition ssa.Instruction,
-	functionDefers []*ssa.Defer,
-	values []ssa.Value,
-) bool {
-	for _, deferred := range functionDefers {
-		if !ssaflow.InstructionDominates(deferred, acquisition) {
-			continue
-		}
-		for _, value := range values {
-			proof := evidence.Completion(lifecycle.CompletionRequest{
-				Instruction: deferred,
-				Target:      value,
-				Methods:     []string{"Unlock", "RUnlock"},
-				Coverage:    lifecycle.CoverageAnywhere,
-				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
-			})
-			if releaseSettled(proof, ssaflow.EvidenceDeferredCompletion) {
-				// A defer registered before acquisition can conditionally release the
-				// exact lock using state established after Lock. Without proving the
-				// deferred guard false, a missing-release defect is uncertain. Telekom's
-				// artifact store uses this rollback shape:
-				// https://github.com/telekom/k8s-breakglass/blob/9b078a5e78c5663cfdf8b7711ff24fc2a6aaee59/pkg/artifacts/storage/local/local.go#L265-L329
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func transferCalledUnlocks(
-	evidence *lifecycle.LocalEvidence,
-	instruction ssa.Instruction,
-	held []string,
-	guards map[string]lockGuard,
-	lockValues map[string][]ssa.Value,
-	released map[string]bool,
-	unproven map[string]bool,
-	attempts *releaseAttempts,
-) []string {
-	for _, identity := range slices.Clone(held) {
-		for _, value := range lockValues[identity] {
-			proof := evidence.Completion(lifecycle.CompletionRequest{
-				Instruction: instruction,
-				Target:      value,
-				Methods:     []string{"Unlock", "RUnlock"},
-				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
-			})
-			if !releaseSettled(proof, ssaflow.EvidenceCalledCompletion) {
-				possible := mayRelease(evidence, instruction, value)
-				attempts.record(identity, instruction, value, proof, possible)
-				// A callee that releases the lock on some paths and not others
-				// leaves it held but no longer proven held. A return that still
-				// holds it stays reportable, deliberately, so a conditional
-				// handoff cannot hide a leak. A later acquisition of it must
-				// not be called recursive, because that claim needs positive
-				// evidence the lock IS held. vekil wraps its mutex in a type
-				// whose Unlock returns early on a nil receiver, which left a
-				// Lock and Unlock paired inside a loop body reported as a
-				// recursive acquisition on the next iteration:
-				// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/proxy/route_executor.go#L697
-				if possible {
-					unproven[identity] = true
-				}
-				continue
-			}
-			// A synchronous helper or immediately invoked closure that releases the
-			// exact lock unconditionally consumes the caller's held-lock obligation.
-			// gRPC funnels an exit-idle failure through updateResolverStateAndUnlock:
-			// https://github.com/grpc/grpc-go/blob/9f8027448a64b6446d0c7256a1efe907b1cb6b1b/clientconn.go#L416-L419
-			// NATS funnels publish failures through a local closure that may notify
-			// an error callback first but still unlocks on every normal return:
-			// https://github.com/nats-io/nats.go/blob/850f889cf3d63bfd1a549ab9af59f0145146fb41/js.go#L906-L976
-			released[identity] = true
-			held = releaseLock(held, identity)
-			delete(guards, identity)
-			break
-		}
-	}
-	return held
-}
-
-func transferSpawnedUnlocks(
-	evidence *lifecycle.LocalEvidence,
-	instruction ssa.Instruction,
-	held []string,
-	guards map[string]lockGuard,
-	lockValues map[string][]ssa.Value,
-	released map[string]bool,
-) []string {
-	if _, ok := instruction.(*ssa.Go); !ok {
-		return held
-	}
-	for _, identity := range slices.Clone(held) {
-		for _, value := range lockValues[identity] {
-			proof := evidence.Completion(lifecycle.CompletionRequest{
-				Instruction: instruction,
-				Target:      value,
-				Methods:     []string{"Unlock", "RUnlock"},
-				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
-			})
-			if releaseSettled(proof, ssaflow.EvidenceStartedCompletion) {
-				// A spawned helper may branch before releasing the caller's lock as
-				// long as every normal return performs the release. gRPC transfers
-				// addrConn.mu to its reconnect worker this way:
-				// https://github.com/grpc/grpc-go/blob/9f8027448a64b6446d0c7256a1efe907b1cb6b1b/clientconn.go#L1071
-				released[identity] = true
-				held = releaseLock(held, identity)
-				delete(guards, identity)
-				break
-			}
-		}
-	}
-	return held
-}
-
-func (flow lockFlowContext) recordDeferredUnlocks(
-	instruction ssa.Instruction,
-	held, deferred []string,
-) []string {
-	if _, ok := instruction.(*ssa.Defer); !ok {
-		return deferred
-	}
-	for _, identity := range slices.Clone(held) {
-		probe := analysisTrace.For(flow.pass, "lockorder", string(check.LockMissingRelease), flow.acquiredAt[identity])
-		for _, value := range flow.lockValues[identity] {
-			// A deferred literal that releases on some path makes the release
-			// data-dependent, typically through an "already unlocked" flag.
-			// Missing-release diagnostics need the release to be impossible, so
-			// this asks only whether the defer may unlock.
-			proof := flow.evidence.Completion(lifecycle.CompletionRequest{
-				Instruction: instruction,
-				Target:      value,
-				Methods:     []string{"Unlock", "RUnlock"},
-				Coverage:    lifecycle.CoverageAnywhere,
-				Budget:      ssaflow.NewSearchBudget(lockCompletionBudget).Observed(probe.Observer()),
-			})
-			if releaseSettled(proof, ssaflow.EvidenceDeferredCompletion) {
-				if proof.Proven() && !slices.Contains(deferred, identity) {
-					probe.Evidence(analysisTrace.Step{
-						Reason: lockReasonDeferredReleaseProven.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
-					})
-				}
-				flow.released[identity] = true
-				deferred = appendUniqueString(deferred, identity)
-				break
-			}
-		}
-	}
-	return deferred
-}
-
 // recordCalledOrder orders the locks held at a call before every lock the
 // callee takes. The held set is the one the transfer rules above already
 // adjusted, so a lock handed to a goroutine or to code the analysis cannot see
@@ -390,7 +217,7 @@ func (flow lockFlowContext) applyMutexAction(
 	if flow.acquiredAt[identity] == token.NoPos {
 		flow.acquiredAt[identity] = instruction.Pos()
 	}
-	if possiblyDeferredUnlock(flow.evidence, instruction, flow.defers, flow.lockValues[identity]) {
+	if flow.possiblyDeferredUnlock(instruction, flow.lockValues[identity]) {
 		flow.released[identity] = true
 		state.deferred = appendUniqueString(state.deferred, identity)
 	}
@@ -434,20 +261,6 @@ func (flow lockFlowContext) transferPossiblyAliasedUnlock(
 		state.readHeld = releaseLock(state.readHeld, identity)
 	}
 	return state
-}
-
-// mayRelease reports whether the call releases the lock on at least one path.
-// It is the weaker companion to the proof transferCalledUnlocks requires, and
-// answers only whether the caller may still claim the lock is held.
-func mayRelease(evidence *lifecycle.LocalEvidence, instruction ssa.Instruction, value ssa.Value) bool {
-	proof := evidence.Completion(lifecycle.CompletionRequest{
-		Instruction: instruction,
-		Target:      value,
-		Methods:     []string{"Unlock", "RUnlock"},
-		Coverage:    lifecycle.CoverageAnywhere,
-		Budget:      ssaflow.NewSearchBudget(lockCompletionBudget),
-	})
-	return proof.Proven() && proof.Reason == ssaflow.EvidenceCalledCompletion
 }
 
 // transferOpaqueUnlocks drops a held lock handed across an unknown boundary,

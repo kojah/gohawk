@@ -181,9 +181,21 @@ detaches mutable predecessor collections before transfer. `flow_budget_test.go`,
 `state_budget_test.go` and `branch_budget_test.go` cover late cutoff after buffered
 findings/order edges, child versus parent exhaustion, fresh retries, phi/cycle
 availability and nested result inference. Prewalk effect/caller/defer setup,
-helper completion, heap queries, final contract metadata and order publication
-retain independent costs. This is a traversal bound, not a whole-query time
-bound; Beads `gohawk-dho.44.11.5.27` tracks the next request boundary.
+heap queries, final contract metadata and order publication retain independent
+costs. Lock release completion now shares the traversal pool through
+`release_queries.go`: synchronous and spawned exact release, registered and
+pre-acquisition possible defer release, and synchronous may-release use one
+completion request owner. Each question retains its 250,000-step cap. A cutoff
+at either level makes the function unavailable before publication; it never
+stands in for an unlock. Only synchronous call instructions enter the
+synchronous release path. Candidate/identity/defer censuses and pre-acquisition
+dominance also charge the pool. `release_queries_test.go` covers launch/coverage
+semantics, opaque callbacks, cold and fresh evidence, independent question
+cutoff and late cutoff after buffered findings/order edges.
+
+This is a traversal/completion boundary, not a whole-query time bound. Beads
+`gohawk-dho.44.11.5.27` retains the setup and metadata review; alias, type and
+graph internals keep their separately recorded costs.
 
 For a private non-escaping helper, an exact Boolean result can also describe
 which return still owns a package-global `sync.Mutex`. This is accepted only

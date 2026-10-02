@@ -4204,3 +4204,21 @@ or corpus-wide claim is credited. Beads `gohawk-dho.44.11.5.26` covers this
 traversal stage; `.27` retains setup, nested completion and final metadata costs.
 Heap/type/graph internals remain separate. The eleven recorded production FP
 sites, Rune publication issue and wider consolidation goal remain unproven.
+
+## Lock release query ownership, October 2
+
+The five release searches identified during the lock-flow review now share one
+request owner in `release_queries.go`, with exact/possible coverage and launch
+reasons retained. It charges the function traversal pool before cache access,
+retains each question's cap, and records an interrupted question as unavailable
+rather than as a release. Expansion and publication consume one interruption
+barrier; a late completion cutoff discards earlier findings and order edges.
+Scalar/go/defer instructions no longer enter the synchronous release search.
+
+The [lock release follow-up](../../benchmarks/precision/audits/lock-release-queries-followup-2026-10-02.md)
+records actual SSA coverage/cutoff/fresh/warm controls, four failing
+counterfactuals, the passing local gate and four unchanged pinned production
+lock TPs. Beads `.44.11.5.27.1` covers this release family; parent `.27` retains
+setup, final metadata, callee ordering and alias/exclusivity boundaries. This
+stage earns no production FP correction or whole-query time claim. The wider
+consolidation requirements and remaining production findings remain unproven.

@@ -12,7 +12,7 @@ import (
 // The lock work list owns state expansion, branch evidence and the availability
 // barrier before function reports/contracts are published. A state quota limits
 // expansions; the shared allowance also charges keys, copies, instruction visits
-// and nested branch queries. Prewalk setup and helper/effect/heap queries retain
+// and nested branch/release queries. Prewalk setup and effect/heap queries retain
 // their separate costs until their request boundaries are migrated.
 const lockStateWorkBudget = 100 * ssaflow.SummaryBudget
 
@@ -53,7 +53,7 @@ func (walk *lockStateWalk) run(
 		pass:         pass,
 		function:     function,
 		exclusive:    exclusive,
-		evidence:     evidence,
+		releases:     newLockReleaseQueries(evidence, walk.budget),
 		relations:    relations,
 		calleeLocks:  calleeLocks,
 		lockValues:   lockValues,
@@ -76,7 +76,7 @@ func (walk *lockStateWalk) run(
 	ssaflow.WalkStatesWithin([]lockFlowState{{block: function.Blocks[0]}}, func(state lockFlowState) string {
 		return lockStateKey(state, walk.budget)
 	}, walk.expand, walk.budget)
-	if walk.remaining < 0 || walk.budget.Exhausted() || walk.budget.PoolExhausted() {
+	if walk.incomplete() {
 		return false
 	}
 	flow.reportMissingReleases(function, unreleasedReturns, heldAtReturn, callers[function])
@@ -110,7 +110,7 @@ func (walk *lockStateWalk) expand(state lockFlowState) ([]lockFlowState, bool) {
 			return nil, false
 		}
 		state = walk.transfer(instruction, state)
-		if walk.budget.Exhausted() {
+		if walk.incomplete() {
 			return nil, false
 		}
 	}
@@ -129,22 +129,32 @@ func (walk *lockStateWalk) transfer(instruction ssa.Instruction, state lockFlowS
 				return state
 			}
 			state = flow.applyMutexAction(instruction, effect, state)
+			if walk.incomplete() {
+				return state
+			}
 		}
 		flow.releaseAttempts.recordSummarized(instruction, effects, before, state.held)
 		return state
 	}
-	state.held = transferCalledUnlocks(
-		flow.evidence, instruction, state.held, state.guards, flow.lockValues, flow.released, flow.unprovenRelease, flow.releaseAttempts,
-	)
-	// An unconditional release before any branch transfers to the spawned
-	// worker; a conditional release cannot hide an uncovered return.
-	state.held = transferSpawnedUnlocks(flow.evidence, instruction, state.held, state.guards, flow.lockValues, flow.released)
+	state.held = flow.transferCalledUnlocks(instruction, state)
+	if walk.incomplete() {
+		return state
+	}
+	// A release covering every normal return transfers to the spawned worker;
+	// a conditional release cannot hide an uncovered return.
+	state.held = flow.transferSpawnedUnlocks(instruction, state)
+	if walk.incomplete() {
+		return state
+	}
 	// Opaque owner handoffs make release uncertain rather than prove a defect.
 	state.held = transferOpaqueUnlocks(instruction, state.held, state.guards, flow.lockValues, flow.released)
 	// A deferred closure may handle only the earlier returns before an explicit
 	// unlock; retain that existing return-path cleanup boundary.
 	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/integration/nri_test.go#L1287-L1300
 	state.deferred = flow.recordDeferredUnlocks(instruction, state.held, state.deferred)
+	if walk.incomplete() {
+		return state
+	}
 	effect, ok := directMutexEffect(instruction)
 	if ok {
 		return flow.applyMutexAction(instruction, effect, state)
@@ -152,4 +162,11 @@ func (walk *lockStateWalk) transfer(instruction ssa.Instruction, state lockFlowS
 	flow.recordCalledOrder(instruction, state.held, state.origins)
 	reportReadLockWrites(*flow, instruction, state.held, state.readHeld, flow.lockValues, walk.possibleWriters)
 	return state
+}
+
+// incomplete is the shared publication/expansion barrier. A nested query can
+// hit its own cap before the function pool; that answer is still unavailable.
+func (walk *lockStateWalk) incomplete() bool {
+	return walk.remaining < 0 || walk.budget.Exhausted() || walk.budget.PoolExhausted() ||
+		walk.flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted
 }
