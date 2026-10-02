@@ -43,13 +43,17 @@ func resultReadFromWithin(returned *ssa.Return, cell *ssa.Alloc, budget *SearchB
 	return -1
 }
 
-// ValueAtReturn returns the value the return statement stores into the
-// named result's cell before the deferred calls run: the last store to the
-// cell in the return's own block before its RunDefers. A result set earlier,
-// as a bare return leaves it, is not followed.
-func ValueAtReturn(returned *ssa.Return, cell *ssa.Alloc) (ssa.Value, bool) {
+// ValueAtReturnWithin returns the exact cell's last store in the return block
+// before RunDefers, charging each inspected instruction to budget. A result
+// set in an earlier block is not followed. Cutoff discards the selected value;
+// callers inspect budget before treating absence as a completed lookup.
+// A nil budget retains the unbounded lookup.
+func ValueAtReturnWithin(returned *ssa.Return, cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bool) {
 	var stored ssa.Value
 	for _, instruction := range returned.Block().Instrs {
+		if !budget.Spend() {
+			return nil, false
+		}
 		switch typed := instruction.(type) {
 		case *ssa.Store:
 			if typed.Addr == cell {

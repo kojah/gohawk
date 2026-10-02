@@ -152,3 +152,23 @@ controls exercise multiple guards, partial-list cutoff and fresh recovery.
 Capture-filter and per-return value/outcome queries retain their existing
 policies and costs; this change bounds discovery rather than claiming that all
 cancellation evidence is now transitively bounded.
+
+### Result-guard return allowance
+
+Return-specific cleanup shares one query allowance across guard registration,
+last-store selection, returned-value outcomes and deferred completion.
+`ResultGuard.ProveReachesReturn` owns the common dominance/possible-follow
+policy: a possibly registered defer or interrupted search is unknown, while a
+completed disconnected search contributes no cleanup. Both lifecycle consumers
+use this proof rather than reproducing its ordering decision.
+
+`ValueAtReturnWithin` retains the exact named cell's last store before
+`RunDefers` in the return block. Earlier-block assignments and recovery returns
+without such a store remain unknown; another cell cannot establish the result.
+Literal outcomes precede summary lookup, and imported outcomes spend the same
+return query allowance. Cutoffs cannot turn a missing binding into a skipped
+cleanup or a completed cleanup. The shared
+`completion_result_return_budget_test.go` pins actual SSA for multiple results,
+multiple returns, overwritten stores, earlier-block assignments, conditional
+registration and interrupted callbacks. Consumer `result_guard_budget_test.go`
+checks cutoff unknown followed by fresh release and skipped-cleanup answers.

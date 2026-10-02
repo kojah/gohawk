@@ -128,21 +128,45 @@ func (guard ResultGuard) Completes(request CompletionRequest, fixed ssaflow.Fixe
 // when the function leaves through returned, which it must dominate. Each
 // named result is fixed to the outcome outcomeOf gives the value the return
 // stores; a value with no known outcome, or a result the return does not set
-// itself, leaves the answer unknown.
+// itself, leaves the answer unknown. Cell binding and callback invocation
+// spend request.Budget; callers also use it for outcome inference. A callback
+// may not publish an outcome after exhausting that allowance.
 func (guard ResultGuard) CompletesAtReturn(
 	request CompletionRequest, returned *ssa.Return, outcomeOf func(ssa.Value) (ssaflow.Outcome, bool),
 ) ssaflow.EvidenceState {
 	fixed := ssaflow.FixedValues{}
 	for _, cell := range guard.Cells {
-		value, ok := ssaflow.ValueAtReturn(returned, cell)
+		if !request.Budget.Spend() {
+			return ssaflow.EvidenceUnknown
+		}
+		value, ok := ssaflow.ValueAtReturnWithin(returned, cell, request.Budget)
 		if !ok {
 			return ssaflow.EvidenceUnknown
 		}
+		if !request.Budget.Spend() {
+			return ssaflow.EvidenceUnknown
+		}
 		outcome, ok := outcomeOf(value)
-		if !ok {
+		if !ok || request.Budget.Exhausted() || request.Budget.PoolExhausted() {
 			return ssaflow.EvidenceUnknown
 		}
 		fixed[cell] = outcome
 	}
 	return guard.Completes(request, fixed)
+}
+
+// ProveReachesReturn distinguishes a defer registered on every path to
+// returned from one that may reach it or is disconnected. Interrupted order
+// or reachability searches remain unknown, never evidence of disconnection.
+func (guard ResultGuard) ProveReachesReturn(returned *ssa.Return, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	state := ssaflow.EvidenceDisproven
+	if ssaflow.InstructionDominatesWithin(guard.Defer, returned, budget) {
+		state = ssaflow.EvidenceProven
+	} else if ssaflow.InstructionMayFollowWithin(guard.Defer, returned, budget) {
+		state = ssaflow.EvidenceUnknown
+	}
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+	}
+	return ssaflow.Proof{State: state, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
 }

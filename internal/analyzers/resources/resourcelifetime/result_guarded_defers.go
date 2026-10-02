@@ -92,13 +92,18 @@ func (analysis *resourceAnalysis) resultGuardedLabel(instruction ssa.Instruction
 // cleanup, so the return keeps its ordinary label.
 func (analysis *resourceAnalysis) resultGuardedReturn(returned *ssa.Return) (resourceAction, resourceLifetimeReason, bool) {
 	uncertain := false
+	budget := analysis.budget(releaseSearchBudget)
+	outcomeOf := func(value ssa.Value) (ssaflow.Outcome, bool) {
+		return analysis.outcomeOfWithin(value, budget)
+	}
 	for _, guard := range analysis.guardedDefers {
-		if !ssaflow.InstructionDominates(guard.Defer, returned) {
-			uncertain = uncertain || ssaflow.InstructionMayFollow(guard.Defer, returned)
+		reaching := guard.ProveReachesReturn(returned, budget)
+		if !reaching.Proven() {
+			uncertain = uncertain || reaching.State == ssaflow.EvidenceUnknown
 			continue
 		}
-		for _, request := range analysis.cleanupRequests(analysis.budget(releaseSearchBudget)) {
-			switch guard.CompletesAtReturn(request, returned, analysis.outcomeOf) {
+		for _, request := range analysis.cleanupRequests(budget) {
+			switch guard.CompletesAtReturn(request, returned, outcomeOf) {
 			case ssaflow.EvidenceProven:
 				return actionSettled, resourceReasonResultGuardedRelease, true
 			case ssaflow.EvidenceUnknown:
@@ -113,11 +118,11 @@ func (analysis *resourceAnalysis) resultGuardedReturn(returned *ssa.Return) (res
 	return actionNone, resourceReasonNone, false
 }
 
-// outcomeOf says what a returned value is: a literal, a value never nil, or
+// outcomeOfWithin says what a returned value is: a literal, a value never nil, or
 // a call whose summary proves it always nil, never nil, true, or false.
-func (analysis *resourceAnalysis) outcomeOf(value ssa.Value) (ssaflow.Outcome, bool) {
+func (analysis *resourceAnalysis) outcomeOfWithin(value ssa.Value, budget *ssaflow.SearchBudget) (ssaflow.Outcome, bool) {
 	if outcome, ok := ssaflow.ValueOutcome(value); ok {
 		return outcome, true
 	}
-	return analysis.summaries.ResultOf(value, analysis.budget(releaseSearchBudget)).Outcome()
+	return analysis.summaries.ResultOf(value, budget).Outcome()
 }

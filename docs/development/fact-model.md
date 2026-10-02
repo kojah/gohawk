@@ -965,3 +965,9 @@ first and imported facts second, all on one path. A second fact family with a
 different evidence model — `concurrencyfacts`' ordered effects — gets its own package
 for the same reason: one vocabulary per family.
 `TestObjectFactsStayInTheirDefiningPackage` enforces the boundary.
+
+Return-specific result-guard completion also shares its request allowance with
+named-cell store selection and outcome lookup. Guard registration uses the
+shared structured reachability proof; interrupted registration or binding is
+unknown. This does not change declaration guarantees or make a bare return's
+value available when its store is outside the return block.

@@ -3118,18 +3118,19 @@ UnwrapTransparentValue returns the operand of value only when its concrete
 SSA form is among forms. There is intentionally no catch-all form: each
 analysis must select the transformations that preserve its own evidence.
 
-## ValueAtReturn
+## ValueAtReturnWithin
 
 [Source](../../../../internal/ssaflow/named_results.go)
 
 ```go
-func ValueAtReturn(returned *ssa.Return, cell *ssa.Alloc) (ssa.Value, bool)
+func ValueAtReturnWithin(returned *ssa.Return, cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bool)
 ```
 
-ValueAtReturn returns the value the return statement stores into the
-named result's cell before the deferred calls run: the last store to the
-cell in the return's own block before its RunDefers. A result set earlier,
-as a bare return leaves it, is not followed.
+ValueAtReturnWithin returns the exact cell's last store in the return block
+before RunDefers, charging each inspected instruction to budget. A result
+set in an earlier block is not followed. Cutoff discards the selected value;
+callers inspect budget before treating absence as a completed lookup.
+A nil budget retains the unbounded lookup.
 
 ## ValueIsAccessPathFrom
 

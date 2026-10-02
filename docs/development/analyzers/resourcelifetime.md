@@ -1286,3 +1286,23 @@ cover exact/conditional/absent/no-return/nonnil-guarded actions under both cover
 modes, with a separate child/fresh control. Existing HTTP reporting fixtures and
 [the kruise-game callback](https://github.com/openkruise/kruise-game/blob/16a0418780d8abd3ee871448116bbc5dc1e98d48/test/e2e/framework/framework.go#L549-L570)
 retain the precision rationale. This change earns no new production FP credit.
+
+### Result-guard return allowance
+
+Return-specific cleanup shares one query allowance across guard registration,
+last-store selection, returned-value outcomes and deferred completion.
+`ResultGuard.ProveReachesReturn` owns the common dominance/possible-follow
+policy: a possibly registered defer or interrupted search is unknown, while a
+completed disconnected search contributes no cleanup. Both lifecycle consumers
+use this proof rather than reproducing its ordering decision.
+
+`ValueAtReturnWithin` retains the exact named cell's last store before
+`RunDefers` in the return block. Earlier-block assignments and recovery returns
+without such a store remain unknown; another cell cannot establish the result.
+Literal outcomes precede summary lookup, and imported outcomes spend the same
+return query allowance. Cutoffs cannot turn a missing binding into a skipped
+cleanup or a completed cleanup. The shared
+`completion_result_return_budget_test.go` pins actual SSA for multiple results,
+multiple returns, overwritten stores, earlier-block assignments, conditional
+registration and interrupted callbacks. Consumer `result_guard_budget_test.go`
+checks cutoff unknown followed by fresh release and skipped-cleanup answers.

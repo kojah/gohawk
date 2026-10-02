@@ -60,7 +60,7 @@ func TestResultGuards(t *testing.T) {
 		if !ssaflow.InstructionDominates(guards[0].Defer, returned) {
 			continue
 		}
-		value, _ := ssaflow.ValueAtReturn(returned, guards[0].Cells[0])
+		value, _ := ssaflow.ValueAtReturnWithin(returned, guards[0].Cells[0], nil)
 		states[value.String()] = guards[0].CompletesAtReturn(request, returned, ssaflow.ValueOutcome)
 	}
 	if states["nil:error"] != ssaflow.EvidenceDisproven {

@@ -109,12 +109,18 @@ func (classifier *cancellationClassifier) capturesThroughDeferredCell(closure *s
 // is not known.
 func (classifier *cancellationClassifier) resultGuardedReturn(returned *ssa.Return) (cancellationLabel, bool) {
 	uncertain := false
+	budget := classifier.budget()
+	outcomeOf := func(value ssa.Value) (ssaflow.Outcome, bool) {
+		return classifier.outcomeOfWithin(value, budget)
+	}
 	for _, guard := range classifier.guards {
-		if !ssaflow.InstructionDominates(guard.Defer, returned) {
-			uncertain = uncertain || ssaflow.InstructionMayFollow(guard.Defer, returned)
+		reaching := guard.ProveReachesReturn(returned, budget)
+		if !reaching.Proven() {
+			uncertain = uncertain || reaching.State == ssaflow.EvidenceUnknown
 			continue
 		}
-		switch guard.CompletesAtReturn(classifier.invokeRequest(), returned, classifier.outcomeOf) {
+		request := lifecycle.CompletionRequest{Target: classifier.cancel, InvokeTarget: true, Budget: budget}
+		switch guard.CompletesAtReturn(request, returned, outcomeOf) {
 		case ssaflow.EvidenceProven:
 			return labelled(cancellationActionRelease, reasonLabelResultGuardedRelease), true
 		case ssaflow.EvidenceUnknown:
@@ -128,12 +134,12 @@ func (classifier *cancellationClassifier) resultGuardedReturn(returned *ssa.Retu
 	return cancellationLabel{}, false
 }
 
-func (classifier *cancellationClassifier) outcomeOf(value ssa.Value) (ssaflow.Outcome, bool) {
+func (classifier *cancellationClassifier) outcomeOfWithin(value ssa.Value, budget *ssaflow.SearchBudget) (ssaflow.Outcome, bool) {
 	if outcome, ok := ssaflow.ValueOutcome(value); ok {
 		return outcome, true
 	}
 	if classifier.knowledge == nil {
 		return ssaflow.OutcomeAny, false
 	}
-	return classifier.knowledge.ResultOf(value, classifier.budget()).Outcome()
+	return classifier.knowledge.ResultOf(value, budget).Outcome()
 }

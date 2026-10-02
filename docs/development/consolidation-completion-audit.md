@@ -3718,3 +3718,63 @@ pins/scopes validate shared coverage use without claiming a latest full audit.
 The cleanup classifier review `.19` can close once this `.24` dependency is
 committed: its direct/merged identity, error correlation and guarded Body
 children are already verified. Other transitive setup/identity work remains open.
+
+### Return-specific result-guard binding (dho.44.11.5.22)
+
+The current source review found that completed guard discovery still fed
+unbounded per-return store and defer-registration searches. Both resource and
+cancellation consumers now use `ResultGuard.ProveReachesReturn`, one structured
+proof over the existing bounded dominance and possible-follow mechanics.
+A complete disconnected search contributes no action; a possible registration
+or interrupted search remains unknown. One return query allowance also covers
+named-cell binding, outcome inference and deferred completion. Summary outcomes
+use that same allowance after literal outcomes are considered.
+
+`ValueAtReturnWithin` retains the exact cell's last store before `RunDefers` in
+the return block and discards a partial selection at cutoff. The obsolete
+unbounded wrapper was removed after deadcode identified its last production
+consumer had migrated. Nil-budget calls preserve the default query policy.
+Earlier-block assignments and recovery returns without a local store remain
+unknown. The two-result conjunction test constructs its binding question
+explicitly: discovery still does not infer conjunctions by varying one cell.
+This change does not broaden declaration guarantees or resolve the separate
+cancellation capture filter in dho.44.11.5.23.
+
+Evidence is task-directed source fallback because graph tools are unavailable;
+no graph completeness or whole-lifecycle cost bound is claimed. The shared
+actual-SSA tests cover four return-binding families and two registration
+families, child exhaustion with an available parent, interrupted outcome
+callbacks and fresh queries. Consumer controls preserve released and skipped
+cleanup answers after a cutoff. `Function.WriteTo` receipts are in
+`.build/goal-return-binding-focused.log`. Counterfactual overlays bypassing
+store selection or registration allowances fail at their zero-budget controls
+in `.build/goal-return-binding-mutant-{store,reach}.log`.
+
+Focused lifecycle, SSA and both consumer suites pass in
+`.build/goal-return-binding-focused-final.log`. The initial verification exposed
+a dead wrapper, an unchecked SSA dump error and excessive test complexity;
+these were corrected rather than exempted. Final `make verify VERIFY_TIMINGS=1`
+passes in `.build/goal-return-binding-verify-final.log`: tests 75s, dogfood 38s,
+lint 17s with zero issues, generation 2s, vet 3s, formatting 3s, deadcode 6s
+and module verification. No local race or full precision replay was run.
+
+The immutable `.build/goal-return-binding-current` binary was built from
+97215b9 plus the production change (before a later comment clarification),
+SHA-256 `0f4e3e64078ef41e3c82b5f71c2364a1e2f905fd61686d934e2af555289f54d6`.
+Scoped static scans use `CGO_ENABLED=0`, `GOFLAGS=-mod=readonly`, `GOWORK=off`;
+candidate tests, generators and applications are not executed. Cute at
+`9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3`, resource-only `./...`, exits 3,
+retaining the reviewed leak at `test.go:614:13`. Ferro at
+`d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4`, resource-only
+`./internal/admin/repository ./mcp`, exits 0 and retains the statement-storage
+correction. Both JSON receipts are byte-identical to the preceding completion
+coverage controls, with empty stderr. These controls credit no FP removals;
+the recorded unresolved production queue remains 11 sites, not a fresh corpus
+replay. The broader consolidation goal remains active.
+
+Openase at `e530faf137e764337d5beaaf68af3be159eb17aa`, all checks on
+`./internal/orchestrator`, exits 3 with empty stderr. Its JSON is byte-identical
+to the preceding completion coverage control and retains both reviewed
+cancellation leaks at `runtime_launcher.go:414:22` and
+`runtime_process_lifecycle_slice.go:192:22`. Receipts use
+`.build/goal-return-binding-{cute,ferro,openase}.{json,err}`.

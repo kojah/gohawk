@@ -579,7 +579,21 @@ CompletesAtReturn asks whether the deferred literal completes the target
 when the function leaves through returned, which it must dominate. Each
 named result is fixed to the outcome outcomeOf gives the value the return
 stores; a value with no known outcome, or a result the return does not set
-itself, leaves the answer unknown.
+itself, leaves the answer unknown. Cell binding and outcome callbacks share
+request.Budget with completion; a callback may not publish an outcome after
+exhausting that allowance.
+
+## ResultGuard.ProveReachesReturn
+
+[Source](../../../../internal/lifecycle/completion_result_guards.go)
+
+```go
+func (guard ResultGuard) ProveReachesReturn(returned *ssa.Return, budget *ssaflow.SearchBudget) ssaflow.Proof
+```
+
+ProveReachesReturn distinguishes a defer registered on every path to
+returned from one that may reach it or is disconnected. Interrupted order
+or reachability searches remain unknown, never evidence of disconnection.
 
 ## ResultGuardsProof
 
