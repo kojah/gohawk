@@ -97,12 +97,13 @@ func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCalleeWithin(
 		return true
 	}
 	for held := range capturedTargetUsesWithin(function, closure, target, budget) {
-		for _, block := range function.Blocks {
-			for _, instruction := range block.Instrs {
-				if !budget.Spend() || callHandsValueToUnreadableCallee(instruction, held, budget) {
-					return true
-				}
+		for instruction := range ssaflow.InstructionsWithin(function, budget) {
+			if callHandsValueToUnreadableCallee(instruction, held, budget) {
+				return true
 			}
+		}
+		if budget.Exhausted() {
+			return true
 		}
 	}
 	return budget.Exhausted()

@@ -1919,3 +1919,49 @@ in `.build/goal-caller-budget-receipt-docs.log`. Child `.44.11.4` can close for
 the supplied-allowance and immediate availability contract. Parent `.44.11`
 remains active for `.5` transitive costs and `.6` shared census consolidation;
 the broader goal is not complete.
+
+## Shared budgeted instruction census
+
+Beads `gohawk-dho.44.11.6` follows caller-bound work in `95ebf73`.
+`ssaflow.InstructionsWithin` now owns block-order instruction iteration and
+spending before each yield. Early consumer exit stops immediately; partial
+iteration retains availability on the supplied budget. It selects no proof
+policy, feasible paths, call bindings or memo keys. Default `InstructionsOf`
+collects typed instructions through the same engine with no caller allowance.
+
+Nine direct census routes reuse it: two worker publication guards, caller
+channel/field-write/cancellation scans, retained-owner opaque work, relay
+participants, the worker receive engine and shared callback evidence. Select
+states, arguments, capture selection and identity remain caller concerns.
+Receive search explicitly returns unknown after iterator cutoff, preserving
+its incomplete-memo boundary. Caller receive stops before helper search when
+the census is unavailable. Shared unreadable callbacks preserve possible
+opaque consumption and stop immediately on a body cutoff. No new semantic
+guarantee, fact schema or reporting path is introduced.
+
+`instruction_census_test.go` verifies actual SSA order, zero and partial
+allowances, exact complete spending, early stop and default typed collection.
+Existing caller/receiver/cancellation, retained-owner path-local flow,
+factory/selected-context, callback and receive-memo cutoff/fresh controls pass
+in `.build/goal-census-focused.log`. Commentary passes in
+`.build/goal-census-commentary.log`. Final canonical `make verify` passes in
+`.build/goal-census-verify.log`, including ordinary tests, generated inventory,
+formatting, vet, lint, dead-code and local dogfood.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+uses static `-enable=goroutineownership -json` scans with CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-caller-budget-final` has
+SHA-256 `02ff7a5a52bc5348b4906cc6e37c866fac7eb790b9859c7a8f2844637611bf65`;
+corrected `.build/goal-census-current` has SHA-256
+`c345ce4f0df143928c8a1fb9280e224ab52d8a0f35c1e5c5f95253558e9cf6ca`.
+These immutable pre-commit artifacts identify the exact executables scanned.
+`.build/goal-census-stargz-{parent,current}.{json,err}` both exit 3, retain
+byte-identical 827-byte JSON, empty stderr and the reviewed TP at
+`store/manager.go:193:2`. No production FP correction is credited.
+
+Graph tools remain unavailable; this is bounded source/SSA/trace review, not
+an exhaustive duplication audit. Parent `.44.11` remains active for `.5`
+transitive identity, metadata and flow-setup costs. Other body/selected-block
+census sites are outside the nine migrated routes. The broader goal and
+15-site production FP queue remain open. No full precision-regression,
+local race run or candidate tests, generators or applications are performed.

@@ -1548,6 +1548,8 @@ a terminator; a nil terminator leaves the catalog alone.
 func InstructionsOf[T ssa.Instruction](function *ssa.Function) []T
 ```
 
+InstructionsOf collects one instruction kind through the shared census.
+
 ## InstructionsReachableAfter
 
 [Source](../../../../internal/ssaflow/flow_worklist.go)
@@ -1573,6 +1575,20 @@ func InstructionsReachableAfterWithin(start ssa.Instruction, budget *SearchBudge
 InstructionsReachableAfterWithin charges the instruction and successor
 census to budget. A partial result is usable only with its availability:
 exhaustion never proves that an instruction cannot follow start.
+
+## InstructionsWithin
+
+[Source](../../../../internal/ssaflow/value_instructions.go)
+
+```go
+func InstructionsWithin(function *ssa.Function, budget *SearchBudget) iter.Seq[ssa.Instruction]
+```
+
+InstructionsWithin yields instructions in block order, charging each one
+before yielding it. Breaking stops the census without spending on later
+instructions. Callers retain budget availability: a cutoff does not prove
+that an unvisited instruction or action is absent.
+A nil budget leaves the census unbounded.
 
 ## InterfaceDispatch
 

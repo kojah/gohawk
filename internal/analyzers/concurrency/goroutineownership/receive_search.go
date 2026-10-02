@@ -50,26 +50,26 @@ func (search *workerReceiveSearch) prove(function *ssa.Function, local ssa.Value
 
 func (search *workerReceiveSearch) search(function *ssa.Function, local ssa.Value) ssaflow.Proof {
 	result := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound, Provenance: ssaflow.EvidenceFromLocalSSA}
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !search.budget.Spend() {
-				return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
-			}
-			if receivesFromWithin(instruction, func(channel ssa.Value) bool { return search.matches(function, local, channel) }, search.budget) {
-				return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
-			}
-			common := ssaflow.InstructionCall(instruction)
-			if common == nil {
-				continue
-			}
-			proof := search.throughCall(common, local)
-			if proof.Proven() {
-				return proof
-			}
-			if proof.State == ssaflow.EvidenceUnknown {
-				result = proof
-			}
+	for instruction := range ssaflow.InstructionsWithin(function, search.budget) {
+		if receivesFromWithin(instruction, func(channel ssa.Value) bool { return search.matches(function, local, channel) }, search.budget) {
+			return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
 		}
+		common := ssaflow.InstructionCall(instruction)
+		if common == nil {
+			continue
+		}
+		proof := search.throughCall(common, local)
+		if proof.Proven() {
+			return proof
+		}
+		if proof.State == ssaflow.EvidenceUnknown {
+			result = proof
+		}
+	}
+	// Iterator cutoff preserves the same unavailable result as a body query;
+	// no incomplete negative answer may enter the memo.
+	if search.budget.Exhausted() {
+		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
 	}
 	return result
 }

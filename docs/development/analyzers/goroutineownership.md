@@ -58,6 +58,17 @@ receive engine retains value-specific memoization and possible-consumption
 semantics. Underlying identity, call-result scans, initial flow guards and
 metadata allocation remain transitive review scope, not a claimed complete
 wall-clock bound.
+
+Budgeted full-body census is shared through `ssaflow.InstructionsWithin`.
+Worker send/output guards, caller receive/field-write/cancellation scans,
+retained-owner opaque work, relay participants and the value-specific receive
+engine use its block-order iterator. Shared callback evidence uses the same
+census. It charges before yielding and stops when the consumer finds a witness;
+policy, select-state/argument spending and cutoff availability stay at callers.
+Receive memoization still rejects incomplete negative answers, caller receive
+stops before helper search on exhaustion, and opaque callbacks remain possible
+consumption. The shared iterator's partial/fresh/early-stop test supplements
+the existing candidate-attributed cutoff and path-local flow controls.
 Launching background work without a recognizable completion obligation is not
 itself a diagnostic, including with `-enable-all`.
 

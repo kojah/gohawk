@@ -1,6 +1,10 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	"iter"
+
+	"golang.org/x/tools/go/ssa"
+)
 
 // Instruction and closure enumeration shared by every layer.
 
@@ -23,13 +27,29 @@ func ClosureBindingPairs(function *ssa.Function, closure *ssa.MakeClosure) []Cap
 	return pairs
 }
 
+// InstructionsWithin yields instructions in block order, charging each one
+// before yielding it. Breaking stops the census without spending on later
+// instructions. Callers retain budget availability: a cutoff does not prove
+// that an unvisited instruction or action is absent.
+// A nil budget leaves the census unbounded.
+func InstructionsWithin(function *ssa.Function, budget *SearchBudget) iter.Seq[ssa.Instruction] {
+	return func(yield func(ssa.Instruction) bool) {
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instrs {
+				if !budget.Spend() || !yield(instruction) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// InstructionsOf collects one instruction kind through the shared census.
 func InstructionsOf[T ssa.Instruction](function *ssa.Function) []T {
 	var result []T
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if typed, ok := instruction.(T); ok {
-				result = append(result, typed)
-			}
+	for instruction := range InstructionsWithin(function, nil) {
+		if typed, ok := instruction.(T); ok {
+			result = append(result, typed)
 		}
 	}
 	return result

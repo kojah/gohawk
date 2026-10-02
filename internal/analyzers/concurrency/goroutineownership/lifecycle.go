@@ -71,33 +71,28 @@ func (analysis *spawnAnalysis) relayDependencyUncertain(budget *ssaflow.SearchBu
 	if analysis.relayGroup == nil {
 		return false
 	}
-	for _, block := range analysis.function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return false
-			}
-			send, sends := instruction.(*ssa.Send)
-			worker, launches := instruction.(*ssa.Go)
-			// Only a send or another worker can supply this dependency witness.
-			// Avoid spending ordered reachability on unrelated instructions.
-			participant := sends || launches
-			if instruction == analysis.spawn || !participant || !ssaflow.InstructionMayFollowWithin(instruction, analysis.spawn, budget) {
-				continue
-			}
-			if sends && lifecycle.MayContainValue(send.X, analysis.relayGroup) {
-				return true
-			}
-			if !launches {
-				continue
-			}
-			function, closure := resolveSpawnedFunction(analysis.pass, worker, budget)
-			if function == nil {
-				continue
-			}
-			groups, _ := waitGroupCompletionValues(worker, function, closure, budget)
-			if heapmodel.MayAliasAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker, budget) {
-				return true
-			}
+	for instruction := range ssaflow.InstructionsWithin(analysis.function, budget) {
+		send, sends := instruction.(*ssa.Send)
+		worker, launches := instruction.(*ssa.Go)
+		// Only a send or another worker can supply this dependency witness.
+		// Avoid spending ordered reachability on unrelated instructions.
+		participant := sends || launches
+		if instruction == analysis.spawn || !participant || !ssaflow.InstructionMayFollowWithin(instruction, analysis.spawn, budget) {
+			continue
+		}
+		if sends && lifecycle.MayContainValue(send.X, analysis.relayGroup) {
+			return true
+		}
+		if !launches {
+			continue
+		}
+		function, closure := resolveSpawnedFunction(analysis.pass, worker, budget)
+		if function == nil {
+			continue
+		}
+		groups, _ := waitGroupCompletionValues(worker, function, closure, budget)
+		if heapmodel.MayAliasAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker, budget) {
+			return true
 		}
 	}
 	return false

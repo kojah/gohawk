@@ -145,37 +145,32 @@ func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(
 ) bool {
 	storage := heapmodel.NewStorage(budget)
 	bindings := ssaflow.CallBindings(analysis.spawn.Common(), function, closure)
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
+	for instruction := range ssaflow.InstructionsWithin(function, budget) {
+		call, ok := instruction.(*ssa.Call)
+		if !ok {
+			continue
+		}
+		common := call.Common()
+		callee, _ := ssaflow.DirectCallee(common)
+		used := ssaflow.CallReceiver(common)
+		if used == nil || callee != nil && len(callee.Blocks) != 0 || !opaqueCallEndsWorkerWork(call, budget) {
+			continue
+		}
+		for _, pair := range bindings {
 			if !budget.Spend() {
 				return false
 			}
-			call, ok := instruction.(*ssa.Call)
-			if !ok {
+			if !ssaflow.ValueIsAccessPathFrom(receiver, pair.Supplied) {
 				continue
 			}
-			common := call.Common()
-			callee, _ := ssaflow.DirectCallee(common)
-			used := ssaflow.CallReceiver(common)
-			if used == nil || callee != nil && len(callee.Blocks) != 0 || !opaqueCallEndsWorkerWork(call, budget) {
+			if cell, ok := pair.Supplied.(*ssa.Alloc); ok && !storage.StableContent(cell, analysis.spawn).Proven() {
 				continue
 			}
-			for _, pair := range bindings {
-				if !budget.Spend() {
-					return false
-				}
-				if !ssaflow.ValueIsAccessPathFrom(receiver, pair.Supplied) {
-					continue
-				}
-				if cell, ok := pair.Supplied.(*ssa.Alloc); ok && !storage.StableContent(cell, analysis.spawn).Proven() {
-					continue
-				}
-				if ssaflow.ProveIdentity(
-					ssaflow.AccessPath{Value: used, Root: pair.Local},
-					ssaflow.AccessPath{Value: receiver, Root: pair.Supplied},
-				).Proven() {
-					return true
-				}
+			if ssaflow.ProveIdentity(
+				ssaflow.AccessPath{Value: used, Root: pair.Local},
+				ssaflow.AccessPath{Value: receiver, Root: pair.Supplied},
+			).Proven() {
+				return true
 			}
 		}
 	}

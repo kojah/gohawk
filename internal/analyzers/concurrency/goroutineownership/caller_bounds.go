@@ -29,17 +29,15 @@ func goroutineReceivesCallerSignal(pass *analysis.Pass, spawn *ssa.Go, budget *s
 	if function == nil {
 		return false
 	}
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return false
-			}
-			if receivesFromWithin(instruction, func(channel ssa.Value) bool {
-				return callerSuppliedValue(spawn, function, closure, channel, budget)
-			}, budget) {
-				return true
-			}
+	for instruction := range ssaflow.InstructionsWithin(function, budget) {
+		if receivesFromWithin(instruction, func(channel ssa.Value) bool {
+			return callerSuppliedValue(spawn, function, closure, channel, budget)
+		}, budget) {
+			return true
 		}
+	}
+	if budget.Exhausted() {
+		return false
 	}
 	return spawnedParameterIsReceived(spawn, function, closure, func(value ssa.Value) bool {
 		channel, ok := value.Type().Underlying().(*types.Chan)
@@ -125,19 +123,14 @@ func loadedContextField(value ssa.Value) *ssa.FieldAddr {
 // same type inside function: the context may then be one this function chose,
 // not one the receiver's owner installed.
 func fieldStoredIn(field *ssa.FieldAddr, function *ssa.Function, budget *ssaflow.SearchBudget) bool {
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return false
-			}
-			store, ok := instruction.(*ssa.Store)
-			if !ok {
-				continue
-			}
-			address, ok := store.Addr.(*ssa.FieldAddr)
-			if ok && address.Field == field.Field && types.Identical(address.X.Type(), field.X.Type()) {
-				return true
-			}
+	for instruction := range ssaflow.InstructionsWithin(function, budget) {
+		store, ok := instruction.(*ssa.Store)
+		if !ok {
+			continue
+		}
+		address, ok := store.Addr.(*ssa.FieldAddr)
+		if ok && address.Field == field.Field && types.Identical(address.X.Type(), field.X.Type()) {
+			return true
 		}
 	}
 	return false
@@ -227,18 +220,13 @@ func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *heapmodel.Stora
 	}
 	// A registered defer may precede launch and lie outside the forward
 	// query. Only dominance makes that earlier registration cover this worker.
-	for _, block := range spawn.Parent().Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return false
-			}
-			deferred, ok := instruction.(*ssa.Defer)
-			if !ok {
-				continue
-			}
-			if ssaflow.InstructionDominates(deferred, spawn) && cancels(deferred) {
-				return true
-			}
+	for instruction := range ssaflow.InstructionsWithin(spawn.Parent(), budget) {
+		deferred, ok := instruction.(*ssa.Defer)
+		if !ok {
+			continue
+		}
+		if ssaflow.InstructionDominates(deferred, spawn) && cancels(deferred) {
+			return true
 		}
 	}
 	return false
