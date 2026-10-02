@@ -109,7 +109,7 @@ func proveCancellation(
 	// is unknown, and that opacity excuses no other path's early return.
 	outcome, witness := ssaflow.EvaluateObligationWitness(ssaflow.ObligationFlow{
 		Start: call, NonNil: cancel, Successors: knowledge.Successors(), Terminates: knowledge.Terminates(),
-		Instruction: classifier.obligation, Return: classifier.returnObligation, Edge: classifier.edgeObligation,
+		Instruction: classifier.obligation, Edge: classifier.edgeObligation,
 	})
 	switch outcome {
 	case ssaflow.ObligationViolated:
@@ -124,16 +124,12 @@ func proveCancellation(
 	return CancellationProof{Outcome: CancellationReleased, Reason: reasonCancellationReleased}
 }
 
-// obligation, returnObligation, and edgeObligation map this classifier's
+// obligation and edgeObligation map this classifier's
 // labels onto the shared flow lattice: a release or transfer is exact
 // evidence, an ambiguous use is opaque, and a selected Done receive is an
 // edge-local opaque observation of cancellation.
 func (classifier *cancellationClassifier) obligation(instruction ssa.Instruction) ssaflow.ObligationAction {
 	return cancellationObligation(classifier.action(instruction))
-}
-
-func (classifier *cancellationClassifier) returnObligation(returned *ssa.Return) ssaflow.ObligationAction {
-	return cancellationObligation(classifier.returnAction(returned))
 }
 
 func (classifier *cancellationClassifier) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
@@ -174,6 +170,16 @@ func (classifier *cancellationClassifier) action(instruction ssa.Instruction) ca
 	action, reason := label.action, label.reason
 	if action == cancellationActionNone && classifier.parent != nil && classifier.parent.action(instruction) != cancellationActionNone {
 		action, reason = cancellationActionUnknown, reasonLabelParentContextUse
+	}
+	if returned, ok := instruction.(*ssa.Return); ok {
+		// Flow can revisit a merged return under different path states. Its
+		// result and owner evidence is instruction-local: combine it with the
+		// ordinary label once, so neither queries nor trace labels repeat.
+		// Exact return cleanup/transfer still covers an opaque ordinary use.
+		returnedLabel := classifier.returnLabel(returned)
+		if returnedLabel.action != cancellationActionNone && cancellationObligation(returnedLabel.action) >= cancellationObligation(action) {
+			action, reason = returnedLabel.action, returnedLabel.reason
+		}
 	}
 	classifier.actions[instruction] = action
 	classifier.traceLabel(instruction, action, reason)
@@ -352,27 +358,20 @@ func deferredClosureCaptures(instruction ssa.Instruction, target ssa.Value) bool
 	})
 }
 
-func (classifier *cancellationClassifier) returnAction(returned *ssa.Return) cancellationAction {
+func (classifier *cancellationClassifier) returnLabel(returned *ssa.Return) cancellationLabel {
 	if label, decided := classifier.resultGuardedReturn(returned); decided && !slices.Contains(returned.Results, classifier.cancel) {
-		classifier.traceLabel(returned, label.action, label.reason)
-		return label.action
+		return label
 	}
 	if slices.Contains(returned.Results, classifier.cancel) {
-		classifier.transfers = true
-		return cancellationActionTransfer
+		return labelled(cancellationActionTransfer, reasonLabelReturned)
 	}
 	if classifier.returnsOwner(returned) {
-		classifier.transfers = true
-		classifier.traceLabel(returned, cancellationActionTransfer, reasonLabelReturnedOwner)
-		return cancellationActionTransfer
+		return labelled(cancellationActionTransfer, reasonLabelReturnedOwner)
 	}
 	if lifecycle.ReturnedValueOwnsValue(returned, classifier.cancel) {
-		return cancellationActionUnknown
+		return labelled(cancellationActionUnknown, reasonLabelReturned)
 	}
-	if classifier.parent != nil && classifier.parent.returnAction(returned) != cancellationActionNone {
-		return cancellationActionUnknown
-	}
-	return cancellationActionNone
+	return cancellationLabel{}
 }
 
 // Receiving this standard context's Done observes cancellation, not just an

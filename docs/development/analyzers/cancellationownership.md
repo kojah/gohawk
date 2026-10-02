@@ -66,6 +66,16 @@ result guarantee is projected by `resultfacts.Guarantee.Outcome`, shared with
 resource lifetime; unknown guarantees cannot select the cleanup branch. The
 classifier retains its own budget and absent-provider boundary.
 
+Ordinary return uses, result-guarded deferred cleanup and returned owners are
+combined into one cached instruction label. Exact cleanup or transfer covers
+an otherwise opaque return use; uncertainty never becomes exact cleanup.
+The ordinary obligation flow consumes that label without a second return
+callback. A merged return can be visited under several flow states, but its
+instruction-local evidence is queried and traced only on the first visit.
+`cancelledOnMergedSuccess` in the result-guarded fixture pins one cleanup label
+and one accepted final decision; the direct returned-cancel fixture pins an
+accepted transfer label rather than the former unknown ordinary-use label.
+
 Elapsed sleep durations remain a known precision gap, not a timer exemption.
 
 ### One-time program-entry contexts

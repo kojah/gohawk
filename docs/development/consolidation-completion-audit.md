@@ -653,3 +653,61 @@ The [value-walk review](value-walk-review.md),
 [remaining FP assessment](../../benchmarks/precision/audits/remaining-fp-assessment-2026-10-01.md)
 remain scoped supporting evidence. Passing their checks is not a substitute
 for the requirement-by-requirement completion audit.
+
+## Cancellation return classification review
+
+The source review in `gohawk-dho.40` found a concrete split in cancellation
+classification, now tracked as `gohawk-dho.41`. This is a source fallback;
+Codebase Memory graph tools are unavailable. The inspected route is bounded to
+`cancellationownership/proof.go`, `labels.go`, `result_guards.go`,
+`owner_structs.go`, `parent_context.go`, and the obligation loop in
+`ssaflow/flow_obligation.go`. The resource comparison covers its action cache,
+`classify` ordering and `result_guarded_defers.go`; it does not establish that
+all resource/helper/edge predicates or their transitive implementations have
+been reviewed.
+
+| Input | Former route | Consolidated route and preserved boundary |
+| --- | --- | --- |
+| Ordinary cancellation use | `action` caches `classifyAction`, including opaque uses and parent-context uncertainty. | The same cache owns the combined label. Parent evidence remains unknown for the child. |
+| Named-result deferred cleanup | The instruction callback runs first; a separate uncached return callback asks `resultGuardedReturn`. | `returnLabel` contributes to the instruction label. Exact cleanup wins over ordinary uncertainty; unknown remains opaque. |
+| Returned cancel or fresh owner | The return callback sets transfer separately; a direct cancel's ordinary label says unknown. | One accepted transfer label and the same transfer flag accompany the final cached action. Visible-owner and written-once capture restrictions remain. |
+| CFG-edge completion or selected Done receive | `edgeObligation` supplies edge-local evidence. | Remains separate: successor-specific evidence must not be cached as an instruction-wide discharge. |
+| Resource result-guarded cleanup | `resultGuardedLabel` already participates in `classify` and the resource action cache. | Distinct method-cleanup requests and resource states remain local; no common policy engine is introduced. |
+
+The actual merged-success SSA has two predecessors reaching one return after
+`rundefers`. The parent invokes the uncached return classifier in both flow
+states, emitting two identical `result-guarded-release` labels for the same
+candidate/instruction. The new fixture fails the parent with two labels and
+one decision. The corrected action cache emits one of each. Return queries no
+longer repeat solely because flow revisits that instruction; this makes no
+claim about a measured runtime or memory improvement. The shared flow still
+owns coverage, branch feasibility and the final witness.
+
+The production parent executable is source `ff205a5`, retained as
+`.build/goal-return-classifier-parent`, SHA-256
+`5bf8c6ab4018268fb4a36c31200e7c3c2a6bb71e56e655e12de88b25304c099c`.
+The corrected executable is `.build/goal-return-classifier-current`, SHA-256
+`55b4fba619a03304f0a904d2d368a5be93586b5724a8bb64080c5fc7f6e16c3c`.
+The actual SSA is `.build/goal-return-merged.ssa.txt`. Parent/current
+`-enable-all -json` fixture scans exit 3 with empty stderr and byte-identical
+35,065-byte diagnostics. Their 179 final decisions match as multisets;
+601 parent labels become 600 corrected labels, with the single repeated
+instruction group removed. The direct returned-cancel label also changes from
+unknown to accepted, matching its unchanged accepted final transfer proof.
+Receipts are `.build/goal-return-merged-parent.*` and
+`.build/goal-return-classifier-current.*`; the earlier parent scan before the
+new fixture and failed path invocation are not equivalence evidence.
+
+This is architecture progress, not an audited FP correction. The 15-site
+production queue is unchanged. `gohawk-dho.40` still owns the remaining helper,
+return/edge and storage-family review; the overall completion audit remains
+unproven. No full precision-regression or local race run is part of this fix.
+
+The corrected cancellation package tests pass (18.398 seconds). After adding
+its direct-return label assertion, the final focused analyzer run passes
+(8.342 seconds), as do the documentation architecture checks (0.649 seconds).
+Canonical `make verify` passes ordinary tests (69 seconds), generation,
+formatting, vet, lint, dead-code and local dogfood; its receipt is
+`.build/goal-return-classifier-verify.log`. A stable gate after the final
+assertion and review-note edits is recorded separately as
+`.build/goal-return-classifier-stable-verify.log`.

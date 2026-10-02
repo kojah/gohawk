@@ -62,6 +62,21 @@ func cancelledOnSuccess(parent context.Context) (err error) {
 	return nil
 }
 
+// Both branch states reach the same return. Its result-guarded cleanup is
+// one instruction classification, even when flow visits it more than once.
+func cancelledOnMergedSuccess(parent context.Context, choice bool) (err error) {
+	_, cancel := context.WithCancel(parent)
+	defer func() {
+		if err == nil {
+			cancel()
+		}
+	}()
+	if choice {
+		println("selected")
+	}
+	return nil
+}
+
 // A guard on a local flag is data-dependent and stays unknown.
 func cancelledUnlessKept(parent context.Context, keep bool) {
 	ctx, cancel := context.WithCancel(parent)
