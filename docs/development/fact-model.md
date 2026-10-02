@@ -1078,3 +1078,22 @@ Package write-once inventory setup, heap graph and type-system internals,
 constant/string formatting, fact encoding and decoding retain their independent
 costs. These bounds count evidence steps; they are not a wall-time or memory
 guarantee.
+
+
+## Mutex heap effects and object exclusivity
+
+Direct synchronous `sync.Mutex` and `sync.RWMutex` locking/unlocking methods,
+including the try methods, mutate their internal receiver state without
+retaining an enclosing user object. The heap model applies that language-library
+contract at its existing known-call boundary, invalidating the exact mutex slot
+through summary substitution's storage mechanics. It preserves sibling fields
+and previous exposure. Launched calls, opaque interface receivers, `RLocker`
+adapters and project-defined lookalikes do not use this contract. No cleanup,
+completion, try-result or field-protection guarantee is inferred from it.
+
+`ExclusiveAt` asks whole-object identity rather than exact content identity.
+Different or unknown selections of one non-stale object can still be private;
+unknown/stale/mixed origins cannot. Fresh `make` maps, slices and channels can
+be local while their elements remain opaque, provided no selection has been
+exposed. Opaque calls and loaded unknown values remain unavailable. The query
+lives in `store_exclusivity.go`; exact slot and content policy remain separate.

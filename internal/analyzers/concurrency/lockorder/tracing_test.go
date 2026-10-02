@@ -42,10 +42,12 @@ func TestLockTraceBoundaries(t *testing.T) {
 	set("gohawk-trace-file", path)
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "lockorder")
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "ordercycles")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "privateread")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
+	checkDecisionTrace(t, data, "private-write-storage", "owners.go:", "accepted")
 	checkLongerCycleTrace(t, data)
 	checkConstantTrace(t, data, "predecessor-constant-branch-infeasible", "computed_guard.go:")
 	checkConstantTrace(t, data, "carried-constant-branch-infeasible", "carried_release_state.go:")

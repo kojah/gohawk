@@ -4805,3 +4805,22 @@ controls, scoped diagnostic comparisons and final validation. This is no claim
 of one bound on every independently owned query. No production FP correction
 is credited; seven recorded sites plus Rune and whole-goal completion remain
 open.
+
+
+## Private read-lock storage boundary
+
+Beads `gohawk-dho.23.7` revisits the lock/field family and identifies a separate
+reproducible gap: the parent reports fresh unpublished mutation destinations.
+One destination selector now supplies both owner matching and existing heap
+exclusivity. The proof excludes only a proven local destination, retaining
+published/caller and borrowed-container diagnostics. Shared heap exclusivity
+separates object selection from exact slot identity and fresh language
+allocations from opaque producers. Its focused evidence lives in
+`store_exclusivity.go`; standard mutex effects use the existing known-call and
+exact summary-invalidation boundaries.
+
+The [private-storage review](../../benchmarks/precision/audits/readlock-private-storage-2026-10-02.md)
+records parent-failing accepted forms, shared heap controls, scoped output and
+final gates. This removes a reproduced fixture FP class without claiming a
+recorded corpus correction. Skywalking head/current writes still lack an exact
+field/participant relation; seven production sites plus Rune remain unresolved.

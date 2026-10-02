@@ -442,7 +442,7 @@ ExclusiveAt proves a graph object's caller/local exclusivity at one point.
 
 ## ExclusiveObject
 
-[Source](../../../../internal/heapmodel/store_regions_query.go)
+[Source](../../../../internal/heapmodel/store_exclusivity.go)
 
 ```go
 type ExclusiveObject struct {

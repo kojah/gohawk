@@ -10,7 +10,7 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 Acquire locks consistently and release them on every return path. A missing
 unlock is reported only when another path demonstrates that the function owns
-the corresponding release policy.
+the corresponding release policy. Writes to private memory are left alone.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [lockorder design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/lockorder.md).

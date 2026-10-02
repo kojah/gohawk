@@ -432,3 +432,31 @@ embedded field and constructor-slot identity mechanics formerly beside summary
 traversal; this is an extraction with unchanged evidence and rationale comments.
 Independent key, identity, type and ordinary fallback-summary costs remain
 separate; this does not claim a bound on the entire lock proof.
+
+
+## Private read-lock mutation destinations
+
+The read-lock-write proof selects one mutation destination for stores, map
+updates and the supported `delete`, `clear` and `copy` builtins. Owner matching
+and exclusivity consume that same selection. A local object that has not been
+exposed at the mutation cannot race with another reader; this is an exact
+exclusion, traced as accepted `private-write-storage`. An unpublished wrapper
+alone is insufficient: a borrowed map or slice retains its caller's storage
+and the existing report boundary.
+
+Heap object exclusivity now distinguishes fresh language `make` allocations
+from other opaque origins. An unknown element index still belongs to one
+backing object; stale, unknown or mixed object identity remains unavailable,
+and exact content identity still requires one exact slot. Any recorded exposure
+of a fresh collection or its selections defeats local exclusivity. Standard
+synchronous mutex methods invalidate only their exact mutex receiver storage
+without retaining its enclosing user object. Async launches, interface calls,
+`RLocker` and project-defined lookalikes retain conservative effects.
+
+The `privateread` fixture pins local scalar and container writes, initialization
+before publication, publication before mutation, uncertain caller owners and
+borrowed map/slice storage. Shared heap controls cover mutex API identity,
+async/adapter/lookalike calls, published owners, fresh/borrowed/opaque/mixed
+collections, selected-element exposure and loop allocation. This does not
+infer which field a mutex guards or who can participate in its read protocol;
+the two recorded Skywalking cursor sites remain unresolved.

@@ -459,11 +459,14 @@ var (
 )
 
 // definedCall applies a call whose effect the language or a documented
-// contract fixes: a builtin, or a sync/atomic store. It reports whether it
+// contract fixes: a builtin, a standard mutex operation, or a sync/atomic store. It reports whether it
 // applied one.
 func (graph *regionGraph) definedCall(state *regionState, common *ssa.CallCommon, instruction ssa.Instruction, started bool) bool {
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
 		graph.builtin(state, builtin, common, instruction)
+		return true
+	}
+	if graph.definedMutexCall(state, common, instruction, started) {
 		return true
 	}
 	cell, written, ok := atomicStore(common)

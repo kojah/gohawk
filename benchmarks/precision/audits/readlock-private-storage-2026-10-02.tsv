@@ -1,0 +1,13 @@
+scope	version	pin	exit	stderr_bytes	diagnostics	sha256	receipt
+lock-fixture: lockorder,ordercycles,readlockpaths	parent	local fixtures	0	0	117	1b68d2f2af3677175d2a963b0e10d32ff283c0aca63570fe82f28dad09c02d7a	.build/goal-readlock-private-final/lock-fixture-parent-receipt.json
+private-fixture: privateread	parent	local fixtures	0	0	11	1b68d2f2af3677175d2a963b0e10d32ff283c0aca63570fe82f28dad09c02d7a	.build/goal-readlock-private-final/private-fixture-parent-receipt.json
+resource-fixture: resourcelifetime	parent	local fixtures	0	0	318	1b68d2f2af3677175d2a963b0e10d32ff283c0aca63570fe82f28dad09c02d7a	.build/goal-readlock-private-final/resource-fixture-parent-receipt.json
+process-fixture: processownership,processchoices	parent	local fixtures	0	0	40	1b68d2f2af3677175d2a963b0e10d32ff283c0aca63570fe82f28dad09c02d7a	.build/goal-readlock-private-final/process-fixture-parent-receipt.json
+skywalking: ./pkg/tools/buffer	parent	e83d5925500a7e63dd55c080a9b1542d6cedaefb	0	0	2	1b68d2f2af3677175d2a963b0e10d32ff283c0aca63570fe82f28dad09c02d7a	.build/goal-readlock-private-final/skywalking-parent-receipt.json
+goroutine-fixture: goroutineownership,closurechoices	parent	local fixtures	0	0	128	1b68d2f2af3677175d2a963b0e10d32ff283c0aca63570fe82f28dad09c02d7a	.build/goal-readlock-private-final/goroutine-fixture-parent-receipt.json
+lock-fixture: lockorder,ordercycles,readlockpaths	current	local fixtures	0	0	117	b33072d7dae095c919081b92999e2d2299aa603364b21ebc49be377d48fa87b9	.build/goal-readlock-private-final/lock-fixture-current-receipt.json
+private-fixture: privateread	current	local fixtures	0	0	6	b33072d7dae095c919081b92999e2d2299aa603364b21ebc49be377d48fa87b9	.build/goal-readlock-private-final/private-fixture-current-receipt.json
+resource-fixture: resourcelifetime	current	local fixtures	0	0	318	b33072d7dae095c919081b92999e2d2299aa603364b21ebc49be377d48fa87b9	.build/goal-readlock-private-final/resource-fixture-current-receipt.json
+process-fixture: processownership,processchoices	current	local fixtures	0	0	40	b33072d7dae095c919081b92999e2d2299aa603364b21ebc49be377d48fa87b9	.build/goal-readlock-private-final/process-fixture-current-receipt.json
+goroutine-fixture: goroutineownership,closurechoices	current	local fixtures	0	0	128	b33072d7dae095c919081b92999e2d2299aa603364b21ebc49be377d48fa87b9	.build/goal-readlock-private-final/goroutine-fixture-current-receipt.json
+skywalking: ./pkg/tools/buffer	current	e83d5925500a7e63dd55c080a9b1542d6cedaefb	0	0	2	b33072d7dae095c919081b92999e2d2299aa603364b21ebc49be377d48fa87b9	.build/goal-readlock-private-final/skywalking-current-receipt.json

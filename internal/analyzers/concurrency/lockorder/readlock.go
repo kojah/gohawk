@@ -92,6 +92,12 @@ func proveReadLockWrite(
 			if !ok || !writeTargetsOwner(instruction, owner) {
 				continue
 			}
+			// A fresh wrapper can carry a borrowed map or slice. Exclusivity must
+			// belong to the actual destination, not merely the lock's receiver.
+			if storage, known := heapmodel.ExclusiveAt(readLockWriteDestination(instruction), instruction); known && storage.Local {
+				proof = readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonPrivateWriteStorage}, identity}
+				continue
+			}
 			// A writer guard may be owned by another object. Without guard
 			// inference, any held exclusive lock makes the claim that only
 			// readers serialize this write unknown, not proven safe.
@@ -200,42 +206,39 @@ func lockOwner(value ssa.Value) (ssa.Value, bool) { //nolint:ireturn // SSA valu
 }
 
 func writeTargetsOwner(instruction ssa.Instruction, owner ssa.Value) bool {
-	switch typed := instruction.(type) {
-	case *ssa.Store:
-		return addressWithinOwner(typed.Addr, owner)
-	case *ssa.MapUpdate:
-		// The map is loaded out of the owner's field, so peel that one load to
-		// name the cell it came from before requiring the field path.
-		source, ok := ssaflow.IdentitySource(typed.Map)
-		return ok && addressWithinOwner(source, owner)
-	case *ssa.Call:
-		return mutatingBuiltinTargetsOwner(typed.Common(), owner)
+	destination := readLockWriteDestination(instruction)
+	if destination == nil {
+		return false
 	}
-	return false
+	if _, store := instruction.(*ssa.Store); store {
+		return addressWithinOwner(destination, owner)
+	}
+	// Containers loaded out of the owner's field retain their storage path.
+	source, ok := ssaflow.IdentitySource(destination)
+	return ok && addressWithinOwner(source, owner)
 }
 
-// mutatingBuiltinTargetsOwner reports whether a builtin that mutates its
-// argument writes into the owner. These are calls rather than stores, so they
-// reach none of the cases above, and a map emptied or a slice overwritten
-// under a read lock races exactly as an assignment to it does.
-//
-// copy takes its destination first and reads its source, so only the first
-// argument is a write: counting the source would report a copy out of the
-// owner, which is the read a read lock permits.
-func mutatingBuiltinTargetsOwner(common *ssa.CallCommon, owner ssa.Value) bool {
-	builtin, ok := common.Value.(*ssa.Builtin)
-	if !ok || len(common.Args) == 0 {
-		return false
+// readLockWriteDestination names the memory a store, map update or supported
+// builtin mutates. Owner matching and exclusivity consume this same selection.
+// copy writes only its first argument; its source remains a permitted read.
+func readLockWriteDestination(instruction ssa.Instruction) ssa.Value { //nolint:ireturn // Preserve the exact SSA storage identity.
+	switch operation := instruction.(type) {
+	case *ssa.Store:
+		return operation.Addr
+	case *ssa.MapUpdate:
+		return operation.Map
+	case *ssa.Call:
+		common := operation.Common()
+		builtin, ok := common.Value.(*ssa.Builtin)
+		if !ok || len(common.Args) == 0 {
+			return nil
+		}
+		switch builtin.Name() {
+		case "delete", "clear", "copy":
+			return common.Args[0]
+		}
 	}
-	switch builtin.Name() {
-	case "delete", "clear", "copy":
-	default:
-		return false
-	}
-	// The container is loaded out of the owner's field, so peel that one load
-	// to name the cell it came from, exactly as the map update does.
-	source, found := ssaflow.IdentitySource(common.Args[0])
-	return found && addressWithinOwner(source, owner)
+	return nil
 }
 
 // addressWithinOwner reports whether address selects a field or a constant

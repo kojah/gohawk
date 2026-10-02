@@ -4,6 +4,7 @@ import "testing"
 
 func TestLockReasonCodes(t *testing.T) {
 	want := map[lockReason]string{
+		lockReasonPrivateWriteStorage:                 "private-write-storage",
 		lockReasonPrivateMutexOnly:                    "private-mutex-only",
 		lockReasonReleaseOwnershipUnknown:             "release-ownership-unknown",
 		lockReasonUnreleasedReturn:                    "unreleased-return",
