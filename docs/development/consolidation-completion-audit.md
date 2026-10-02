@@ -1706,3 +1706,65 @@ from prior runs; it is not a fresh three-second performance measurement.
 The final reference check also required updating the handwritten shared-helper
 map to the structured spawned invocation API. This child can close with the
 focused budget contract verified; its parent and the overall objective cannot.
+
+## Exact relay bindings and constructor adapter budgets
+
+Beads `gohawk-dho.44.11.2` follows the positive-discovery correction in
+`779ff1b`. Actual pilot SSA shows a captured group initialized from one
+WaitGroup, reassigned to a second before launch, and waited on by the caller.
+The old relay adapter selected the first initializer and reported the relay
+despite the caller's exact wait on its actual group. Relay group and channel
+mapping now reuse the existing exact/stable completion binding query. Relay
+closes and instruction classification share one exact channel matcher.
+
+Relay resolution/census, owner capture/method selection and pipe worker/binding
+search share the constructor's observed discovery allowance. Each cutoff
+records its phase and leaves the whole candidate unknown; partial completion
+alternatives or owner/peer witnesses cannot establish their absence. The shared
+budgeted capture helper retains its possible first-initializer semantics for
+suppression consumers; that query does not establish an exact relay binding.
+Method-set construction itself is not a claimed wall-clock bound.
+
+Focused fixtures preserve an exact relay, reject an unrelated wait and extra
+local blocking work, and retain unknown for caller-owned work. Actual SSA
+cutoff tests cover relay, owner and pipe phases with attributed trace evidence;
+shared capture tests cover exhausted and fresh allowances. Focused receipts are
+`.build/goal-relay-cutoff-test.log`; full affected-package tests pass in
+`.build/goal-relay-package-test.log`. The corrected commentary/reference check
+passes in `.build/goal-relay-architecture-corrected-test.log`.
+
+Immutable parent `.build/goal-relay-parent`, source `779ff1b`, has SHA-256
+`9e9e7e24613210633fc62560442dd2aeffb9a5047f28d11edc4a9cb7c1f297b3`.
+Corrected `.build/goal-relay-current` has SHA-256
+`9247339c04ff8f920d7a673dcdd28c84d26a856080e6c468b3ace6384e2ffc65`.
+The corrected artifact predates the final rationale comment and test formatting
+edits; its hash identifies the exact executable scanned. Pilot SSA is retained
+in `.build/goal-relay-pilot.ssa.txt`; the parent trace and scan are
+`.build/goal-relay-parent.trace.jsonl` and `.build/goal-relay-pilot.scan.txt`.
+Corrected `.build/goal-relay-pilot-current.{json,err,trace.jsonl}` has exit 0,
+2-byte JSON and empty stderr, replacing the parent's relay diagnostic with
+exact join evidence. This is a minimized correction, not production FP credit.
+
+Fourteen scoped fixture packages retain receipts in
+`.build/goal-relay-{parent,current}-receipt.{json,err,trace.jsonl}`. Parent has
+141 diagnostics in 130,538-byte JSON, 594 final decisions and 241 labels;
+corrected has 140 diagnostics in 129,756-byte JSON, 593 final decisions and
+242 labels. Both exit 3 with empty stderr. Final-decision multisets differ only
+by the reassigned relay's violation/report removal and exact join acceptance;
+one exact Wait label is added. No all-event equivalence is claimed.
+Pinned stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`, retains
+byte-identical 827-byte JSON and its reviewed `store/manager.go:193:2` TP in
+`.build/goal-relay-stargz-{parent,current}.{json,err}` (exit 3, empty stderr).
+External scans are static, with CGO disabled, readonly modules and GOWORK off.
+
+Graph tools are unavailable; evidence is bounded source, SSA and trace review.
+Post-constructor standalone suppression budgets remain parent `.44.11` scope.
+The broader architecture goal and 15-site production queue remain open. No
+full precision-regression, local race run or candidate tests, generators or
+applications were executed.
+
+Final `make verify` passes in `.build/goal-relay-ready-verify.log`, covering
+ordinary tests, generation, formatting, vet, lint, dead-code and local dogfood.
+Earlier failed runs exposed an overlong test line and missing rationale inside
+the pipe query; both are corrected. Follow-ups `.44.11.3` and `.44.11.4` record
+the retained-owner and caller-bound/relay-dependency budget review respectively.

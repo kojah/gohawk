@@ -602,6 +602,22 @@ type CapturedBinding struct {
 func CapturedBindingValue(binding ssa.Value) ssa.Value
 ```
 
+CapturedBindingValue selects a possible initial value for a capture. It
+provides no stable-content or exact asynchronous binding guarantee.
+
+## CapturedBindingValueWithin
+
+[Source](../../../../internal/ssaflow/value_matching.go)
+
+```go
+func CapturedBindingValueWithin(
+	binding ssa.Value, budget *SearchBudget,
+) ssa.Value
+```
+
+CapturedBindingValueWithin is the same possible-value selection charged to
+budget. Exhaustion returns nil; callers retain budget availability separately.
+
 ## ChannelType
 
 [Source](../../../../internal/ssaflow/channel_types.go)

@@ -22,14 +22,17 @@ import (
 // group. Waiting independently on that group is an alternative completion
 // handle; extra calls, sends, defers, or control flow make that inference opaque.
 // https://github.com/ConduitIO/conduit/blob/9946a19b9fff997675f78bbc5ff437e760d39f4f/pkg/lifecycle/stream/parallel.go#L94-L103
-func (analysis *spawnAnalysis) relayCompletionGroup() ssa.Value { //nolint:ireturn // Retains the caller's exact group identity.
-	function, closure := spawnedFunction(analysis.pass, analysis.spawn)
+func (analysis *spawnAnalysis) relayCompletionGroup(budget *ssaflow.SearchBudget) ssa.Value { //nolint:ireturn // Retains the caller's exact group identity.
+	function, closure := resolveSpawnedFunction(analysis.pass, analysis.spawn, budget)
 	if len(analysis.signals) == 0 || function == nil || len(function.Blocks) != 1 || len(function.Blocks[0].Instrs) > 64 {
 		return nil
 	}
 	var group ssa.Value
 	closed := false
 	for _, instruction := range function.Blocks[0].Instrs {
+		if !budget.Spend() {
+			return nil
+		}
 		switch typed := instruction.(type) {
 		case *ssa.UnOp:
 			if typed.Op != token.MUL {
@@ -39,10 +42,10 @@ func (analysis *spawnAnalysis) relayCompletionGroup() ssa.Value { //nolint:iretu
 			common := typed.Common()
 			switch {
 			case ssaflow.CallMatchesSymbol(common, waitGroupWait) && group == nil:
-				group = ssaflow.SpawnedValueAtCall(analysis.spawn, function, closure, ssaflow.CallReceiver(common))
+				group = completionValueAtCall(analysis.spawn, function, closure, ssaflow.CallReceiver(common), budget)
 			case group != nil && ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1:
-				signal := ssaflow.SpawnedValueAtCall(analysis.spawn, function, closure, common.Args[0])
-				if !heapmodel.MayAliasAny(signal, analysis.signals) {
+				signal := completionValueAtCall(analysis.spawn, function, closure, common.Args[0], budget)
+				if !analysis.isSignalWithin(signal, budget) {
 					return nil
 				}
 				closed = true
@@ -370,17 +373,20 @@ func callbackFunction(value ssa.Value) *ssa.Function {
 // a lifecycle method. This is the only name-based evidence in the analyzer and
 // it can only suppress a diagnostic, never establish an obligation. A WaitGroup
 // is excluded so its Wait cannot bypass the terminal Done proof.
-func spawnedLifecycleOwners(pass *analysis.Pass, spawn *ssa.Go) []ssa.Value {
+func spawnedLifecycleOwners(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) []ssa.Value {
 	var owners []ssa.Value
-	if receiver := ssaflow.CallReceiver(spawn.Common()); lifecycleOwner(receiver) {
+	if receiver := ssaflow.CallReceiver(spawn.Common()); lifecycleOwnerWithin(receiver, budget) {
 		owners = append(owners, receiver)
 	}
-	_, closure := spawnedFunction(pass, spawn)
+	_, closure := resolveSpawnedFunction(pass, spawn, budget)
 	if closure == nil {
 		return owners
 	}
 	for _, binding := range closure.Bindings {
-		if value := ssaflow.CapturedBindingValue(binding); lifecycleOwner(value) {
+		if !budget.Spend() {
+			return owners
+		}
+		if value := ssaflow.CapturedBindingValueWithin(binding, budget); lifecycleOwnerWithin(value, budget) {
 			owners = append(owners, value)
 		}
 	}
@@ -388,10 +394,17 @@ func spawnedLifecycleOwners(pass *analysis.Pass, spawn *ssa.Go) []ssa.Value {
 }
 
 func lifecycleOwner(value ssa.Value) bool {
+	return lifecycleOwnerWithin(value, nil)
+}
+
+func lifecycleOwnerWithin(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 	if value == nil || syntax.NamedType(value.Type(), "sync", "WaitGroup") {
 		return false
 	}
 	for method := range types.NewMethodSet(value.Type()).Methods() {
+		if !budget.Spend() {
+			return false
+		}
 		if lifecycleMethod(method.Obj().Name()) {
 			return true
 		}

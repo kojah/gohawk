@@ -8,7 +8,17 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// CapturedBindingValue selects a possible initial value for a capture. It
+// provides no stable-content or exact asynchronous binding guarantee.
 func CapturedBindingValue(binding ssa.Value) ssa.Value { //nolint:ireturn // Stored captures may contain any SSA value implementation.
+	return CapturedBindingValueWithin(binding, nil)
+}
+
+// CapturedBindingValueWithin is the same possible-value selection charged to
+// budget. Exhaustion returns nil; callers retain budget availability separately.
+func CapturedBindingValueWithin(
+	binding ssa.Value, budget *SearchBudget,
+) ssa.Value { //nolint:ireturn // Stored captures may contain any SSA value implementation.
 	if syntax.PointerStruct(binding.Type()) != nil {
 		// A captured struct local is represented by its address. Its stores
 		// initialize or mutate the value; they do not replace its identity.
@@ -18,6 +28,9 @@ func CapturedBindingValue(binding ssa.Value) ssa.Value { //nolint:ireturn // Sto
 		return binding
 	}
 	for _, reference := range *binding.Referrers() {
+		if !budget.Spend() {
+			return nil
+		}
 		store, ok := reference.(*ssa.Store)
 		if ok && store.Addr == binding {
 			return store.Val

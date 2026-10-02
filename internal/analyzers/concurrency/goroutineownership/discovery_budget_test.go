@@ -6,8 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -65,5 +67,61 @@ func TestPartialDiscoveryCannotReport(t *testing.T) {
 	fresh := newSpawnAnalysis(candidate.pass, function, candidate.spawn)
 	if proof := fresh.prove(); proof.Outcome != GoroutineLifecycleViolated {
 		t.Fatalf("fresh discovery must retain missing-join diagnostic: %+v", proof)
+	}
+}
+
+func TestAdapterDiscoveryCutoffs(t *testing.T) {
+	path := enableSummaryJoinTrace(t)
+	pkg := ssaflowtest.BuildPackage(t, "adapters", `package adapters
+import "sync"
+type owner struct{}
+func (*owner) Close() {}
+func relay() { group:=new(sync.WaitGroup); done:=make(chan int); go func(){group.Wait();close(done)}() }
+func owned() { value:=new(owner); go func(){value.Close()}() }
+func empty() { go func(){}() }
+`)
+	for _, test := range []struct {
+		name, phase string
+		limit       int
+	}{
+		{"relay", "relay-discovery", 0},
+		{"owned", "owner-discovery", 1},
+		{"empty", "pipe-peer-discovery", 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			function := pkg.Func(test.name)
+			spawn := ssaflow.InstructionsOf[*ssa.Go](function)[0]
+			pass := &analysis.Pass{Fset: pkg.Prog.Fset, Pkg: pkg.Pkg}
+			probe := analysisTrace.For(pass, "goroutineownership", string(check.GoroutineJoin), spawn.Pos())
+			candidate := &spawnAnalysis{
+				pass: pass, function: function, spawn: spawn,
+				discoveryBudget: ssaflow.NewSearchBudget(test.limit).Observed(probe.Observer()),
+			}
+			if test.name == "relay" {
+				candidate.signals = []ssa.Value{ssaflow.InstructionsOf[*ssa.MakeChan](function)[0]}
+			}
+			candidate.discoverAdapters()
+			if proof := candidate.prove(); proof.Outcome != GoroutineUnknown || proof.Reason != reasonDiscoveryBudgetExhausted {
+				t.Fatalf("adapter cutoff must stay unknown: %+v", proof)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			observed := false
+			for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
+				var event followupTraceEvent
+				if err := json.Unmarshal([]byte(line), &event); err != nil {
+					t.Fatal(err)
+				}
+				if event.Phase == "evidence" && event.Reason == "budget-exhausted" &&
+					event.Candidate == pass.Fset.Position(spawn.Pos()).String() && event.Details["phase"] == test.phase {
+					observed = true
+				}
+			}
+			if !observed {
+				t.Fatalf("missing attributed %s cutoff", test.phase)
+			}
+		})
 	}
 }

@@ -154,5 +154,3 @@ func CallReceiver(common *ssa.CallCommon) ssa.Value { //nolint:ireturn // Call r
 	}
 	return common.Args[0]
 }
-
-// CapturedBindingValue recovers value stored through an addressable closure binding.

@@ -498,10 +498,25 @@ func (analysis *spawnAnalysis) selectSends(instruction ssa.Instruction) bool {
 // isSignal requires exact channel identity. An aggregate root or a phi with
 // one matching alternative explains possible completion, never an exact join.
 func (analysis *spawnAnalysis) isSignal(value ssa.Value) bool {
-	storage := heapmodel.NewStorage(analysis.budget())
-	return slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
-		return ssaflow.ChannelType(signal) && storage.Same(value, signal).Proven()
-	})
+	return analysis.isSignalWithin(value, analysis.budget())
+}
+
+// isSignalWithin shares exact channel identity between observations and relay
+// discovery. Aggregate roots retain possible ownership, never an exact join.
+func (analysis *spawnAnalysis) isSignalWithin(value ssa.Value, budget *ssaflow.SearchBudget) bool {
+	if !ssaflow.ChannelType(value) {
+		return false
+	}
+	storage := heapmodel.NewStorage(budget)
+	for _, signal := range analysis.signals {
+		if !budget.Spend() {
+			return false
+		}
+		if ssaflow.ChannelType(signal) && storage.Same(value, signal).Proven() {
+			return true
+		}
+	}
+	return false
 }
 
 // possibleSignal retains the previous broad receive boundary for unknown

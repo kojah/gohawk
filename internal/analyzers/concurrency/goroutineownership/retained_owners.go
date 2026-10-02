@@ -307,14 +307,19 @@ func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value) func(ssaf
 // Releasing an I/O operation cannot settle a subsequent blocking publication.
 // Keep the existing completion proof authoritative for workers with sends.
 // https://github.com/pterodactyl/wings/blob/d6116827313dae176ddf4741e233554392993398/server/transfer/source.go#L87-L96
-func workerHasSend(function *ssa.Function) bool {
+func workerHasSend(function *ssa.Function) bool { return workerHasSendWithin(function, nil) }
+
+func workerHasSendWithin(function *ssa.Function, budget *ssaflow.SearchBudget) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
+			if !budget.Spend() {
+				return false
+			}
 			if _, send := instruction.(*ssa.Send); send {
 				return true
 			}
 			if choice, ok := instruction.(*ssa.Select); ok && slices.ContainsFunc(choice.States, func(state *ssa.SelectState) bool {
-				return state.Dir == types.SendOnly
+				return budget.Spend() && state.Dir == types.SendOnly
 			}) {
 				return true
 			}
@@ -327,19 +332,21 @@ func workerHasSend(function *ssa.Function) bool {
 // results. Passing the exact peer to another participant can release worker I/O.
 // This only supplies unknown-use evidence after launch, never a completion claim.
 // https://github.com/mutagen-io/mutagen/blob/6ccfeaaf4dfd261e59ef9aac56e3c157b62e605b/pkg/integration/protocols/netpipe/synchronization.go#L63-L95
-func (analysis *spawnAnalysis) spawnedPipePeers() []trackedValue {
-	function, closure := spawnedFunction(analysis.pass, analysis.spawn)
-	if function == nil || workerHasSend(function) {
+func (analysis *spawnAnalysis) spawnedPipePeers(budget *ssaflow.SearchBudget) []trackedValue {
+	function, closure := resolveSpawnedFunction(analysis.pass, analysis.spawn, budget)
+	if function == nil || workerHasSendWithin(function, budget) {
 		return nil
 	}
 	var peers []trackedValue
-	budget := analysis.budget()
 	storage := heapmodel.NewStorage(budget)
 	var find func(ssaflow.ReachingWalk, ssa.Value) bool
 	find = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 		if !budget.Spend() {
 			return false
 		}
+		// Resolve an endpoint at its own read and require stability for a
+		// captured cell. This supplies only a possible peer witness; opaque
+		// storage never proves the absence of a communicating owner.
 		if content := storage.Resolve(value); content.Proven() && content.Value != value {
 			return walk.Any(content.Value, find)
 		}
@@ -362,6 +369,9 @@ func (analysis *spawnAnalysis) spawnedPipePeers() []trackedValue {
 		return false
 	}
 	for _, pair := range ssaflow.CallBindings(analysis.spawn.Common(), function, closure) {
+		if !budget.Spend() {
+			return peers
+		}
 		ssaflow.NewReachingWalk(carryForms).Any(pair.Supplied, find)
 	}
 	return peers

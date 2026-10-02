@@ -77,15 +77,13 @@ func newSpawnAnalysis(pass *analysis.Pass, function *ssa.Function, spawn *ssa.Go
 	analysis.tracing = analysisTrace.Enabled("goroutineownership", string(analysis.checkID))
 	analysis.probe = analysisTrace.For(pass, "goroutineownership", string(analysis.checkID), spawn.Pos())
 	analysis.discoverCompletion()
+	if analysis.discoveryUnavailable("completion-discovery") {
+		return analysis
+	}
+	analysis.discoverAdapters()
 	if analysis.discoveryBudget.Exhausted() {
 		return analysis
 	}
-	analysis.relayGroup = analysis.relayCompletionGroup()
-	if analysis.relayGroup != nil {
-		analysis.groups = append(analysis.groups, analysis.relayGroup)
-	}
-	analysis.owners = spawnedLifecycleOwners(pass, spawn)
-	analysis.pipePeers = analysis.spawnedPipePeers()
 	for _, signal := range analysis.signals {
 		analysis.tracked = append(analysis.tracked, trackedValue{value: signal, kind: trackedSignal})
 	}
@@ -98,16 +96,43 @@ func newSpawnAnalysis(pass *analysis.Pass, function *ssa.Function, spawn *ssa.Go
 	return analysis
 }
 
+// discoverAdapters retains completion alternatives and possible lifecycle
+// participants under the same allowance as the original promise census.
+func (analysis *spawnAnalysis) discoverAdapters() {
+	analysis.relayGroup = analysis.relayCompletionGroup(analysis.discoveryBudget)
+	if analysis.relayGroup != nil {
+		analysis.groups = append(analysis.groups, analysis.relayGroup)
+	}
+	if analysis.discoveryUnavailable("relay-discovery") {
+		return
+	}
+	analysis.owners = spawnedLifecycleOwners(analysis.pass, analysis.spawn, analysis.discoveryBudget)
+	if analysis.discoveryUnavailable("owner-discovery") {
+		return
+	}
+	analysis.pipePeers = analysis.spawnedPipePeers(analysis.discoveryBudget)
+	if analysis.discoveryUnavailable("pipe-peer-discovery") {
+		return
+	}
+}
+
 func (analysis *spawnAnalysis) discoverCompletion() {
 	analysis.discoveryBudget = analysis.queryBudget(ssaflow.SummaryBudget)
 	analysis.signals, analysis.groups, analysis.unsettledDone = spawnedCompletionValues(analysis.pass, analysis.spawn, analysis.discoveryBudget)
-	if analysis.discoveryBudget.Exhausted() {
-		analysis.discoveryBudget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
-			pool := "false"
-			if analysis.discoveryBudget.PoolExhausted() {
-				pool = "true"
-			}
-			return map[string]string{"phase": "completion-discovery", "pool_exhausted": pool}
-		})
+}
+
+// discoveryUnavailable preserves cutoff availability across constructor adapters.
+// Partial owner/peer evidence cannot establish that another handle is absent.
+func (analysis *spawnAnalysis) discoveryUnavailable(phase string) bool {
+	if !analysis.discoveryBudget.Exhausted() {
+		return false
 	}
+	analysis.discoveryBudget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
+		pool := "false"
+		if analysis.discoveryBudget.PoolExhausted() {
+			pool = "true"
+		}
+		return map[string]string{"phase": phase, "pool_exhausted": pool}
+	})
+	return true
 }
