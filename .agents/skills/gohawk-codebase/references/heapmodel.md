@@ -1215,19 +1215,6 @@ type StoredValue struct {
 StoredValue records the value proved to occupy a location. Unknown does not
 mean empty, unequal, or released, and must not establish a lifecycle action.
 
-## StrictProjectionPath
-
-[Source](../../../../internal/heapmodel/store_projection.go)
-
-```go
-func StrictProjectionPath(value, root ssa.Value) bool
-```
-
-StrictProjectionPath proves a non-empty field or constant-index path from
-root, resolving local loads where necessary. It does not establish that the
-selected storage remains unchanged at a later observation; use Projection
-for that stronger question.
-
 ## SummaryPaths
 
 [Source](../../../../internal/heapmodel/summary.go)

@@ -34,6 +34,18 @@ be read after registration. Its caller must check the observation's own effects;
 callback mapping already checks that the callee reads its supplied aggregate.
 `Projection` proves an acquired owner's field has not been replaced or exposed.
 
+Projection setup, selected wrapper peeling, corresponding-address comparisons,
+observation-window ordering and nil checks share the storage allowance.
+`SameAccessPathWithin` requires two nameable static paths; direct value identity
+cannot accept a dynamic-index path here. Ordering or comparison cutoff cannot
+skip a potentially mutating use and certify stability. The strict path query
+keeps its independent child cap, and its budget reason survives even if the
+storage request still has allowance. Embedded-field discovery for
+`StableFieldContent` uses that same request budget. The root/source-instruction,
+wrapper, mutation and exposure policies are unchanged.
+`storage_projection_budget_test.go` covers cold cutoffs, read-only and mutating
+uses, uses after observation, nested field setup and independent child recovery.
+
 `StoreMayFollowWithin` shares dispatch, instruction-index scans and queued CFG
 visits with the requesting stability or completion query. Paths re-entering a
 loop-local allocation write a fresh cell and retain the existing exclusion.

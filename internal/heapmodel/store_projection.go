@@ -17,37 +17,53 @@ import (
 // observation. It intentionally rejects phi-selected roots and roots without a
 // source instruction, because neither supplies one exact ownership interval.
 func (storage *Storage) Projection(value, root ssa.Value, observation ssa.Instruction) ssaflow.IdentityProof {
-	if storage.unmodifiedProjection(value, root, observation) {
-		return ssaflow.IdentityProof{Proof: ssaflow.Proof{
-			State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath, Provenance: ssaflow.EvidenceFromLocalSSA,
-		}}
+	proof := storage.proveUnmodifiedProjection(value, root, observation)
+	if !proof.Proven() {
+		proof = storage.unknown(proof.Reason, observation).Proof
 	}
-	return ssaflow.IdentityProof{Proof: storage.unknown(ssaflow.EvidenceStorageProjectionModified, observation).Proof}
+	return ssaflow.IdentityProof{Proof: proof}
 }
 
-func (storage *Storage) unmodifiedProjection(value, root ssa.Value, observation ssa.Instruction) bool {
+func (storage *Storage) proveUnmodifiedProjection(value, root ssa.Value, observation ssa.Instruction) ssaflow.Proof {
+	unavailable := ssaflow.Proof{Reason: ssaflow.EvidenceStorageProjectionModified}
+	if !storage.budget.Spend() {
+		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+	}
 	if observation == nil || root == nil || root.Parent() != observation.Parent() {
-		return false
+		return unavailable
 	}
 	origin, ok := root.(ssa.Instruction)
 	if !ok || origin.Block() == nil {
-		return false
+		return unavailable
 	}
-	if _, ambiguous := root.(*ssa.Phi); ambiguous || !StrictProjectionPath(value, root) {
-		return false
+	if _, ambiguous := root.(*ssa.Phi); ambiguous {
+		return unavailable
 	}
-	address := projectedStorageAddress(value)
+	projection := ProveStrictProjectionPathWithin(value, root, storage.budget)
+	if projection.Reason == ssaflow.EvidenceBudgetExhausted {
+		return projection.Proof
+	}
+	if !projection.Proven() {
+		return unavailable
+	}
+	address := projectedStorageAddress(value, storage.budget)
 	if address == nil || !storage.projectionAddressStableBetween(address, root, origin, observation) {
-		return false
+		return unavailable
 	}
-	return storage.rootDoesNotEscapeBetween(root, origin, observation, map[ssa.Value]bool{})
+	if !storage.rootDoesNotEscapeBetween(root, origin, observation, map[ssa.Value]bool{}) {
+		return unavailable
+	}
+	return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath, Provenance: ssaflow.EvidenceFromLocalSSA}
 }
 
-func projectedStorageAddress(value ssa.Value) ssa.Value { //nolint:ireturn // SSA address forms are intentionally preserved.
+func projectedStorageAddress(value ssa.Value, budget *ssaflow.SearchBudget) ssa.Value { //nolint:ireturn // SSA address forms are intentionally preserved.
+	if !budget.Spend() {
+		return nil
+	}
 	if inner, ok := ssaflow.UnwrapTransparentValue(
 		value, ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
 	); ok {
-		return projectedStorageAddress(inner)
+		return projectedStorageAddress(inner, budget)
 	}
 	switch typed := value.(type) {
 	case *ssa.UnOp:
@@ -67,9 +83,17 @@ func (storage *Storage) projectionAddressStableBetween(address, root ssa.Value, 
 				return false
 			}
 			candidate, ok := instruction.(ssa.Value)
-			if !ok || !addressValue(candidate) || !ssaflow.SameAccessPath(
+			if !ok || !addressValue(candidate) {
+				continue
+			}
+			same := ssaflow.SameAccessPathWithin(
 				ssaflow.AccessPath{Value: candidate, Root: root}, ssaflow.AccessPath{Value: address, Root: root},
-			) {
+				storage.budget,
+			)
+			if storage.budget.Exhausted() || storage.budget.PoolExhausted() {
+				return false
+			}
+			if !same {
 				continue
 			}
 			if !storage.addressDoesNotEscapeBetween(candidate, origin, observation, map[ssa.Value]bool{}) {
@@ -112,7 +136,11 @@ func (storage *Storage) projectionUsesPreserveStorage(
 		if !storage.budget.Spend() {
 			return false
 		}
-		if !instructionWithinObservation(reference, origin, observation) || accept(value, reference) {
+		within := instructionWithinObservation(reference, origin, observation, storage.budget)
+		if storage.budget.Exhausted() || storage.budget.PoolExhausted() {
+			return false
+		}
+		if !within || accept(value, reference) {
 			continue
 		}
 		if wrapper, ok := outwardProjectionWrapper(reference, value); ok &&
@@ -143,7 +171,8 @@ func (storage *Storage) rootProjectionUse(root ssa.Value, reference ssa.Instruct
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
 		return storage.effects.Call(reference, root).PreservesStorage()
 	case *ssa.BinOp:
-		return (typed.Op == token.EQL || typed.Op == token.NEQ) && (ssaflow.DefinitelyNil(typed.X) || ssaflow.DefinitelyNil(typed.Y))
+		return (typed.Op == token.EQL || typed.Op == token.NEQ) &&
+			(ssaflow.DefinitelyNilWithin(typed.X, storage.budget) || ssaflow.DefinitelyNilWithin(typed.Y, storage.budget))
 	}
 	return false
 }
@@ -159,16 +188,9 @@ func outwardProjectionWrapper(reference ssa.Instruction, inner ssa.Value) (ssa.V
 	return wrapper, ok && unwrapped == inner
 }
 
-func instructionWithinObservation(candidate, origin, observation ssa.Instruction) bool {
-	return candidate != nil && candidate != origin && ssaflow.InstructionMayFollow(origin, candidate) && ssaflow.InstructionMayFollow(candidate, observation)
-}
-
-// StrictProjectionPath proves a non-empty field or constant-index path from
-// root, resolving local loads where necessary. It does not establish that the
-// selected storage remains unchanged at a later observation; use Projection
-// for that stronger question.
-func StrictProjectionPath(value, root ssa.Value) bool {
-	return ProveStrictProjectionPathWithin(value, root, nil).Proven()
+func instructionWithinObservation(candidate, origin, observation ssa.Instruction, budget *ssaflow.SearchBudget) bool {
+	return candidate != nil && candidate != origin && ssaflow.InstructionMayFollowWithin(origin, candidate, budget) &&
+		ssaflow.InstructionMayFollowWithin(candidate, observation, budget)
 }
 
 // ProjectionPathProof proves a strict projection and retains its exact static

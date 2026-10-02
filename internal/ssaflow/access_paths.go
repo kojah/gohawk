@@ -48,14 +48,13 @@ func ValueIsAccessPathFromWithin(value, root ssa.Value, budget *SearchBudget) bo
 	return ok
 }
 
-// SameAccessPath reports whether left and right select the same sequence of
-// fields and constant indexes from their respective roots. It maps a closure's
-// free-variable access back to the captured binding without equating either
-// selected field with the aggregate that contains it.
-func SameAccessPath(left, right AccessPath) bool {
-	leftPath, leftOK := AccessPathSteps(left.Value, left.Root)
-	rightPath, rightOK := AccessPathSteps(right.Value, right.Root)
-	return leftOK && rightOK && sameAccessPathSteps(leftPath, rightPath, nil)
+// SameAccessPathWithin shares both path searches and step comparison with
+// budget. Both paths must be nameable; unlike ProveIdentityWithin, direct value
+// identity cannot bypass that policy. Cutoff supplies no matching-path evidence.
+func SameAccessPathWithin(left, right AccessPath, budget *SearchBudget) bool {
+	leftPath, leftOK := AccessPathStepsWithin(left.Value, left.Root, budget)
+	rightPath, rightOK := AccessPathStepsWithin(right.Value, right.Root, budget)
+	return leftOK && rightOK && sameAccessPathSteps(leftPath, rightPath, budget)
 }
 
 func sameAccessPathSteps(left, right []string, budget *SearchBudget) bool {

@@ -13,7 +13,7 @@ import (
 // Known asynchronous readers may read this slot but must not retain its
 // address or write it. This says nothing about mutation of the loaded object.
 func (storage *Storage) StableFieldContent(address ssa.Value, observation ssa.Instruction) StoredValue {
-	path, known := ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone), address,
+	path, known := ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(storage.budget), address,
 		func(root ssa.Value) bool { _, fresh := root.(*ssa.Alloc); return fresh })
 	location, local := storage.location(address)
 	if !known || path.Depth == 0 || !local || observation == nil || path.Root.Parent() != observation.Parent() {

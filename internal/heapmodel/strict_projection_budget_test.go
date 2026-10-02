@@ -24,7 +24,7 @@ func TestStrictProjectionPathAllowance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
 			value := strictObservedValue(t, fn)
-			if StrictProjectionPath(value, fn.Params[0]) != test.want {
+			if ProveStrictProjectionPathWithin(value, fn.Params[0], nil).Proven() != test.want {
 				t.Fatal("default projection differs")
 			}
 			if test.want {

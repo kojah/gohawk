@@ -87,7 +87,7 @@ func TestCorrespondingPathIdentityBudget(t *testing.T) {
 	full := NewSearchBudget(QueryBudget)
 	proof := ProveIdentityWithin(left, right, full)
 	defaultProof := ProveIdentityWithin(left, right, nil)
-	if !proof.Proven() || proof.Reason != EvidenceSameAccessPath || full.Exhausted() || proof != defaultProof || !SameAccessPath(left, right) {
+	if !proof.Proven() || proof.Reason != EvidenceSameAccessPath || full.Exhausted() || proof != defaultProof || !SameAccessPathWithin(left, right, nil) {
 		t.Fatal("corresponding paths must retain the exact default proof")
 	}
 	// Leave one fewer step than the completed query needs: path discovery
@@ -98,7 +98,27 @@ func TestCorrespondingPathIdentityBudget(t *testing.T) {
 	}
 	different := AccessPath{Value: values[2], Root: function.Params[1]}
 	proof = ProveIdentityWithin(left, different, NewSearchBudget(QueryBudget))
-	if proof.State != EvidenceDisproven || proof.Reason != EvidenceNotFound || SameAccessPath(left, different) {
+	if proof.State != EvidenceDisproven || proof.Reason != EvidenceNotFound || SameAccessPathWithin(left, different, nil) {
 		t.Fatal("completed differing constant-index paths must remain distinct")
+	}
+}
+
+func TestSameAccessPathWithinKeepsPathOnlyPolicy(t *testing.T) {
+	function, values := identityProjectionFixture(t)
+	left := AccessPath{Value: values[0], Root: function.Params[0]}
+	right := AccessPath{Value: values[1], Root: function.Params[1]}
+	cut := NewSearchBudget(1)
+	if SameAccessPathWithin(left, right, cut) || !cut.Exhausted() {
+		t.Fatal("corresponding paths bypassed caller allowance")
+	}
+	if !SameAccessPathWithin(left, right, NewSearchBudget(QueryBudget)) {
+		t.Fatal("fresh corresponding paths failed")
+	}
+	dynamic := AccessPath{Value: values[3], Root: function.Params[0]}
+	if !ProveIdentityWithin(dynamic, dynamic, nil).Proven() {
+		t.Fatal("fixture lost direct identity")
+	}
+	if SameAccessPathWithin(dynamic, dynamic, NewSearchBudget(QueryBudget)) {
+		t.Fatal("direct identity bypassed dynamic-index path policy")
 	}
 }

@@ -2705,18 +2705,17 @@ This is only the "at most once, until exit" half of a process-lifetime
 argument. Whether exit actually settles an obligation, rather than losing a
 flush or a commit, is the calling analyzer's decision.
 
-## SameAccessPath
+## SameAccessPathWithin
 
 [Source](../../../../internal/ssaflow/access_paths.go)
 
 ```go
-func SameAccessPath(left, right AccessPath) bool
+func SameAccessPathWithin(left, right AccessPath, budget *SearchBudget) bool
 ```
 
-SameAccessPath reports whether left and right select the same sequence of
-fields and constant indexes from their respective roots. It maps a closure's
-free-variable access back to the captured binding without equating either
-selected field with the aggregate that contains it.
+SameAccessPathWithin shares both path searches and step comparison with
+budget. Both paths must be nameable; unlike ProveIdentityWithin, direct value
+identity cannot bypass that policy. Cutoff supplies no matching-path evidence.
 
 ## SearchBudget
 
