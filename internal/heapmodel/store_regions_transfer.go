@@ -224,12 +224,7 @@ func (graph *regionGraph) selectStep(bases pointees, step string) pointees {
 func (graph *regionGraph) index(base, index ssa.Value) pointees {
 	bases := graph.pointees(base)
 	position, fixed := ssaflow.ConstantIndex(index)
-	view, viewed := graph.views[base]
-	if !viewed {
-		if length, ok := arrayLength(base.Type()); ok {
-			view, viewed = sliceView{size: length, capacity: length}, true
-		}
-	}
+	view, viewed := graph.view(base)
 	step := pathStar
 	if fixed && viewed {
 		if offset, err := strconv.ParseInt(position, 10, 64); err == nil && offset >= 0 && offset < view.size {
@@ -237,6 +232,17 @@ func (graph *regionGraph) index(base, index ssa.Value) pointees {
 		}
 	}
 	return graph.selectStep(bases, step)
+}
+
+// view returns a recorded slice window or an array's full window. An
+// unrecorded slice has unknown bounds; a zero-length array is still known.
+// Callers decide whether the window and their selected index are usable.
+func (graph *regionGraph) view(value ssa.Value) (sliceView, bool) {
+	if view, known := graph.views[value]; known {
+		return view, true
+	}
+	length, known := arrayLength(value.Type())
+	return sliceView{size: length, capacity: length}, known
 }
 
 // arrayLength returns the length of an array type or a pointer to one.
@@ -255,13 +261,9 @@ func arrayLength(typ types.Type) (int64, bool) {
 // array with constant bounds keeps naming the array's own elements.
 func (graph *regionGraph) slice(sliced *ssa.Slice) {
 	graph.setValue(sliced, graph.pointees(sliced.X))
-	view, ok := graph.views[sliced.X]
+	view, ok := graph.view(sliced.X)
 	if !ok {
-		length, isArray := arrayLength(sliced.X.Type())
-		if !isArray {
-			return
-		}
-		view = sliceView{size: length, capacity: length}
+		return
 	}
 	low, lowOK := ssaflow.StorageInteger(sliced.Low, 0)
 	high, highOK := ssaflow.StorageInteger(sliced.High, view.size)

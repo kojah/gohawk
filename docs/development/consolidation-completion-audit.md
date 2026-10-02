@@ -371,6 +371,57 @@ tests (five seconds). Earlier gates found fixture duplicate-word and complexity
 lint issues; distinct marker arguments and splitting the tests by contract
 corrected them. No full precision corpus or local race run was performed.
 
+## CLI ordering and heap slice views
+
+Beads `gohawk-dho.33` and `gohawk-dho.34` address two remaining nested-block
+candidates at baseline `698467f`. Fact and heap dumps now obtain the same
+function comparator from `dump_order.go`, beside their shared source-position
+comparison. The existing filename/offset ordering and qualified-name tie break
+are unchanged. Each dump retains its own function collection, body filtering
+and fact selection. The raw token-position sort used by SSA dumps and the
+AST-range ordering used by trace presentation have different inputs and are
+unchanged; no claim of consolidating every presentation order is made.
+
+The heap review found a third copy outside the exact block matches: indexing
+used the same array fallback as slicing and selected aggregate snapshots.
+All three now use `regionGraph.view`. It returns existing offset/size/capacity
+metadata first, otherwise the full window of an array or pointer to an array.
+An unrecorded slice remains unknown, and an empty array remains a known empty
+window. Index bounds, slice-bound validation, selected-snapshot size limits,
+wildcard writes, stale markers and content projection stay with their callers.
+This changes neither observation times nor query budgets or summary schemas.
+
+The nested-block scan after these extractions covers 271 production files and
+1,997 functions and yields 16 candidate groups at 35 tokens. Its artifact is
+`.build/goal-duplicate-blocks-after-cli-view.json`. The reduction establishes
+that the selected copies were removed, not that the remaining groups are all
+equivalent or that arbitrary partial duplication is absent. Completion-witness
+scans, selection parsing and the deeper classifier/FP-family reviews remain
+open.
+
+Existing heap controls cover constant and nested slice offsets, three-index
+bounds, out-of-length indexes, dynamic offsets, copied destination windows,
+unknown/oversize windows and replaced/opaque destinations. The focused heap
+package passes; focused CLI tests retain fact-kind filtering, private functions,
+unconverted methods and optional SSA rendering. An initial focused CLI build
+found the SSA import made unused by moving the comparator; it was removed.
+The canonical local gate then passes all targets
+(`.build/goal-cli-view-verify.log`), including ordinary tests (74 seconds).
+
+Parent/current fact and heap dumps of the two-file local probe containing a
+method, private function and returned closure both exit 0 with empty stderr
+and byte-identical nonempty output (2,336 and 1,976 bytes). Receipts and probe
+sources use `.build/goal-cli-view-*`. The retained baseline binary hash is
+`0f8c99d52a52e509e7619393dd42d78aec8d7f0a86985e7a45c78e139a25b6a5`;
+the corrected hash is
+`20ce2f13e30a204de684fb0ae18dd5defa2b13b42c5116b9fc05cc9185ff3c25`.
+These pre-commit hashes identify the exact executables, not clean VCS stamps.
+The resource fixture compatibility comparison reuses the prior baseline
+receipt from that same executable hash, avoiding an unchanged second scan.
+Both resource scans exit 3 with empty stderr and identical nonempty diagnostic
+JSON (335,147 bytes). No FP correction, full precision corpus replay or local
+race run is credited.
+
 ## Next verification
 
 After the catalog reporting-boundary consolidations, the architecture audit

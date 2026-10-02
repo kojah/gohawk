@@ -20,15 +20,8 @@ func (graph *regionGraph) selectedSnapshot(state *regionState, address slot, sta
 	if !ok {
 		return
 	}
-	view, known := graph.views[index.X]
-	if !known {
-		length, array := arrayLength(index.X.Type())
-		if !array {
-			return
-		}
-		view = sliceView{size: length, capacity: length}
-	}
-	if view.size <= 0 || view.size > SummarySlots {
+	view, known := graph.view(index.X)
+	if !known || view.size <= 0 || view.size > SummarySlots {
 		return
 	}
 	// A wildcard write beneath an element is not an exact element update.

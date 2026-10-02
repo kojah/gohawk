@@ -18,7 +18,6 @@ import (
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"
-	"golang.org/x/tools/go/ssa"
 )
 
 // The facts subcommand prints the facts a package exports and the imported
@@ -182,12 +181,7 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 	if !ok {
 		return
 	}
-	functions := slices.SortedFunc(maps.Keys(summaries), func(left, right *ssa.Function) int {
-		if order := comparePositions(action, left.Pos(), right.Pos()); order != 0 {
-			return order
-		}
-		return strings.Compare(left.String(), right.String())
-	})
+	functions := slices.SortedFunc(maps.Keys(summaries), functionOrder(action))
 	for _, function := range functions {
 		object := function.Object()
 		if object == nil || listed[object] || filter != "" && object.Name() != filter {
@@ -249,14 +243,4 @@ func objectName(object types.Object) string {
 
 func position(action *checker.Action, pos token.Pos) string {
 	return action.Package.Fset.Position(pos).String()
-}
-
-// comparePositions orders two positions by file name, then offset, which
-// is stable across runs where the raw token.Pos values are not.
-func comparePositions(action *checker.Action, left, right token.Pos) int {
-	a, b := action.Package.Fset.Position(left), action.Package.Fset.Position(right)
-	if a.Filename != b.Filename {
-		return strings.Compare(a.Filename, b.Filename)
-	}
-	return a.Offset - b.Offset
 }

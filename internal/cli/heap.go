@@ -124,11 +124,6 @@ func packageFunctions(action *checker.Action) []*ssa.Function {
 			functions = append(functions, function)
 		}
 	}
-	slices.SortFunc(functions, func(left, right *ssa.Function) int {
-		if order := comparePositions(action, left.Pos(), right.Pos()); order != 0 {
-			return order
-		}
-		return strings.Compare(left.String(), right.String())
-	})
+	slices.SortFunc(functions, functionOrder(action))
 	return functions
 }
