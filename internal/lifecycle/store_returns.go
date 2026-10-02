@@ -49,7 +49,7 @@ type ownershipPair struct {
 
 func (search *ownershipSearch) returnedValueOwnsValue(returned *ssa.Return, value ssa.Value) bool {
 	for _, result := range returned.Results {
-		if heapmodel.MayAlias(result, value) || search.aggregateStoresValue(result, value) {
+		if search.aggregateStoresValue(result, value) {
 			return true
 		}
 	}
@@ -61,6 +61,10 @@ func (search *ownershipSearch) aggregateStoresValue(aggregate, value ssa.Value) 
 	if aggregate == nil || search.seen[pair] {
 		return false
 	}
+	// Alias evidence belongs at this entry, so returns, loads, stores and
+	// constructor arguments ask the same question once. Only a negative alias
+	// answer enters the cycle guard; a direct alias remains independently usable
+	// on later visits. Containment below remains possible ownership, not release.
 	if heapmodel.MayAlias(aggregate, value) {
 		return true
 	}
@@ -118,7 +122,7 @@ func (search *ownershipSearch) loadStoresValue(typed *ssa.UnOp, value ssa.Value)
 	// process or handle state, so returning the copy transfers it. A struct
 	// literal returned by value is likewise loaded from the local that
 	// assembled it, so the load carries whatever that local's fields hold.
-	if typed.Op == token.MUL && (heapmodel.MayAlias(typed.X, value) || search.aggregateStoresValue(typed.X, value)) {
+	if typed.Op == token.MUL && search.aggregateStoresValue(typed.X, value) {
 		return true
 	}
 	// A load of one element or field of a local aggregate may carry what
@@ -273,7 +277,7 @@ func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruc
 		if _, closure := argument.(*ssa.MakeClosure); closure {
 			continue
 		}
-		if !heapmodel.MayAlias(argument, value) && !search.aggregateStoresValue(argument, value) {
+		if !search.aggregateStoresValue(argument, value) {
 			continue
 		}
 		if search.aggregateStoresValue(callee.Params[holder], callee.Params[index]) {
@@ -321,7 +325,7 @@ func localAggregateRoot(address ssa.Value) *ssa.Alloc {
 
 func (search *ownershipSearch) addressStoresValue(address ssa.Value, value ssa.Value) bool {
 	for stored := range StoredInto(address) {
-		if heapmodel.MayAlias(stored, value) || search.aggregateStoresValue(stored, value) {
+		if search.aggregateStoresValue(stored, value) {
 			return true
 		}
 	}

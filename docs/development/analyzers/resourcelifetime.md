@@ -107,6 +107,15 @@ Beads `gohawk-dho.44.11.5.18.1` retains the transitive cost review: recursive
 binding still have independent costs, alongside graph and type internals.
 This change bounds the return census and derivation, not the complete query.
 
+The recursive lifecycle ownership entry owns alias evidence as well as
+aggregate containment. Return results, loaded addresses, stored values and
+constructor arguments delegate to it without first repeating `MayAlias`.
+Its cycle guard records a pair only after negative alias evidence, while a
+direct alias completes before that pair is recorded. Existing slice-owner,
+captured-owner and delegated-constructor fixtures retain the possible-owner
+policy and every-successful-return guarantee; containment still proves no
+cleanup. Beads `gohawk-dho.44.11.5.18.1.1` records this consolidation.
+
 The scoped resource controls above were repeated with immutable
 `.build/goal-return-owner-complete`, SHA-256
 `bb25d0ed5e66acc1cca3184f761876caf2ca591177f3a90b7b5f799ea54b9e39`.
