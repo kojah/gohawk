@@ -3646,3 +3646,75 @@ layering/commentary/documentation validation passes in
 moves with the exported bounded API. The three classifier cleanup families are
 now implemented; the separately recorded shared completion-engine request work
 and broader consolidation/FP goals remain unachieved.
+
+## Completion-search coverage integration
+
+`.44.11.5.24` threads the completion search allowance into the canonical
+witness/coverage engine, including constant-bound blocks and the exact-type
+path. Ordinary public wrappers keep their nil-budget default and delegate to
+the same implementation. Exact-type coverage preserves its existing anywhere
+witness before the nonnil/type-constrained return query rather than silently
+replacing that contract with the ordinary independent return witness.
+Conditional coverage now shares queued-state, successor-policy and edge visits
+with its instruction/result work. No second CFG coverage engine is introduced.
+
+`ssaflow.ReachableBlocksAssumingWithin` delegates to the shared work-list and
+bounded constant narrowing, preserves discovery order and discards interrupted
+censuses. The unbounded wrapper delegates to it. Coverage cannot interpret a
+partial set of blocks as complete evidence. An interrupted completion case
+returns budget unknown, and publication's existing proven-case gate cannot
+expose that claim. Memo composition discards interrupted answers; a fresh
+larger child can recover without cached absence. Cutoff during an unavailable
+callee's summary lookup retains budget reason without inventing body provenance.
+An opaque metadata exclusion that spends nothing stays unavailable at limit zero.
+Type-system, alias, binding setup and underlying graph construction retain
+independent costs; this closes the coverage integration, not all lifecycle costs.
+
+Four constant-bound branch/loop census controls check order and empty cutoff
+results. Six actual-SSA completion families cover exact, fixed true/false,
+nested, asserted concrete type and missing cleanup. Two case modes cover
+result-conditioned and fixed-argument coverage. Two direct assumed-coverage
+controls ensure the bounded census and flow are charged independently of the
+completion predicate. Child/memo/fresh and unavailable-summary child/fresh
+controls retain availability. The fact-pass control sends a complete small
+case through the real case inference path and rejects a large interrupted
+body with cleanup witnessed before cutoff; the published envelope has no
+interrupted discharges. Per-limit proven-case controls cannot expose a path
+at cutoff. Existing lifecycle, SSA and fact tests pass.
+
+Coverage-unbudgeted and census-unbudgeted source overlays fail their explicit
+zero-limit boundaries; their receipts are
+`.build/goal-completion-coverage-{unbudgeted,census-unbudgeted}.log`.
+The first canonical gate passes behavior tests and local dogfood but rejects
+two overlong production expressions. Named assumption values fix both lines.
+No full precision-regression or local race run is part of this iteration;
+production FP credit remains unchanged at 11 unresolved sites.
+
+Final canonical validation passes in `.build/goal-completion-coverage-verify-final.log`:
+ordinary tests 76s, local dogfood 37s, vet, lint, deadcode, formatter, generation
+and module verification. Actual caller/callee SSA and default outcomes are in
+`.build/goal-completion-coverage-ssa.log`. The generated SSA helper inventory
+includes the bounded reachable-block query.
+
+Immutable `.build/goal-completion-coverage-current` implements parent `37b2c13`
+plus this production change, SHA-256
+`304cf932a11b18465dcfdaacb5e1440aa8d06ce5575f9a34377c348d15335791`.
+Confirmed Cute pin `9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3`
+(`./...`, resource-only, exit 3) and Ferro pin
+`d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4`
+(`./internal/admin/repository ./mcp`, resource-only, exit 0) retain byte-identical
+JSON to the guarded-Body controls (980/2 bytes), with empty stderr. Cute's known
+TP remains and Ferro's corrected statement-storage FP stays absent. Scans use
+`CGO_ENABLED=0`, `GOFLAGS=-mod=readonly`, `GOWORK=off`; candidate tests,
+generators and applications are not run. Neither executable is replaced during
+scanning. These scoped controls earn no additional production correction or
+whole-corpus precision claim. Broader cost/architecture and FP goals remain open.
+
+The all-checks Openase sibling control at pin
+`e530faf137e764337d5beaaf68af3be159eb17aa`, `./internal/orchestrator`, also exits
+3 with empty stderr and byte-identical JSON retaining both reviewed cancellation
+TPs. Receipts: `.build/goal-completion-coverage-openase.{json,err}`. These same
+pins/scopes validate shared coverage use without claiming a latest full audit.
+The cleanup classifier review `.19` can close once this `.24` dependency is
+committed: its direct/merged identity, error correlation and guarded Body
+children are already verified. Other transitive setup/identity work remains open.

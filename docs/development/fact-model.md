@@ -788,6 +788,19 @@ outside the bound keeps only its unconditional and result cases, which is
 the summary it had before argument cases existed, so a constant call through
 it stays as it was.
 
+Completion inference shares its request allowance with constant-bound block
+census, independent action/return witnesses, feasible-return coverage and
+conditional work-list states and successor selection. Exact-type coverage keeps
+its existing anywhere witness before the nonnil/type-constrained return walk;
+both phases spend the same allowance. Interrupted reachable-block census is
+discarded. An interrupted case reports budget unknown and cannot become a
+published discharge, even if cleanup was witnessed before the cutoff. Ordinary
+completion memoization likewise discards shortened answers and a fresh request
+can retry. A summary lookup can exhaust before body discovery; that cutoff
+retains its reason without inventing local-body provenance. A completed opaque
+metadata lookup which spends no steps stays unavailable, even at a zero limit.
+Type-system and graph construction costs remain independent.
+
 Export examines at most four result slots and two guarding parameters with one
 shared 2,000-step budget per function. Independently proved cases may survive
 exhaustion; an interrupted proof never becomes a guarantee.

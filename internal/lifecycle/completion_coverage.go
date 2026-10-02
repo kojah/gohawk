@@ -11,10 +11,26 @@ import (
 func ProveMethodCallCoverageWithin(
 	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, nonNil ssa.Value, budget *ssaflow.SearchBudget,
 ) ssaflow.Proof {
+	return proveMethodCallCoverageAssumingWithin(function, calls, coverage, ssaflow.EntryAssumptions{NonNil: nonNil}, budget)
+}
+
+// Constant-bound census must finish before its blocks become witness evidence.
+// The caller retains one budget through that census and the coverage walk.
+func proveMethodCallCoverageAssumingWithin(
+	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage,
+	assumptions ssaflow.EntryAssumptions, budget *ssaflow.SearchBudget,
+) ssaflow.Proof {
 	if function == nil || len(function.Blocks) == 0 {
 		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
 	}
-	return proveMethodCoverageWithin(function, function.Blocks, calls, coverage, ssaflow.EntryAssumptions{NonNil: nonNil}, budget)
+	blocks := function.Blocks
+	if len(assumptions.Constants) != 0 {
+		blocks = ssaflow.ReachableBlocksAssumingWithin(function, assumptions.Constants, budget)
+		if budget.Exhausted() {
+			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+		}
+	}
+	return proveMethodCoverageWithin(function, blocks, calls, coverage, assumptions, budget)
 }
 
 // Keep the independent return/action witness contract of ordinary coverage.
@@ -51,6 +67,16 @@ func proveMethodCoverageWithin(
 	}
 	// A completed census prevents vacuous success on no-return/no-action bodies.
 	// Budget uncertainty from either the flow or its predicate cannot settle it.
+	return proveMethodReturnCoverageWithin(function, calls, assumptions, budget)
+}
+
+// This is the one feasible-return walk, shared by ordinary witness coverage
+// and the existing exact-type path. Predicate and CFG work share the allowance.
+func proveMethodReturnCoverageWithin(
+	function *ssa.Function, calls func(ssa.Instruction) bool, assumptions ssaflow.EntryAssumptions, budget *ssaflow.SearchBudget,
+) ssaflow.Proof {
+	cut := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+	missing := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceUnavailable}
 	outcome := ssaflow.EvaluateObligationFromEntry(function, ssaflow.ObligationFlow{
 		Budget: budget, NonNil: assumptions.NonNil, NonNilType: assumptions.NonNilType, Constants: assumptions.Constants,
 		Instruction: ssaflow.ExactOrNone(calls),

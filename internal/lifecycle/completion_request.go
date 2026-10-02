@@ -97,24 +97,24 @@ func (request CompletionRequest) unprovenCompletion(searched, incomplete, inCycl
 	proof := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
 	if searched {
 		proof.Provenance = ssaflow.EvidenceFromLocalSSA
-		switch {
-		case request.Budget.Exhausted():
-			// The walk stopped early, so a missing completion is not evidence
-			// that the callee fails to complete the target.
-			proof.Reason = ssaflow.EvidenceBudgetExhausted
-		case inCycle:
-			// A helper that releases every element of what it was handed inside
-			// a loop, as slackdump's Destroy closes each stored handle, is not
-			// covered on every return: the loop's exit edge skips the body, and
-			// which element an iteration settles is decided by iteration. That
-			// is uncertainty about the element, not a missing completion.
-			// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/chunk/filemgr.go#L66-L73
-			proof.Reason = ssaflow.EvidenceCompletionInCycle
-		case incomplete:
-			// Unresolved nested work cannot establish missing completion.
-		default:
-			proof.State, proof.Reason = ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
-		}
+	}
+	switch {
+	case request.Budget.Exhausted():
+		// The walk stopped early, so a missing completion is not evidence
+		// that the callee fails to complete the target.
+		proof.Reason = ssaflow.EvidenceBudgetExhausted
+	case searched && inCycle:
+		// A helper that releases every element of what it was handed inside
+		// a loop, as slackdump's Destroy closes each stored handle, is not
+		// covered on every return: the loop's exit edge skips the body, and
+		// which element an iteration settles is decided by iteration. That
+		// is uncertainty about the element, not a missing completion.
+		// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/chunk/filemgr.go#L66-L73
+		proof.Reason = ssaflow.EvidenceCompletionInCycle
+	case searched && incomplete:
+		// Unresolved nested work cannot establish missing completion.
+	case searched:
+		proof.State, proof.Reason = ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
 	}
 	return request.giveUp(ssaflow.CompletionProof{Proof: proof})
 }

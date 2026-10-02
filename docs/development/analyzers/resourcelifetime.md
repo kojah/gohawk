@@ -1271,8 +1271,9 @@ ordinary `MethodCallCoverage` and its assumed-argument path delegate to the same
 witness/obligation engine. The independent return/action witness remains required
 for every-return coverage, preventing vacuous completion in no-return bodies.
 The ordinary obligation flow owns feasible-path ordering and the nonnil assumption.
-Default constant-bound block selection retains its existing independent costs;
-the guarded Body request supplies only a nonnil assumption. Graph construction,
+Completion-search constant-bound block selection and exact-type return coverage
+also share their own request allowance; the guarded Body request supplies only
+a nonnil assumption. Graph construction,
 type-system and alias mechanics retain their independent costs.
 
 Eight actual-SSA capture families test stable, replaced, opaque cell/owner,

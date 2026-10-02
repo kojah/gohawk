@@ -51,14 +51,7 @@ func MethodCallCoverage(function *ssa.Function, calls func(ssa.Instruction) bool
 func methodCallCoverageAssuming(
 	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, assumptions ssaflow.EntryAssumptions,
 ) bool {
-	if function == nil || len(function.Blocks) == 0 {
-		return false
-	}
-	blocks := function.Blocks
-	if len(assumptions.Constants) != 0 {
-		blocks = ssaflow.ReachableBlocksAssuming(function, assumptions.Constants)
-	}
-	return proveMethodCoverageWithin(function, blocks, calls, coverage, assumptions, nil).Proven()
+	return proveMethodCallCoverageAssumingWithin(function, calls, coverage, assumptions, nil).Proven()
 }
 
 // launchKind is how an instruction runs its callee.
@@ -346,14 +339,14 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	assumptions := ssaflow.EntryAssumptions{NonNil: nonNil, Constants: search.constants}
 	if concrete != nil && search.coverage == CoverageEveryReturn {
 		assumptions.NonNilType = concrete
-		anywhere := methodCallCoverageAssuming(callee.function, calls, CoverageAnywhere, ssaflow.EntryAssumptions{Constants: search.constants})
-		return anywhere && ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
-			Entry:  callee.function,
-			Assume: assumptions,
-			Owns:   calls,
-		}) == nil
+		witnessAssumptions := ssaflow.EntryAssumptions{Constants: search.constants}
+		anywhere := proveMethodCallCoverageAssumingWithin(callee.function, calls, CoverageAnywhere, witnessAssumptions, search.budget)
+		// Preserve the existing concrete-type contract: an anywhere witness
+		// precedes coverage under the exact type assumption. It is not the
+		// ordinary independent return witness on the unrefined body.
+		return anywhere.Proven() && proveMethodReturnCoverageWithin(callee.function, calls, assumptions, search.budget).Proven()
 	}
-	return methodCallCoverageAssuming(callee.function, calls, search.coverage, assumptions)
+	return proveMethodCallCoverageAssumingWithin(callee.function, calls, search.coverage, assumptions, search.budget).Proven()
 }
 
 // instructionCompletes reports whether one callee instruction discharges the

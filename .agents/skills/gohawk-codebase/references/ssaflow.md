@@ -2448,6 +2448,18 @@ func ReachableBlocksAssuming(function *ssa.Function, constants FixedValues) []*s
 ReachableBlocksAssuming returns the blocks some path from entry reaches
 when the bound constants hold, in discovery order.
 
+## ReachableBlocksAssumingWithin
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func ReachableBlocksAssumingWithin(function *ssa.Function, constants FixedValues, budget *SearchBudget) []*ssa.BasicBlock
+```
+
+ReachableBlocksAssumingWithin shares queued, branch and edge visits with
+budget. Cutoff discards the census; nil is unavailable when budget exhausted,
+not proof that the function has no reachable blocks. Nil budget is unbounded.
+
 ## ReachingWalk
 
 [Source](../../../../internal/ssaflow/value_reaching.go)

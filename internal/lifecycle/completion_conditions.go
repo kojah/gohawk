@@ -95,7 +95,7 @@ func (search *completionSearch) conditionalCoverage(
 ) bool {
 	matched, failed := false, false
 	initial := []conditionalCompletionState{{block: function.Blocks[0]}}
-	ssaflow.WalkStates(initial, func(state conditionalCompletionState) conditionalCompletionState { return state },
+	ssaflow.WalkStatesWithin(initial, func(state conditionalCompletionState) conditionalCompletionState { return state },
 		func(state conditionalCompletionState) ([]conditionalCompletionState, bool) {
 			for _, instruction := range state.block.Instrs {
 				if !search.budget.Spend() {
@@ -114,12 +114,16 @@ func (search *completionSearch) conditionalCoverage(
 				}
 			}
 			var next []conditionalCompletionState
-			successors := ssaflow.SuccessorPolicy{Constants: search.constants}.Successors(state.block, state.predecessor)
+			successors := ssaflow.SuccessorPolicy{Constants: search.constants}.SuccessorsWithin(state.block, state.predecessor, search.budget)
 			for _, successor := range successors {
+				if !search.budget.Spend() {
+					failed = true
+					return nil, false
+				}
 				next = append(next, conditionalCompletionState{block: successor, predecessor: state.block, completed: state.completed})
 			}
 			return next, true
-		})
+		}, search.budget)
 	return matched && !failed && !search.budget.Exhausted()
 }
 

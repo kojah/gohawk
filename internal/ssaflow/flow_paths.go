@@ -234,19 +234,30 @@ func afterInstruction(start ssa.Instruction) ([]obligationState, bool) {
 // ReachableBlocksAssuming returns the blocks some path from entry reaches
 // when the bound constants hold, in discovery order.
 func ReachableBlocksAssuming(function *ssa.Function, constants FixedValues) []*ssa.BasicBlock {
+	return ReachableBlocksAssumingWithin(function, constants, nil)
+}
+
+// ReachableBlocksAssumingWithin shares queued, branch and edge visits with
+// budget. Cutoff discards the census; nil is unavailable when budget exhausted,
+// not proof that the function has no reachable blocks. Nil budget is unbounded.
+func ReachableBlocksAssumingWithin(function *ssa.Function, constants FixedValues, budget *SearchBudget) []*ssa.BasicBlock {
 	if function == nil || len(function.Blocks) == 0 {
 		return nil
 	}
-	reached := map[*ssa.BasicBlock]bool{function.Blocks[0]: true}
-	order := []*ssa.BasicBlock{function.Blocks[0]}
-	for index := 0; index < len(order); index++ {
-		block := order[index]
-		for _, next := range constants.Narrow(block.Succs, block) {
-			if !reached[next] {
-				reached[next] = true
-				order = append(order, next)
+	var order []*ssa.BasicBlock
+	WalkStatesWithin([]*ssa.BasicBlock{function.Blocks[0]}, func(block *ssa.BasicBlock) *ssa.BasicBlock { return block },
+		func(block *ssa.BasicBlock) ([]*ssa.BasicBlock, bool) {
+			order = append(order, block)
+			successors := constants.NarrowWithin(block.Succs, block, budget)
+			for range successors {
+				if !budget.Spend() {
+					return nil, false
+				}
 			}
-		}
+			return successors, true
+		}, budget)
+	if budget.Exhausted() {
+		return nil
 	}
 	return order
 }

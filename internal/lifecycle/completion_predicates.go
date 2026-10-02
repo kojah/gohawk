@@ -60,7 +60,8 @@ func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondit
 		search.memo.WithFunction(function, func() {
 			if resultTest.Outcome == ssaflow.OutcomeAny {
 				calls := func(candidate ssa.Instruction) bool { return search.instructionCompletes(candidate, locals, parameter) }
-				proven = methodCallCoverageAssuming(function, calls, CoverageEveryReturn, ssaflow.EntryAssumptions{NonNil: parameter, Constants: constants})
+				assumptions := ssaflow.EntryAssumptions{NonNil: parameter, Constants: constants}
+				proven = proveMethodCallCoverageAssumingWithin(function, calls, CoverageEveryReturn, assumptions, request.Budget).Proven()
 				return
 			}
 			proven = search.conditionalCoverage(function, locals, parameter, resultTest)
@@ -73,6 +74,9 @@ func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondit
 				Path: paths.path, PathKnown: paths.known(),
 			}
 		}
+	}
+	if request.Budget.Exhausted() {
+		unknown.Reason = ssaflow.EvidenceBudgetExhausted
 	}
 	return unknown
 }
