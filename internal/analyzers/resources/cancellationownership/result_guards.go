@@ -22,40 +22,56 @@ import (
 // the loaded variable would not be recognized as the release, and an
 // earlier defer is never met by the walk.
 
-// deferredCaptureCell reports whether a store puts the cancel function into
-// a cell that only directly deferred literals read.
-func (classifier *cancellationClassifier) deferredCaptureCell(store *ssa.Store) bool {
+// proveDeferredCaptureCellWithin establishes the exact once-stored cancel
+// whose only readers are literals directly deferred after the store. Unknown
+// at cutoff cannot excuse the store as transparent or establish lost cleanup.
+func (classifier *cancellationClassifier) proveDeferredCaptureCellWithin(store *ssa.Store, budget *ssaflow.SearchBudget) ssaflow.Proof {
 	cell, ok := store.Addr.(*ssa.Alloc)
 	if !ok || store.Val != classifier.cancel {
-		return false
+		return deferredCaptureProof(false, budget)
 	}
-	if stored, once := ssaflow.WrittenOnceCell(cell); !once || stored != classifier.cancel {
-		return false
+	stored, once := ssaflow.WrittenOnceCellWithin(cell, budget)
+	if !once || stored != classifier.cancel {
+		return deferredCaptureProof(false, budget)
 	}
 	captured := false
-	for _, user := range *cell.Referrers() {
+	for user := range ssaflow.ReferrersWithin(cell, budget) {
 		switch typed := user.(type) {
 		case *ssa.Store:
 			if typed != store {
-				return false
+				return deferredCaptureProof(false, budget)
 			}
 		case *ssa.MakeClosure:
-			deferred, ok := deferredDirectly(typed)
-			// A literal deferred before the store is registered before the
-			// walk starts, so it could not be judged; the store stays opaque.
-			if !ok || !ssaflow.InstructionDominates(store, deferred) {
-				return false
+			deferred, ok := deferredDirectlyWithin(typed, budget)
+			// A defer registered before the store is never met by the obligation
+			// walk after acquisition, so this store must remain opaque.
+			if !ok || !ssaflow.InstructionDominatesWithin(store, deferred, budget) {
+				return deferredCaptureProof(false, budget)
 			}
 			captured = true
 		default:
-			return false
+			return deferredCaptureProof(false, budget)
 		}
 	}
-	return captured
+	return deferredCaptureProof(captured, budget)
 }
 
-// deferredDirectly returns the defer that is a literal's only use.
-func deferredDirectly(closure *ssa.MakeClosure) (*ssa.Defer, bool) {
+func deferredCaptureProof(proven bool, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+	}
+	state := ssaflow.EvidenceDisproven
+	if proven {
+		state = ssaflow.EvidenceProven
+	}
+	return ssaflow.Proof{State: state, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
+}
+
+// deferredDirectlyWithin returns the defer that is a literal's only use.
+func deferredDirectlyWithin(closure *ssa.MakeClosure, budget *ssaflow.SearchBudget) (*ssa.Defer, bool) {
+	if !budget.Spend() || closure.Referrers() == nil {
+		return nil, false
+	}
 	users := *closure.Referrers()
 	if len(users) != 1 {
 		return nil, false
@@ -72,35 +88,55 @@ func (classifier *cancellationClassifier) invokeRequest() lifecycle.CompletionRe
 // cancel function through a cell only such literals read.
 func (classifier *cancellationClassifier) deferredLiteralLabel(deferred *ssa.Defer) (cancellationLabel, bool) {
 	closure, ok := deferred.Call.Value.(*ssa.MakeClosure)
-	if !ok || !classifier.capturesThroughDeferredCell(closure) {
+	if !ok {
+		return cancellationLabel{}, false
+	}
+	budget := classifier.budget()
+	capture := classifier.proveDeferredCaptureWithin(closure, budget)
+	if capture.State == ssaflow.EvidenceUnknown {
+		return labelled(cancellationActionUnknown, reasonLabelDeferredClosure), true
+	}
+	if !capture.Proven() {
 		return cancellationLabel{}, false
 	}
 	for _, guard := range classifier.guards {
+		if !budget.Spend() {
+			return labelled(cancellationActionUnknown, reasonLabelDeferredClosure), true
+		}
 		if guard.Defer == deferred {
 			return labelled(cancellationActionNone, reasonLabelResultGuardedDefer), true
 		}
 	}
-	request := classifier.invokeRequest()
-	request.Instruction = deferred
-	if lifecycle.ProveCompletion(request).Proven() {
+	request := lifecycle.CompletionRequest{Target: classifier.cancel, InvokeTarget: true, Budget: budget, Instruction: deferred}
+	proof := lifecycle.ProveCompletion(request)
+	if proof.Proven() {
 		return labelled(cancellationActionRelease, reasonLabelDeferredLiteralRelease), true
+	}
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return labelled(cancellationActionUnknown, reasonLabelDeferredClosure), true
 	}
 	return cancellationLabel{}, false
 }
 
-func (classifier *cancellationClassifier) capturesThroughDeferredCell(closure *ssa.MakeClosure) bool {
+func (classifier *cancellationClassifier) proveDeferredCaptureWithin(closure *ssa.MakeClosure, budget *ssaflow.SearchBudget) ssaflow.Proof {
 	for _, binding := range closure.Bindings {
+		if !budget.Spend() {
+			return deferredCaptureProof(false, budget)
+		}
 		cell, ok := binding.(*ssa.Alloc)
 		if !ok {
 			continue
 		}
-		for _, user := range *cell.Referrers() {
-			if store, ok := user.(*ssa.Store); ok && classifier.deferredCaptureCell(store) {
-				return true
+		for user := range ssaflow.ReferrersWithin(cell, budget) {
+			if store, ok := user.(*ssa.Store); ok {
+				proof := classifier.proveDeferredCaptureCellWithin(store, budget)
+				if proof.State != ssaflow.EvidenceDisproven {
+					return proof
+				}
 			}
 		}
 	}
-	return false
+	return deferredCaptureProof(false, budget)
 }
 
 // resultGuardedReturn labels a return by the result-guarded literals that
@@ -142,4 +178,38 @@ func (classifier *cancellationClassifier) outcomeOfWithin(value ssa.Value, budge
 		return ssaflow.OutcomeAny, false
 	}
 	return classifier.knowledge.ResultOf(value, budget).Outcome()
+}
+
+// retainResultGuardsWithin publishes the filtered census only when every
+// captured guard is decided. A truncated list cannot start obligation flow.
+func (classifier *cancellationClassifier) retainResultGuardsWithin(guards []lifecycle.ResultGuard, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	var retained []lifecycle.ResultGuard
+	for _, guard := range guards {
+		if !budget.Spend() {
+			return deferredCaptureProof(false, budget)
+		}
+		if closure, ok := guard.Defer.Call.Value.(*ssa.MakeClosure); ok {
+			capture := classifier.proveDeferredCaptureWithin(closure, budget)
+			if capture.State == ssaflow.EvidenceUnknown {
+				return capture
+			}
+			if capture.Proven() {
+				retained = append(retained, guard)
+			}
+		}
+	}
+	classifier.guards = retained
+	return deferredCaptureProof(true, budget)
+}
+
+func (classifier *cancellationClassifier) deferredCaptureStoreLabel(instruction ssa.Instruction) (cancellationLabel, bool) {
+	store, ok := instruction.(*ssa.Store)
+	if !ok {
+		return cancellationLabel{}, false
+	}
+	capture := classifier.proveDeferredCaptureCellWithin(store, classifier.budget())
+	if capture.State == ssaflow.EvidenceUnknown {
+		return labelled(cancellationActionUnknown, reasonLabelStored), true
+	}
+	return cancellationLabel{}, capture.Proven()
 }

@@ -12,36 +12,7 @@ import (
 // and rejects every other shape by the cause that could change what a read
 // returns.
 func TestWrittenOnceCellRejectionsByCause(t *testing.T) {
-	pkg := ssaflowtest.BuildPackage(t, "cells", `package cells
-func escape(*int) {}
-func readOnly(n int) func() int {
-	v := n
-	return func() int { return v }
-}
-func storedTwice(n, m int) func() int {
-	v := n
-	v = m
-	return func() int { return v }
-}
-func writtenInClosure(n int) func() int {
-	v := n
-	return func() int { v++; return v }
-}
-type bump func()
-func writtenInNestedClosure(n int) func() bump {
-	v := n
-	return func() bump { return func() { v = v + 1 } }
-}
-func addressTaken(n int) func() int {
-	v := n
-	escape(&v)
-	return func() int { return v }
-}
-func neverStored() func() int {
-	var v int
-	return func() int { return v }
-}
-`)
+	pkg := ssaflowtest.BuildPackage(t, "cells", writtenOnceCellFixture)
 	for name, want := range map[string]bool{
 		"readOnly":               true,
 		"storedTwice":            false,
@@ -133,3 +104,34 @@ func sunkValue(t *testing.T, function *ssa.Function) ssa.Value {
 	t.Fatalf("%s: no call to a sink", function.Name())
 	return nil
 }
+
+const writtenOnceCellFixture = `package cells
+func escape(*int) {}
+func readOnly(n int) func() int {
+	v := n
+	return func() int { return v }
+}
+func storedTwice(n, m int) func() int {
+	v := n
+	v = m
+	return func() int { return v }
+}
+func writtenInClosure(n int) func() int {
+	v := n
+	return func() int { v++; return v }
+}
+type bump func()
+func writtenInNestedClosure(n int) func() bump {
+	v := n
+	return func() bump { return func() { v = v + 1 } }
+}
+func addressTaken(n int) func() int {
+	v := n
+	escape(&v)
+	return func() int { return v }
+}
+func neverStored() func() int {
+	var v int
+	return func() int { return v }
+}
+`

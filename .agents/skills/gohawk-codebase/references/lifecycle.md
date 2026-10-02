@@ -579,9 +579,9 @@ CompletesAtReturn asks whether the deferred literal completes the target
 when the function leaves through returned, which it must dominate. Each
 named result is fixed to the outcome outcomeOf gives the value the return
 stores; a value with no known outcome, or a result the return does not set
-itself, leaves the answer unknown. Cell binding and outcome callbacks share
-request.Budget with completion; a callback may not publish an outcome after
-exhausting that allowance.
+itself, leaves the answer unknown. Cell binding and callback invocation
+spend request.Budget; callers also use it for outcome inference. A callback
+may not publish an outcome after exhausting that allowance.
 
 ## ResultGuard.ProveReachesReturn
 

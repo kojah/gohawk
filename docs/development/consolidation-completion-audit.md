@@ -3778,3 +3778,74 @@ to the preceding completion coverage control and retains both reviewed
 cancellation leaks at `runtime_launcher.go:414:22` and
 `runtime_process_lifecycle_slice.go:192:22`. Receipts use
 `.build/goal-return-binding-{cute,ferro,openase}.{json,err}`.
+
+### Cancellation deferred-capture allowance (dho.44.11.5.23)
+
+Task-directed source review found that the cancellation result-guard filter,
+store transparency query and directly deferred literal query still used default
+once-stored-cell and instruction-order evidence. `WrittenOnceCellWithin` now
+owns the same identity engine as the default wrapper, including nested lexical
+read-only captures. `ReferrersWithin` shares use enumeration between that engine
+and the consumer. The existing cancellation decision is structured as
+`proveDeferredCaptureCellWithin` and `proveDeferredCaptureWithin`: exact store,
+only directly deferred readers, registration after store. Metadata mismatch and
+completed unsupported forms remain rejected; interrupted evidence is unknown.
+
+Guard discovery and its capture filter share one allowance. The retained guard
+list is published only after the full filter completes. Store cutoff produces
+an unknown store label; deferred capture, guard selection and completion share
+one query and stop before any unbounded fallback at exhaustion. Existing label
+reasons and obligation flow remain authoritative. The entry point delegates
+capture publication and store labeling to the same proof in `result_guards.go`.
+The first gate caught a file-size regression in `proof.go`; moving those focused
+responsibilities corrected it without raising the configured limit.
+
+Actual SSA checks cover nine capture families: direct, multiple and nested
+read-only defers; loaded calls, rewrites, nested writes, pre-store registration,
+launches and handoffs. Wrong-target controls remain rejected. Child cutoffs do
+not exhaust an available parent; fresh queries recover completed positive and
+negative answers. A filtered two-guard census publishes no partial list.
+Classifier cutoff controls retain unknown, and full cancellation flow controls
+retain release, loss and two opaque ownership outcomes. Shared identity tests
+reuse all six existing rejection-cause fixtures and add a statically large
+nested reader that exhausts its child allowance. Test fixtures are compiled to
+SSA, not executed. `.build/goal-deferred-capture-final-ssa.log` and
+`.build/goal-deferred-capture-focused.log` retain `Function.WriteTo` evidence.
+
+Focused SSA, lifecycle and cancellation suites pass in
+`.build/goal-deferred-capture-extracted.log`; the expanded nested-reader tests
+pass in `.build/goal-deferred-capture-nested.log`. Counterfactual overlays that
+bypass the cell, nested-reader or capture allowance fail the zero-budget or
+large-reader controls in `.build/goal-deferred-capture-mutant-{cell,nested,capture}.log`.
+Final `make verify VERIFY_TIMINGS=1` passes in
+`.build/goal-deferred-capture-verify-final.log`: tests 72s, dogfood 30s, lint 5s
+with zero issues, vet 1s, formatting 1s, deadcode 4s, generation and module
+verification. No local race or full precision replay was run.
+
+The immutable `.build/goal-deferred-capture-final` binary is built from 3fe81a9
+plus the final production change, SHA-256
+`2dfc0bece63f4092322a33b54f81db5dee7d91365c68a7ec8c41fac7d2468028`.
+All-check static scans use `CGO_ENABLED=0`, `GOFLAGS=-mod=readonly`, `GOWORK=off`:
+Openase `e530faf137e764337d5beaaf68af3be159eb17aa` on
+`./internal/orchestrator` exits 3 with empty stderr, byte-identical to the
+preceding return-binding receipt and retaining both reviewed cancellation
+leaks. K8ssandra `2028d352ecb495de4b6e053d99d7a77b21eb5107` on `.` exits 0
+with empty stderr and byte-identical empty JSON to its entry-context correction
+receipt. `.build/goal-deferred-capture-{openase,k8ssandra}.{json,err}` contains
+the observations. Candidate tests, generators and applications are not run.
+No new FP correction is credited; the recorded unresolved production queue
+remains 11 sites, not a fresh whole-corpus replay.
+
+Other default once-stored-cell consumers remain in fixed-argument binding,
+channel aliases, concurrency capture fields and cancellation returned-owner
+storage. New dho.44.11.5.25 records their task-directed review before any caller
+migration. Graph tools remain unavailable, so the evidence is scoped source
+fallback, not a graph completeness claim. Closing .23 certifies this capture
+filter and its publication/label integration, not a whole-cancellation cost
+bound or completion of the broader consolidation goal.
+
+The partial-publication counterfactual, assigning retained guards after the
+first match, also fails `TestDeferredCaptureGuardCensusAllowance` at an
+interrupted two-guard census (`.build/goal-deferred-capture-mutant-census.log`).
+The final focused documentation/architecture check passes in
+`.build/goal-deferred-capture-docs-final.log`.

@@ -86,3 +86,19 @@ func HasReturnAndAction(blocks []*ssa.BasicBlock, action func(ssa.Instruction) b
 	}
 	return hasReturn && hasAction
 }
+
+// ReferrersWithin yields uses in SSA referrer order, charging before each use.
+// Stopping leaves later uses unexamined; callers check budget availability
+// before treating a partial census as complete. A nil budget is unbounded.
+func ReferrersWithin(value ssa.Value, budget *SearchBudget) iter.Seq[ssa.Instruction] {
+	return func(yield func(ssa.Instruction) bool) {
+		if value == nil || value.Referrers() == nil {
+			return
+		}
+		for _, use := range *value.Referrers() {
+			if !budget.Spend() || !yield(use) {
+				return
+			}
+		}
+	}
+}

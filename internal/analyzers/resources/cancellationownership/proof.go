@@ -97,15 +97,15 @@ func proveCancellation(
 	classifier.knowledge = knowledge
 	// Missing guards cannot establish loss when the discovery census or one
 	// of its opposing completion questions stopped before deciding.
-	discovery := lifecycle.ProveResultGuards(call.Parent(), classifier.invokeRequest())
+	request := classifier.invokeRequest()
+	discovery := lifecycle.ProveResultGuards(call.Parent(), request)
 	if !discovery.Proven() {
 		return CancellationProof{Outcome: CancellationUnknown, Reason: reasonCancellationUnknown}
 	}
-	for _, guard := range discovery.Guards {
-		if closure, ok := guard.Defer.Call.Value.(*ssa.MakeClosure); ok && classifier.capturesThroughDeferredCell(closure) {
-			classifier.guards = append(classifier.guards, guard)
-		}
+	if !classifier.retainResultGuardsWithin(discovery.Guards, request.Budget).Proven() {
+		return CancellationProof{Outcome: CancellationUnknown, Reason: reasonCancellationUnknown}
 	}
+
 	if contract, ok := cancellationContractFor(call.Common()); ok && contract.packagePath == "context" {
 		classifier.context = ssaflow.CallResult(call, 0)
 		classifier.processLifetime = ssaflow.RunsOnceInProgramEntry(call)
@@ -202,9 +202,10 @@ func (classifier *cancellationClassifier) classifyAction(instruction ssa.Instruc
 	if _, ok := instruction.(*ssa.MakeClosure); ok {
 		return cancellationLabel{}
 	}
-	if store, ok := instruction.(*ssa.Store); ok && classifier.deferredCaptureCell(store) {
-		return cancellationLabel{}
+	if label, recognized := classifier.deferredCaptureStoreLabel(instruction); recognized {
+		return label
 	}
+
 	if classifier.ownerHolds(instruction) {
 		return cancellationLabel{}
 	}

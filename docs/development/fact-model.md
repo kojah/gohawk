@@ -971,3 +971,9 @@ named-cell store selection and outcome lookup. Guard registration uses the
 shared structured reachability proof; interrupted registration or binding is
 unknown. This does not change declaration guarantees or make a bare return's
 value available when its store is outside the return block.
+
+Cancellation's result-guard capture filter shares discovery's allowance with
+once-stored-cell identity and exact deferred-reader registration. The selected
+guard list is published only when the full filter completes. Store and defer
+classification likewise retain unknown at capture cutoff. Shared cell identity
+still answers identity only; it supplies no cleanup or registration guarantee.

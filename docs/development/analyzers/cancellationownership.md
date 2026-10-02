@@ -172,3 +172,25 @@ cleanup or a completed cleanup. The shared
 multiple returns, overwritten stores, earlier-block assignments, conditional
 registration and interrupted callbacks. Consumer `result_guard_budget_test.go`
 checks cutoff unknown followed by fresh release and skipped-cleanup answers.
+
+### Deferred capture filter allowance
+
+`proveDeferredCaptureCellWithin` is the structured filter used both for a
+cancel's store and when selecting captured result guards. One allowance covers
+closure bindings, cell referrers, nested lexical read-only checks and exact
+store-before-defer order. `WrittenOnceCellWithin` shares the old cell identity
+engine; `ReferrersWithin` supplies bounded use enumeration. The completed
+policy still requires one exact store and only directly deferred readers.
+Loaded calls, other readers, multiple or nested writes, early registration,
+launches and handoffs stay outside that proof.
+
+Capture cutoff cannot make a store transparent or discard a result guard as
+absent. It produces unknown before flow setup or an unknown instruction label.
+A deferred literal shares its capture allowance with guard selection and
+completion. Existing label reasons and the authoritative flow remain in use.
+`deferred_capture_budget_test.go` covers nine actual-SSA capture families,
+wrong targets, child/parent/fresh queries, classifier cutoff and four full
+cancellation outcomes. Shared cell tests cover rejection causes and a large
+nested reader whose child expires while its parent remains available. Other
+default once-stored-cell consumers remain tracked separately in
+`gohawk-dho.44.11.5.25`; no whole-cancellation cost bound is claimed here.

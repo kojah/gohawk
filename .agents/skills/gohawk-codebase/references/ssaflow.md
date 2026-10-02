@@ -2542,6 +2542,18 @@ RecordExhaustions hands every budget exhaustion in this process to record
 until the returned function stops it. While nothing records, a budget pays
 one atomic load when it is made and one when it runs out.
 
+## ReferrersWithin
+
+[Source](../../../../internal/ssaflow/value_instructions.go)
+
+```go
+func ReferrersWithin(value ssa.Value, budget *SearchBudget) iter.Seq[ssa.Instruction]
+```
+
+ReferrersWithin yields uses in SSA referrer order, charging before each use.
+Stopping leaves later uses unexamined; callers check budget availability
+before treating a partial census as complete. A nil budget is unbounded.
+
 ## ResolveEmbeddedFieldPath
 
 [Source](../../../../internal/ssaflow/value_field_path.go)
@@ -3244,3 +3256,15 @@ read then yields that value, in any goroutine and at any time after the
 store, which is how a variable captured by several goroutines names one
 object. It answers identity only; whether the value itself is stable is the
 caller's question.
+
+## WrittenOnceCellWithin
+
+[Source](../../../../internal/ssaflow/written_once_cell.go)
+
+```go
+func WrittenOnceCellWithin(cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bool)
+```
+
+WrittenOnceCellWithin applies the same once-stored identity contract under
+budget, including nested lexical captures. Cutoff discards the stored value;
+callers inspect the budget before interpreting rejection as complete.

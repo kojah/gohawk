@@ -14,11 +14,18 @@ import (
 // object. It answers identity only; whether the value itself is stable is the
 // caller's question.
 func WrittenOnceCell(cell *ssa.Alloc) (ssa.Value, bool) {
-	if cell.Referrers() == nil {
+	return WrittenOnceCellWithin(cell, nil)
+}
+
+// WrittenOnceCellWithin applies the same once-stored identity contract under
+// budget, including nested lexical captures. Cutoff discards the stored value;
+// callers inspect the budget before interpreting rejection as complete.
+func WrittenOnceCellWithin(cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bool) {
+	if !budget.Spend() || cell.Referrers() == nil {
 		return nil, false
 	}
 	var stored ssa.Value
-	for _, use := range *cell.Referrers() {
+	for use := range ReferrersWithin(cell, budget) {
 		switch use := use.(type) {
 		case *ssa.Store:
 			if use.Addr != cell || stored != nil {
@@ -30,7 +37,7 @@ func WrittenOnceCell(cell *ssa.Alloc) (ssa.Value, bool) {
 				return nil, false
 			}
 		case *ssa.MakeClosure:
-			if !capturedReadOnly(use, cell) {
+			if !capturedReadOnlyWithin(use, cell, budget) {
 				return nil, false
 			}
 		case *ssa.DebugRef:
@@ -38,17 +45,20 @@ func WrittenOnceCell(cell *ssa.Alloc) (ssa.Value, bool) {
 			return nil, false
 		}
 	}
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return nil, false
+	}
 	return stored, stored != nil
 }
 
-// capturedReadOnly reports whether closure, and every closure nested in it
+// capturedReadOnlyWithin reports whether closure, and every closure nested in it
 // that captures the same cell, only reads cell.
-func capturedReadOnly(closure *ssa.MakeClosure, cell ssa.Value) bool {
+func capturedReadOnlyWithin(closure *ssa.MakeClosure, cell ssa.Value, budget *SearchBudget) bool {
 	function, ok := closure.Fn.(*ssa.Function)
-	if !ok {
+	if !ok || !budget.Spend() {
 		return false
 	}
-	for _, pair := range ClosureBindingPairs(function, closure) {
+	for pair := range ClosureBindingPairsWithin(function, closure, budget) {
 		if pair.Binding != cell {
 			continue
 		}
@@ -56,14 +66,14 @@ func capturedReadOnly(closure *ssa.MakeClosure, cell ssa.Value) bool {
 		if capture.Referrers() == nil {
 			continue
 		}
-		for _, use := range *capture.Referrers() {
+		for use := range ReferrersWithin(capture, budget) {
 			switch use := use.(type) {
 			case *ssa.UnOp:
 				if use.Op != token.MUL {
 					return false
 				}
 			case *ssa.MakeClosure:
-				if !capturedReadOnly(use, capture) {
+				if !capturedReadOnlyWithin(use, capture, budget) {
 					return false
 				}
 			case *ssa.DebugRef:
@@ -72,5 +82,5 @@ func capturedReadOnly(closure *ssa.MakeClosure, cell ssa.Value) bool {
 			}
 		}
 	}
-	return true
+	return !budget.Exhausted() && !budget.PoolExhausted()
 }
