@@ -475,6 +475,20 @@ ProveMethodCallCoverageWithin shares witness and normal-return coverage work
 with budget. A cutoff supplies unknown, never completed coverage or its absence.
 Callbacks should use the same budget. Nil retains the default unbounded walk.
 
+## ProvePossibleClosureCaptureWithin
+
+[Source](../../../../internal/lifecycle/store_ownership.go)
+
+```go
+func ProvePossibleClosureCaptureWithin(callback, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+```
+
+ProvePossibleClosureCaptureWithin reports whether any closure reaching callback
+may transitively contain target. Phi alternatives are transparent; conversions
+and loads remain opaque. A positive capture is not proof of invocation or
+cleanup. Cutoff is unknown, and a negative means no modeled capture.
+Graph construction and graph queries retain their independent bounds.
+
 ## ProveResultGuards
 
 [Source](../../../../internal/lifecycle/completion_result_guards.go)

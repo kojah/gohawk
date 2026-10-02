@@ -4967,3 +4967,24 @@ records validation. Non-budget identity ambiguity, indirect receivers, broader
 semantic/partial-duplication review and seven recorded production sites plus
 Rune remain outside this correction. No production FP credit or full precision
 replay is claimed.
+
+## Shared possible closure capture for opaque participants
+
+Beads `gohawk-dho.23.17` removes a producer false alert when a phi selects either
+of two callbacks that drain the channel. Incomplete summary classification had
+looked only for a direct called closure. The existing process callback-capture
+fold now lives in `lifecycle.ProvePossibleClosureCaptureWithin`, with shared
+mixed/unrelated/opaque-wrapper and cutoff controls. A positive result proves
+possible capture only. Process ownership maps it to unknown Wait participation;
+producer classification maps it to unknown receiving, without counting a drain
+or proving invocation. Both keep their local diagnostic policy.
+
+Actual SSA and parent-failing diagnostic/trace assertions pin the correction.
+Full producer fixture payloads remove exactly one false alert (23 to 22), while
+all 40 process findings remain identical and no diagnostics are added. The
+[scoped audit](../../benchmarks/precision/audits/producer-callback-capture-2026-10-03.md)
+records validation and counterfactual polarity checks. The earlier complete
+channel-phi hypothesis in `.23.16` was rejected by the engine before receiver
+counting; no behavior was changed for that unsupported case. Seven recorded
+production sites plus Rune and broader semantic/partial-duplication completion
+remain open; no production FP credit or full precision replay is claimed.

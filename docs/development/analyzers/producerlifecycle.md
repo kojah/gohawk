@@ -53,6 +53,15 @@ every allowance through
 first completion. Normal complete and asynchronous receiver policies remain
 separate from this cutoff boundary.
 
+Opaque callback choices retain receiver uncertainty when any selected closure
+captures the channel. The shared lifecycle closure-capture query follows phi
+alternatives, retains opaque conversions/loads and shares the classifier's
+allowance. A positive capture cannot count as a receive or prove invocation.
+`helpers/selected_drains.go` pairs balanced selected drains with unrelated
+callback choices that retain the excess-send diagnostic; trace assertions pin
+the unknown helper reason. The process owner uses the same capture mechanic
+and keeps its own unknown Wait-participation interpretation.
+
 Loop-based send counts remain unknown: a repeated statement does not prove
 multiple sends are feasible. This deliberately misses unbounded producer loops
 until their excess production can be established without a cardinality guess.

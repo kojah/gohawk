@@ -168,3 +168,20 @@ func assertProducerSourceDecisions(t *testing.T, filename, nonDiagnosticOutcome 
 		t.Errorf("missing send-source decisions: %v", want)
 	}
 }
+
+func TestSelectedDrainHasUnknownReceiver(t *testing.T) {
+	count := 0
+	for _, event := range producerTrace(t, "helpers") {
+		if event.Phase != "decision" || strings.HasPrefix(event.Reason, "diagnostic-") ||
+			!strings.Contains(event.Candidate, "selected_drains.go:5:") {
+			continue
+		}
+		count++
+		if event.Outcome != "unknown" || event.Reason != reasonReceiverHelperUnknown.String() {
+			t.Errorf("selected drain: %+v", event)
+		}
+	}
+	if count != 2 {
+		t.Errorf("got %d selected-drain decisions, want 2", count)
+	}
+}

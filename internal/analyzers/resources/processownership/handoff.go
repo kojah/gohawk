@@ -73,21 +73,12 @@ func provePossibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, bu
 	return missing
 }
 
-// A selected closure may retain the command. Phi alternatives are transparent;
-// conversions and loads remain opaque, and no target uniqueness or Wait is
-// established. Any incomplete reaching/capture search leaves ownership unknown.
+// A possible capture makes Wait participation unknown. The shared query proves
+// only the structural capture, never invocation, joining or exact reaping.
 func provePossibleCallbackCapture(value, command ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
-	captured := ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(budget).Any(value, func(_ ssaflow.ReachingWalk, leaf ssa.Value) bool {
-		if _, closure := leaf.(*ssa.MakeClosure); !closure {
-			return false
-		}
-		return lifecycle.ProveMayContainValueWithin(leaf, command, budget).Proven()
-	})
-	if budget.Exhausted() {
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+	proof := lifecycle.ProvePossibleClosureCaptureWithin(value, command, budget)
+	if proof.Proven() {
+		proof.State = ssaflow.EvidenceUnknown
 	}
-	if captured {
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceCapturedByClosure}
-	}
-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+	return proof
 }

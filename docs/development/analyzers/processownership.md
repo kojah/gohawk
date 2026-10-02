@@ -177,8 +177,9 @@ accepted defensive guards and diagnostic independent flags or field replacement.
 ## Opaque callback choices
 
 A phi choice of closures passed to an opaque runner or launched dynamically
-can retain the started command. One shared reaching-value fold checks possible
-captures under the candidate allowance; it leaves ownership unknown and never
+can retain the started command. `lifecycle.ProvePossibleClosureCaptureWithin`
+checks possible captures under the candidate allowance. The process adapter
+maps positive capture to unknown Wait participation and never
 proves a unique target, callback invocation or exact Wait. Conversions and loads
 stay opaque. Known-body runners continue through ordinary completion evidence;
 opaque handoff classification does not excuse a visible callback dropper.
@@ -189,7 +190,9 @@ and bounded completion under the same allowance. Both capture and return-query
 cutoffs remain unknown. Graph/type/alias internals retain independent costs.
 `processchoices/choices.go` pins accepted mixed captures and dynamic launches,
 with unrelated commands, early bypass returns and converted callables diagnostic.
-`handoff_test.go` checks actual SSA, negative captures and fresh allowance recovery.
+`internal/lifecycle/closure_capture_test.go` checks actual SSA, negative captures
+and fresh allowance recovery. `handoff_test.go` retains nonreturning waiter
+allowance controls.
 
 
 ## Shared pre-Start instruction census

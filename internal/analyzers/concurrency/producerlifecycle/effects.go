@@ -136,11 +136,15 @@ func helperReceives(
 		// We cannot prove its execution paths from a captured channel alone.
 		// https://github.com/kubernetes/registry.k8s.io/blob/b5e7d92a3819fcd24ed35b174db0ce6291e88e7f/cmd/archeio/main_test.go#L73-L80
 		consumes := func(value ssa.Value) bool {
-			return lifecycle.MayContainValue(value, channel) || heapmodel.CapturedBindingMatches(value, channel)
+			return lifecycle.MayContainValue(value, channel) || heapmodel.CapturedBindingMatches(value, channel) ||
+				lifecycle.ProvePossibleClosureCaptureWithin(value, channel, budget).Proven()
 		}
 		uncertain := slices.ContainsFunc(common.Args, consumes)
-		if closure, ok := common.Value.(*ssa.MakeClosure); ok {
-			uncertain = uncertain || slices.ContainsFunc(closure.Bindings, consumes)
+		// A selected callback can drain too. Capture evidence leaves the
+		// receiver unknown; it never contributes an exact receive count.
+		uncertain = uncertain || lifecycle.ProvePossibleClosureCaptureWithin(common.Value, channel, budget).Proven()
+		if budget.Exhausted() {
+			return receiveProof{unknown: true, reason: reasonReceiverBudgetExhausted}
 		}
 		return receiveProof{unknown: uncertain, reason: reasonReceiverHelperUnknown}
 	}

@@ -142,3 +142,27 @@ func closureBindingsOwnValueWithin(closure *ssa.MakeClosure, value ssa.Value, bu
 	}
 	return false
 }
+
+// ProvePossibleClosureCaptureWithin reports whether any closure reaching callback
+// may transitively contain target. Phi alternatives are transparent; conversions
+// and loads remain opaque. A positive capture is not proof of invocation or
+// cleanup. Cutoff is unknown, and a negative means no modeled capture.
+// Graph construction and graph queries retain their independent bounds.
+func ProvePossibleClosureCaptureWithin(callback, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	if budget == nil {
+		budget = ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+	}
+	captured := ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(budget).Any(callback, func(_ ssaflow.ReachingWalk, leaf ssa.Value) bool {
+		if _, closure := leaf.(*ssa.MakeClosure); !closure {
+			return false
+		}
+		return ProveMayContainValueWithin(leaf, target, budget).Proven()
+	})
+	if budget.Exhausted() {
+		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+	}
+	if captured {
+		return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceCapturedByClosure}
+	}
+	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+}
