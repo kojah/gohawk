@@ -22,16 +22,28 @@ import (
 // distinguish a transferred critical section from an abandoned acquisition.
 func (flow lockFlowContext) reportMissingReleases(
 	function *ssa.Function, unreleased map[string][]token.Pos,
-	heldAt map[*ssa.Return]lockReturnState, callers conditionalCallerSet,
+	heldAt map[*ssa.Return]lockReturnState, callers conditionalCallerSet, query lockReturnQueries,
 ) {
 	for identity, returns := range unreleased {
+		if !query.budget.Spend() {
+			return
+		}
 		position := flow.acquiredAt[identity]
-		proof := flow.proveMissingRelease(function, heldAt, callers, identity, returns)
+		proof := flow.proveMissingRelease(function, heldAt, callers, identity, returns, query)
 		traceLockDiagnostic(flow.pass, check.LockMissingRelease, position, proof)
 		if proof.state != ssaflow.EvidenceProven {
 			continue
 		}
+		// Naming and related evidence are identical for every uncovered return.
+		// Reuse them; a cutoff still discards the entire buffered function.
+		name, related := flow.lockName(identity), flow.acquisitionEvidence(identity)
+		if query.budget.Exhausted() {
+			return
+		}
 		for _, returned := range returns {
+			if !query.budget.Spend() {
+				return
+			}
 			if returned == token.NoPos {
 				returned = position
 			}
@@ -39,8 +51,8 @@ func (flow lockFlowContext) reportMissingReleases(
 			source := syntax.SourceRange(flow.pass, returned)
 			check.Report(flow.pass, check.LockMissingRelease, analysis.Diagnostic{
 				Pos: source.Pos(), End: source.End(),
-				Message: fmt.Sprintf("lock %s is not released on this return path", flow.lockName(identity)),
-				Related: flow.acquisitionEvidence(identity),
+				Message: fmt.Sprintf("lock %s is not released on this return path", name),
+				Related: related,
 			})
 		}
 	}
@@ -50,23 +62,42 @@ func (flow lockFlowContext) reportMissingReleases(
 // function walk completes. A possible acquisition or unwitnessed local release
 // leaves ownership uncertain; caller-transfer contracts retain their order.
 func (flow lockFlowContext) proveMissingRelease(
-	function *ssa.Function, heldAt map[*ssa.Return]lockReturnState, callers conditionalCallerSet, identity string, returns []token.Pos,
+	function *ssa.Function, heldAt map[*ssa.Return]lockReturnState, callers conditionalCallerSet,
+	identity string, returns []token.Pos, query lockReturnQueries,
 ) lockDiagnosticProof {
+	unknown := lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}
+	if !query.budget.Spend() {
+		return unknown
+	}
 	if flow.uncertainGuards[identity] {
 		return lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLoadedAcquisitionGuardUnknown}
 	}
 	values := flow.lockValues[identity]
-	if slices.ContainsFunc(values, privateMutexOnly) {
+	private := slices.ContainsFunc(values, func(value ssa.Value) bool {
+		return query.budget.Spend() && privateMutexOnly(value, query.budget)
+	})
+	if query.budget.Exhausted() {
+		return unknown
+	}
+	if private {
 		return lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonPrivateMutexOnly}
 	}
 	if !flow.released[identity] {
 		return lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonReleaseOwnershipUnknown}
 	}
-	if proof := acquiresForCaller(function, flow.acquisitions[identity], heldAt, identity); proof.proven {
-		return lockDiagnosticProof{ssaflow.EvidenceDisproven, proof.reason}
+	held := query.acquiresForCaller(function, flow.acquisitions[identity], heldAt, identity)
+	if query.budget.Exhausted() {
+		return unknown
 	}
-	if proof := conditionalCallerRelease(function, values, heldAt, identity, callers); proof.proven {
-		return lockDiagnosticProof{ssaflow.EvidenceDisproven, proof.reason}
+	if held.proven {
+		return lockDiagnosticProof{ssaflow.EvidenceDisproven, held.reason}
+	}
+	caller := query.conditionalCallerRelease(function, values, heldAt, identity, callers)
+	if query.budget.Exhausted() {
+		return unknown
+	}
+	if caller.proven {
+		return lockDiagnosticProof{ssaflow.EvidenceDisproven, caller.reason}
 	}
 	if len(returns) == 0 {
 		return lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}

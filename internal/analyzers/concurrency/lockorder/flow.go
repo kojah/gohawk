@@ -15,6 +15,8 @@ import (
 type lockFlowContext struct {
 	pass            *analysis.Pass
 	function        *ssa.Function
+	setup           *lockFunctionSetup
+	budget          *ssaflow.SearchBudget
 	exclusive       *exclusiveCallers
 	releases        *lockReleaseQueries
 	relations       *lockOrders
@@ -59,86 +61,11 @@ func recordUnreleasedLocks(
 	heldAtReturn[returned] = mergeLockReturnState(previous, retained, seen)
 }
 
-// acquiresForCaller reports whether the function's contract is to return with
-// the lock held: every successful return that an acquisition dominates, one
-// that returns no error or a nil error, still holds it, and at least one such
-// return exists. Retention on every normal path also establishes this contract,
-// including error returns. A helper that begins a critical section for its caller, with
-// a matching helper that ends it, has this shape; a function that forgets an
-// unlock on one successful path, or acquires only conditionally, does not.
-// crabbox pairs beginOperation with endOperation:
-// https://github.com/openclaw/crabbox/blob/3ef3f98cbe27e6ddc814c11fde15b89c1639bcbe/internal/providers/incus/client.go#L161-L185
-// https://github.com/fiorix/go-diameter/blob/c7794c55a5412a3d91b17165971be4c6bc6b3ced/examples/s6a_proxy/service/util.go#L51-L87
-func acquiresForCaller(
-	function *ssa.Function, acquisitions []ssa.Instruction, heldAt map[*ssa.Return]lockReturnState, identity string,
-) callerReleaseProof {
-	successful := 0
-	allHeld := true
-	returns := 0
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			returned, ok := instruction.(*ssa.Return)
-			if !ok {
-				continue
-			}
-			returns++
-			definite := slices.Contains(heldAt[returned].definite, identity)
-			allHeld = allHeld && definite
-			if !successfulReturn(function, returned) {
-				continue
-			}
-			dominated := slices.ContainsFunc(acquisitions, func(acquisition ssa.Instruction) bool {
-				return ssaflow.InstructionDominates(acquisition, returned)
-			})
-			if !dominated {
-				continue
-			}
-			successful++
-			if !definite {
-				return callerReleaseProof{reason: lockReasonHeldForCallerUnknown}
-			}
-		}
-	}
-	if successful > 0 || returns > 0 && allHeld {
-		return callerReleaseProof{proven: true, reason: lockReasonHeldForCallerProven}
-	}
-	return callerReleaseProof{reason: lockReasonHeldForCallerUnknown}
-}
-
 func appendUniqueInstruction(instructions []ssa.Instruction, instruction ssa.Instruction) []ssa.Instruction {
 	if slices.Contains(instructions, instruction) {
 		return instructions
 	}
 	return append(instructions, instruction)
-}
-
-// successfulReturn reports whether the return signals success by Go's
-// result conventions: a trailing error result must be nil, and a trailing
-// Boolean result, the comma-ok shape, must not be the constant false. A
-// claim helper that returns (claim, false) after releasing the lock and
-// (claim, true) while holding it is acquiring for its caller. kandev claims
-// prompt completions this way:
-// https://github.com/kdlbs/kandev/blob/17da0aafe33df01828e21fc79cc9dd156dc088dc/apps/backend/internal/agent/runtime/lifecycle/manager_events.go#L238-L272
-func successfulReturn(function *ssa.Function, returned *ssa.Return) bool {
-	results := function.Signature.Results()
-	if results.Len() == 0 || len(returned.Results) == 0 {
-		return true
-	}
-	last := results.At(results.Len() - 1).Type()
-	// A function with a defer returns loads of its result cells; resolve the
-	// value stored on this path, or a nil error behind a defer reads as
-	// unknown and the acquire-for-caller contract is never recognized.
-	// libocr's transaction constructor holds a serialization lock for its
-	// caller while deferring another unlock:
-	// https://github.com/smartcontractkit/libocr/blob/618b5bf7f342075a81ca1273a04abce15529a101/offchainreporting2plus/ocrintegrationtesthelpers/in_memory_key_value_database.go#L196-L215
-	result := lifecycle.ReturnedResult(returned, len(returned.Results)-1)
-	if types.Identical(last, types.Universe.Lookup("error").Type()) {
-		return ssaflow.DefinitelyNil(result) || nilGuardDominatesReturn(result, returned)
-	}
-	if basic, ok := last.Underlying().(*types.Basic); ok && basic.Kind() == types.Bool {
-		return !constantFalse(result)
-	}
-	return true
 }
 
 // recordCalledOrder orders the locks held at a call before every lock the

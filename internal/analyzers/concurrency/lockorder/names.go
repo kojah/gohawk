@@ -80,7 +80,10 @@ func (flow lockFlowContext) directAcquisition(identity string, only bool) ssa.In
 		return nil
 	}
 	for _, acquisition := range acquisitions {
-		if _, direct := directMutexEffect(acquisition); direct {
+		if !flow.budget.Spend() {
+			return nil
+		}
+		if _, direct := flow.setup.direct[acquisition]; direct {
 			return acquisition
 		}
 	}
@@ -94,7 +97,7 @@ func (flow lockFlowContext) acquisitionEvidence(identity string) []analysis.Rela
 	if acquisition == nil {
 		return nil
 	}
-	effect, _ := directMutexEffect(acquisition)
+	effect := flow.setup.direct[acquisition]
 	return []analysis.RelatedInformation{
 		check.Evidence(flow.pass, acquisition.Pos(), flow.lockName(identity)+" is "+effect.acquired.verb()+" here"),
 	}

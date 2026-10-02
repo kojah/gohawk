@@ -52,6 +52,8 @@ func (walk *lockStateWalk) run(
 	flow := lockFlowContext{
 		pass:         pass,
 		function:     function,
+		setup:        walk.setup,
+		budget:       walk.budget,
 		exclusive:    exclusive,
 		releases:     newLockReleaseQueries(evidence, walk.budget),
 		relations:    relations,
@@ -79,8 +81,11 @@ func (walk *lockStateWalk) run(
 	if walk.incomplete() {
 		return false
 	}
-	flow.reportMissingReleases(function, unreleasedReturns, heldAtReturn, callers[function])
-	return true
+	// Final metadata may outlive state expansion. A cutoff here must discard
+	// earlier read-lock findings and order edges as well as missing releases.
+	flow.reportMissingReleases(function, unreleasedReturns, heldAtReturn, callers[function],
+		lockReturnQueries{setup: walk.setup, budget: walk.budget})
+	return !walk.incomplete()
 }
 
 func (walk *lockStateWalk) expand(state lockFlowState) ([]lockFlowState, bool) {

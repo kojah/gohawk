@@ -4239,3 +4239,21 @@ return/report/held-contract metadata, callee ordering and identity/alias/
 exclusivity internals. This consolidation earns no production FP removal or
 whole-query cost guarantee. The eleven recorded unresolved production sites,
 Rune publication issue and wider completion requirements remain unproven.
+
+## Lock return-contract consolidation, October 2
+
+Held-success and conditional caller-release evidence now has one query owner in
+`return_contracts.go`. The setup inventory supplies returns and branches;
+contract metadata, caller coverage, private-lock uses and diagnostic acquisition
+metadata share the function allowance. Final reporting reuses cached direct
+effects and prepares each candidate's metadata once. A final-stage cutoff
+discards all buffered function findings and staged order edges.
+
+The [return-contract follow-up](../../benchmarks/precision/audits/lock-return-contracts-followup-2026-10-02.md)
+records actual SSA, cold/fresh/padded controls, two failing counterfactuals,
+the passing local gate and four unchanged pinned lock TPs. Beads
+`gohawk-dho.44.11.5.27.3` covers these contract and reporting boundaries.
+Return retention/merging, returned-owner inference, named-result storage,
+identity/heap/type/alias and callee-order/package exclusivity remain distinct
+work. No production FP correction or whole-query cost claim is credited.
+The broader architecture audit and remaining easy-FP assessment remain open.

@@ -16,6 +16,8 @@ type lockFunctionSetup struct {
 	instructions    []ssa.Instruction
 	calls           []*ssa.Call
 	defers          []*ssa.Defer
+	returns         []*ssa.Return
+	branches        []*ssa.If
 	direct          map[ssa.Instruction]mutexEffect
 	summaries       map[ssa.Instruction][]mutexEffect
 	callerOwned     map[string]bool
@@ -37,6 +39,12 @@ func buildLockSetup(pass *analysis.Pass, function *ssa.Function, budget *ssaflow
 		}
 		if deferred, ok := instruction.(*ssa.Defer); ok {
 			setup.defers = append(setup.defers, deferred)
+		}
+		if returned, ok := instruction.(*ssa.Return); ok {
+			setup.returns = append(setup.returns, returned)
+		}
+		if branch, ok := instruction.(*ssa.If); ok {
+			setup.branches = append(setup.branches, branch)
 		}
 		if effect, known := directMutexEffect(instruction); known {
 			setup.direct[instruction] = effect

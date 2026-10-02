@@ -190,8 +190,17 @@ including completed earlier summaries. `setup_test.go` covers direct/forwarded
 acquisitions, borrowed locks, builtins, opaque wrapper writers, cold/fresh/warm
 cutoffs and independent summary-cap exhaustion.
 
-Heap queries, final contract metadata and order publication retain independent
-costs. Lock release completion now shares the traversal pool through
+`return_contracts.go` consumes the setup's return/branch inventory for
+held-on-success and conditional caller-release contracts. Return masks,
+acquisition dominance, Boolean polarity, caller cycle/coverage and private-lock
+use censuses share the function allowance. Final report metadata reuses cached
+direct effects; interrupted final queries discard earlier buffered findings
+and order edges. `return_contracts_test.go` covers both Boolean polarities,
+held-success, exact guarded errors, cold/fresh queries, padded caller coverage
+and final-stage publication cutoffs.
+
+Heap queries, return-retention/returned-owner evidence and order publication
+retain independent costs. Lock release completion shares the traversal pool through
 `release_queries.go`: synchronous and spawned exact release, registered and
 pre-acquisition possible defer release, and synchronous may-release use one
 completion request owner. Each question retains its 250,000-step cap. A cutoff
@@ -203,8 +212,9 @@ semantics, opaque callbacks, cold and fresh evidence, independent question
 cutoff and late cutoff after buffered findings/order edges.
 
 This is a traversal/completion boundary, not a whole-query time bound. Beads
-`gohawk-dho.44.11.5.27` retains the final metadata and identity review; alias, type and
-graph internals keep their separately recorded costs.
+`gohawk-dho.44.11.5.27` retains return-retention, returned-owner, callee-order
+and identity review; named-result storage, alias, type and graph internals keep
+their separately recorded costs.
 
 For a private non-escaping helper, an exact Boolean result can also describe
 which return still owns a package-global `sync.Mutex`. This is accepted only

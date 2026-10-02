@@ -298,23 +298,3 @@ func traceFreshMutexIdentity(pass *analysis.Pass, instruction ssa.Instruction, r
 		})
 	}
 }
-
-// A held-on-success helper can return the original checked error instead of a
-// literal nil. Match the exact SSA result before using branch feasibility:
-// an error derived from it, or another loop iteration's merge, is not enough.
-// https://github.com/DrmagicE/gmqtt/blob/92ed7d60915519f60c3d3cdb6420b1e11eb824e2/server/server.go#L309-L340
-func nilGuardDominatesReturn(value ssa.Value, returned *ssa.Return) bool {
-	for _, branch := range ssaflow.InstructionsOf[*ssa.If](returned.Parent()) {
-		comparison, ok := branch.Cond.(*ssa.BinOp)
-		if !ok || comparison.X != value && comparison.Y != value {
-			continue
-		}
-		for _, successor := range branch.Block().Succs {
-			success, known := ssaflow.SuccessBranch(branch.Block(), successor, value)
-			if known && success && len(successor.Preds) == 1 && successor.Dominates(returned.Block()) {
-				return true
-			}
-		}
-	}
-	return false
-}
