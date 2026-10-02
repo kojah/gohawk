@@ -67,6 +67,9 @@ func TestImportedAlternatives(t *testing.T) {
 			for _, function := range functions {
 				if check, ok := alternativeChecks[function.Name()]; ok {
 					checked++
+					if function.Name() == "pickTwice" {
+						assertImportedAlternativeCopy(t, engine, function)
+					}
 					check(t, function, engine.Function(function, ssaflow.NewSearchBudget(4000)))
 				}
 			}

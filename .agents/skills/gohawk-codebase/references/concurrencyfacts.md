@@ -133,7 +133,8 @@ func (engine *Engine) Declaration(function *ssa.Function, budget *ssaflow.Search
 Declaration returns the same formal-parameter vocabulary for local and
 imported functions. Local allocations and captures cannot be represented;
 callers needing local identities should use Function or AtCall instead.
-The returned effect slice is detached from the cached publication.
+All returned slices are detached from the cached publication. Copying shares
+the supplied allowance; cutoff returns no declaration, never a partial fact.
 
 ## Engine.Function
 

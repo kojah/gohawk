@@ -1037,9 +1037,17 @@ child/parent/fresh controls, cancellation requirements, a padded spill path, and
 an alternative cut after an earlier path are covered in
 [publication_budget_test.go](../../internal/passes/concurrencyfacts/publication_budget_test.go).
 
-Imported declaration cloning is a separate boundary tracked by Beads
-`gohawk-dho.44.11.5.25.6`: nested alternatives still need mutation isolation and
-all clone loops need the caller allowance. Package write-once inventory setup,
-heap graph and type-system internals, constant/string formatting, fact encoding
-and decoding retain their independent costs. These bounds count evidence steps;
-they are not a wall-time or memory guarantee.
+Imported `Declaration` lookup also shares its allowance with metadata copying.
+One copy path detaches effects and nested fields, cancellation inputs and worker
+effects for both linear and alternative bodies; alternative conditions and
+returned metadata are detached as well. Strings and scalar constants remain
+immutable values. Empty slices retain their shape, and an absent or incompatible
+fact remains unavailable rather than a complete empty declaration. A cutoff
+returns no declaration and leaves cached publication data unchanged, so a fresh
+query can recover it. Mutation and child/parent/fresh controls are in
+[declaration_copy_test.go](../../internal/passes/concurrencyfacts/declaration_copy_test.go).
+
+Package write-once inventory setup, heap graph and type-system internals,
+constant/string formatting, fact encoding and decoding retain their independent
+costs. These bounds count evidence steps; they are not a wall-time or memory
+guarantee.
