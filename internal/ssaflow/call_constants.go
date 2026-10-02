@@ -39,8 +39,9 @@ type FixedArgumentsProof struct {
 
 // ProveFixedArgumentsWithin binds parameters and captured cells to literal or
 // caller-fixed outcomes. Capture identity, read-only and nil-test searches
-// share budget. Cutoff publishes no map; nil budget retains default binding
-// policy. Missing bodies yield a completed empty metadata census.
+// share budget, including store-before-capture ordering. Cutoff publishes no
+// map; nil budget retains the same binding policy without a work limit. Missing
+// bodies yield a completed empty metadata census.
 func ProveFixedArgumentsWithin(
 	common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known FixedValues, budget *SearchBudget,
 ) FixedArgumentsProof {
@@ -70,7 +71,7 @@ func ProveFixedArgumentsWithin(
 	}
 	if closure != nil && closure.Fn == callee && len(closure.Bindings) == len(callee.FreeVars) {
 		for pair := range ClosureBindingPairsWithin(callee, closure, budget) {
-			if outcome, ok := capturedArgumentOutcomeWithin(pair, known, budget); ok {
+			if outcome, ok := capturedArgumentOutcomeWithin(pair, closure, known, budget); ok {
 				bind(pair.Free, outcome)
 			}
 		}
@@ -82,13 +83,13 @@ func ProveFixedArgumentsWithin(
 }
 
 // A caller-fixed current cell remains valid only in a directly read-only
-// body. Otherwise retain the once-stored fallback, including nested lexical
-// captures, and its existing nilness relevance rule.
-func capturedArgumentOutcomeWithin(pair CapturedBinding, known FixedValues, budget *SearchBudget) (Outcome, bool) {
+// body. Otherwise require a unique store before capture, including read-only nested
+// lexical captures, and retain the existing nilness relevance rule.
+func capturedArgumentOutcomeWithin(pair CapturedBinding, closure *ssa.MakeClosure, known FixedValues, budget *SearchBudget) (Outcome, bool) {
 	if outcome, ok := known[pair.Binding]; ok && onlyReadWithin(pair.Free, budget) {
 		return outcome, true
 	}
-	outcome, ok := capturedOutcomeWithin(pair.Binding, known, budget)
+	outcome, ok := capturedOutcomeWithin(pair.Binding, closure, known, budget)
 	if !ok || !decidableCellWithin(pair.Free, outcome, budget) {
 		return OutcomeAny, false
 	}
@@ -198,19 +199,23 @@ func neverNil(value ssa.Value) bool {
 }
 
 // capturedOutcomeWithin reports the outcome every read of a captured cell yields:
-// a cell written once with a fixed value, whose captures only read it, or a
-// cell an enclosing closure already bound and passes on.
-func capturedOutcomeWithin(binding ssa.Value, known FixedValues, budget *SearchBudget) (Outcome, bool) {
+// a cell written once before capture with a fixed value, whose captures only
+// read it, or a cell an enclosing closure already bound and passes on.
+func capturedOutcomeWithin(binding ssa.Value, closure *ssa.MakeClosure, known FixedValues, budget *SearchBudget) (Outcome, bool) {
 	switch cell := binding.(type) {
 	case *ssa.FreeVar:
 		outcome, ok := known[cell]
 		return outcome, ok
 	case *ssa.Alloc:
-		stored, ok := WrittenOnceCellWithin(cell, budget)
-		if !ok {
+		store, ok := writtenOnceStoreWithin(cell, budget)
+		// A single store can follow an early deferred return or a synchronous
+		// invocation. Identity after that store cannot decide earlier reads.
+		// Creation is the shared boundary: later writes require a caller-fixed
+		// current value rather than guessing when this closure will execute.
+		if !ok || !InstructionDominatesWithin(store, closure, budget) {
 			return OutcomeAny, false
 		}
-		return fixedOutcome(stored, known)
+		return fixedOutcome(store.Val, known)
 	}
 	return OutcomeAny, false
 }

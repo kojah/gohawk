@@ -2378,8 +2378,9 @@ func ProveFixedArgumentsWithin(
 
 ProveFixedArgumentsWithin binds parameters and captured cells to literal or
 caller-fixed outcomes. Capture identity, read-only and nil-test searches
-share budget. Cutoff publishes no map; nil budget retains default binding
-policy. Missing bodies yield a completed empty metadata census.
+share budget, including store-before-capture ordering. Cutoff publishes no
+map; nil budget retains the same binding policy without a work limit. Missing
+bodies yield a completed empty metadata census.
 
 ## ProveIdentity
 

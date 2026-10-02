@@ -14,7 +14,7 @@ consolidation tracked in `gohawk-dho.24`.
 | No duplicated proof mechanics | The value-walk and storage/summary reviews document concrete merges and distinct policies. The broader normalized-body scan below found five additional mechanical duplicate groups, now consolidated. | The identified groups are addressed. Partial blocks and equivalent logic written differently remain outside that scan; no repository-wide absence claim is made. |
 | One authoritative decision for each check | Reviewed lifecycle analyzers classify once and ask a shared flow query. The remaining normalized matches in classifier caches and state keys contain different domain state, rather than second acceptance rules. | The ten-check inventory below locates each reporting pipeline. Concurrent capture and process ownership now share their final decisions with tracing. Lock release and mutation reporting also consume structured decisions after dho.27. Defer-loop outcomes use a structured proof after dho.28; resource lifetime now also owns its state and pre-flow policy exclusion after dho.30. Deeper classification and precision-family review remain open. |
 | Remaining easy FPs fixed | Frozen batches 62/63 supplied 55 production locations originally labelled FP. The queue refresh, successful 22-site replay and four subsequent corrections left 18 unresolved production sites. The later opaque registry-owner correction removes two FDio sites, leaving 16 unresolved; the one-time entry-context correction in dho.37 removes one k8ssandra site, leaving 15. The entry-process correction in dho.4.1 removes four coder sites, leaving 11 recorded unresolved sites. The ten-family assessment preserves its earlier 18-site snapshot and the evidence gaps; these follow-ups are scoped receipts, not a fresh corpus census. Rune callback wait is separately corrected; fresh-lock publication remains open. | No target-resolution-only correction has been demonstrated. The remaining families need policy, identity, state or protocol evidence. The current-helper reassessment found the FDio field-origin gap fixed in dho.31 and the one-time entry policy corrected in dho.37. Further source review must distinguish a newly available bounded fix from a genuinely larger model. |
-| Precision preserved by consolidation | Parent/current boundary comparisons, accepted and diagnostic fixtures, ordinary tests and local dogfood scans accompany focused changes. Focused controls pin must/may polarity, exact binding, observation time and bounded unknown outcomes. The inherited captured-outcome timing gap in dho.44.11.5.25.2 remains a concrete semantic exception requiring correction. | Passing receipts prove their stated scopes. They do not certify every historical finding against the latest source. Use affected pinned cases when behavior changes; do not rewrite frozen labels or credit unscannable cases. |
+| Precision preserved by consolidation | Parent/current boundary comparisons, accepted and diagnostic fixtures, ordinary tests and local dogfood scans accompany focused changes. Focused controls pin must/may polarity, exact binding, observation time and bounded unknown outcomes. The captured-outcome timing correction in dho.44.11.5.25.2 now requires the unique store to dominate closure creation; later current values remain caller-supplied evidence. | Passing receipts prove their stated scopes. They do not certify every historical finding against the latest source. Use affected pinned cases when behavior changes; do not rewrite frozen labels or credit unscannable cases. |
 | Tight development cycle | Focused tests precede stable `make verify` gates. The local gate runs ordinary tests, formatting, vet, lint, dead-code and local dogfood; it does not invoke precision-regression. | Maintained. No full precision replay or local race run is part of these iterations. |
 | Work tracked and own changes published | Beads children record corrections, reviews and unresolved questions. Implementation commits contain exact task paths; unrelated staged deletion and working-tree artifacts remain separate. | Verify commit, upstream synchronization and child closure after each implementation. The epic and this completion audit remain active. |
 
@@ -3950,3 +3950,73 @@ caller and deferred-body SSA plus both proofs are in
 semantic question for its own temporal proof and regression work; the current
 binding change preserves the old complete-query lookup policies. This is not a
 verified production FP correction. Parent .25 and the broader goal remain open.
+
+
+### Captured-outcome initialization order (dho.44.11.5.25.2)
+
+The actual SSA probe above exposed a semantic error in fixed-argument binding:
+a deferred literal guarded by `done` was credited with cleanup even when its
+parent could return before the only `done = true` store. A synchronous literal
+invoked before that store likewise received a true binding. The unique-write
+identity contract applies after its store; it does not establish when a
+closure reads the cell.
+
+The shared once-stored census now retains its exact store internally. Its
+public identity queries still return the same stored value and preserve their
+existing budget and read-only rules. Fixed capture inference separately asks
+`ssaflow.InstructionDominatesWithin` whether that store dominates closure
+creation, sharing the binding allowance. There is no second store census or
+launch-specific completion engine. Conditional and later initialization supply
+no inferred binding. A late assignment before a synchronous invocation also
+stays unbound by this creation-based contract; an exact caller-fixed current
+cell can still bind the read-only callee. The existing return-specific named
+result analysis supplies such outcomes after the return assigns them. Lexical
+forwarding of an established free-variable binding remains unchanged.
+
+The fixed-capture timing cases in
+[fixed_arguments_timing_test.go](../../internal/ssaflow/fixed_arguments_timing_test.go)
+record caller and callee SSA for ten contexts:
+initialization before capture, an early deferred return, invocation before the
+store, late initialization before invocation, initialization on the sole path
+to capture, a conditional store, later nonnil initialization, and inferred or
+caller-fixed named results. The completed census can be empty without asserting
+that the parent leaks. Every cutoff discards its map; the child allowance and
+fresh-query controls retain the existing publication contract.
+The ordering-cutoff control in the same file isolates instruction indexing behind over a
+local query's worth of unrelated instructions: ordering exhausts the child
+while the parent remains available, and a fresh query recovers the binding.
+
+The
+[completion_capture_timing_test.go](../../internal/lifecycle/completion_capture_timing_test.go)
+controls check eight cleanup contexts at the
+consumer boundary, including both supplied named-result outcomes. The original
+implementation fails the temporal controls before the change. An ignored source
+overlay removing dominance restores those failures; another making dominance
+unbounded fails the isolated ordering-cutoff control. The latter fixture first
+selected a padding builtin rather than its deferred closure; selecting the
+exact defer corrects that test setup. Both overlays fail behaviorally, rather
+than failing to compile.
+
+The focused SSA and lifecycle suites pass. The first full `make verify` passes
+with ordinary tests in 107 seconds, dogfood in 51 seconds and zero lint issues;
+no race test or full precision replay runs. The final gate additionally covers
+the isolated ordering-budget control added after that first receipt. That gate
+initially rejected a 163-column test condition and bare test-name citations
+reserved for architecture tests; named budget evidence and fixture file links
+correct those validation failures. The reviewed final gate passes with ordinary
+tests in 6 seconds, dogfood in 1 second and zero lint issues in 4 seconds,
+reusing unchanged-package results.
+
+The immutable `.build/goal-capture-timing-current` binary is built from parent
+`df21d6c` plus this production correction, before later test and prose edits.
+Its SHA-256 is
+`17de5c3e807259a7d76d24d94d2557b98ce5395c80bdaab9aa626aa2d1757de0`.
+Openase at `e530faf137e764337d5beaaf68af3be159eb17aa`, all checks on
+`./internal/orchestrator`, exits 3 with empty stderr and identical JSON to the
+fixed-binding cutoff receipt; both reviewed cancellation true positives remain.
+Cute at `9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3`, resource-only on `./...`,
+also exits 3 with empty stderr and identical JSON, retaining the reviewed
+resource true positive. The candidate tests, generators and applications are
+not executed. This corrects the local temporal proof; it earns no production
+FP removal. The recorded queue remains eleven sites, and parent .25 retains
+its other once-stored consumers and broader evidence review.

@@ -21,17 +21,28 @@ func WrittenOnceCell(cell *ssa.Alloc) (ssa.Value, bool) {
 // budget, including nested lexical captures. Cutoff discards the stored value;
 // callers inspect the budget before interpreting rejection as complete.
 func WrittenOnceCellWithin(cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bool) {
+	store, ok := writtenOnceStoreWithin(cell, budget)
+	if !ok {
+		return nil, false
+	}
+	return store.Val, true
+}
+
+// Keep the exact store with the once-written identity evidence so consumers
+// that need execution order can apply their own observation boundary. The
+// identity-only API does not promise that a read occurs after this store.
+func writtenOnceStoreWithin(cell *ssa.Alloc, budget *SearchBudget) (*ssa.Store, bool) {
 	if !budget.Spend() || cell.Referrers() == nil {
 		return nil, false
 	}
-	var stored ssa.Value
+	var stored *ssa.Store
 	for use := range ReferrersWithin(cell, budget) {
 		switch use := use.(type) {
 		case *ssa.Store:
 			if use.Addr != cell || stored != nil {
 				return nil, false
 			}
-			stored = use.Val
+			stored = use
 		case *ssa.UnOp:
 			if use.Op != token.MUL {
 				return nil, false

@@ -769,8 +769,16 @@ false)`, and one that closes only when `options == nil` completes it at
 with nil or captures, so an untested pointer argument adds no binding. The
 binding reaches a value a deferred closure captures: Go captures by reference,
 so the closure's free variable is a cell, bound only when
-`ssaflow.WrittenOnceCell` proves it is written once before capture and only
-read after. Any other comparison, a phi, or a derived value decides nothing.
+the once-stored census proves all captures are read-only and the exact store
+dominates closure creation. `ssaflow.WrittenOnceCell` alone supplies identity
+after its store; the binding engine separately checks execution order with
+`ssaflow.InstructionDominatesWithin`. A sole assignment after registration or
+on only one incoming path cannot fix earlier reads. This includes a named
+result assigned by a later return: its outcome is supplied by the existing
+caller-fixed return analysis, rather than inferred from that later store.
+Late initialization before a synchronous call remains unbound by this
+creation-based contract unless the caller supplies the current cell outcome.
+Any other comparison, a phi, or a derived value decides nothing.
 The memo keys every body by the values fixing its parameters, because the
 same call can complete under one binding and not another. The result facts'
 parameter-nil cases are proved by the same binding.
@@ -979,8 +987,8 @@ classification likewise retain unknown at capture cutoff. Shared cell identity
 still answers identity only; it supplies no cleanup or registration guarantee.
 
 Fixed-argument binding publishes `FixedArgumentsProof` only after parameter,
-capture, read-only, once-stored-cell and nil-relevance searches complete under
-the request allowance. Cutoff discards every binding, including ones collected
+capture, read-only, once-stored-cell, ordering and nil-relevance searches
+complete under the request allowance. Cutoff discards every binding, including ones collected
 before an interrupted later argument. Completion stops before callee coverage
 or memoization can consume a partial map. A missing body yields an empty
 metadata census without local SSA provenance; it establishes no behavior.
