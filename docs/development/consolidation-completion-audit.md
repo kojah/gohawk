@@ -3124,3 +3124,40 @@ recorded above. Cute's known TP remains and Ferro's corrected storage report
 stays absent. No production FP removal, full precision replay or local race run
 is credited. Children `.17.7` and `.17.8` track acquisition-error assertions and
 HTTP boundary cost families; the parent and broader goal remain active.
+
+## Acquisition-error assertion allowance
+
+`gohawk-dho.44.11.5.17.7` moves the acquisition-error contract out of flow
+orchestration into `acquisition_error.go`. One structured proof supplies the
+existing exclusion: fatal require Error/NotNil on the acquired error, or a
+nonfatal HTTP error claim dominating a Nil assertion on an alias of the resource.
+Census, ordering, argument visits, derivation and alias dispatch share the
+observed candidate pool through one child. Unrelated instructions are filtered
+by exact registered assertion contract before requesting CFG evidence. This
+avoids the former order query for every instruction without changing matches.
+Graph construction and alias-query internals remain independent costs.
+
+An interrupted census discards both assertion lists; the authoritative proof
+returns budget unknown before flow may accept the exclusion. The existing
+fatal versus nonfatal HTTP distinction, paired resource/error semantics and
+motivating pinned rationale move together. No exported fact schema changes.
+Actual-SSA controls cover 22 require/assert contract variants, functions and
+methods, NotNil/interface conversion, exact and non-HTTP pairs, reversed
+ordering, sibling branches, unrelated error/resource inputs, earlier claims and
+ordinary leak/release flow. Every insufficient allowance, child cutoff with
+parent available, fresh recovery and partial-list discard are exercised.
+Focused tests pass in 0.182 seconds. Ignoring allowance fails every contract
+variant and child cutoff; removing the census exhaustion guard publishes a
+partial error-assertion list and fails its focused control. SSA is retained in
+`.build/goal-acquisition-error-fixture.ssa.txt`. Focused lint found an overlong
+signature, corrected by splitting its parameters.
+
+Immutable `.build/goal-acquisition-error-current`, SHA-256
+`2b2e59c0a6d93a82356943974ec5f4604eea974e456bbd9e315f1d8d7d5a203b`,
+retains byte-identical pinned Cute/Ferro resource JSON against the optional-
+diamond baseline: terminal exits 3/0, empty stderr. Pins/scopes remain those
+recorded above. Cute's known TP remains and Ferro's corrected storage report
+stays absent. The canonical gate passes all checks, including ordinary tests
+(98 seconds) and repository dogfood (52 seconds), in
+`.build/goal-acquisition-error-verify.log`. Focused documentation checks pass. No production FP removal or full precision
+replay is credited; HTTP boundary `.17.8` and the broader goal remain open.

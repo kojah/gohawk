@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -48,7 +47,11 @@ func evaluateResourceFlow(
 	if canceled.Proven() {
 		return acceptedResourceLifetime(resourceReasonCanceledAcquisition)
 	}
-	if testProvesAcquisitionError(call, resource, errorValue, contract.packagePath == "net/http") {
+	assertedError := proveAcquisitionErrorWithin(call, resource, errorValue, contract.packagePath == "net/http", pool.Within(releaseSearchBudget))
+	if assertedError.State == ssaflow.EvidenceUnknown {
+		return unknownResourceLifetime(assertedError.Reason)
+	}
+	if assertedError.Proven() {
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
 	optionalAcquisition := proveOptionalAcquisitionWithin(call, resource, errorValue, pool.Within(releaseSearchBudget))
@@ -183,65 +186,6 @@ func (analysis *resourceAnalysis) traceUncertainEdge(block, successor *ssa.Basic
 		Pos: branch.Pos(), Function: block.Parent().String(),
 		Details: map[string]string{"branch": branch.String(), "successor": strconv.Itoa(successor.Index)},
 	})
-}
-
-func testProvesAcquisitionError(acquisition *ssa.Call, resource, errorValue ssa.Value, httpResponse bool) bool {
-	// Test assertions can prove the owned-resource path infeasible even though
-	// the assertion package expresses that fact outside the CFG.
-	// https://github.com/siemens/wfx/blob/392dde941e73ce9560df2c42b2d480eb528bfc96/cmd/wfx/cmd/root/root_test.go#L154-L157
-	errorAssertions, nilAssertions := httpErrorAssertions(acquisition, resource, errorValue)
-	// A fatal Error assertion stops the test unless the acquisition failed,
-	// which is the same evidence as an `if err != nil { return }` guard for any
-	// acquisition. The non-fatal form is accepted only for net/http, whose
-	// paired Nil assertion carries the extra fact that a response returned
-	// together with an error has an already-closed body.
-	for _, assertedError := range errorAssertions {
-		if fatalErrorAssertion(assertedError) || httpResponse && errorAssertionDominatesNil(assertedError, nilAssertions) {
-			return true
-		}
-	}
-	return false
-}
-
-func httpErrorAssertions(acquisition *ssa.Call, resource, errorValue ssa.Value) ([]ssa.Instruction, []ssa.Instruction) {
-	var errorAssertions, nilAssertions []ssa.Instruction
-	for _, block := range acquisition.Parent().Blocks {
-		for _, instruction := range block.Instrs {
-			if !ssaflow.InstructionMayFollow(acquisition, instruction) {
-				continue
-			}
-			common := ssaflow.InstructionCall(instruction)
-			if ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyErrorClaim) {
-				for _, argument := range common.Args {
-					if heapmodel.ValueDerivesFrom(argument, errorValue) {
-						errorAssertions = append(errorAssertions, instruction)
-					}
-				}
-			}
-			if ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyNilClaim) {
-				for _, argument := range common.Args {
-					if heapmodel.MayAlias(argument, resource) {
-						nilAssertions = append(nilAssertions, instruction)
-					}
-				}
-			}
-		}
-	}
-	return errorAssertions, nilAssertions
-}
-
-func errorAssertionDominatesNil(assertedError ssa.Instruction, nilAssertions []ssa.Instruction) bool {
-	for _, assertedNil := range nilAssertions {
-		if ssaflow.InstructionDominates(assertedError, assertedNil) {
-			return true
-		}
-	}
-	return false
-}
-
-func fatalErrorAssertion(instruction ssa.Instruction) bool {
-	common := ssaflow.InstructionCall(instruction)
-	return ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyFatalError)
 }
 
 // processExitReclaims accepts a resource that program exit genuinely cleans

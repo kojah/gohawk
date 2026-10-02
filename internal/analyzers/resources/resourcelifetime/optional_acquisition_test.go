@@ -24,7 +24,7 @@ func TestOptionalAcquisitionAllowance(t *testing.T) {
 		{"cyclic", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			call, resource, errValue := optionalAcquisitionInputs(t, pkg.Func(test.name))
+			call, resource, errValue := acquiredResourceInputs(t, pkg.Func(test.name))
 			baseline := proveOptionalAcquisitionWithin(call, resource, errValue, nil)
 			if baseline.Proven() != test.want || baseline.proof.State == ssaflow.EvidenceUnknown {
 				t.Fatalf("default diamond proof = %+v; SSA:\n%s", baseline, carriedSSA(t, call.Parent()))
@@ -50,7 +50,7 @@ func TestOptionalAcquisitionAllowance(t *testing.T) {
 }
 
 func TestOptionalAcquisitionChildCutoff(t *testing.T) {
-	call, resource, errValue := optionalAcquisitionInputs(t, optionalAcquisitionFixture(t).Func("exact"))
+	call, resource, errValue := acquiredResourceInputs(t, optionalAcquisitionFixture(t).Func("exact"))
 	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
 	got := proveOptionalAcquisitionWithin(call, resource, errValue, pool.Within(2))
 	if got.proof.State != ssaflow.EvidenceUnknown || got.proof.Reason != resourceReasonBudgetExhausted || got.resourcePhi != nil || pool.Exhausted() {
@@ -65,7 +65,7 @@ func TestOptionalAcquisitionFlow(t *testing.T) {
 	pkg := optionalAcquisitionFixture(t)
 	for _, name := range []string{"exact", "inverse", "leak"} {
 		t.Run(name, func(t *testing.T) {
-			call, resource, _ := optionalAcquisitionInputs(t, pkg.Func(name))
+			call, resource, _ := acquiredResourceInputs(t, pkg.Func(name))
 			provider := resourceSummaries.Provider(nil)
 			evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
 			got := evaluateResourceFlow(nil, evidence, call, resource, resourceContract{cleanup: []string{"Close"}})
@@ -80,7 +80,7 @@ func TestOptionalAcquisitionFlow(t *testing.T) {
 	}
 }
 
-func optionalAcquisitionInputs(t *testing.T, fn *ssa.Function) (*ssa.Call, ssa.Value, ssa.Value) {
+func acquiredResourceInputs(t *testing.T, fn *ssa.Function) (*ssa.Call, ssa.Value, ssa.Value) {
 	t.Helper()
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](fn) {
 		if ssaflow.CallName(call.Common()) != "acquire" {

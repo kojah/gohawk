@@ -1065,3 +1065,23 @@ queries; HTTP/error predicates and graph/type internals remain separate costs.
 ambiguous alternatives, boxed error nilness, cycles, every insufficient allowance,
 child cutoff with parent available and fresh recovery. Shared reachability tests
 separately retain reachable and sibling-block answers after fresh recovery.
+
+### Acquisition-error assertion allowance
+
+`acquisition_error.go` owns the existing assertion-based exclusion: a fatal
+require Error/NotNil claim must derive from the acquisition error; a nonfatal
+claim applies only to HTTP with a dominated Nil assertion aliasing the resource.
+Earlier claims, unrelated errors/resources, reversed ordering and sibling
+branches do not supply the nonfatal pair. This is a test-library contract, not
+an unconditional exported cleanup guarantee.
+
+Instruction census, assertion ordering, argument visits, error derivation and
+alias dispatch share a child of the observed candidate pool. Contract matching
+precedes reachability, avoiding CFG queries for unrelated instructions. Any
+cutoff returns budget unknown, and an interrupted census publishes neither
+assertion list. Graph construction and alias-query internals remain independent
+costs. `acquisition_error_test.go` pins require/assert functions and methods,
+NotNil, exact/non-HTTP pairs, reversed and sibling branches, unrelated inputs,
+earlier claims, no-assertion leaks, all insufficient allowances, partial-list
+discard and child cutoff/fresh recovery. Ordinary resource flow remains the
+sole diagnostic proof; HTTP acquisition boundaries are separate work.
