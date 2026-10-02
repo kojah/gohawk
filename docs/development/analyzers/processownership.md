@@ -225,3 +225,26 @@ returning, looping and panicking branches and exercises every child cutoff
 with fresh recovery. The multi-result factory in `prestart_test.go` verifies
 that completed owner inventories keep both returned projections while truncated
 ones publish neither. These controls complement the existing analyzer fixtures.
+
+
+## Post-Start command use and returned handles
+
+One structured command-use query supplies the final detached-intent boundary.
+Instruction, possible reachability, closure-binding, operand, reaching-value and
+stored-value visits share a candidate child allowance. A completed handoff
+witness retains the ordinary missing-wait question; a completed absence retains
+unused-command uncertainty. Interrupted discovery has reason
+`command-use-budget-exhausted` and never supplies a reportable handoff.
+Possible reachability through loop back edges is retained: this structural use
+policy differs from a runtime-value use-after census that stops at back edges.
+PID/name data and synchronous command-pipe IO remain distinct from handles.
+
+Returned process-owner discovery charges the complete body traversal, including
+non-load instructions, and uses `lifecycle.ProveReturnedOwnershipWithin` for
+aggregate containment. A possible returned owner remains unknown reaping,
+never an exact Wait. Call argument visits also share a child allowance; binding
+and completion retain their existing requests. Heap, type and symbol internals
+keep independent costs. `command_use_test.go` pins completed positive/negative
+SSA shapes, every cutoff, fresh recovery, loop-back-edge semantics and the final
+candidate-attributed cutoff trace. Existing fixtures remain the diagnostic and
+accepted behavior controls.

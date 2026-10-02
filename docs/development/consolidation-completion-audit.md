@@ -4787,3 +4787,21 @@ canonical checks preserve their stated boundaries. The candidate budget comments
 now describe request ownership without claiming one bound on independent heap,
 type, symbol and other query costs. No production FP removal is credited;
 seven recorded sites plus Rune and overall consolidation completion remain open.
+
+
+## Post-Start process discovery
+
+Beads `gohawk-dho.23.6` consolidates command-use discovery behind one structured
+query consumed by the final reporting decision and its trace. Shared bounded
+instruction, possible-reachability, reaching-value and stored-value APIs own
+traversal. Existing loop-back-edge reachability, scalar and synchronous-pipe
+boundaries remain analyzer policy. Returned process-owner discovery uses a
+bounded complete body census and the existing returned-ownership proof instead
+of charging only selected loads and starting unbounded containment.
+
+The [post-Start review](../../benchmarks/precision/audits/process-poststart-discovery-2026-10-02.md)
+records actual SSA cutoff/recovery, distinct handle/data and returned-owner
+controls, scoped diagnostic comparisons and final validation. This is no claim
+of one bound on every independently owned query. No production FP correction
+is credited; seven recorded sites plus Rune and whole-goal completion remain
+open.

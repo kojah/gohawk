@@ -4,6 +4,7 @@ import "testing"
 
 func TestProcessReasonCodes(t *testing.T) {
 	want := map[processReason]string{
+		reasonCommandUseCutoff:                "command-use-budget-exhausted",
 		reasonNone:                            "",
 		reasonHelperOwnershipUnknown:          "helper-command-ownership-unknown",
 		reasonStartFailureReturn:              "start-failure-return",

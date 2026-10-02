@@ -17,6 +17,7 @@ const (
 	reasonAmbiguousWaitOwnership
 	reasonUnusedCommandOwnershipUnknown
 	reasonProgramLifetimeOwnershipUnknown
+	reasonCommandUseCutoff
 	processReasonCount
 )
 
@@ -46,6 +47,8 @@ func (reason processReason) String() string {
 		return "unused-command-ownership-unknown"
 	case reasonProgramLifetimeOwnershipUnknown:
 		return "program-lifetime-ownership-unknown"
+	case reasonCommandUseCutoff:
+		return "command-use-budget-exhausted"
 	default:
 		return "invalid-process-reason"
 	}

@@ -16,7 +16,7 @@ type processReturnDecision struct {
 	reason processReason
 }
 
-func decideProcessReturn(start *ssa.Call, command ssa.Value, witness *ssa.Return, unknown bool) processReturnDecision {
+func decideProcessReturn(start *ssa.Call, command ssa.Value, witness *ssa.Return, unknown bool, budget *ssaflow.SearchBudget) processReturnDecision {
 	if witness == nil {
 		if unknown {
 			return processReturnDecision{ssaflow.EvidenceUnknown, reasonAmbiguousWaitOwnership}
@@ -26,7 +26,11 @@ func decideProcessReturn(start *ssa.Call, command ssa.Value, witness *ssa.Return
 	// Fire-and-forget alone cannot distinguish an intentional browser or
 	// daemon launch from a defect. Retiring the detached audit must not
 	// broaden missing-wait to report those same uncertain launches.
-	if commandUnusedAfterStart(start, command) {
+	use := proveCommandUseAfterStart(start, command, budget)
+	if use.State == ssaflow.EvidenceUnknown {
+		return processReturnDecision{ssaflow.EvidenceUnknown, reasonCommandUseCutoff}
+	}
+	if use.State == ssaflow.EvidenceDisproven {
 		return processReturnDecision{ssaflow.EvidenceUnknown, reasonUnusedCommandOwnershipUnknown}
 	}
 	// A one-time start in the executable's entry may be owned until program

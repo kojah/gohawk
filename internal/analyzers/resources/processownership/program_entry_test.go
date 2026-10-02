@@ -27,14 +27,14 @@ func TestProgramEntryProcessDecision(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pkg := ssaflowtest.BuildPackage(t, test.path, "package "+test.path+"\nimport \"os/exec\"\n"+test.source)
 			start, command, witness := programEntryInputs(t, pkg)
-			got := decideProcessReturn(start, command, witness, false)
+			got := decideProcessReturn(start, command, witness, false, nil)
 			if got.state != test.want {
 				t.Fatalf("decision = %+v, want state %v", got, test.want)
 			}
 			if test.want == ssaflow.EvidenceUnknown && got.reason != reasonProgramLifetimeOwnershipUnknown {
 				t.Fatalf("entry reason = %v", got.reason)
 			}
-			settled := decideProcessReturn(start, command, nil, false)
+			settled := decideProcessReturn(start, command, nil, false, nil)
 			if settled.state != ssaflow.EvidenceDisproven || settled.reason != reasonWaitOwnershipProven {
 				t.Fatalf("exact settlement changed: %+v", settled)
 			}

@@ -130,14 +130,8 @@ func processHandleOwnershipAction(proof *commandProof, instruction ssa.Instructi
 		// without keeping exec.Cmd. Containment is a possible ownership handoff,
 		// not proof that the owner will Wait; PID-only projections do not qualify.
 		// https://github.com/criyle/go-sandbox/blob/6a60e40be9d0cefb656c4ae12415c5fd040df954/container/environment_linux.go#L266-L280
-		budget := proof.budget()
-		for _, handle := range ssaflow.InstructionsOf[*ssa.UnOp](returned.Parent()) {
-			if !budget.Spend() {
-				return ssaflow.EvidenceUnknown
-			}
-			if osProcessDerivedFromCommand(handle, command) && lifecycle.ReturnedValueOwnsValue(returned, handle) {
-				return ssaflow.EvidenceUnknown
-			}
+		if owner := proveReturnedProcessOwner(returned, command, proof.budget()); owner.State != ssaflow.EvidenceDisproven {
+			return ssaflow.EvidenceUnknown
 		}
 		return ssaflow.EvidenceDisproven
 	}
@@ -149,7 +143,11 @@ func processHandleOwnershipAction(proof *commandProof, instruction ssa.Instructi
 	// seeing exec.Cmd. Bind its Wait or returned-owner summary to that exact
 	// argument; incomplete searches remain unknown rather than absence of cleanup.
 	state := ssaflow.EvidenceDisproven
+	arguments := proof.budget()
 	for _, argument := range common.Args {
+		if !arguments.Spend() {
+			return ssaflow.EvidenceUnknown
+		}
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
 		}

@@ -3,7 +3,6 @@ package processownership
 
 import (
 	"go/token"
-	"go/types"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
@@ -196,7 +195,7 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 			AfterCallSuccess: start, Owns: owns, AllowReturn: allowReturn, Assume: assumptions, Successors: successors,
 		})
 	}
-	decision := decideProcessReturn(start, command, witness, unknown)
+	decision := decideProcessReturn(start, command, witness, unknown, proof.budget())
 	emitProcessDecision(pass, function, start, command, decision)
 	if decision.state != ssaflow.EvidenceProven {
 		return
@@ -236,104 +235,6 @@ func commandStoredExternallyBeforeStart(before []ssa.Instruction, command ssa.Va
 func externallyOwnedAddress(address ssa.Value) bool {
 	field, ok := address.(*ssa.FieldAddr)
 	return ok && ssaflow.ExternallyOwnedValue(field.X)
-}
-
-// commandUnusedAfterStart reports whether no instruction reachable after
-// Start hands on the command or something derived from it, such as its Process.
-// Synchronous IO on its pipes alone leaves process ownership unknown.
-func commandUnusedAfterStart(start *ssa.Call, command ssa.Value) bool {
-	for _, block := range start.Parent().Blocks {
-		for _, instruction := range block.Instrs {
-			if instruction == start || !ssaflow.InstructionMayFollow(start, instruction) {
-				continue
-			}
-			if _, ok := instruction.(*ssa.DebugRef); ok {
-				continue
-			}
-			// A literal that captures the handle may wait on it later.
-			if closure, ok := instruction.(*ssa.MakeClosure); ok {
-				for _, binding := range closure.Bindings {
-					if heapmodel.CapturedBindingMatches(binding, command) {
-						return false
-					}
-				}
-			}
-			// Only handing the handle on counts as a use: a call receiving it, a
-			// store, a return, or a send. Reading a field such as the child's
-			// PID for a log line touches nothing that could wait on or release
-			// the process. agent-filesystem daemonizes itself this way:
-			// https://github.com/redis/agent-filesystem/blob/62aebf8f4d4b3a3866f4034fc6501af7d5d4a133/mount/cmd/agent-filesystem-mount/main.go#L70-L90
-			if !handsValueOn(instruction) {
-				continue
-			}
-			for _, operand := range instruction.Operands(nil) {
-				if operand == nil || *operand == nil || heapmodel.ValueDerivesFrom(*operand, start) {
-					// Start's own error result is not a use of the handle.
-					continue
-				}
-				if handleCarried(*operand, command) {
-					return false
-				}
-			}
-		}
-	}
-	return true
-}
-
-// handsValueOn reports whether an instruction can pass a value it consumes
-// to code or storage that outlives the instruction. Local standard IO on a
-// command pipe does not hand on its process owner; Go and Defer retain that question.
-func handsValueOn(instruction ssa.Instruction) bool {
-	switch operation := instruction.(type) {
-	case *ssa.Call:
-		return !commandPipeOperation(operation.Common())
-	case ssa.CallInstruction, *ssa.Store, *ssa.Return, *ssa.Send, *ssa.MapUpdate, *ssa.Panic:
-		return true
-	}
-	return false
-}
-
-// handleCarried reports whether value is the command handle or something
-// bound to it: a projection such as cmd.Process, a pipe the command returned,
-// or an aggregate holding either. Derivation stops at a scalar, because a PID
-// or a name read from the handle is data the recipient cannot wait on or
-// release.
-func handleCarried(value, command ssa.Value) bool {
-	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
-	// All storage and operand edges share one visited set. Starting a new walk
-	// on either edge loops forever on cyclic owner structures (seen while
-	// auditing kiwifs with its swaggo/swag dependency).
-	// https://github.com/kiwifs/kiwifs/blob/3961d5e70a9e0ef457e58e29c40c52c870d57e73/go.mod
-	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
-	leaf = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
-		if call, _, result := ssaflow.CallResultSource(value); result && commandPipeOperation(call.Common()) {
-			return false
-		}
-		if _, scalar := value.Type().Underlying().(*types.Basic); scalar {
-			return false
-		}
-		if heapmodel.MayAlias(value, command) {
-			return true
-		}
-		if load, ok := value.(*ssa.UnOp); ok {
-			for stored := range lifecycle.StoredInto(load.X) {
-				if walk.Any(stored, leaf) {
-					return true
-				}
-			}
-		}
-		instruction, ok := value.(ssa.Instruction)
-		if !ok {
-			return false
-		}
-		for _, operand := range instruction.Operands(nil) {
-			if operand != nil && walk.Any(*operand, leaf) {
-				return true
-			}
-		}
-		return false
-	}
-	return ssaflow.NewReachingWalk(forms).Any(value, leaf)
 }
 
 // commandName names the command by its variable: the one exec.Command's

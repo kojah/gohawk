@@ -1,0 +1,7 @@
+scope	version	pin	exit	stderr_bytes	diagnostics	sha256	receipt
+process-fixture: processownership,processchoices	parent	local fixtures	0	0	40	a8ae71c4f8849f4ae2a4723e38cbab40432d2d020f4b21fbe500e72c924212a3	.build/goal-process-poststart-scoped/process-fixture-parent-receipt.json
+ferro: ./mcp	parent	d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4	0	0	1	a8ae71c4f8849f4ae2a4723e38cbab40432d2d020f4b21fbe500e72c924212a3	.build/goal-process-poststart-scoped/ferro-parent-receipt.json
+revdep: ./internal/telemetry	parent	8a2fdb0927e2fc9b2a5b178c94f55d1887659152	0	0	0	a8ae71c4f8849f4ae2a4723e38cbab40432d2d020f4b21fbe500e72c924212a3	.build/goal-process-poststart-scoped/revdep-parent-receipt.json
+process-fixture: processownership,processchoices	current	local fixtures	0	0	40	1b68d2f2af3677175d2a963b0e10d32ff283c0aca63570fe82f28dad09c02d7a	.build/goal-process-poststart-scoped/process-fixture-current-receipt.json
+ferro: ./mcp	current	d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4	0	0	1	1b68d2f2af3677175d2a963b0e10d32ff283c0aca63570fe82f28dad09c02d7a	.build/goal-process-poststart-scoped/ferro-current-receipt.json
+revdep: ./internal/telemetry	current	8a2fdb0927e2fc9b2a5b178c94f55d1887659152	0	0	0	1b68d2f2af3677175d2a963b0e10d32ff283c0aca63570fe82f28dad09c02d7a	.build/goal-process-poststart-scoped/revdep-current-receipt.json

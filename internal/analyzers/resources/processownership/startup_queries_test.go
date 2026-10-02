@@ -22,7 +22,7 @@ func TestSuccessfulStartReturnAllowance(t *testing.T) {
 		{"returning", ssaflow.EvidenceDisproven}, {"looping", ssaflow.EvidenceProven}, {"panicking", ssaflow.EvidenceProven},
 	} {
 		start := startupTestCall(t, pkg.Func(test.name))
-		checkStartupQuery(t, test.name, test.want, func(budget *ssaflow.SearchBudget) ssaflow.Proof { return successfulStartCannotReturn(start, budget) })
+		checkProcessQuery(t, test.name, test.want, func(budget *ssaflow.SearchBudget) ssaflow.Proof { return successfulStartCannotReturn(start, budget) })
 	}
 }
 
@@ -53,18 +53,21 @@ func TestLaterWatcherAllowance(t *testing.T) {
 				t.Fatalf("containment bypassed body-only allowance: %+v", result)
 			}
 		}
-		checkStartupQuery(t, test.name, test.want, func(budget *ssaflow.SearchBudget) ssaflow.Proof {
+		checkProcessQuery(t, test.name, test.want, func(budget *ssaflow.SearchBudget) ssaflow.Proof {
 			return laterProcessOwnerWatcher(fn, start, []ssa.Value{fn.Params[1]}, budget)
 		})
 	}
 }
 
-func checkStartupQuery(t *testing.T, name string, want ssaflow.EvidenceState, query func(*ssaflow.SearchBudget) ssaflow.Proof) {
+func checkProcessQuery(t *testing.T, name string, want ssaflow.EvidenceState, query func(*ssaflow.SearchBudget) ssaflow.Proof) {
 	t.Helper()
 	pool := ssaflow.NewSearchBudget(processPoolBudget)
 	for limit := range 1000 {
 		child := pool.Within(limit)
 		result := query(child)
+		if limit == 0 && !child.Exhausted() {
+			t.Fatalf("%s bypassed zero allowance: %+v", name, result)
+		}
 		if !child.Exhausted() {
 			if result.State != want {
 				t.Fatalf("%s complete: %+v want %v", name, result, want)
