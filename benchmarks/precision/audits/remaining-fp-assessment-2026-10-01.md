@@ -14,6 +14,10 @@ without proving the callback lifecycle. That leaves 16 unresolved sites. The
 18-site table below remains the historical assessment that motivated this
 reassessment; its counts are not a latest-binary corpus replay.
 
+The later [program-entry context follow-up](program-entry-context-followup-2026-10-02.md)
+corrects the k8ssandra site using existing one-time entry evidence, leaving 15
+unresolved sites. Its unknown outcome makes no cancellation guarantee.
+
 ## Remaining families
 
 Counts refer to diagnostic locations, not repositories or independent defects.

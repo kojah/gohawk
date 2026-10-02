@@ -66,8 +66,40 @@ result guarantee is projected by `resultfacts.Guarantee.Outcome`, shared with
 resource lifetime; unknown guarantees cannot select the cleanup branch. The
 classifier retains its own budget and absent-provider boundary.
 
-Elapsed sleep durations and command-wide process lifetimes remain known
-precision gaps, not blanket exemptions for timers or command entry points.
+Elapsed sleep durations remain a known precision gap, not a timer exemption.
+
+### One-time program-entry contexts
+
+A standard context constructor directly in the true program entry, outside a
+control-flow cycle, may supply process-lifetime context state. At each normal
+return the existing classifier labels this as `unknown`, with reason
+`process-lifetime-context`; the ordinary obligation walk still decides the final
+outcome. Exact deferred cancellation or transfer can retain a stronger outcome.
+This is a precision boundary for bounded retention at one acquisition site, not
+proof that the cancel runs, children are canceled, or workers are joined.
+
+The classifier reuses `ssaflow.RunsOnceInProgramEntry`: the function must be the
+package-scope `main` in package `main`, with no reference to it anywhere in the
+package. Loops, helpers, closures, methods, and functions called `main` in other
+packages remain checked. `signal.NotifyContext` stays outside this boundary:
+unregistering a signal handler changes process behavior during the lifetime,
+not only context retention. Facts and reusable callee guarantees are unchanged.
+
+This narrows the check and accepts missing diagnostics when work finishes before
+process exit but its directly acquired entry context remains uncanceled. It also
+applies to standard deadline/cause constructors; their cancellation is never
+inferred merely from this boundary. Contexts created in called helpers do not
+inherit it. The representative source is
+[k8ssandra's context and conditional handoff](https://github.com/k8ssandra/k8ssandra-operator/blob/2028d352ecb495de4b6e053d99d7a77b21eb5107/main.go#L176-L205).
+
+Fixtures `entrycontext/main.go`, `callableentry/main.go`, and
+`namedentry/main.go` cover the accepted entry context and cause form, an exact
+deferred timeout cancel, and the excluded loop/helper/closure/method/signal and
+referenced/non-entry main forms. The analyzer's `program_entry_test.go` checks
+final outcomes and one unknown label per return, including when exact cleanup wins.
+The small policy extension stays at the existing classifier decision point in
+`proof.go`; it adds no traversal or parallel reporting rule to that already
+large cohesive proof implementation.
 
 ### Cancels owned by a returned struct
 

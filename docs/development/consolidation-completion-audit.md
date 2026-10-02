@@ -13,7 +13,7 @@ consolidation tracked in `gohawk-dho.24`.
 | Shared responsibilities and downward dependencies | The architecture guide names the SSA, heap, lifecycle, resource and summary layers. Repository-wide architecture tests enforce imports, analyzer layout, fact ownership, summary access, traversal and reporting boundaries. | Structural conformance has passing canonical receipts. It does not prove every proof policy is cohesive; semantic review remains open. |
 | No duplicated proof mechanics | The value-walk and storage/summary reviews document concrete merges and distinct policies. The broader normalized-body scan below found five additional mechanical duplicate groups, now consolidated. | The identified groups are addressed. Partial blocks and equivalent logic written differently remain outside that scan; no repository-wide absence claim is made. |
 | One authoritative decision for each check | Reviewed lifecycle analyzers classify once and ask a shared flow query. The remaining normalized matches in classifier caches and state keys contain different domain state, rather than second acceptance rules. | The ten-check inventory below locates each reporting pipeline. Concurrent capture and process ownership now share their final decisions with tracing. Lock release and mutation reporting also consume structured decisions after dho.27. Defer-loop outcomes use a structured proof after dho.28; resource lifetime now also owns its state and pre-flow policy exclusion after dho.30. Deeper classification and precision-family review remain open. |
-| Remaining easy FPs fixed | Frozen batches 62/63 supplied 55 production FP locations. The queue refresh, successful 22-site replay and four subsequent corrections left 18 unresolved production sites. The later opaque registry-owner correction removes two FDio sites, leaving 16 unresolved. The ten-family assessment states the missing evidence for each. Rune callback wait is separately corrected; fresh-lock publication remains open. | No target-resolution-only correction has been demonstrated. The remaining families need policy, identity, state or protocol evidence. The current-helper reassessment found the FDio field-origin gap fixed in dho.31. Further source review must distinguish a newly available bounded fix from a genuinely larger model. |
+| Remaining easy FPs fixed | Frozen batches 62/63 supplied 55 production FP locations. The queue refresh, successful 22-site replay and four subsequent corrections left 18 unresolved production sites. The later opaque registry-owner correction removes two FDio sites, leaving 16 unresolved; the one-time entry-context correction in dho.37 removes one k8ssandra site, leaving 15. The ten-family assessment states the missing evidence for each. Rune callback wait is separately corrected; fresh-lock publication remains open. | No target-resolution-only correction has been demonstrated. The remaining families need policy, identity, state or protocol evidence. The current-helper reassessment found the FDio field-origin gap fixed in dho.31 and the one-time entry policy corrected in dho.37. Further source review must distinguish a newly available bounded fix from a genuinely larger model. |
 | Precision preserved by consolidation | Parent/current boundary comparisons, accepted and diagnostic fixtures, ordinary tests and local dogfood scans accompany focused changes. Existing facts retain must/may polarity, exact binding, observation time and bounded unknown outcomes. | Passing receipts prove their stated scopes. They do not certify every historical finding against the latest source. Use affected pinned cases when behavior changes; do not rewrite frozen labels or credit unscannable cases. |
 | Tight development cycle | Focused tests precede stable `make verify` gates. The local gate runs ordinary tests, formatting, vet, lint, dead-code and local dogfood; it does not invoke precision-regression. | Maintained. No full precision replay or local race run is part of these iterations. |
 | Work tracked and own changes published | Beads children record corrections, reviews and unresolved questions. Implementation commits contain exact task paths; unrelated staged deletion and working-tree artifacts remain separate. | Verify commit, upstream synchronization and child closure after each implementation. The epic and this completion audit remain active. |
@@ -473,6 +473,31 @@ the corrected hash is
 `735f414e60f1a599f8b2930e4a8b0239d7d9ea08f97b358353018e5558c343d7`.
 These identify pre-commit executables, not clean VCS stamps. No FP removal,
 fact-schema change, full precision corpus replay or local race run is credited.
+
+## One-time entry-context reassessment
+
+Beads `gohawk-dho.37` uses existing `ssaflow.RunsOnceInProgramEntry` evidence
+at cancellationownership's instruction classifier. The program-entry return is
+unknown for a standard context acquired outside cycles, never evidence that its
+cancel runs or workers finish. Signal registration, repeatable/helper scopes
+and referenced or non-entry main forms retain diagnostics. Exact cleanup still
+wins through the same authoritative flow query; exported facts are unchanged.
+
+The [durable receipt](../../benchmarks/precision/audits/program-entry-context-followup-2026-10-02.md)
+records actual SSA, parent/current trace outcomes, immutable binary hashes and
+successful pinned scans. K8ssandra's original report disappears (exit 3 to 0);
+both reviewed Openase cancellation TPs remain (exit 3, identical JSON). The
+parent overlay fails the new accepted cases and trace expectations, while the
+corrected focused test passes. The resulting queue has 15 unresolved sites.
+The accepted coverage loss concerns earlier completion of entry-context work;
+no blanket exemption for helpers, command subprocesses or signal stops follows.
+
+The action enum moves to the existing label vocabulary, keeping proof.go within
+the lint limit. The stable canonical gate passes all local checks, with ordinary
+tests taking 3 seconds (`.build/goal-entry-context-stable-verify.log`). Focused
+documentation checks also pass after correcting the test reference. No full
+precision replay or local race run was performed. This bounded correction
+does not settle the deeper duplicate-classification review or overall objective.
 
 ## Next verification
 

@@ -34,21 +34,15 @@ type CancellationProof struct {
 	Witness *ssa.Return
 }
 
-type cancellationAction uint8
-
-const (
-	cancellationActionNone cancellationAction = iota
-	cancellationActionRelease
-	cancellationActionTransfer
-	cancellationActionUnknown
-)
-
 type cancellationClassifier struct {
-	cancel    ssa.Value
-	context   ssa.Value
-	parent    *cancellationClassifier
-	actions   map[ssa.Instruction]cancellationAction
-	transfers bool
+	cancel  ssa.Value
+	context ssa.Value
+	// processLifetime bounds standard-context retention to a single program
+	// entry acquisition. It never establishes invocation of the cancel.
+	processLifetime bool
+	parent          *cancellationClassifier
+	actions         map[ssa.Instruction]cancellationAction
+	transfers       bool
 	// observer hears where the shared storage, effect, and completion queries
 	// behind this proof gave up; nil when the candidate is not being traced.
 	observer ssaflow.Observer
@@ -108,6 +102,7 @@ func proveCancellation(
 	}
 	if contract, ok := cancellationContractFor(call.Common()); ok && contract.packagePath == "context" {
 		classifier.context = ssaflow.CallResult(call, 0)
+		classifier.processLifetime = ssaflow.RunsOnceInProgramEntry(call)
 	}
 	// One walk carries the classifier's labels to every feasible return. A
 	// return no action reaches is loss; a return only an opaque handoff reaches
@@ -204,6 +199,15 @@ func (classifier *cancellationClassifier) classifyAction(instruction ssa.Instruc
 	common := ssaflow.InstructionCall(instruction)
 	if label, recognized := classifier.recognizedAction(instruction, common); recognized {
 		return label
+	}
+	if _, returned := instruction.(*ssa.Return); returned && classifier.processLifetime {
+		// A standard context acquired once by the true program entry may span
+		// the process lifetime: its retention cannot accumulate at this site.
+		// Exit ends that interval but does not invoke cancel or prove workers
+		// joined. Signal registrations and repeatable acquisitions stay outside
+		// this boundary. Exact cleanup/transfer can still cover this unknown.
+		// https://github.com/k8ssandra/k8ssandra-operator/blob/2028d352ecb495de4b6e053d99d7a77b21eb5107/main.go#L176-L205
+		return labelled(cancellationActionUnknown, reasonLabelProcessLifetimeContext)
 	}
 	if !instructionReferencesCancellation(instruction, classifier.cancel) {
 		return cancellationLabel{}

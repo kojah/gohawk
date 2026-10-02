@@ -38,6 +38,7 @@ const (
 	reasonLabelResultGuardedRelease
 	reasonLabelResultGuardedUnknown
 	reasonLabelReturnedOwner
+	reasonLabelProcessLifetimeContext
 	cancellationReasonCount
 )
 
@@ -74,6 +75,7 @@ var cancellationReasonCodes = [...]string{
 	reasonLabelResultGuardedRelease:   "result-guarded-release",
 	reasonLabelResultGuardedUnknown:   "result-guarded-unknown",
 	reasonLabelReturnedOwner:          "returned-owner",
+	reasonLabelProcessLifetimeContext: "process-lifetime-context",
 }
 
 func (reason cancellationReason) String() string {

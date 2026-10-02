@@ -10,6 +10,15 @@ import (
 // that decided the label, so a trace of an unknown says which boundary made
 // the use opaque: a launched helper, a registered callback, a store.
 
+type cancellationAction uint8
+
+const (
+	cancellationActionNone cancellationAction = iota
+	cancellationActionRelease
+	cancellationActionTransfer
+	cancellationActionUnknown
+)
+
 type cancellationLabel struct {
 	action cancellationAction
 	reason cancellationReason

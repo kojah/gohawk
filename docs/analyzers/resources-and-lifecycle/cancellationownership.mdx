@@ -14,7 +14,8 @@ successful return path that neither calls the cancel function nor transfers it
 to the caller.
 
 Canceling a parent context, or receiving from the child's `Done` channel, can
-stand in for the child's own cancel on the paths it covers. Signal
+stand in for the child's own cancel on the paths it covers. Contexts created
+once directly in the program's entry function can last until process exit. Signal
 registrations from `signal.NotifyContext` still need their stop function.
 
 The full list of precision boundaries, with the fixtures that pin each one, is

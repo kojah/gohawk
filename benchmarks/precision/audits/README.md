@@ -1,10 +1,15 @@
 # Precision audits
 
+The [program-entry context follow-up](program-entry-context-followup-2026-10-02.md)
+removes the k8ssandra context report through the existing one-time entry evidence.
+Scoped scans retain both reviewed Openase cancellation true positives. The current
+production FP queue has 15 unresolved sites; frozen verdicts and totals are unchanged.
+
 The [registry-group follow-up](registry-group-followup-2026-10-02.md) removes
 the two FDio registered-worker false positives through existing opaque-owner
 provenance. Scoped before/after scans retain the stargz true-positive control.
-The remaining production FP queue has 16 unresolved sites; frozen verdicts and
-audit totals are unchanged.
+That follow-up left 16 unresolved sites before the program-entry correction;
+frozen verdicts and audit totals are unchanged.
 
 The [nil boxing follow-up](nil-boxing-followup-2026-10-02.md) corrects shared
 definite-nil proofs and two minimized compression-writer false positives.
