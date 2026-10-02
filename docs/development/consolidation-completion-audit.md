@@ -4615,3 +4615,22 @@ the outcome boundary. Final canonical validation passes all eight targets;
 four scoped comparisons preserve all 355 affected fixture diagnostics with
 empty stderr. The final architecture check passes. This gives parent .24 a
 finite disposition without expanding its claim to a global architecture proof.
+
+
+## Duplicate read-lock reports across flow paths
+
+Beads `gohawk-dho.4.5` corrects duplicate reporting when distinct branch states
+reach one write. The proof and per-state tracing stay authoritative; proven
+instruction/lock pairs are presented once per function. Unknown states do not
+reserve a pair, different locks stay distinct, and the existing incomplete-walk
+report barrier remains in place.
+
+The [reporting review](../../benchmarks/precision/audits/readlock-path-reporting-2026-10-02.md)
+records a parent-failing convergent fixture and six scoped comparisons. Existing
+108 lock-fixture diagnostics remain byte-identical; Skywalking multiplicity
+falls from four to two with identical distinct payloads. This is presentation
+correction, not an FP removal: ten production sites and Rune remain unresolved.
+
+Final canonical validation passes all eight targets, including ordinary tests
+and self-dogfood; final architecture validation passes. No full precision
+regression replay or local race run was used.

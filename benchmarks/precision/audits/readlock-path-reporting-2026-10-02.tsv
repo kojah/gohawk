@@ -1,0 +1,7 @@
+scope	version	exit	stderr_bytes	diagnostics	binary_sha256	receipt
+lock-fixture	parent	0	0	108	7ad0bd369959d64ecd648bdb7d39c5ae4795822d90571dcc682b6f13287df40f	.build/goal-readlock-paths-scoped/lock-fixture-parent-receipt.json
+lock-fixture	current	0	0	108	45ebf800ad3c9df687f2d607358da135f1c7e48682d4e4d2d923e5b7c92cae41	.build/goal-readlock-paths-scoped/lock-fixture-current-receipt.json
+path-fixture	parent	0	0	7	7ad0bd369959d64ecd648bdb7d39c5ae4795822d90571dcc682b6f13287df40f	.build/goal-readlock-paths-scoped/path-fixture-parent-receipt.json
+path-fixture	current	0	0	5	45ebf800ad3c9df687f2d607358da135f1c7e48682d4e4d2d923e5b7c92cae41	.build/goal-readlock-paths-scoped/path-fixture-current-receipt.json
+skywalking	parent	0	0	4	7ad0bd369959d64ecd648bdb7d39c5ae4795822d90571dcc682b6f13287df40f	.build/goal-readlock-paths-scoped/skywalking-parent-receipt.json
+skywalking	current	0	0	2	45ebf800ad3c9df687f2d607358da135f1c7e48682d4e4d2d923e5b7c92cae41	.build/goal-readlock-paths-scoped/skywalking-current-receipt.json

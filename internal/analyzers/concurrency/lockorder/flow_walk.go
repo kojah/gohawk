@@ -66,6 +66,7 @@ func (walk *lockStateWalk) run(
 		callerOwned:     callerOwned,
 		defers:          functionDefers,
 		releaseAttempts: newReleaseAttempts(),
+		readLockWrites:  make(map[readLockWriteWitness]bool),
 	}
 	// Each predecessor selects its own phi values before any instruction runs.
 	// Clone the lock collections so one successor's release cannot discharge

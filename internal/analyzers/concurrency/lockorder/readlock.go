@@ -45,12 +45,26 @@ func reportReadLockWrites(
 	if proof.state != ssaflow.EvidenceProven {
 		return
 	}
+	// Branch evidence can visit one write repeatedly. Keep proof and tracing
+	// per state, but publish each instruction/lock witness only once. Unknown
+	// states never reserve a witness, and a different held lock stays distinct.
+	// https://github.com/apache/skywalking-rover/blob/e83d5925500a7e63dd55c080a9b1542d6cedaefb/pkg/tools/buffer/buffer.go#L644-L649
+	witness := readLockWriteWitness{instruction: instruction, identity: proof.identity}
+	if flow.readLockWrites[witness] {
+		return
+	}
+	flow.readLockWrites[witness] = true
 	source := syntax.SourceRange(flow.pass, instruction.Pos())
 	check.Report(flow.pass, check.LockReadLockWrite, analysis.Diagnostic{
 		Pos: source.Pos(), End: source.End(),
 		Message: fmt.Sprintf("write while only the read lock %s is held", flow.lockName(proof.identity)),
 		Related: flow.acquisitionEvidence(proof.identity),
 	})
+}
+
+type readLockWriteWitness struct {
+	instruction ssa.Instruction
+	identity    string
 }
 
 type readLockWriteProof struct {

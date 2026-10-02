@@ -289,6 +289,16 @@ accepted direct-only initialization pattern in `exclusive_owners.go`.
 
 ### Writes under a read lock
 
+One proven instruction/lock pair is reported once per function, even when
+short-circuit predecessors reach it with different branch evidence. Proof and
+tracing still run for each state; unknown states do not reserve a diagnostic,
+and different lock identities at the same write remain distinct. The function's
+existing report buffer still discards all findings if analysis is interrupted.
+`readlockpaths` pins converging paths, two distinct writes, an uncertain writer
+guard beside a reportable path, and two lock identities. This removes duplicate
+output from [Skywalking's cursor initialization](https://github.com/apache/skywalking-rover/blob/e83d5925500a7e63dd55c080a9b1542d6cedaefb/pkg/tools/buffer/buffer.go#L644-L649);
+the underlying two field-association FPs remain unresolved.
+
 A read lock is shared: any number of readers may hold it at once. Writing to
 the object it protects while holding only the read lock therefore races with
 every other reader, and it needs nothing unusual from a second goroutine.

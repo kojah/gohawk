@@ -37,6 +37,7 @@ type lockFlowContext struct {
 	// search could not prove releases a held lock, so a reported return can
 	// say which helpers were asked and why each did not count.
 	releaseAttempts *releaseAttempts
+	readLockWrites  map[readLockWriteWitness]bool
 }
 
 func appendUniqueInstruction(instructions []ssa.Instruction, instruction ssa.Instruction) []ssa.Instruction {
