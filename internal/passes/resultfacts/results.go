@@ -121,25 +121,23 @@ func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudg
 	witness := false
 	// Include recovery returns too. Ignoring the detached recovery block could
 	// claim a literal result even when a recovering defer returns a zero value.
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return Summary{Reason: ReasonBudgetExhausted}
-			}
-			returned, ok := instruction.(*ssa.Return)
-			if !ok {
-				continue
-			}
-			for index, value := range returned.Results {
-				guarantee := engine.value(value, budget)
-				if !witness {
-					result.results[index] = guarantee
-				} else if result.results[index] != guarantee {
-					result.results[index] = Unknown
-				}
-			}
-			witness = true
+	for instruction := range ssaflow.InstructionsWithin(function, budget) {
+		returned, ok := instruction.(*ssa.Return)
+		if !ok {
+			continue
 		}
+		for index, value := range returned.Results {
+			guarantee := engine.value(value, budget)
+			if !witness {
+				result.results[index] = guarantee
+			} else if result.results[index] != guarantee {
+				result.results[index] = Unknown
+			}
+		}
+		witness = true
+	}
+	if budget.Exhausted() {
+		return Summary{Reason: ReasonBudgetExhausted}
 	}
 	// A terminating callee is one the catalog names or one whose own summary
 	// says it never returns, so the claim composes through a project's

@@ -19,6 +19,10 @@ func Die() { os.Exit(0) }
 func Heavy() { ` + strings.Repeat("marker();", 600) + `os.Exit(0) }
 func Identity(p *int) *int { return p }
 func HeavyIdentity(p *int) *int { ` + strings.Repeat("*p = 1;", 550) + `return p }
+type failure struct{}
+func (*failure) Error() string { return "failure" }
+func Boxed() any { var err error = (*failure)(nil); return err }
+func HeavyFold(flag bool) error { var err error = (*failure)(nil); ` + strings.Repeat("if flag {err = &failure{}};", 200) + `return err }
 func Predicate(err error) bool { return err != nil }
 func HeavyPredicate(err error, sink *int) bool { ` + strings.Repeat("if err != nil { *sink = 1 };", 150) + `return err != nil }
 `
@@ -65,6 +69,9 @@ func checkPublishedResultControls(t *testing.T, facts map[string]Fact) {
 	if len(facts["Identity"].Returned) != 1 {
 		t.Error("fresh identity control must publish its relation")
 	}
+	if len(facts["Boxed"].Results) != 1 || facts["Boxed"].Results[0] != AlwaysNonNil {
+		t.Error("fresh boxed result must retain its nonnil guarantee")
+	}
 	if !facts["Die"].NeverReturns {
 		t.Error("fresh direct-exit control must publish termination")
 	}
@@ -73,6 +80,12 @@ func checkPublishedResultControls(t *testing.T, facts map[string]Fact) {
 func checkFreshResultProofs(t *testing.T, engine *Engine, functions []*ssa.Function) {
 	t.Helper()
 	for _, function := range functions {
+		if function.Name() == "HeavyFold" {
+			got := engine.Function(function, ssaflow.NewSearchBudget(4*ssaflow.SummaryBudget))
+			if !got.Available || got.Result(0) != AlwaysNonNil {
+				t.Error("publication cutoff poisoned fresh folded result inference")
+			}
+		}
 		if function.Name() == "HeavyPredicate" {
 			got := engine.Function(function, ssaflow.NewSearchBudget(4*ssaflow.SummaryBudget))
 			if !got.Available || !got.Implies(ssaflow.ParameterNil(0), 0, ssaflow.OutcomeFalse) {

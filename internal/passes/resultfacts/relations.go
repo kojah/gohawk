@@ -190,21 +190,16 @@ func (engine *Engine) assumedValue(value ssa.Value, assumed ssaflow.FixedValues,
 // must witness the assumed side.
 func (engine *Engine) resultRelation(function *ssa.Function, result, operand int, kind pairedCase, budget *ssaflow.SearchBudget) bool {
 	witness := false
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return false
-			}
-			returned, ok := instruction.(*ssa.Return)
-			if !ok || result >= len(returned.Results) || operand >= len(returned.Results) {
-				continue
-			}
-			holds, witnessed := engine.returnHolds(returned.Results[result], returned.Results[operand], kind, budget)
-			if !holds {
-				return false
-			}
-			witness = witness || witnessed
+	for instruction := range ssaflow.InstructionsWithin(function, budget) {
+		returned, ok := instruction.(*ssa.Return)
+		if !ok || result >= len(returned.Results) || operand >= len(returned.Results) {
+			continue
 		}
+		holds, witnessed := engine.returnHolds(returned.Results[result], returned.Results[operand], kind, budget)
+		if !holds {
+			return false
+		}
+		witness = witness || witnessed
 	}
 	return witness && !budget.Exhausted()
 }

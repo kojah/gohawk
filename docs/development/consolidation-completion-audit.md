@@ -2628,3 +2628,56 @@ unavailable; scoped source and actual SSA supply the evidence. No whole-query
 wall-clock bound or production FP removal is claimed; the 15-site queue and
 broader goal remain active. No full precision replay, local race or candidate
 tests/generators/applications were run.
+
+
+## Result fold and census consolidation (2026-10-02)
+
+Beads `gohawk-dho.44.11.5.14` attaches the result allowance at
+storedResultQuery.resolve, including wrappers, phi visits and revisits before
+leaf evidence. Nested storage resolution retains the shared fold's visited
+history rather than opening another traversal. The explicit transparent forms,
+typed-nil boxing and storage evidence policy are unchanged. compute and
+resultRelation now consume InstructionsWithin instead of duplicating block /
+instruction censuses. Recovery returns remain included; the summary requires
+availability after enumeration, so an interrupted census cannot establish a
+guarantee or absence of a counterexample.
+
+Actual SSA literal, ChangeInterface, agreeing/disagreeing phi and stored-value
+controls pass. Every insufficient allowance and a spent parent pool decline
+positive value evidence; fresh summary queries recover after cutoff. Restoring
+only parent storage.go fails the leaf-only allowance controls for literal and
+interface conversion. The publication harness adds a large agreeing-phi body,
+refuses its interrupted fact and recovers a nonnil guarantee on a fresh wider
+query. This is allowance enforcement, not an audited production FP correction.
+
+The bounded source review covers all six production files in resultfacts:
+results.go and relations.go use the shared census/state/termination mechanisms;
+storage.go owns allowance attachment and calls bounded writes-only storage;
+facts.go admits only Available summaries; reasons.go defines boundary text;
+describe.go renders published claims. Direct source-slot/callee metadata is
+constant dispatch; leaf/callee inference already spends the summary allowance.
+Signature scans, type-system internals, imported fact validation/serialization,
+rendering, allocation and downstream graph construction have independent costs.
+This review does not establish a whole-query wall-clock or whole-run bound.
+Graph MCP tools are unavailable; evidence uses scoped source and actual SSA.
+
+Focused result tests, lint and canonical make verify pass (including ordinary
+tests, dogfood, generation, module verification, vet, formatting and dead-code).
+Receipts use `.build/goal-result-fold-*.log`; the final focused/lint receipts
+are census-tests.log and census-lint.log, and the final parent control is
+counterfactual-final.log. The pinned stargz store comparison at
+624678b4e421947534cbf0618f9609853cccee0f retains the reviewed worker report:
+both static scans exit 3 with identical 827-byte JSON and empty stderr.
+Immutable parent `.build/goal-conditional-results-current` SHA-256:
+6a318282e23fc31713c62c6eacee77ec01915fec3a0bba5cc611d481584ae009;
+current `.build/goal-result-fold-current` SHA-256:
+483b7ac406a7f6022d6a2375922dab961ffa89e9dcbd55318b9485c95062f7ce.
+These identify precommit artifacts, not clean-tree VCS stamps.
+
+Child `.15` records resourcelifetime's existing observed candidate pool and
+its separate default setup/work-list/key/guard/termination/successor routes.
+Treat them as one resource-flow concern while preserving its optional/error
+acquisition states. Other lock flows, graph costs, library/custom callbacks
+and identity consumers remain open. The broader goal and production FP queue
+are still active. No full precision replay, local race or candidate tests,
+generators or applications were run.

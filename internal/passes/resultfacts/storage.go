@@ -19,7 +19,10 @@ type storedResultQuery struct {
 }
 
 func (query *storedResultQuery) resolve(walk ssaflow.ReachingWalk, value ssa.Value) (Guarantee, bool) {
-	return ssaflow.ResolveReachingValue(walk, value, query.leaf, func(guarantee Guarantee) Guarantee { return guarantee })
+	// Keep wrapper, phi and revisit work in the same allowance as leaf and
+	// storage evidence. Within preserves this fold's shared cycle history when
+	// a stored value reenters it; a fresh traversal could lose that boundary.
+	return ssaflow.ResolveReachingValue(walk.Within(query.budget), value, query.leaf, func(guarantee Guarantee) Guarantee { return guarantee })
 }
 
 func (query *storedResultQuery) leaf(walk ssaflow.ReachingWalk, value ssa.Value) (Guarantee, bool) {

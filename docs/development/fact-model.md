@@ -137,6 +137,13 @@ summary; it performs no wrapper or referrer search. Cutoff cannot retain a case
 from an interrupted walk, even if an earlier return supplied its witness.
 The summary memo discards interrupted answers and permits a fresh query.
 
+Unconditional result folds attach that same allowance at
+`storedResultQuery.resolve`, including wrapper, phi and revisit work before
+leaf inference. Storage recursion reuses the reaching walk and its cycle
+history; it does not start a separate fold. This preserves the explicit
+transparent forms and typed-nil boxing policy. Exhaustion cannot retain a
+result guarantee or publish its interrupted summary.
+
 A returned parameter is not a case: the result is the exact parameter, under
 the same static type, on every normal return. `resourcelifetime` resolves a
 cleanup receiver through such a call, so `wrap(file).Close()` settles `file`
