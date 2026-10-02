@@ -61,3 +61,24 @@ func sendNeverReceived() {
 		done <- struct{}{}
 	}()
 }
+
+// Accepted: this saved nil value predates initialization of the completion
+// channel. Printing it does not observe the channel the worker later closes.
+func closeWithEarlierSnapshot() {
+ var done chan struct{}
+ before := done
+ done = make(chan struct{})
+ go func() { close(done) }()
+ println(before)
+}
+
+// A snapshot taken after initialization is the completion channel: the early
+// return still skips the receive through that snapshot.
+func closeWithLaterSnapshot(skip bool) {
+ var done chan struct{}
+ done = make(chan struct{})
+ after := done
+ go func() { close(done) }() // want "goroutine is not joined on every return path"
+ if skip { return }
+ <-after
+}

@@ -4020,3 +4020,98 @@ resource true positive. The candidate tests, generators and applications are
 not executed. This corrects the local temporal proof; it earns no production
 FP removal. The recorded queue remains eleven sites, and parent .25 retains
 its other once-stored consumers and broader evidence review.
+
+
+### Bounded channel census and pre-initialization snapshots (dho.44.11.5.25.3)
+
+The task-directed source review found one production channel-census consumer:
+goroutine ownership's unobserved-signal acceptance. Graph/index tools remain
+unavailable, so this review uses scoped source reads and repository symbol
+searches. The former alias work queue, cell-referrer census, closure pairing
+and static-argument mapping had no caller allowance. More importantly, the
+actual SSA probe in `.build/goal-channel-prestore-probe.log` shows a saved nil
+channel load before initialization included among aliases of the later
+`make(chan int)`. Its `println` was then counted as an observation of the new
+completion channel, reviving a missing-join diagnostic for a close-only worker.
+
+`ssaflow.ProveChannelValuesWithin` replaces the default collector with one
+structured census. Queued aliases, referrers, unique stores, instruction order,
+capture pairs, callee arguments and target insertion spend the same allowance.
+Cutoff discards every alias and use, including earlier positive observations.
+A direct cell read dominated by its unique store is a modeled alias; a read
+that dominates the store in an acyclic block is an older snapshot and is
+excluded. A cyclic read can observe an earlier iteration of that store, so
+reverse dominance alone cannot exclude it. Other ordering
+and captures created before initialization are unavailable rather than guessed.
+The exact store comes from the existing once-stored census. Unsupported moves
+remain opaque uses, including the existing nested-capture decline; callee
+parameters can receive other channels at other sites, so the result does not
+claim exclusive identity or an execution path.
+
+The analyzer's `signal_census.go` owns the unobserved-signal policy and returns
+one structured proof. It shares the spawn allowance through local-channel
+lookup and the census, then requires every use to be builtin close. A complete
+non-close observation retains the ordinary obligation; incomplete or temporally
+unavailable evidence stays unknown. Tracing consumes that same decision with
+the stable `signal-census-unavailable` reason and attributes budget evidence to
+the candidate's `signal-census` phase. There is no alternate tracing decision
+or ordinary-summary fallback that can revive a truncated answer.
+
+The
+[channel_aliases_budget_test.go](../../internal/ssaflow/channel_aliases_budget_test.go)
+controls record actual parent/closure SSA for ordinary capture, static
+send-only forwarding, escaping storage, older snapshots, late captures,
+conditional initialization, unsupported nested captures and cyclic pre-store
+reads. The latter actual SSA control fails before the cycle restriction and
+retains unavailable evidence afterward. Every allowance
+boundary agrees with the completed default census or discards both outputs.
+A larger census discards an already collected close use on child cutoff while
+leaving its parent available; a fresh request completes. Consumer controls in
+[signal_census_test.go](../../internal/analyzers/concurrency/goroutineownership/signal_census_test.go)
+prove that the old nil snapshot creates no observation protocol, check
+child/fresh behavior, and keep cutoff from reporting an unowned return. The
+cutoff test also checks its attributed structured evidence event. Accepted
+pre-store and diagnostic post-store receive snapshots are adjacent in
+[unobserved_signals.go](../../internal/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/unobserved_signals.go).
+
+Four ignored source overlays test the decision boundaries: restoring old
+snapshot aliases revives the false diagnostic, ignoring the census allowance
+fails partial-publication controls, and treating interrupted discovery as a
+negative acceptance answer revives the diagnostic. Removing the cycle
+restriction wrongly excludes a read that can observe a previous iteration's
+store. Each fails its behavioral control rather than compilation. The initial
+focused suites and `make verify` pass before the cyclic-read correction,
+with tests in 71 seconds, dogfood in 40 seconds and zero lint issues in 14
+seconds. No local race test or full precision replay runs.
+
+Local-channel lookup charges its instruction/reaching-value traversal, but
+`carries` still has independent heap-alias and stored-referrer work. This
+correction does not certify all transitive goroutine queries as bounded.
+The remaining once-cell families, concurrency field captures and cancellation
+owner cells, stay in parent .25; heap/type/alias internals remain broader parent
+scope. This is an executable local FP correction, not a removal credited
+against the eleven recorded unresolved production sites.
+
+The reviewed final `make verify` covers the cyclic-read restriction and passes:
+ordinary tests 74 seconds, dogfood 32 seconds, zero lint issues in 12 seconds,
+vet 2 seconds, formatter check 3 seconds and deadcode 5 seconds. The immutable
+`.build/goal-channel-census-reviewed` binary is parent `0f5bf75` plus this final
+production change, before later prose receipts. Its SHA-256 is
+`8142f17e0ed0cea5e0982540d7729a084af9a9552f29c217f89a8bb19608bbcb`.
+The parent control is `.build/goal-capture-timing-current`, SHA-256
+`17de5c3e807259a7d76d24d94d2557b98ce5395c80bdaab9aa626aa2d1757de0`,
+whose production source matches the preceding temporal correction.
+
+At clean stargz pin `624678b4e421947534cbf0618f9609853cccee0f`, static all-check
+`./store` scans with both binaries exit 3 with empty stderr and identical
+827-byte JSON; the reviewed worker report at `store/manager.go:193:2` remains.
+At clean Openase pin `e530faf137e764337d5beaaf68af3be159eb17aa`, the final
+all-check `./internal/orchestrator` scan exits 3 with empty stderr and JSON
+identical to the temporal-correction receipt, preserving both cancellation
+true positives. The Openase run also enables goroutine tracing to a separate
+file: all 2,494 JSONL events parse and the diagnostic JSON remains identical.
+Candidates, labels, evidence, considered alternatives and decisions appear;
+the synthetic cutoff control supplies the specific signal-census exhaustion
+witness. Candidate tests, generators and applications are not executed.
+These scoped receipts earn no removal against the eleven-site production
+queue and do not replace a full-corpus census.

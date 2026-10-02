@@ -351,8 +351,21 @@ closures, or the static callees it is passed to ever receives from, selects
 on, sends on, or hands away, is not a completion obligation: no code waits
 for it, and close never blocks. Such a done channel is usually left over from
 a removed wait or copied from a sibling that does wait. The census is
-`ssaflow.ChannelValues`; any use it cannot follow keeps the obligation, and a
-send nobody receives is still reported, because it blocks the worker forever.
+`ssaflow.ProveChannelValuesWithin`; unsupported moves remain opaque uses.
+The census shares the spawn's allowance through local-channel lookup, alias
+queues, referrers, once-stored cells, capture pairing, initialization order,
+static argument mapping and final use classification. Cutoff or uncertain
+initialization stays unknown; a partial census cannot revive a join diagnostic.
+A send nobody receives is still reported, because it blocks the worker forever.
+An acyclic saved cell read before initialization is excluded from the new channel's
+aliases. Reads after the store and captures created after initialization retain
+the existing protocol rules; a capture made earlier or a cyclic pre-store
+read is temporally unknown.
+This boundary uses the exact store and instruction dominance, without inferring
+when an opaque callback will execute. Local-channel lookup charges its outer
+instruction and reaching-value walks; existing `carries` heap-alias queries,
+stored-referrer searches and type-system work retain their independent costs.
+This is not a bound on every transitive goroutine proof query.
 Seen in agentsh's drain loops and dalec's progress display (batch 61):
 https://github.com/canyonroad/agentsh/blob/0ce9939b6ccead8b21b9ce16783b287d18012777/internal/db/proxy/postgres/upstreamread_test.go#L229-L237
 Fixtures: `goroutineownership/unobserved_signals.go`. Fixtures whose subject

@@ -706,23 +706,24 @@ type ChannelUse struct {
 }
 ```
 
-ChannelUse is one instruction that uses a value of the channel other than
-to move it between the values ChannelValues follows.
+ChannelUse is an instruction consuming a channel value rather than moving
+it through one of the modeled aliases.
 
-## ChannelValues
+## ChannelValuesProof
 
 [Source](../../../../internal/ssaflow/channel_aliases.go)
 
 ```go
-func ChannelValues(made *ssa.MakeChan) ([]ssa.Value, []ChannelUse)
+type ChannelValuesProof struct {
+	Proof
+	Values	[]ssa.Value
+	Uses	[]ChannelUse
+}
 ```
 
-ChannelValues returns the values that are the channel made by made within
-its function and within the static callees and closures it is passed to
-or captured by, and every use of those values that is not one of the moves
-followed: a store into a written-once cell, a load of it, a closure
-binding of it, a direction conversion, or a static call argument. A call
-that passes the channel to a callee without a body is returned as a use.
+ChannelValuesProof publishes a complete census of modeled aliases and uses.
+Callee parameters may also receive other values at other call sites; this
+census does not establish an exclusive channel identity or execution path.
 
 ## ClosureBindingPairs
 
@@ -2336,6 +2337,19 @@ func (proof Proof) Proven() bool
 ```
 
 Proven reports whether the requested relationship was established.
+
+## ProveChannelValuesWithin
+
+[Source](../../../../internal/ssaflow/channel_aliases.go)
+
+```go
+func ProveChannelValuesWithin(made *ssa.MakeChan, budget *SearchBudget) ChannelValuesProof
+```
+
+ProveChannelValuesWithin follows the locally made channel through static
+callees and read-only captures under budget. Unsupported moves remain uses.
+Reads preceding the unique store are excluded; uncertain read/capture order
+or budget cutoff publishes neither aliases nor uses. Nil budget is unbounded.
 
 ## ProveCountedLoop
 

@@ -2,42 +2,62 @@ package ssaflow
 
 import "golang.org/x/tools/go/ssa"
 
-// A channel made in a function is used through several SSA values: the make
-// itself, loads of a variable cell written once with it, which is how a
-// closure captures it, a closure's loads of its copy of that cell, direction
-// conversions, and the parameter of a named function it is passed to. These
-// helpers name every such value and every other use, so a caller can decide
-// whether it has seen all the channel's operations. What counts as a
-// complete census is the caller's policy.
+// Channel alias discovery follows direction conversions, initialized cell
+// reads, lexical captures and static call arguments. Uses outside those forms
+// remain visible to the consumer; uncertain initialization and interrupted
+// traversal cannot publish an absence-of-use claim.
 
-// ChannelUse is one instruction that uses a value of the channel other than
-// to move it between the values ChannelValues follows.
+// ChannelUse is an instruction consuming a channel value rather than moving
+// it through one of the modeled aliases.
 type ChannelUse struct {
 	Value       ssa.Value
 	Instruction ssa.Instruction
 }
 
-// ChannelValues returns the values that are the channel made by made within
-// its function and within the static callees and closures it is passed to
-// or captured by, and every use of those values that is not one of the moves
-// followed: a store into a written-once cell, a load of it, a closure
-// binding of it, a direction conversion, or a static call argument. A call
-// that passes the channel to a callee without a body is returned as a use.
-func ChannelValues(made *ssa.MakeChan) ([]ssa.Value, []ChannelUse) {
+// ChannelValuesProof publishes a complete census of modeled aliases and uses.
+// Callee parameters may also receive other values at other call sites; this
+// census does not establish an exclusive channel identity or execution path.
+type ChannelValuesProof struct {
+	Proof
+	Values []ssa.Value
+	Uses   []ChannelUse
+}
+
+// ProveChannelValuesWithin follows the locally made channel through static
+// callees and read-only captures under budget. Unsupported moves remain uses.
+// Reads preceding the unique store are excluded; uncertain read/capture order
+// or budget cutoff publishes neither aliases nor uses. Nil budget is unbounded.
+func ProveChannelValuesWithin(made *ssa.MakeChan, budget *SearchBudget) ChannelValuesProof {
+	unknown := ChannelValuesProof{Proof: Proof{Reason: EvidenceUnavailable}}
+	if made == nil {
+		return unknown
+	}
 	values := []ssa.Value{made}
 	member := map[ssa.Value]bool{made: true}
 	pending := []ssa.Value{made}
 	var uses []ChannelUse
-	for len(pending) != 0 {
+	for len(pending) > 0 {
+		if !budget.Spend() {
+			return ChannelValuesProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+		}
 		value := pending[0]
 		pending = pending[1:]
-		for _, user := range *value.Referrers() {
-			moved := channelMove(value, user)
+		for user := range ReferrersWithin(value, budget) {
+			moved, available := channelMoveWithin(value, user, budget)
+			if budget.Exhausted() || budget.PoolExhausted() {
+				return ChannelValuesProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+			}
+			if !available {
+				return unknown
+			}
 			if moved == nil {
 				uses = append(uses, ChannelUse{Value: value, Instruction: user})
 				continue
 			}
 			for _, target := range moved {
+				if !budget.Spend() {
+					return ChannelValuesProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+				}
 				if target != nil && !member[target] {
 					member[target] = true
 					values = append(values, target)
@@ -46,67 +66,80 @@ func ChannelValues(made *ssa.MakeChan) ([]ssa.Value, []ChannelUse) {
 			}
 		}
 	}
-	return values, uses
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return ChannelValuesProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+	}
+	return ChannelValuesProof{Proof: Proof{State: EvidenceProven, Reason: EvidenceStructuralWalk, Provenance: EvidenceFromLocalSSA}, Values: values, Uses: uses}
 }
 
-// channelMove returns the values a channel value becomes through user, or
-// nil when user is a use of the channel rather than a move.
-func channelMove(value ssa.Value, user ssa.Instruction) []ssa.Value {
+// A nil move is an opaque use. False availability means the census cannot
+// even establish which reads may carry the channel.
+func channelMoveWithin(value ssa.Value, user ssa.Instruction, budget *SearchBudget) ([]ssa.Value, bool) {
 	switch typed := user.(type) {
 	case *ssa.ChangeType:
-		return []ssa.Value{typed}
+		return []ssa.Value{typed}, true
 	case *ssa.Store:
 		cell, ok := typed.Addr.(*ssa.Alloc)
 		if !ok || typed.Val != value {
-			return nil
+			return nil, true
 		}
-		if stored, once := WrittenOnceCell(cell); !once || stored != value {
-			return nil
+		store, once := writtenOnceStoreWithin(cell, budget)
+		if !once || store.Val != value {
+			return nil, true
 		}
-		return cellCopies(cell)
-	case *ssa.UnOp:
-		return nil
+		return cellCopiesWithin(cell, store, budget)
 	case *ssa.Call, *ssa.Go, *ssa.Defer:
-		return argumentParameters(value, InstructionCall(user))
+		return argumentParametersWithin(value, InstructionCall(user), budget), true
 	}
-	return nil
+	return nil, true
 }
 
-// cellCopies returns the loads of a cell and of every closure's captured
-// copy of it, provided the cell is used only by stores, loads, and closure
-// bindings.
-func cellCopies(cell *ssa.Alloc) []ssa.Value {
+// Acyclic reads before the store are snapshots of the old cell. A cyclic
+// read can see an earlier iteration's store, so it remains unavailable.
+// Captures require initialization before creation; execution after a later
+// store is not inferred from mere registration. Unsupported nested uses keep
+// the store opaque, preserving the bounded lexical traversal policy.
+func cellCopiesWithin(cell *ssa.Alloc, store *ssa.Store, budget *SearchBudget) ([]ssa.Value, bool) {
 	var copies []ssa.Value
-	for _, user := range *cell.Referrers() {
+	for user := range ReferrersWithin(cell, budget) {
 		switch typed := user.(type) {
 		case *ssa.Store:
 		case *ssa.UnOp:
-			copies = append(copies, typed)
+			if InstructionDominatesWithin(store, typed, budget) {
+				copies = append(copies, typed)
+			} else if !InstructionDominatesWithin(typed, store, budget) || blockInCycleWithin(typed.Block(), budget) {
+				return nil, false
+			}
 		case *ssa.MakeClosure:
-			function := typed.Fn.(*ssa.Function)
-			for _, pair := range ClosureBindingPairs(function, typed) {
+			if !InstructionDominatesWithin(store, typed, budget) {
+				return nil, false
+			}
+			function, ok := typed.Fn.(*ssa.Function)
+			if !ok {
+				return nil, true
+			}
+			for pair := range ClosureBindingPairsWithin(function, typed, budget) {
 				if pair.Binding != cell {
 					continue
 				}
-				captured := pair.Free
-				for _, load := range *captured.Referrers() {
+				for load := range ReferrersWithin(pair.Free, budget) {
 					if unop, ok := load.(*ssa.UnOp); ok {
 						copies = append(copies, unop)
 					} else {
-						return nil
+						return nil, true
 					}
 				}
 			}
 		default:
-			return nil
+			return nil, true
 		}
 	}
-	return copies
+	return copies, true
 }
 
-// argumentParameters returns the parameters of a static callee with a body
-// that receive value, or nil when the call is not such a call.
-func argumentParameters(value ssa.Value, common *ssa.CallCommon) []ssa.Value {
+// Only static callees with bodies expose parameter uses. Other calls remain
+// opaque uses; metadata alone does not supply a callee-use census.
+func argumentParametersWithin(value ssa.Value, common *ssa.CallCommon, budget *SearchBudget) []ssa.Value {
 	if common == nil || common.IsInvoke() {
 		return nil
 	}
@@ -116,6 +149,9 @@ func argumentParameters(value ssa.Value, common *ssa.CallCommon) []ssa.Value {
 	}
 	var parameters []ssa.Value
 	for index, argument := range common.Args {
+		if !budget.Spend() {
+			return nil
+		}
 		if argument == value {
 			parameters = append(parameters, callee.Params[index])
 		}

@@ -480,36 +480,18 @@ func (analysis *spawnAnalysis) bufferedSignals() bool {
 	})
 }
 
-// unobservedSignals reports whether every completion signal is a locally
-// created channel whose every use, in this function and in the closures and
-// static callees it reaches, is a close. A send, receive, select, range, or
-// any use the census cannot follow keeps the obligation.
-func (analysis *spawnAnalysis) unobservedSignals() bool {
-	if len(analysis.signals) == 0 || len(analysis.groups) > 0 {
-		return false
-	}
-	return !slices.ContainsFunc(analysis.signals, func(signal ssa.Value) bool {
-		made := localChannel(analysis.function, signal)
-		return made == nil || !onlyClosed(made)
-	})
-}
-
-func onlyClosed(made *ssa.MakeChan) bool {
-	_, uses := ssaflow.ChannelValues(made)
-	return !slices.ContainsFunc(uses, func(use ssaflow.ChannelUse) bool {
-		common := ssaflow.InstructionCall(use.Instruction)
-		if common == nil {
-			return true
-		}
-		builtin, ok := common.Value.(*ssa.Builtin)
-		return !ok || builtin.Name() != "close"
-	})
-}
-
 // localChannel returns the channel made in function that reaches signal.
 func localChannel(function *ssa.Function, signal ssa.Value) *ssa.MakeChan {
-	for _, created := range ssaflow.InstructionsOf[*ssa.MakeChan](function) {
-		if carries(ssaflow.NewReachingWalk(carryForms), signal, created) {
+	return localChannelWithin(function, signal, nil)
+}
+
+func localChannelWithin(function *ssa.Function, signal ssa.Value, budget *ssaflow.SearchBudget) *ssa.MakeChan {
+	for instruction := range ssaflow.InstructionsWithin(function, budget) {
+		created, ok := instruction.(*ssa.MakeChan)
+		if !ok {
+			continue
+		}
+		if carries(ssaflow.NewReachingWalk(carryForms).Within(budget), signal, created) {
 			return created
 		}
 	}

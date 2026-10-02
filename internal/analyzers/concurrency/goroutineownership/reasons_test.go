@@ -25,6 +25,7 @@ func TestGoroutineOwnershipReasonCodes(t *testing.T) {
 		reasonWorkerConsumesSignal:           "signal-consumed-by-worker",
 		reasonFlagGuardedJoin:                "flag-guarded-join",
 		reasonBufferedSignal:                 "buffered-completion-signal",
+		reasonSignalCensusUnavailable:        "signal-census-unavailable",
 		reasonUnobservedSignal:               "signal-never-observed",
 		reasonSharedStorageSignal:            "shared-storage-signal",
 		reasonNoObligation:                   "no-completion-obligation",

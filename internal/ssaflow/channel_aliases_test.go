@@ -39,7 +39,11 @@ func escapes() {
 	}
 	for name, want := range cases {
 		made := ssaflow.InstructionsOf[*ssa.MakeChan](pkg.Func(name))[0]
-		_, uses := ssaflow.ChannelValues(made)
+		proof := ssaflow.ProveChannelValuesWithin(made, nil)
+		if !proof.Proven() {
+			t.Fatalf("channel census=%+v", proof)
+		}
+		uses := proof.Uses
 		var got []string
 		for _, use := range uses {
 			switch typed := use.Instruction.(type) {

@@ -130,7 +130,15 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonBufferedSignal}
 	}
 	analysis.ruledOut(reasonBufferedSignal)
-	if analysis.unobservedSignals() {
+	censusBudget := analysis.budget()
+	unobserved := analysis.proveUnobservedSignalsWithin(censusBudget)
+	if !unobserved.Known() {
+		if unobserved.Reason == ssaflow.EvidenceBudgetExhausted {
+			return analysis.lifetimeCutoff(censusBudget, "signal-census", reasonSignalCensusUnavailable)
+		}
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonSignalCensusUnavailable}
+	}
+	if unobserved.Proven() {
 		// A channel the worker only closes, and that nothing in the function
 		// or its callees ever receives from, selects on, or hands away, is
 		// not a completion protocol: no code waits for it, and close never
