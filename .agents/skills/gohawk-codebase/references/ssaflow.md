@@ -145,6 +145,17 @@ func BlockReachable(from, target *ssa.BasicBlock) bool
 BlockReachable reports whether target is reachable from within their
 shared function. A block is reachable from itself without traversing an edge.
 
+## BlockReachableWithin
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func BlockReachableWithin(from, target *ssa.BasicBlock, budget *SearchBudget) bool
+```
+
+BlockReachableWithin shares the allowance with the existing CFG traversal.
+False at cutoff means unavailable, not proof that the target is unreachable.
+
 ## BooleanNegationSource
 
 [Source](../../../../internal/ssaflow/call_constants.go)

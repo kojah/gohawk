@@ -51,7 +51,10 @@ func evaluateResourceFlow(
 	if testProvesAcquisitionError(call, resource, errorValue, contract.packagePath == "net/http") {
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
-	optionalAcquisition := proveOptionalAcquisition(call, resource, errorValue)
+	optionalAcquisition := proveOptionalAcquisitionWithin(call, resource, errorValue, pool.Within(releaseSearchBudget))
+	if optionalAcquisition.proof.State == ssaflow.EvidenceUnknown {
+		return unknownResourceLifetime(optionalAcquisition.proof.Reason)
+	}
 	if optionalAcquisition.Proven() {
 		resource = optionalAcquisition.resourcePhi
 	}

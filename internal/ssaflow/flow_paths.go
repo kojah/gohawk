@@ -85,10 +85,16 @@ func InstructionMayFollowWithin(before, after ssa.Instruction, budget *SearchBud
 // BlockReachable reports whether target is reachable from within their
 // shared function. A block is reachable from itself without traversing an edge.
 func BlockReachable(from, target *ssa.BasicBlock) bool {
+	return BlockReachableWithin(from, target, nil)
+}
+
+// BlockReachableWithin shares the allowance with the existing CFG traversal.
+// False at cutoff means unavailable, not proof that the target is unreachable.
+func BlockReachableWithin(from, target *ssa.BasicBlock, budget *SearchBudget) bool {
 	if from == nil || target == nil || from.Parent() != target.Parent() {
 		return false
 	}
-	return blockReachableFrom([]*ssa.BasicBlock{from}, target)
+	return blockReachableFromWithin([]*ssa.BasicBlock{from}, target, budget)
 }
 
 // BlockInCycle reports whether control flow can return to start.
@@ -102,13 +108,9 @@ func blockInCycleWithin(start *ssa.BasicBlock, budget *SearchBudget) bool {
 	return blockReachableFromWithin(start.Succs, start, budget)
 }
 
-// blockReachableFrom owns raw CFG traversal; callers choose whether the
+// blockReachableFromWithin owns raw CFG traversal; callers choose whether the
 // initial block or only its successors can count. Clone the seeds because
 // queue growth must not overwrite an SSA block's successor backing array.
-func blockReachableFrom(seeds []*ssa.BasicBlock, target *ssa.BasicBlock) bool {
-	return blockReachableFromWithin(seeds, target, nil)
-}
-
 func blockReachableFromWithin(seeds []*ssa.BasicBlock, target *ssa.BasicBlock, budget *SearchBudget) bool {
 	seen := map[*ssa.BasicBlock]bool{}
 	queue := slices.Clone(seeds)

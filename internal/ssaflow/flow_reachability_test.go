@@ -72,3 +72,32 @@ func TestCycleReachabilityPreservesInstructionsAndSuccessors(t *testing.T) {
 		t.Fatal("loop fixture produced no cycle")
 	}
 }
+
+func TestBlockReachableWithinAllowance(t *testing.T) {
+	t.Parallel()
+	pkg := ssaflowtest.BuildPackage(t, "reachability", reachabilityFixture)
+	entry := pkg.Func("branch").Blocks[0]
+	left, right := entry.Succs[0], entry.Succs[1]
+	for _, test := range []struct {
+		name         string
+		from, target int
+		want         bool
+	}{
+		{"reachable", entry.Index, left.Index, true},
+		{"sibling", left.Index, right.Index, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fn := pkg.Func("branch")
+			from, target := fn.Blocks[test.from], fn.Blocks[test.target]
+			pool := ssaflow.NewSearchBudget(100)
+			cut := pool.Within(0)
+			if ssaflow.BlockReachableWithin(from, target, cut) || !cut.Exhausted() || pool.Exhausted() {
+				t.Fatal("child cutoff must leave reachability unavailable and parent available")
+			}
+			fresh := pool.Within(100)
+			if got := ssaflow.BlockReachableWithin(from, target, fresh); got != test.want || fresh.Exhausted() {
+				t.Fatalf("fresh reachability=%v, want %v; exhausted %v", got, test.want, fresh.Exhausted())
+			}
+		})
+	}
+}

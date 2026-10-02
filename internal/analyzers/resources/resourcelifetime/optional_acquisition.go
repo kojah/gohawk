@@ -26,9 +26,24 @@ type optionalAcquisitionProof struct {
 	acquiredSuccessor *ssa.BasicBlock
 }
 
-func proveOptionalAcquisition(call *ssa.Call, resource, errorValue ssa.Value) optionalAcquisitionProof {
+func proveOptionalAcquisitionWithin(call *ssa.Call, resource, errorValue ssa.Value, budget *ssaflow.SearchBudget) optionalAcquisitionProof {
+	if !budget.Spend() {
+		return optionalAcquisitionProof{proof: resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
+	}
+	proof := findOptionalAcquisitionWithin(call, resource, errorValue, budget)
+	// Reachability and phi queries return no match at cutoff. Only the complete
+	// finder may supply a correlation or completed decline; discard every field
+	// of an interrupted candidate before the flow can bind its resource phi.
+	if resourceFlowExhausted(budget) {
+		return optionalAcquisitionProof{proof: resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
+	}
+	return proof
+}
+
+func findOptionalAcquisitionWithin(call *ssa.Call, resource, errorValue ssa.Value, budget *ssaflow.SearchBudget) optionalAcquisitionProof {
+	unmatched := optionalAcquisitionProof{proof: resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}}
 	if call == nil || resource == nil || errorValue == nil || len(call.Block().Succs) != 1 {
-		return optionalAcquisitionProof{}
+		return unmatched
 	}
 	// Starting flow at the call proves that its guard selected the acquisition
 	// arm, but an immediate merge otherwise forgets that fact and invents the
@@ -38,17 +53,17 @@ func proveOptionalAcquisition(call *ssa.Call, resource, errorValue ssa.Value) op
 	// https://github.com/liliang-cn/cortexdb/blob/2486ab7a7d560f5351b626ba813afba5442d1b3d/pkg/core/advanced_search.go#L136-L156
 	acquisitionBlock := call.Block()
 	merge := acquisitionBlock.Succs[0]
-	if len(merge.Preds) != 2 || len(acquisitionBlock.Preds) != 1 || ssaflow.BlockReachable(merge, acquisitionBlock) {
-		return optionalAcquisitionProof{}
+	if len(merge.Preds) != 2 || len(acquisitionBlock.Preds) != 1 || ssaflow.BlockReachableWithin(merge, acquisitionBlock, budget) {
+		return unmatched
 	}
 	guard := acquisitionBlock.Preds[0]
 	if len(guard.Succs) != 2 || !blockHasSuccessor(guard, acquisitionBlock) || !blockHasSuccessor(guard, merge) {
-		return optionalAcquisitionProof{}
+		return unmatched
 	}
-	resourcePhi := exactOptionalPhi(merge, acquisitionBlock, resource)
-	errorPhi := exactOptionalPhi(merge, acquisitionBlock, errorValue)
+	resourcePhi := exactOptionalPhiWithin(merge, acquisitionBlock, resource, budget)
+	errorPhi := exactOptionalPhiWithin(merge, acquisitionBlock, errorValue, budget)
 	if resourcePhi == nil || errorPhi == nil {
-		return optionalAcquisitionProof{}
+		return unmatched
 	}
 	// The companion error phi ties both call results to the same edge. Requiring
 	// the merge to repeat only the exact equality test (or its inverse) avoids
@@ -57,12 +72,12 @@ func proveOptionalAcquisition(call *ssa.Call, resource, errorValue ssa.Value) op
 	guardBranch := finalBranch(guard)
 	mergeBranch := finalBranch(merge)
 	if guardBranch == nil || mergeBranch == nil {
-		return optionalAcquisitionProof{}
+		return unmatched
 	}
 	guardComparison, guardOK := guardBranch.Cond.(*ssa.BinOp)
 	mergeComparison, mergeOK := mergeBranch.Cond.(*ssa.BinOp)
 	if !guardOK || !mergeOK || !sameEqualityOperands(guardComparison, mergeComparison) {
-		return optionalAcquisitionProof{}
+		return unmatched
 	}
 	guardTrueAtAcquisition := guard.Succs[0] == acquisitionBlock
 	mergeTrueAtAcquisition := guardTrueAtAcquisition
@@ -90,9 +105,12 @@ func (proof optionalAcquisitionProof) Proven() bool {
 	return proof.proof.Proven()
 }
 
-func exactOptionalPhi(merge, acquisitionBlock *ssa.BasicBlock, acquired ssa.Value) *ssa.Phi {
+func exactOptionalPhiWithin(merge, acquisitionBlock *ssa.BasicBlock, acquired ssa.Value, budget *ssaflow.SearchBudget) *ssa.Phi {
 	var matched *ssa.Phi
 	for _, instruction := range merge.Instrs {
+		if !budget.Spend() {
+			return nil
+		}
 		phi, ok := instruction.(*ssa.Phi)
 		if !ok {
 			break
@@ -102,10 +120,13 @@ func exactOptionalPhi(merge, acquisitionBlock *ssa.BasicBlock, acquired ssa.Valu
 		}
 		valid := true
 		for from, edge := range ssaflow.PhiIncoming(phi) {
+			if !budget.Spend() {
+				return nil
+			}
 			if from == acquisitionBlock {
 				valid = valid && edge == acquired
 			} else {
-				valid = valid && ssaflow.DefinitelyNil(edge)
+				valid = valid && ssaflow.DefinitelyNilWithin(edge, budget)
 			}
 		}
 		if valid {

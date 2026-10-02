@@ -869,7 +869,7 @@ resource exhaustion labels (`dho.42`) and ordinary completion budget ownership
 | `resourcelifetime/captured_cleanup.go` | `opaqueClosureCall` combines possible captured-cell cleanup, narrowly guarded HTTP Body cleanup, aggregate capture, asynchronous invocation and unreadable/retaining callees. `provePriorCleanupWithin` supplies the same uncertain cell/parent-cleanup boundaries before acquisition. A cleanup witness for a cell proves possible cleanup, never which stored acquisition was released. Deferred by-value arguments and read-only captures remain outside this cell contract. |
 | Guarded captured HTTP cleanup | `guardedCapturedBodyCleanup` requires current stable content equal to this acquisition, and both caller/callee exposure checks must pass under one candidate allowance. `guardedBodyCoverage` uses Body-load identity and every-normal-return coverage with a nonnil assumption. Exhaustion cannot make that narrower positive witness succeed. This differs from cancellation's written-once cell/direct-defer ownership proof; a common broad capture traversal would erase the distinction. |
 | Selected coverage adapter | `lifecycle/completion_search.go:MethodCallCoverage` delegates every-return coverage to the existing return/action witness and shared obligation walk, while anywhere coverage is an existential instruction witness. Captured-cell callers request anywhere coverage only for unknown classification; the guarded Body proof requests every-return coverage. These polarities remain explicit at their callers. |
-| `resourcelifetime/optional_acquisition.go` | `proveOptionalAcquisition` requires one acyclic diamond, exact resource and paired-error phis, nil alternate edges and a repeated equality of the same operands. It pairs phi values with predecessor blocks through the shared adapter. Only the acquired merge successor is selected, and cleanup must target the exact resource phi through the selected transparent wrappers. Generic existential derivation and helper/edge completion remain excluded. |
+| `resourcelifetime/optional_acquisition.go` | `proveOptionalAcquisitionWithin` requires one acyclic diamond, exact resource and paired-error phis, nil alternate edges and a repeated equality of the same operands. It pairs phi values with predecessor blocks through the shared adapter. Only the acquired merge successor is selected, and cleanup must target the exact resource phi through the selected transparent wrappers. Generic existential derivation and helper/edge completion remain excluded. |
 | SQL parent/context classifier boundaries | `sql_parents.go:proveSQLParentCleanupWithin` and `contracts.go:cancelsTransactionContext` require known database/sql symbols and the exact receiver or paired context-constructor cancel. They yield uncertainty about parent-owned/asynchronous cleanup, never synchronous child release. `proveSQLParentIdentityWithin` uses shared point-in-time storage identity under the caller allowance, retaining the storage child cap. Resource SQL lifetime and cancellation-owner policy remain separate. |
 | Constant comparison boundaries | Optional acquisition's `sameExactOperand` accepts SSA identity or equal nonnil constants of identical static types. `ssaflow/flow_paths.go:sameLiteral` compares return literals within one declared result and accepts nil literals; lock scalar comparison additionally requires equal constant kinds and its own bindings. These are different input/precision contracts, not a candidate for a universal equality predicate. The optional nil-constant boundary is retained, not silently widened. |
 
@@ -3091,3 +3091,36 @@ No additional production FP correction or full precision replay is credited.
 Child `.17.6` tracks optional-diamond reachability/phi census; earlier HTTP/error
 predicates and graph/type internals remain separate work. The parent and broader
 consolidation objective remain active.
+
+## Optional acquisition diamond allowance
+
+`gohawk-dho.44.11.5.17.6` shares the existing candidate allowance across cycle
+exclusion, merge instruction/phi predecessor visits and nil alternatives. The
+shared bounded reachability adapter delegates to the existing CFG engine;
+there is no new traversal or parallel diagnostic decision. Strict direct
+acyclic diamonds, unique exact resource/error phis and repeated equality/inverse
+arm selection retain their previous policy. Completed declines continue normal
+flow; cutoff returns budget unknown and discards all correlation fields before
+any resource binding. HTTP/error predicates and graph/type internals remain
+outside this change.
+
+Actual-SSA controls cover exact/inverse guards, a retained leak, unrelated
+guards/resources/errors, boxed typed-nil errors, cycles, insufficient allowances,
+child cutoff and fresh recovery. The shared reachability control checks both a
+reachable arm and unreachable sibling after a child cutoff with parent available.
+Focused shared/analyzer controls pass (0.005/0.245 seconds). Ignoring the
+allowance or discarding the final exhaustion check each fails all eight proof
+families and the child-cutoff control. Actual SSA is retained in
+`.build/goal-optional-acquisition-fixture.ssa.txt`, including the paired nil
+phis, inverse comparison and boxed typed-nil alternate error. An initial gate
+found one overlong test-table line; splitting it corrects lint. The final
+canonical gate passes all checks (`.build/goal-optional-acquisition-final-verify.log`).
+
+Immutable `.build/goal-optional-acquisition-current`, SHA-256
+`8be792a45e7a6e0019fc1b43b172f6eef138ab3e74cc938ce069bada8a0bd036`,
+retains byte-identical pinned Cute/Ferro resource JSON against the canceled-
+context baseline: terminal exits 3/0, empty stderr. Pins and scopes remain those
+recorded above. Cute's known TP remains and Ferro's corrected storage report
+stays absent. No production FP removal, full precision replay or local race run
+is credited. Children `.17.7` and `.17.8` track acquisition-error assertions and
+HTTP boundary cost families; the parent and broader goal remain active.

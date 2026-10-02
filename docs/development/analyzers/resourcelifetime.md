@@ -1010,9 +1010,9 @@ conditional cleanup diagnostics and accepted exact-parent cleanup forms.
 all dominating defers with anywhere coverage. Instruction census and nested
 completion queries share one child allowance from the observed candidate pool;
 a completed witness supplies prior-defer uncertainty, never exact settlement.
-The pool is created after the existing memory, HTTP, acquisition-error and
-optional-acquisition boundaries, with the final optional resource binding, and
-is reused by owner discovery and ordinary flow. Cutoff returns budget unknown
+The pool is created after existing memory and HTTP exclusions, before context
+and optional-acquisition queries, and is reused after the final resource binding
+by owner discovery and ordinary flow. Cutoff returns budget unknown
 rather than an exhausted negative or an exact cleanup label.
 
 Local completion memoization discards interrupted proofs, allowing a larger
@@ -1022,8 +1022,7 @@ cleanup, unrelated and by-value defers, non-deferred registration, multiple
 defers, child cutoff, nested completion under a census-sufficient allowance,
 and fresh recovery. The independent nested-budget counterfactual must fail;
 `evidence_local_test.go` separately pins no cache publication at cutoff.
-Earlier HTTP/context/error/optional predicates and graph/type internals retain
-separate cost scope. Ordinary resource flow remains the sole diagnostic proof.
+Earlier HTTP/error predicates and graph/type internals retain separate cost scope. Ordinary resource flow remains the sole diagnostic proof.
 
 ### Canceled acquisition context allowance
 
@@ -1044,4 +1043,25 @@ traversal or deadline timing is added. `acquisition_context_test.go` checks
 exact/cause cancellation, all eligible APIs, the exclusions above, every
 insufficient allowance, child cutoff with parent available, fresh recovery and
 complete-flow canceled versus independent statement-leak controls. Earlier
-HTTP/error/optional predicates and graph/type internals remain separate work.
+HTTP/error predicates and graph/type internals remain separate work.
+
+### Optional acquisition diamond allowance
+
+The optional-acquisition proof retains its strict direct acyclic diamond:
+resource and error phis must each have one exact acquired edge and nil alternate
+edges, with a unique match. The merge must repeat the same equality operands,
+possibly with the inverse operator and corresponding arm selection. Unrelated
+guards, sibling resources, opaque or boxed typed-nil error alternatives, and
+cycles do not establish this correlation.
+
+Cycle exclusion delegates to `ssaflow.BlockReachableWithin`; merge instruction
+and predecessor visits and `DefinitelyNilWithin` share the candidate allowance.
+An interrupted proof clears every correlation field and returns budget unknown,
+so the authoritative flow never binds a phi from partial evidence. A completed
+structural decline continues ordinary acquisition analysis. The observed pool
+already exists before this query and remains shared with later owner and flow
+queries; HTTP/error predicates and graph/type internals remain separate costs.
+`optional_acquisition_test.go` covers exact/inverse guards, a retained leak,
+ambiguous alternatives, boxed error nilness, cycles, every insufficient allowance,
+child cutoff with parent available and fresh recovery. Shared reachability tests
+separately retain reachable and sibling-block answers after fresh recovery.
