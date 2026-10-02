@@ -80,6 +80,33 @@ replacement, another command, and an additional Boolean guard remain outside
 the guarantee. `process_guards.go` pins both merged and direct returns beside
 these diagnostic controls.
 
+## One-time program-entry ownership
+
+An uncovered return after a one-time Start in the executable's real entry is
+program-lifetime ownership unknown. `decideProcessReturn` uses the shared
+`ssaflow.RunsOnceInProgramEntry` structural proof after exact wait/transfer and
+unused-command decisions. This boundary publishes no callee guarantee and does
+not equate Kill with Wait, guarantee child termination on parent exit, or prove
+that the parent observed the child's result. Missing observation or resources
+retained until exit can still be defects; this is accepted coverage loss in an
+intent-sensitive experimental audit.
+
+A Start in a cycle, a referenced entry function, a reusable helper, a method,
+a closure, or a function named main in another package does not qualify. The
+shared entry proof now checks the synthetic initializer as well as declared
+functions, so package-level function aliases and tables decline the guarantee.
+`program_entry_test.go` asserts unknown versus exact settlement and preserves
+reports across all those rejected forms. The `processentry`, `processentryloop`
+and `processentryreferenced` fixtures check the full reporting pipeline. Shared
+initializer-reference controls also check an unrelated function alias.
+
+[coder's example agent](https://github.com/coder/acp-go-sdk/blob/0845a3bb9eddda5bfc22a94dd3598c90cb842451/example/agent/main.go#L401-L423)
+starts one child in main, then returns after its explicit Kill. The three sibling
+examples have the same entry horizon. Their CommandContext construction and
+cleanup intent motivate uncertainty; neither a project name nor that constructor
+establishes a Wait guarantee. The final trace reason is
+`program-lifetime-ownership-unknown`, with outcome unknown.
+
 ## Tier
 
 `missing-wait` moved from core to experimental on 2026-09-27. In batches 62

@@ -4,17 +4,18 @@ import "testing"
 
 func TestProcessReasonCodes(t *testing.T) {
 	want := map[processReason]string{
-		reasonNone:                          "",
-		reasonHelperOwnershipUnknown:        "helper-command-ownership-unknown",
-		reasonStartFailureReturn:            "start-failure-return",
-		reasonSuccessfulStartProcessNonNil:  "successful-start-process-non-nil",
-		reasonReturnedOwner:                 "returned-value-owns-command",
-		reasonReturnedHandle:                "returns-process-handle",
-		reasonReturnedMergedOwner:           "returned-value-owns-merged-command",
-		reasonWaitOwnershipProven:           "wait-ownership-proven",
-		reasonUnownedReturn:                 "unowned-return",
-		reasonUnusedCommandOwnershipUnknown: "unused-command-ownership-unknown",
-		reasonAmbiguousWaitOwnership:        "ambiguous-wait-ownership",
+		reasonNone:                            "",
+		reasonHelperOwnershipUnknown:          "helper-command-ownership-unknown",
+		reasonStartFailureReturn:              "start-failure-return",
+		reasonSuccessfulStartProcessNonNil:    "successful-start-process-non-nil",
+		reasonReturnedOwner:                   "returned-value-owns-command",
+		reasonReturnedHandle:                  "returns-process-handle",
+		reasonReturnedMergedOwner:             "returned-value-owns-merged-command",
+		reasonWaitOwnershipProven:             "wait-ownership-proven",
+		reasonUnownedReturn:                   "unowned-return",
+		reasonUnusedCommandOwnershipUnknown:   "unused-command-ownership-unknown",
+		reasonAmbiguousWaitOwnership:          "ambiguous-wait-ownership",
+		reasonProgramLifetimeOwnershipUnknown: "program-lifetime-ownership-unknown",
 	}
 	if len(want) != int(processReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

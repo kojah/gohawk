@@ -18,6 +18,12 @@ The later [program-entry context follow-up](program-entry-context-followup-2026-
 corrects the k8ssandra site using existing one-time entry evidence, leaving 15
 unresolved sites. Its unknown outcome makes no cancellation guarantee.
 
+The later [program-entry process follow-up](program-entry-process-followup-2026-10-02.md)
+corrects the four coder entry sites using the shared structural entry proof and
+an explicit unknown ownership decision. This leaves 11 unresolved sites. The
+historical table below is unchanged; target resolution alone still has no
+demonstrated correction.
+
 ## Remaining families
 
 Counts refer to diagnostic locations, not repositories or independent defects.

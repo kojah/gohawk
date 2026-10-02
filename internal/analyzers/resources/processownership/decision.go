@@ -29,6 +29,15 @@ func decideProcessReturn(start *ssa.Call, command ssa.Value, witness *ssa.Return
 	if commandUnusedAfterStart(start, command) {
 		return processReturnDecision{ssaflow.EvidenceUnknown, reasonUnusedCommandOwnershipUnknown}
 	}
+	// A one-time start in the executable's entry may be owned until program
+	// exit. An uncovered entry return cannot distinguish that lifetime from
+	// missing reaping. This declines the report; it does not credit Kill as
+	// Wait or assert that parent exit terminates the child. Repeated starts,
+	// referenced entries and reusable callees remain ordinary wait obligations.
+	// https://github.com/coder/acp-go-sdk/blob/0845a3bb9eddda5bfc22a94dd3598c90cb842451/example/agent/main.go#L401-L423
+	if ssaflow.RunsOnceInProgramEntry(start) {
+		return processReturnDecision{ssaflow.EvidenceUnknown, reasonProgramLifetimeOwnershipUnknown}
+	}
 	return processReturnDecision{ssaflow.EvidenceProven, reasonUnownedReturn}
 }
 

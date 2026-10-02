@@ -3493,3 +3493,25 @@ proof support bounded program-lifetime uncertainty without asserting Wait or
 child termination? It is not a replay, implementation or credited correction.
 Caller intent, loops, referenced entry functions and reusable callee guarantees
 must remain distinct.
+
+## One-time entry process ownership
+
+`.dho.4.1` reuses the exact shared entry proof at the authoritative process
+return decision. It accepts program-lifetime uncertainty without claiming Wait,
+child termination or imported callee cleanup. The synthetic initializer is now
+included in main-reference checks; aliases and tables reject at-most-once evidence.
+Nine actual-SSA decision scopes, three reporting fixtures and four initializer
+controls pass. Both entry-disabled and initializer-disabled source overlays fail
+the expected acceptance/diagnostic boundaries. Exact settlement retains precedence.
+
+Canonical gate `.build/goal-process-entry-verify.log` passes (ordinary tests 56s,
+local dogfood 29s, vet, lint, formatter, deadcode, generation and module checks).
+No local race or full precision replay is run. The
+[production correction receipt](../../benchmarks/precision/audits/program-entry-process-followup-2026-10-02.md)
+records immutable executable hashes, pins and explicit check selection: four
+coder reports present before and absent after, with unknown final traces, and
+of-watchdog's reviewed process TP unchanged. Initial analyzer-only scans left
+the experimental check disabled and supply no correction credit. The queue
+falls from 15 to 11 sites; frozen batch counts are unchanged. Broader architecture
+and FP work remain open. Graph MCP tools remain unavailable; scoped source reads
+and actual SSA provide evidence, not graph completeness.

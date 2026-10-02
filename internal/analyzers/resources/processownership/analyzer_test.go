@@ -115,3 +115,7 @@ func processTraceFile(t *testing.T) string {
 	}
 	return path
 }
+
+func TestProgramEntryAnalyzer(t *testing.T) {
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "processentry", "processentryloop", "processentryreferenced")
+}

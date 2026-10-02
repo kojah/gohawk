@@ -19,6 +19,11 @@ func RunsOnceInProgramEntry(instruction ssa.Instruction) bool {
 	if !programEntry(function) || BlockInCycle(instruction.Block()) {
 		return false
 	}
+	// A package-level alias stores main in the synthetic initializer, which
+	// is not a declared source function. It can invoke the entry again too.
+	if initializer := function.Pkg.Func("init"); initializer != nil && refersTo(initializer, function) {
+		return false
+	}
 	for _, other := range DeclaredFunctions(function.Pkg) {
 		if refersTo(other, function) {
 			return false

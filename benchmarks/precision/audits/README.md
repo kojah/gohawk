@@ -1,5 +1,10 @@
 # Precision audits
 
+The [program-entry process follow-up](program-entry-process-followup-2026-10-02.md)
+removes four coder entry-process false positives with explicit program-lifetime
+uncertainty. Scoped parent/corrected scans retain the of-watchdog wait leak.
+The production queue now has 11 unresolved sites; frozen totals are unchanged.
+
 The [program-entry context follow-up](program-entry-context-followup-2026-10-02.md)
 removes the k8ssandra context report through the existing one-time entry evidence.
 Scoped scans retain both reviewed Openase cancellation true positives. The current
