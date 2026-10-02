@@ -249,41 +249,6 @@ func ReachableBlocksAssuming(function *ssa.Function, constants FixedValues) []*s
 	return order
 }
 
-// NormalReturnReachableFrom reports whether block can reach a normal return
-// without first invoking a control-flow terminating API.
-func NormalReturnReachableFrom(block *ssa.BasicBlock) bool {
-	return NormalReturnReachableWith(block, nil)
-}
-
-// NormalReturnReachableWith is NormalReturnReachableFrom with the catalog of
-// terminating calls extended by a terminator.
-func NormalReturnReachableWith(block *ssa.BasicBlock, terminates Terminator) bool {
-	queue := []*ssa.BasicBlock{block}
-	seen := map[*ssa.BasicBlock]bool{}
-	for len(queue) > 0 {
-		candidate := queue[0]
-		queue = queue[1:]
-		if seen[candidate] {
-			continue
-		}
-		seen[candidate] = true
-		terminated := false
-		for _, instruction := range candidate.Instrs {
-			if InstructionTerminatesWith(instruction, terminates) {
-				terminated = true
-				break
-			}
-			if _, ok := instruction.(*ssa.Return); ok {
-				return true
-			}
-		}
-		if !terminated {
-			queue = append(queue, candidate.Succs...)
-		}
-	}
-	return false
-}
-
 // SuccessBranch reports whether successor is the branch where errorValue is
 // nil, when block ends in a recognizable nil comparison.
 func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {

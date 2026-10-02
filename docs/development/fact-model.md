@@ -159,6 +159,17 @@ hook of `ssaflow.InstructionTerminatesWith` and `NormalReturnReachableWith`:
 a path that calls such a function ends there, exactly as it ends at
 `os.Exit`, so an early return behind the call is not reached.
 
+Normal-return reachability uses `ssaflow.ProveNormalReturnWithin` with the
+result query's allowance. Its structured proof distinguishes a reachable return,
+a completed search finding none, and unavailable evidence. Queue/instruction
+visits and termination queries share the allowance; interrupted callbacks or
+deferred-registration scans cannot establish no-return. Only a completed
+negative proof sets the declaration's termination guarantee. Recover entries
+retain the existing no-claim boundary, even for a recognized terminating defer.
+Function-summary memoization discards cut answers and dependent cache entries;
+fact publication requires an available summary. Cutoff controls verify that a
+fresh larger query can recover without having published a partial guarantee.
+
 ## The shape of a fact
 
 A lifecycle fact's original parameter masks describe how a named callee uses

@@ -1939,9 +1939,24 @@ func Nilable(value types.Type) bool
 
 Nilable reports whether a value of the type can be nil.
 
+## NormalReturnProof
+
+[Source](../../../../internal/ssaflow/flow_return_reachability.go)
+
+```go
+type NormalReturnProof struct {
+	Proof
+	Witness	*ssa.Return
+}
+```
+
+NormalReturnProof distinguishes a reachable return from a completed search
+finding none. Unknown, including cutoff, never proves absence. Witness is
+present only when reachability is proven.
+
 ## NormalReturnReachableFrom
 
-[Source](../../../../internal/ssaflow/flow_paths.go)
+[Source](../../../../internal/ssaflow/flow_return_reachability.go)
 
 ```go
 func NormalReturnReachableFrom(block *ssa.BasicBlock) bool
@@ -1952,7 +1967,7 @@ without first invoking a control-flow terminating API.
 
 ## NormalReturnReachableWith
 
-[Source](../../../../internal/ssaflow/flow_paths.go)
+[Source](../../../../internal/ssaflow/flow_return_reachability.go)
 
 ```go
 func NormalReturnReachableWith(block *ssa.BasicBlock, terminates Terminator) bool
@@ -2349,6 +2364,19 @@ func ProveIdentityWithin(left, right AccessPath, budget *SearchBudget) IdentityP
 ProveIdentityWithin shares budget across structural identity, both path
 searches and step comparison. Exhaustion is an unknown proof with the budget
 reason, never differing paths. Roots must already be established as equivalent.
+
+## ProveNormalReturnWithin
+
+[Source](../../../../internal/ssaflow/flow_return_reachability.go)
+
+```go
+func ProveNormalReturnWithin(block *ssa.BasicBlock, terminates Terminator, budget *SearchBudget) NormalReturnProof
+```
+
+ProveNormalReturnWithin shares queued visits, instruction visits and
+termination queries with budget. It retains the default CFG policy: no
+branch assumptions, and terminating calls stop only their own paths.
+A nil budget leaves the search unbounded; a missing block is unknown.
 
 ## QueryBudget, SummaryBudget
 

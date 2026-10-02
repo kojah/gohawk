@@ -146,9 +146,15 @@ func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudg
 	// fatal wrapper and across packages. A body with a recover block can
 	// return normally from a panic the entry never reaches, so it makes no
 	// claim.
-	result.neverReturns = function.Recover == nil && !ssaflow.NormalReturnReachableWith(function.Blocks[0], func(call *ssa.Call) bool {
-		return budget.Spend() && engine.function(ssaflow.ResolvedCallee(call.Common()), budget).NeverReturns()
-	})
+	if function.Recover == nil {
+		proof := ssaflow.ProveNormalReturnWithin(function.Blocks[0], func(call *ssa.Call) bool {
+			return engine.function(ssaflow.ResolvedCallee(call.Common()), budget).NeverReturns()
+		}, budget)
+		if !proof.Known() {
+			return Summary{Reason: ReasonBudgetExhausted}
+		}
+		result.neverReturns = proof.State == ssaflow.EvidenceDisproven
+	}
 	if !witness {
 		result.Reason = ReasonNoNormalReturnWitness
 		return result

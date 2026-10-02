@@ -2470,3 +2470,74 @@ tools remain unavailable; evidence uses scoped source and actual SSA. No
 production FP removal is credited; the 15-site queue and broader goal remain
 open. No full precision-regression, local race or candidate tests/generators/apps
 are run.
+
+
+## Normal-return reachability allowance (dho.44.11.5.11)
+
+At parent `c899906`, normal-return reachability owned a separate block queue
+and visited set and asked unbounded termination queries beneath result-fact
+inference. The return search now delegates queued/revisit handling to
+`WalkStatesWithin`, sharing instruction and termination visits with the caller.
+`NormalReturnProof` records state, reason and a positive return witness;
+`ProveNormalReturnWithin` distinguishes a found return, completed search finding
+none, and unavailable evidence. Interrupted callbacks, pool cuts or deferred
+census work cannot prove either reachability or absence. Default Boolean
+facades delegate with nil allowance and retain the same CFG policy.
+Reachability lives in `flow_return_reachability.go`, apart from order/obligation
+compatibility queries in `flow_paths.go`.
+
+Result-fact inference supplies its allowance and requires a completed negative
+proof before setting neverReturns. Its duplicate callback-dispatch charge is
+removed; engine lookup keeps its own shared charges. Recover blocks retain the
+existing no-termination-claim policy, even for a recognized terminating defer.
+The existing FunctionSummaries/CallGraphMemo Compose boundary discards answers
+computed after exhaustion and cuts dependent cache entries. The existing domain
+publication loop exports only Available summaries; neither cache nor writer
+needs a second decision engine.
+
+Actual SSA controls in `flow_return_budget_test.go` cover normal returns, loops,
+direct/deferred exits, conditional registration, every incomplete allowance,
+pool and callback cutoffs, and missing entries. Result controls in
+`termination_budget_test.go` leave exactly enough allowance for lookup and the
+initial census, verify unavailable termination summaries, then recover on a
+fresh query through the same engine. A scoped publication probe runs the actual
+domain writer on an internally generated static SSA fixture: an over-budget
+Heavy body publishes no fact, a direct-exit control publishes termination, and
+a larger subsequent query recovers Heavy's complete summary. Wire-format and
+cross-package tests remain separate controls.
+
+Focused controls and early lint pass in
+`.build/goal-return-flow-new-tests-final.log` and
+`.build/goal-return-flow-lint-final.log`. Initial test setup was corrected to
+respect deferred functions' actual SSA recover entries and scope publication
+assertions to the root package rather than dependencies. A one-file overlay
+restores parent result inference while retaining current helpers/tests. Both
+the direct cutoff and Heavy publication controls fail in
+`.build/goal-return-flow-parent-counterfactual.log` (exit 1), detecting inference
+that bypasses the shared reachability allowance. No incorrect production
+termination fact or FP correction is inferred from that budget counterfactual.
+Canonical `make verify` passes in `.build/goal-return-flow-verify.log`, including
+ordinary tests (58 seconds), formatting, vet, lint, generated inventory,
+dead-code and local dogfood.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-assumed-flow-current`
+has SHA-256 `b7c7866f9e9e6dba0a91aaa15dd27a861293bd2992b5e106b7b11411db60d1d5`;
+current `.build/goal-return-flow-current` has SHA-256
+`778d89ecf968803aadc643c433e62d94ee8c6a8667fb68a51482290ce99fc1d1`.
+Fresh `.build/goal-return-flow-stargz-{assumed,return}.{json,err}` scans both exit 3
+with identical 827-byte diagnostic JSON, empty stderr and the reviewed worker
+TP at `store/manager.go:193:2`. Hashes identify immutable pre-commit binaries,
+not clean-tree VCS stamps.
+
+Parent `gohawk-dho.44.11.5` remains active for library-contract/custom-hook
+internals, heap graph costs and other consumers. `gohawk-dho.44.11.5.12` records
+result-case inference calling lifecycle.ReturnsParameterUnchanged with separate
+reachability, compatibility flow and storage allowances. Resource and lock
+flows also retain separate termination consumers. Leaf rendering, type-system
+internals and allocation remain independent costs; this is not a whole-query
+wall-clock bound. Graph MCP tools remain unavailable; evidence uses scoped
+source and actual SSA. No production FP removal is credited; the 15-site queue
+and broader goal remain open. No full precision-regression, local race or
+candidate tests/generators/apps are run.
