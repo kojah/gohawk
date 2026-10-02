@@ -124,36 +124,80 @@ func SelectionsOfWithin(root ssa.Value, path []string, budget *ssaflow.SearchBud
 // content is the target. It looks one and two selections deep, which covers
 // a field of a struct and an element of an array held in a field.
 func StoredPath(root, target ssa.Value, observation ssa.Instruction) ([]string, bool) {
+	proof := ProveStoredPathWithin(root, target, observation, nil)
+	return proof.Path, proof.Proven()
+}
+
+// StoredPathProof identifies the exact observed field/element path or preserves
+// an unavailable search. Possible containment does not establish this relation.
+type StoredPathProof struct {
+	ssaflow.Proof
+	Path []string
+}
+
+// ProveStoredPathWithin shares graph dispatch, selection/referrer visits and
+// storage queries with budget. The storage child retains its QueryBudget cap;
+// its cutoff is unknown even when the caller remains available. Graph/alias/type
+// internals remain separate costs. Nil preserves StoredPath's default allowance.
+func ProveStoredPathWithin(root, target ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) StoredPathProof {
+	if !budget.Spend() {
+		return storedPathProof(nil, budget, nil)
+	}
 	if path, ok := graphStoredPath(root, target, observation); ok {
-		return path, true
+		return storedPathProof(path, budget, nil)
 	}
 	if load, ok := root.(*ssa.UnOp); ok && load.Op == token.MUL {
 		root = load.X
 	}
-	storage := NewStorage(nil)
-	var walk func(address ssa.Value, prefix []string, depth int) ([]string, bool)
-	walk = func(address ssa.Value, prefix []string, depth int) ([]string, bool) {
-		if depth == 0 || address.Referrers() == nil {
-			return nil, false
-		}
-		for _, reference := range *address.Referrers() {
-			selected, ok := reference.(ssa.Value)
-			if !ok {
-				continue
-			}
-			step, ok := ssaflow.AccessPathSteps(selected, address)
-			if !ok || len(step) != 1 {
-				continue
-			}
-			path := append(append([]string(nil), prefix...), step[0])
-			if content := storage.Content(selected, observation); content.Proven() && storage.Same(content.Value, target).Proven() {
-				return path, true
-			}
-			if found, ok := walk(selected, path, depth-1); ok {
-				return found, true
-			}
-		}
-		return nil, false
+	storageBudget := budget.Within(ssaflow.QueryBudget)
+	query := storedPathQuery{budget: budget, storageBudget: storageBudget, storage: NewStorage(storageBudget), target: target, observation: observation}
+	path := query.walk(root, nil, 2)
+	return storedPathProof(path, budget, storageBudget)
+}
+
+type storedPathQuery struct {
+	budget, storageBudget *ssaflow.SearchBudget
+	storage               *Storage
+	target                ssa.Value
+	observation           ssa.Instruction
+}
+
+func (query storedPathQuery) walk(address ssa.Value, prefix []string, depth int) []string {
+	if !query.budget.Spend() || depth == 0 || address.Referrers() == nil {
+		return nil
 	}
-	return walk(root, nil, 2)
+	for _, reference := range *address.Referrers() {
+		if !query.budget.Spend() {
+			return nil
+		}
+		selected, ok := reference.(ssa.Value)
+		if !ok {
+			continue
+		}
+		step, ok := ssaflow.AccessPathStepsWithin(selected, address, query.budget)
+		if !ok || len(step) != 1 {
+			continue
+		}
+		path := append(append([]string(nil), prefix...), step[0])
+		if content := query.storage.Content(selected, query.observation); content.Proven() && query.storage.Same(content.Value, query.target).Proven() {
+			return path
+		}
+		if query.storageBudget.Exhausted() || query.storageBudget.PoolExhausted() {
+			return nil
+		}
+		if found := query.walk(selected, path, depth-1); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func storedPathProof(path []string, budget, storageBudget *ssaflow.SearchBudget) StoredPathProof {
+	if budget.Exhausted() || budget.PoolExhausted() || storageBudget.Exhausted() || storageBudget.PoolExhausted() {
+		return StoredPathProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}}
+	}
+	if path == nil {
+		return StoredPathProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+	}
+	return StoredPathProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath}, Path: path}
 }

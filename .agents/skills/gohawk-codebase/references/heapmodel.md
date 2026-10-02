@@ -887,6 +887,19 @@ func ProveMayAlias(value, target ssa.Value) ssaflow.AliasProof
 ProveMayAlias asks one function's graph whether two values may name the
 same object. An unavailable graph falls back to the structural value walk.
 
+## ProveStoredPathWithin
+
+[Source](../../../../internal/heapmodel/store_access_paths.go)
+
+```go
+func ProveStoredPathWithin(root, target ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) StoredPathProof
+```
+
+ProveStoredPathWithin shares graph dispatch, selection/referrer visits and
+storage queries with budget. The storage child retains its QueryBudget cap;
+its cutoff is unknown even when the caller remains available. Graph/alias/type
+internals remain separate costs. Nil preserves StoredPath's default allowance.
+
 ## QueryEscape
 
 [Source](../../../../internal/heapmodel/escape_query.go)
@@ -1151,6 +1164,20 @@ StoredPath returns the access path beneath root at which target is stored,
 as observed at observation: the field or constant-index selection whose
 content is the target. It looks one and two selections deep, which covers
 a field of a struct and an element of an array held in a field.
+
+## StoredPathProof
+
+[Source](../../../../internal/heapmodel/store_access_paths.go)
+
+```go
+type StoredPathProof struct {
+	ssaflow.Proof
+	Path	[]string
+}
+```
+
+StoredPathProof identifies the exact observed field/element path or preserves
+an unavailable search. Possible containment does not establish this relation.
 
 ## StoredValue
 

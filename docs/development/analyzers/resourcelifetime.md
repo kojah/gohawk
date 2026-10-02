@@ -384,6 +384,33 @@ Cute/Ferro scopes, with exits 3/0 and empty stderr. The unbounded overlay fails
 the allowance, child-cutoff and captured-owner classifier controls. No full
 precision replay or production FP removal is credited.
 
+Observed aggregate paths now consume `resourcemodel.ProveRelation` directly
+under a capped child of the aggregate-escape allowance; the string-only
+`pathWithin` adapter is removed. The shared relation stops after interrupted
+identity and delegates stored paths to `heapmodel.ProveStoredPathWithin`.
+Budget cutoff returns resource unknown before querying kept contents, including
+a local child cutoff with an available caller. A completed unavailable position
+retains the existing whole-aggregate query. Path identity identifies the slot;
+it does not prove ownership or cleanup, and fact encoding is unchanged.
+
+`aggregate_path_test.go` checks imported retention of the exact field versus
+an independent sibling field, interrupted allowances and classifier recovery.
+The shared tests cover overwritten contents, the two-selection boundary and
+structural storage cutoff with parent allowance left. Conditional result-set
+release remains covered by its existing exact-field control. Beads
+`gohawk-dho.44.11.5.18.1.5.8` owns this integration; graph/alias/type internals,
+owner discovery and other independently bounded effects remain separate work.
+
+The observed-path local gate passed. Immutable
+`.build/goal-observed-path-current`, SHA-256
+`45fc67656ca0a3d3d8cafc4876c2a9f45b41c70dd68ba7119b9947ff2c8e852e`,
+keeps the same pinned Cute/Ferro scopes byte-identical to the captured-owner
+binary, with exits 3/0 and empty stderr. Restoring unbounded identity-to-path
+fallback fails both shared relation controls; ignoring the resource contents
+allowance fails the exact-field and sibling-field controls. No full precision
+replay or production FP removal is credited. The two remaining default effect
+consumers are tracked together by child `.18.1.5.9`.
+
 The resource projection decision propagates view-binding and storage-projection
 cutoff rather than treating it as missing evidence. A known non-cleaning view
 still cannot discharge its resource merely because it has a Close method;

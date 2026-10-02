@@ -34,6 +34,21 @@ be read after registration. Its caller must check the observation's own effects;
 callback mapping already checks that the callee reads its supplied aggregate.
 `Projection` proves an acquired owner's field has not been replaced or exposed.
 
+`ProveStoredPathWithin` names the exact observed path beneath an aggregate.
+It preserves the graph-first lookup and the structural fallback's two-selection
+depth. Graph dispatch, referrer/selection visits and storage queries share the
+caller allowance; structural storage retains its independent `QueryBudget`
+child cap. Either caller or child cutoff returns unknown with the budget reason,
+even when the caller still has allowance. Graph/alias/type internals remain
+separate costs. `StoredPath` delegates with its existing default allowance.
+
+`resourcemodel.ProveRelation` first asks exact identity, then requests this
+stored-path proof. Interrupted identity cannot fall through to path evidence.
+An unavailable completed relation may still leave the position unknown; it
+never proves a path absent. `stored_path_budget_test.go` and
+`relations_budget_test.go` cover exact/replaced paths, the depth boundary,
+structural child cutoff, fresh recovery and identity-to-path cutoff.
+
 ## Call effects
 
 `ssaflow.CallEffects` supplies bounded local effect evidence to storage and

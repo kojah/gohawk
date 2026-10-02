@@ -201,22 +201,28 @@ func (analysis *resourceAnalysis) proveAggregateOwnerEscapeWithin(
 		// about this one. A resource whose position is unknown asks about
 		// the whole aggregate. An unsummarized callee stays a boundary:
 		// silence is not a proof.
-		if kept, known := analysis.evidence.ContentsKeptAt(instruction, index, analysis.pathWithin(argument, instruction)); known && !kept {
-			continue
+		contents := analysis.proveAggregateContentsEscapeWithin(instruction, index, argument, budget)
+		if contents.State != ssaflow.EvidenceDisproven {
+			return contents
 		}
-		return aggregateEscapeProof(true, budget)
 	}
 	return aggregateEscapeProof(false, budget)
 }
 
-// pathWithin returns the joined access path at which the resource is stored
-// beneath the aggregate, or the empty path when its position is not known.
-func (analysis *resourceAnalysis) pathWithin(aggregate ssa.Value, observation ssa.Instruction) string {
-	relation := resourcemodel.ProveRelation(aggregate, analysis.resource, observation, analysis.budget(1000))
-	if !relation.Proven() {
-		return ""
+// A completed unavailable position asks about all contents, as before. A
+// shortened relation cannot substitute that broader query for the missing path.
+func (analysis *resourceAnalysis) proveAggregateContentsEscapeWithin(
+	instruction ssa.Instruction, index int, argument ssa.Value, budget *ssaflow.SearchBudget,
+) resourceProof {
+	path := resourcemodel.ProveRelation(argument, analysis.resource, instruction, budget.Within(ssaflow.QueryBudget))
+	if path.Reason == ssaflow.EvidenceBudgetExhausted {
+		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
-	return ssaflow.JoinAccessPath(relation.Relation.Path())
+	if !budget.Spend() {
+		return aggregateEscapeProof(false, budget)
+	}
+	kept, known := analysis.evidence.ContentsKeptAt(instruction, index, ssaflow.JoinAccessPath(path.Relation.Path()))
+	return aggregateEscapeProof(kept || !known, budget)
 }
 
 func (analysis *resourceAnalysis) proveAggregateArgumentWithin(

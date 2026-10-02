@@ -36,21 +36,28 @@ type RelationProof struct {
 // through lifecycle; no separate resource points-to graph is maintained.
 func ProveRelation(owner, resource ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) RelationProof {
 	unknown := RelationProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
-	if owner == nil || resource == nil || observation == nil || budget == nil || !budget.Spend() {
+	if owner == nil || resource == nil || observation == nil || budget == nil {
 		return unknown
 	}
-	if heapmodel.NewStorage(budget).Same(owner, resource).Proven() {
+	if !budget.Spend() {
+		return RelationProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}}
+	}
+	same := heapmodel.NewStorage(budget).Same(owner, resource)
+	if same.Reason == ssaflow.EvidenceBudgetExhausted || budget.Exhausted() || budget.PoolExhausted() {
+		return RelationProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}}
+	}
+	if same.Proven() {
 		return RelationProof{
 			Proof:    ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath},
 			Relation: Relation{owner: owner, resource: resource},
 		}
 	}
-	path, ok := heapmodel.StoredPath(owner, resource, observation)
-	if !ok || len(path) == 0 {
-		return unknown
+	path := heapmodel.ProveStoredPathWithin(owner, resource, observation, budget)
+	if !path.Proven() {
+		return RelationProof{Proof: path.Proof}
 	}
 	return RelationProof{
 		Proof:    ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath},
-		Relation: Relation{owner: owner, resource: resource, path: slices.Clone(path)},
+		Relation: Relation{owner: owner, resource: resource, path: slices.Clone(path.Path)},
 	}
 }
