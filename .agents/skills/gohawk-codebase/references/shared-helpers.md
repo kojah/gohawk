@@ -73,6 +73,7 @@ that only need to know whether some return is uncovered.
 | `InstructionsReachableAfter(start)` | every instruction reachable forward from a point |
 | `InstructionsWithin(function, budget)` | lazy block-order instruction census; callers keep proof policy and inspect cutoff availability |
 | `InstructionsReachableAfterWithin(start, budget)` | the same forward census with explicit cutoff availability; partial results cannot prove an instruction unreachable |
+| `GuardsDominatingWithin(target, budget)` | shared initial guard/dominator/invalidation census; cutoff supplies no seed and callers retain availability |
 | `InstructionIndexWithin`, `InstructionDominatesWithin` | block positions and exact dominance under one allowance; cutoff supplies no ordering evidence |
 | `InstructionMayFollowWithin(before, after, budget)` | ordered reachability under an allowance; a cutoff is unknown rather than disconnection |
 | `InstructionsOf[T](function)` | every instruction of one type in a function |

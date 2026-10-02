@@ -94,9 +94,13 @@ func BlockReachable(from, target *ssa.BasicBlock) bool {
 
 // BlockInCycle reports whether control flow can return to start.
 func BlockInCycle(start *ssa.BasicBlock) bool {
+	return blockInCycleWithin(start, nil)
+}
+
+func blockInCycleWithin(start *ssa.BasicBlock, budget *SearchBudget) bool {
 	// Starting at successors requires at least one edge. Starting at the block
 	// itself would incorrectly classify every acyclic block as a cycle.
-	return blockReachableFrom(start.Succs, start)
+	return blockReachableFromWithin(start.Succs, start, budget)
 }
 
 // blockReachableFrom owns raw CFG traversal; callers choose whether the

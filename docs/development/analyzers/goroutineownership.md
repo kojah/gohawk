@@ -437,5 +437,24 @@ witness or classifier invocation. This is a setup cutoff, not vacuous honored
 coverage. Caller cancellation's preceding-defer check also shares its allowance
 with exact dominance. `flow_setup_budget_test.go` pins actual block positions,
 same/cross-block dominance, shared-pool cutoff, initial uncertainty and fresh
-honored/violated outcomes. Initial dominating-guard extraction and downstream
-feasibility/guard costs remain open; this is not a whole-flow cost bound.
+honored/violated outcomes. Initial guard extraction shares the allowance as described below; downstream
+feasibility/guard costs remain open. This is not a whole-flow cost bound.
+
+### Initial guard setup allowance
+
+The shared obligation walk now seeds paths with `GuardsDominatingWithin`,
+sharing its allowance through dominator visits, negation/address decoding,
+computed-condition cycle checks, whole-body store census and invalidation order.
+An interrupted setup returns no guard seed and uncertain coverage before any
+classifier invocation. It cannot treat missing correlation as an uncovered
+return or use a partial seed to prune paths. Default decoding and guard-limit
+policy are preserved through the same engines; loaded guards remain unstable
+and stores before the target still invalidate them.
+
+`guard_setup_budget_test.go` constructs actual SSA for stable, loaded and
+mutated guards; pool and flow-setup cutoffs; computed loop conditions; nested
+field addresses; and negation parity. Fresh queries preserve default identity
+encodings and uncovered-return witnesses. Initial setup lives in
+`flow_guard_setup.go`, apart from guard identity/state transitions. Downstream
+edge feasibility, guard forgetting/key work, graph costs and other consumers
+remain the parent transitive review; this is not a whole-flow wall-clock bound.

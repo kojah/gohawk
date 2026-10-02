@@ -1454,7 +1454,7 @@ correlation but never invents one.
 
 ## GuardsDominating
 
-[Source](../../../../internal/ssaflow/flow_guards.go)
+[Source](../../../../internal/ssaflow/flow_guard_setup.go)
 
 ```go
 func GuardsDominating(target ssa.Instruction) PathGuards
@@ -1464,6 +1464,19 @@ GuardsDominating collects the guards every path to target passed through:
 dominating branches one of whose arms dominates target's block. A store to
 the guarded cell inside that arm, before target, means the guard may no
 longer hold there and is not kept.
+
+## GuardsDominatingWithin
+
+[Source](../../../../internal/ssaflow/flow_guard_setup.go)
+
+```go
+func GuardsDominatingWithin(target ssa.Instruction, budget *SearchBudget) PathGuards
+```
+
+GuardsDominatingWithin shares budget across dominator visits, condition and
+address decoding, cycle checks and invalidating-store scans. At cutoff it
+returns no seed; callers inspect availability before judging return coverage.
+A nil budget retains the existing bounded guard-selection policy.
 
 ## HasLibraryContract
 
@@ -1919,7 +1932,7 @@ return, or edge with respect to a tracked obligation.
 type ObligationFlow struct {
 	Start	ssa.Instruction
 	NonNil	ssa.Value
-	// Budget, when set, bounds initial instruction lookup and expanded path states. Exhaustion is uncertain:
+	// Budget, when set, bounds initial position/guard setup and expanded path states. Exhaustion is uncertain:
 	// it cannot establish either a violation or an exact discharge.
 	Budget	*SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,

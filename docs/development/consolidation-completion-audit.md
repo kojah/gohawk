@@ -2188,3 +2188,53 @@ tools remain unavailable; evidence uses scoped source and actual SSA. No
 production FP correction is credited; the 15-site queue and broader goal remain
 open. No full precision-regression, local race or candidate tests/generators/apps
 are run.
+
+
+## Initial guard setup allowance (dho.44.11.5.6)
+
+At parent `74328fc`, the shared obligation walk charged its start position but
+seeded guards through unbounded dominator/condition/address/cycle/store queries.
+`GuardsDominatingWithin` now shares the flow allowance through that initial
+setup. Public default decoding and guard collection delegate to the same
+engines with nil allowance. The bounded cycle query reuses the shared CFG walk;
+a cycle-search cutoff cannot establish computed-condition stability.
+Invalidating-store census is lazy and uses the existing budgeted order query.
+Interrupted setup supplies no guard seed and the obligation walk returns
+uncertain with no witness or classifier invocation, rather than judging returns
+from missing correlation or pruning paths from partial guard evidence.
+
+Initial scan/invalidation evidence is isolated in `flow_guard_setup.go`;
+`flow_guards.go` retains identity and state transitions. Existing guard-limit,
+loaded/stable distinction, negation parity and mutation policy are preserved.
+Actual SSA controls in `guard_setup_budget_test.go` cover stable, loaded and
+mutated guards, shared-pool/setup cutoffs, acyclic/loop computed conditions,
+nested field identities, negation decoding and fresh uncovered-return witnesses.
+Existing condition/guard-rerun/negation controls and final new tests pass in
+`.build/goal-guard-setup-focused-final.log`. Early lint passes in
+`.build/goal-guard-setup-lint.log`; canonical `make verify` passes in
+`.build/goal-guard-setup-verify.log`, including ordinary tests, formatting,
+vet, lint, generated inventory, dead-code and local dogfood.
+
+A one-file Go overlay restores the parent's obligation-flow consumer while
+retaining current helpers/tests. `GuardSetupCutoffStopsObligation` fails in
+`.build/goal-guard-setup-parent-counterfactual.log` (exit 1), proving the control
+detects the bypass of initial guard availability.
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-storage-flow-current`
+has SHA-256 `4c34f269067a339bc157dd5566ee27ac9bed13f8da18b0e8a591475ba81ca58c`;
+current `.build/goal-guard-setup-current` has SHA-256
+`920cf946f283fc323948009240f94ea8df4c93a0f62c00f6ac279a9502df2537`.
+Fresh `.build/goal-guard-setup-stargz-{storage-flow,guard-setup}.{json,err}`
+scans both exit 3 with identical 827-byte JSON, empty stderr and the reviewed TP
+at `store/manager.go:193:2`. Hashes identify immutable pre-commit binaries.
+
+Parent `gohawk-dho.44.11.5` remains active for graph construction/waiting and
+internal query costs, other consumers and downstream flow costs. Path-state
+`After`/`Forget`/`Key` work, successor feasibility and edge guard decoding still
+have independent costs; initial setup charging does not cover them. Leaf string
+and type rendering and CFG seed allocation are not a claimed wall-clock bound.
+Graph MCP tools remain unavailable; evidence uses scoped source and actual SSA.
+No production FP correction is credited; the 15-site queue and broader goal
+remain open. No full precision-regression, local race or candidate
+tests/generators/apps are run.

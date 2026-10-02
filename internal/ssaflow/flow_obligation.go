@@ -55,7 +55,7 @@ const (
 type ObligationFlow struct {
 	Start  ssa.Instruction
 	NonNil ssa.Value
-	// Budget, when set, bounds initial instruction lookup and expanded path states. Exhaustion is uncertain:
+	// Budget, when set, bounds initial position/guard setup and expanded path states. Exhaustion is uncertain:
 	// it cannot establish either a violation or an exact discharge.
 	Budget *SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
@@ -103,7 +103,11 @@ func EvaluateObligationWitness(flow ObligationFlow) (ObligationOutcome, *ssa.Ret
 	if index < 0 {
 		return ObligationHonored, nil
 	}
-	return obligationOutcome([]obligationState{{block: flow.Start.Block(), index: index + 1, guards: GuardsDominating(flow.Start)}}, flow)
+	guards := GuardsDominatingWithin(flow.Start, flow.Budget)
+	if flow.Budget.Exhausted() {
+		return ObligationUncertain, nil
+	}
+	return obligationOutcome([]obligationState{{block: flow.Start.Block(), index: index + 1, guards: guards}}, flow)
 }
 
 // EvaluateObligationFromEntry applies the same coverage walk from a function's

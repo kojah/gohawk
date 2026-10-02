@@ -230,8 +230,15 @@ func (fixed FixedValues) Holds(condition ssa.Value) (holds, decided bool) {
 // stops at every other form, including loads, conversions, comparisons and phi
 // merges; it neither evaluates the operand nor establishes its stability.
 func BooleanNegationSource(value ssa.Value) (ssa.Value, bool) {
+	return booleanNegationSourceWithin(value, nil)
+}
+
+func booleanNegationSourceWithin(value ssa.Value, budget *SearchBudget) (ssa.Value, bool) {
 	negated := false
 	for {
+		if !budget.Spend() {
+			return nil, false
+		}
 		not, ok := value.(*ssa.UnOp)
 		if !ok || not.Op != token.NOT {
 			return value, negated

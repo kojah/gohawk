@@ -64,20 +64,30 @@ const (
 // the true arm makes the guard false (as a != comparison does), and whether
 // the guard is stable. A condition with no identity reports false.
 func GuardCondition(condition ssa.Value) (identity string, negated, stable, ok bool) {
-	condition, inverted := BooleanNegationSource(condition)
-	identity, negated, stable, ok = guardConditionSource(condition)
+	return guardConditionWithin(condition, nil)
+}
+
+func guardConditionWithin(condition ssa.Value, budget *SearchBudget) (identity string, negated, stable, ok bool) {
+	condition, inverted := booleanNegationSourceWithin(condition, budget)
+	if budget.Exhausted() {
+		return "", false, false, false
+	}
+	identity, negated, stable, ok = guardConditionSource(condition, budget)
+	if budget.Exhausted() {
+		return "", false, false, false
+	}
 	return identity, negated != inverted, stable, ok
 }
 
-func guardConditionSource(condition ssa.Value) (identity string, negated, stable, ok bool) {
-	if identity, negated, ok := loadedGuard(condition); ok {
+func guardConditionSource(condition ssa.Value, budget *SearchBudget) (identity string, negated, stable, ok bool) {
+	if identity, negated, ok := loadedGuard(condition, budget); ok {
 		return identity, negated, false, true
 	}
 	if _, parameter := condition.(*ssa.Parameter); parameter && booleanValue(condition) {
 		return fmt.Sprintf("value:%p", condition), false, true, true
 	}
 	if comparison, ok := condition.(*ssa.BinOp); ok && (comparison.Op == token.EQL || comparison.Op == token.NEQ) &&
-		stableOperand(comparison.X) && stableOperand(comparison.Y) {
+		stableOperandWithin(comparison.X, budget) && stableOperandWithin(comparison.Y, budget) {
 		return stableEquality(comparison.X, comparison.Y), comparison.Op == token.NEQ, true, true
 	}
 	// A computed Boolean outside a cycle is evaluated once, so repeating that
@@ -85,8 +95,11 @@ func guardConditionSource(condition ssa.Value) (identity string, negated, stable
 	// A loop instruction is not correlated across iterations: its next
 	// evaluation may differ even though its SSA node is the same.
 	// https://github.com/pb33f/libopenapi/blob/07795ddc2c097af8581138ef290d6cf964110d74/index/extract_refs_lookup.go#L199-L220
-	if instruction, ok := condition.(ssa.Instruction); ok && booleanValue(condition) && !BlockInCycle(instruction.Block()) {
-		return fmt.Sprintf("value:%p", condition), false, true, true
+	if instruction, ok := condition.(ssa.Instruction); ok && booleanValue(condition) {
+		cyclic := blockInCycleWithin(instruction.Block(), budget)
+		if !cyclic && !budget.Exhausted() {
+			return fmt.Sprintf("value:%p", condition), false, true, true
+		}
 	}
 	return "", false, false, false
 }
@@ -99,13 +112,13 @@ func stableEquality(left, right ssa.Value) string {
 	return "eq(" + first + "," + second + ")"
 }
 
-func loadedGuard(condition ssa.Value) (string, bool, bool) {
+func loadedGuard(condition ssa.Value, budget *SearchBudget) (string, bool, bool) {
 	switch typed := condition.(type) {
 	case *ssa.UnOp:
 		if typed.Op != token.MUL {
 			return "", false, false
 		}
-		address, ok := GuardAddressIdentity(typed.X)
+		address, ok := guardAddressIdentityWithin(typed.X, budget)
 		return "load(" + address + ")", false, ok
 	case *ssa.BinOp:
 		if typed.Op != token.EQL && typed.Op != token.NEQ {
@@ -120,7 +133,7 @@ func loadedGuard(condition ssa.Value) (string, bool, bool) {
 		if !ok || !loaded || load.Op != token.MUL {
 			return "", false, false
 		}
-		address, ok := GuardAddressIdentity(load.X)
+		address, ok := guardAddressIdentityWithin(load.X, budget)
 		return "eq(load(" + address + ")," + guardOperandIdentity(literal) + ")", typed.Op == token.NEQ, ok
 	}
 	return "", false, false
@@ -131,6 +144,13 @@ func loadedGuard(condition ssa.Value) (string, bool, bool) {
 // a call returned, or a field selected from one of those, possibly through a
 // loaded pointer.
 func GuardAddressIdentity(address ssa.Value) (string, bool) {
+	return guardAddressIdentityWithin(address, nil)
+}
+
+func guardAddressIdentityWithin(address ssa.Value, budget *SearchBudget) (string, bool) {
+	if !budget.Spend() {
+		return "", false
+	}
 	switch typed := address.(type) {
 	case *ssa.Alloc:
 		return fmt.Sprintf("alloc:%p", typed), true
@@ -141,11 +161,11 @@ func GuardAddressIdentity(address ssa.Value) (string, bool) {
 	case *ssa.Global:
 		return "global:" + typed.String(), true
 	case *ssa.FieldAddr:
-		inner, ok := GuardAddressIdentity(typed.X)
+		inner, ok := guardAddressIdentityWithin(typed.X, budget)
 		return fmt.Sprintf("field(%s,%d)", inner, typed.Field), ok
 	case *ssa.UnOp:
 		if typed.Op == token.MUL {
-			inner, ok := GuardAddressIdentity(typed.X)
+			inner, ok := guardAddressIdentityWithin(typed.X, budget)
 			return "load(" + inner + ")", ok
 		}
 	case *ssa.Call, *ssa.Extract:
@@ -161,15 +181,18 @@ func GuardAddressIdentity(address ssa.Value) (string, bool) {
 // A call result outside a cycle is computed once per invocation, like a
 // parameter, so comparing it twice compares the same value: two checks of one
 // err agree.
-func stableOperand(value ssa.Value) bool {
+func stableOperandWithin(value ssa.Value, budget *SearchBudget) bool {
+	if !budget.Spend() {
+		return false
+	}
 	switch value := value.(type) {
 	case *ssa.Parameter, *ssa.Const:
 		return true
 	case *ssa.Call:
-		return !BlockInCycle(value.Block())
+		return !blockInCycleWithin(value.Block(), budget) && !budget.Exhausted()
 	case *ssa.Extract:
 		call, ok := value.Tuple.(*ssa.Call)
-		return ok && !BlockInCycle(call.Block())
+		return ok && !blockInCycleWithin(call.Block(), budget) && !budget.Exhausted()
 	}
 	return false
 }
@@ -278,49 +301,4 @@ func (guards PathGuards) Key() string {
 		parts = append(parts, fmt.Sprintf("%s=%t", guard.Identity, guard.Value))
 	}
 	return strings.Join(parts, ";")
-}
-
-// GuardsDominating collects the guards every path to target passed through:
-// dominating branches one of whose arms dominates target's block. A store to
-// the guarded cell inside that arm, before target, means the guard may no
-// longer hold there and is not kept.
-func GuardsDominating(target ssa.Instruction) PathGuards {
-	var guards PathGuards
-	block := target.Block()
-	for dominator := block.Idom(); dominator != nil && len(guards) < GuardLimit; dominator = dominator.Idom() {
-		if len(dominator.Succs) != 2 || len(dominator.Instrs) == 0 {
-			continue
-		}
-		branch, ok := dominator.Instrs[len(dominator.Instrs)-1].(*ssa.If)
-		if !ok {
-			continue
-		}
-		identity, negated, stable, ok := GuardCondition(branch.Cond)
-		if !ok {
-			continue
-		}
-		taken, arm := true, dominator.Succs[0]
-		if !arm.Dominates(block) {
-			taken, arm = false, dominator.Succs[1]
-			if !arm.Dominates(block) {
-				continue
-			}
-		}
-		if guardStoredWithin(identity, arm, target) {
-			continue
-		}
-		guards = append(guards, PathGuard{Identity: identity, Value: taken != negated, Stable: stable})
-	}
-	slices.SortFunc(guards, func(left, right PathGuard) int { return strings.Compare(left.Identity, right.Identity) })
-	return guards
-}
-
-func guardStoredWithin(identity string, arm *ssa.BasicBlock, target ssa.Instruction) bool {
-	for _, store := range InstructionsOf[*ssa.Store](target.Parent()) {
-		address, ok := GuardAddressIdentity(store.Addr)
-		if ok && strings.Contains(identity, address) && arm.Dominates(store.Block()) && InstructionMayFollow(store, target) {
-			return true
-		}
-	}
-	return false
 }
