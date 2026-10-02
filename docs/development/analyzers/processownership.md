@@ -80,6 +80,29 @@ replacement, another command, and an additional Boolean guard remain outside
 the guarantee. `process_guards.go` pins both merged and direct returns beside
 these diagnostic controls.
 
+## Result feasibility
+
+The post-Start walk uses `summaries.Provider.Successors`, through the shared
+`UnownedReturnQuery.Successors` adapter, just as sibling lifecycle checks use
+the provider's feasible edges. Completed result contracts can exclude an
+impossible return path; they do not establish Wait, Release or a transfer.
+The provider retains ordinary successors for unknown results or interrupted
+inference. Its existing result-pair rules also remain authoritative; this
+consumer introduces no argument- or receiver-state inference.
+
+`result_feasibility.go` pins imported always-nil and always-true helpers, a
+local always-false helper, and a command merged on Start failure. Variable
+errors, unresolved interface calls, and boxed typed-nil errors retain the
+missing-wait diagnostic. Both the direct successful-Start and merged-command
+entry paths use the same successor hook and retain their existing assumptions.
+The provider bounds each feasibility query separately; this does not establish
+a bound for the entire process obligation walk.
+
+This does not resolve the
+[Ferro Start error branch](https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/mcp/stdio.go#L154-L166).
+Its dependency's Stdio.Start has no unconditional successful-result contract;
+proving that branch impossible needs constructor-dependent receiver state.
+
 ## One-time program-entry ownership
 
 An uncovered return after a one-time Start in the executable's real entry is

@@ -18,6 +18,7 @@ browser or relaunching a daemon may intentionally outlive the caller. The
 check reports a command that is waited on or handed on along some return paths
 but not others. Commands built by helpers or reached through callbacks are not checked.
 A command started at most once by `main` of an executable is also left alone.
+Branches excluded by a helper’s guaranteed return value are skipped.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [processownership design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/processownership.md).

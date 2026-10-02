@@ -17,7 +17,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-var summaryKnowledge = summaries.Select(summaries.Requirements{Lifecycle: true})
+var summaryKnowledge = summaries.Select(summaries.Requirements{Results: true, Lifecycle: true})
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {
@@ -166,6 +166,9 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 			Reason: guard.Reason.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: guard.NonNil.Pos(), Function: function.String(),
 		})
 	}
+	// Result summaries exclude only branches the shared proof rules out.
+	// They never supply wait ownership; opaque results retain both edges.
+	successors := summaryKnowledge.Provider(pass).Successors()
 	if merged != nil {
 		assumptions.NonNil = merged
 		witness = ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
@@ -173,10 +176,11 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 			Owns:        owns,
 			AllowReturn: allowReturn,
 			Assume:      assumptions,
+			Successors:  successors,
 		})
 	} else {
 		witness = ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
-			AfterCallSuccess: start, Owns: owns, AllowReturn: allowReturn, Assume: assumptions,
+			AfterCallSuccess: start, Owns: owns, AllowReturn: allowReturn, Assume: assumptions, Successors: successors,
 		})
 	}
 	decision := decideProcessReturn(start, command, witness, unknown)

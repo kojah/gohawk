@@ -3149,6 +3149,10 @@ type UnownedReturnQuery struct {
 	// fixed Boolean parameters or captures.
 	// https://github.com/agenticenv/agent-sdk-go/blob/63f0452159d674d529a6fea91b8d532bed9b774e/internal/runtime/local/agent_loop.go#L828-L841
 	Assume	EntryAssumptions
+	// Successors supplies a stronger feasible-edge view, such as proven
+	// callee result outcomes. Nil retains the ordinary literal view; the
+	// hook must preserve both alternatives when its evidence is unknown.
+	Successors	func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
 }
 ```
 

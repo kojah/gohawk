@@ -165,6 +165,10 @@ type UnownedReturnQuery struct {
 	// fixed Boolean parameters or captures.
 	// https://github.com/agenticenv/agent-sdk-go/blob/63f0452159d674d529a6fea91b8d532bed9b774e/internal/runtime/local/agent_loop.go#L828-L841
 	Assume EntryAssumptions
+	// Successors supplies a stronger feasible-edge view, such as proven
+	// callee result outcomes. Nil retains the ordinary literal view; the
+	// hook must preserve both alternatives when its evidence is unknown.
+	Successors func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock
 }
 
 // OwnershipEdge describes an ownership action established only by taking a
@@ -194,7 +198,7 @@ func UnownedReturn(query UnownedReturnQuery) *ssa.Return {
 		return nil
 	}
 	outcome, witness := obligationOutcome(initial, ObligationFlow{
-		NonNil: query.Assume.NonNil, NonNilType: query.Assume.NonNilType, Constants: query.Assume.Constants,
+		NonNil: query.Assume.NonNil, NonNilType: query.Assume.NonNilType, Constants: query.Assume.Constants, Successors: query.Successors,
 		Instruction: ExactOrNone(query.Owns), Return: exactOrNoneReturn(query.AllowReturn), Edge: exactOrNoneEdge(query.OwnsEdge),
 	})
 	if outcome != ObligationViolated {
