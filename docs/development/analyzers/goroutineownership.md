@@ -438,7 +438,8 @@ coverage. Caller cancellation's preceding-defer check also shares its allowance
 with exact dominance. `flow_setup_budget_test.go` pins actual block positions,
 same/cross-block dominance, shared-pool cutoff, initial uncertainty and fresh
 honored/violated outcomes. Initial guard extraction shares the allowance as described below; downstream
-feasibility/guard costs remain open. This is not a whole-flow cost bound.
+feasibility internals remain open. Guard-state charging is described below.
+This is not a whole-flow cost bound.
 
 ### Initial guard setup allowance
 
@@ -456,5 +457,29 @@ mutated guards; pool and flow-setup cutoffs; computed loop conditions; nested
 field addresses; and negation parity. Fresh queries preserve default identity
 encodings and uncovered-return witnesses. Initial setup lives in
 `flow_guard_setup.go`, apart from guard identity/state transitions. Downstream
-edge feasibility, guard forgetting/key work, graph costs and other consumers
+edge feasibility internals, graph costs and other consumers
 remain the parent transitive review; this is not a whole-flow wall-clock bound.
+
+
+### Flow state and edge guard allowance
+
+The shared obligation engine uses `WalkStatesWithin`, charging every queued
+visit before key construction, including revisits. Instruction visits, guard
+key rendering, store/rerun identity filtering, and edge condition decoding
+share the flow allowance. Default state and guard facades use the same engines
+with nil allowance. Store and rerun invalidation share one identity filter;
+stable contradictions still prune paths and loaded contradictions remain opaque.
+The caller-cancellation classifier no longer charges the instruction visit
+again; its nested storage queries retain their own shared work charges.
+
+A classifier, return, edge, successor or termination callback that exhausts the
+shared allowance supplies no answer: the walk becomes uncertain and clears its
+return witness before accepting settlement, violation or path pruning.
+`flow_state_budget_test.go` pins queued/revisit and interrupted-key behavior,
+actual SSA stable/loaded guards, mutation/key/edge cutoffs and callback cutoffs.
+Existing default flow controls pin fresh honored and violated paths.
+
+These charges cover the listed visits, not complete callback internals.
+Successor feasibility, deferred termination census, graph construction/waiting,
+leaf string/type rendering and allocation costs remain independent review
+scope. This is not a whole-query wall-clock bound.

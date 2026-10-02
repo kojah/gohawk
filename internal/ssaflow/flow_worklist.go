@@ -10,18 +10,32 @@ import "golang.org/x/tools/go/ssa"
 // block be revisited under a different obligation state. The caller's key must
 // therefore capture every part of the state that changes what step does.
 func WalkStates[S any, K comparable](initial []S, key func(S) K, step func(S) ([]S, bool)) {
+	WalkStatesWithin(initial, key, step, nil)
+}
+
+// WalkStatesWithin charges queued visits before key construction, including
+// revisits. It stops if key or step exhausts the shared allowance, before
+// admitting a partial key or successor list. Callers retain cutoff availability;
+// a nil budget preserves default expansion and early-stop policy.
+func WalkStatesWithin[S any, K comparable](initial []S, key func(S) K, step func(S) ([]S, bool), budget *SearchBudget) {
 	queue := initial
 	expanded := map[K]bool{}
 	for len(queue) > 0 {
+		if !budget.Spend() {
+			return
+		}
 		state := queue[0]
 		queue = queue[1:]
 		identity := key(state)
+		if budget.Exhausted() {
+			return
+		}
 		if expanded[identity] {
 			continue
 		}
 		expanded[identity] = true
 		successors, ok := step(state)
-		if !ok {
+		if !ok || budget.Exhausted() {
 			return
 		}
 		queue = append(queue, successors...)

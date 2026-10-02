@@ -200,9 +200,6 @@ func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *heapmodel.Stora
 	budget := storage.Budget()
 	outcome := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
 		Start: spawn, Budget: budget, Instruction: func(instruction ssa.Instruction) ssaflow.ObligationAction {
-			if !budget.Spend() {
-				return ssaflow.ObligationUnknown
-			}
 			if cancels(instruction) {
 				return ssaflow.ObligationExact
 			}

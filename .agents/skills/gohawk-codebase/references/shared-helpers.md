@@ -70,6 +70,7 @@ that only need to know whether some return is uncovered.
 | helper | answers |
 |---|---|
 | `WalkStates(initial, key, step)` | a keyed work list over path-sensitive states; the caller owns the state type and transfer, the driver owns termination |
+| `WalkStatesWithin(initial, key, step, budget)` | charge queued visits before keys, including revisits; reject interrupted key/step results before admission |
 | `InstructionsReachableAfter(start)` | every instruction reachable forward from a point |
 | `InstructionsWithin(function, budget)` | lazy block-order instruction census; callers keep proof policy and inspect cutoff availability |
 | `InstructionsReachableAfterWithin(start, budget)` | the same forward census with explicit cutoff availability; partial results cannot prove an instruction unreachable |

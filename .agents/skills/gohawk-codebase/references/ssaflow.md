@@ -1388,31 +1388,6 @@ reused with a fresh budget; exhaustion during a computation discards its
 entire answer, including any partial effects. Recursion is not a fixed-point
 solver: the analyzer's fallback determines what a cut can safely contribute.
 
-## GuardAddressIdentity
-
-[Source](../../../../internal/ssaflow/flow_guards.go)
-
-```go
-func GuardAddressIdentity(address ssa.Value) (string, bool)
-```
-
-GuardAddressIdentity names a cell by the path that reaches it: a local
-allocation, a parameter, a captured variable, a package variable, a pointer
-a call returned, or a field selected from one of those, possibly through a
-loaded pointer.
-
-## GuardCondition
-
-[Source](../../../../internal/ssaflow/flow_guards.go)
-
-```go
-func GuardCondition(condition ssa.Value) (identity string, negated, stable, ok bool)
-```
-
-GuardCondition decodes a branch condition into a guard identity, whether
-the true arm makes the guard false (as a != comparison does), and whether
-the guard is stable. A condition with no identity reports false.
-
 ## GuardConsistent, GuardStableContradiction, GuardLoadedContradiction
 
 [Source](../../../../internal/ssaflow/flow_guards.go)
@@ -1932,7 +1907,9 @@ return, or edge with respect to a tracked obligation.
 type ObligationFlow struct {
 	Start	ssa.Instruction
 	NonNil	ssa.Value
-	// Budget, when set, bounds initial position/guard setup and expanded path states. Exhaustion is uncertain:
+	// Budget, when set, charges initial setup, queued states, instructions and
+	// guard transitions. Callbacks may share it for their own work; feasibility
+	// and termination internals have separate costs. Exhaustion is uncertain:
 	// it cannot establish either a violation or an exact discharge.
 	Budget	*SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
@@ -2178,17 +2155,6 @@ Extend records the guard the edge from block to successor establishes and
 reports whether it contradicts a guard the path already holds. keep, when
 set, filters which guards are remembered; a filtered-out guard is neither
 stored nor checked.
-
-## PathGuards.Forget
-
-[Source](../../../../internal/ssaflow/flow_guards.go)
-
-```go
-func (guards PathGuards) Forget(store *ssa.Store) PathGuards
-```
-
-Forget drops every guard about a cell the store may change: the stored
-place itself and any path selected beneath or above it.
 
 ## PathGuards.Key
 
@@ -3076,6 +3042,19 @@ The driver owns termination: a state is expanded only when its key has not
 been expanded before, which bounds the walk on loops while still letting a
 block be revisited under a different obligation state. The caller's key must
 therefore capture every part of the state that changes what step does.
+
+## WalkStatesWithin
+
+[Source](../../../../internal/ssaflow/flow_worklist.go)
+
+```go
+func WalkStatesWithin[S any, K comparable](initial []S, key func(S) K, step func(S) ([]S, bool), budget *SearchBudget)
+```
+
+WalkStatesWithin charges queued visits before key construction, including
+revisits. It stops if key or step exhausts the shared allowance, before
+admitting a partial key or successor list. Callers retain cutoff availability;
+a nil budget preserves default expansion and early-stop policy.
 
 ## WholeWrittenCell
 

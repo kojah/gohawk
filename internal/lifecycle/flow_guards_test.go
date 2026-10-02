@@ -69,7 +69,7 @@ func loaded(o *options) int {
 		t.Errorf("the other arm of a loaded guard is uncertain, got %v", contradiction)
 	}
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](loadedFn) {
-		guards = guards.Forget(store)
+		guards = guards.After(store)
 	}
 	if len(guards) != 0 {
 		t.Errorf("a store to the guarded cell forgets the guard: %+v", guards)

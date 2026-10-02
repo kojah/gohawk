@@ -60,13 +60,8 @@ const (
 	GuardLoadedContradiction
 )
 
-// GuardCondition decodes a branch condition into a guard identity, whether
-// the true arm makes the guard false (as a != comparison does), and whether
-// the guard is stable. A condition with no identity reports false.
-func GuardCondition(condition ssa.Value) (identity string, negated, stable, ok bool) {
-	return guardConditionWithin(condition, nil)
-}
-
+// guardConditionWithin decodes condition identity, polarity and stability.
+// An interrupted decode supplies no identity or path-pruning evidence.
 func guardConditionWithin(condition ssa.Value, budget *SearchBudget) (identity string, negated, stable, ok bool) {
 	condition, inverted := booleanNegationSourceWithin(condition, budget)
 	if budget.Exhausted() {
@@ -139,14 +134,7 @@ func loadedGuard(condition ssa.Value, budget *SearchBudget) (string, bool, bool)
 	return "", false, false
 }
 
-// GuardAddressIdentity names a cell by the path that reaches it: a local
-// allocation, a parameter, a captured variable, a package variable, a pointer
-// a call returned, or a field selected from one of those, possibly through a
-// loaded pointer.
-func GuardAddressIdentity(address ssa.Value) (string, bool) {
-	return guardAddressIdentityWithin(address, nil)
-}
-
+// guardAddressIdentityWithin names a cell by its selected address/load path.
 func guardAddressIdentityWithin(address ssa.Value, budget *SearchBudget) (string, bool) {
 	if !budget.Spend() {
 		return "", false
@@ -222,6 +210,12 @@ func booleanValue(value ssa.Value) bool {
 // set, filters which guards are remembered; a filtered-out guard is neither
 // stored nor checked.
 func (guards PathGuards) Extend(block, successor *ssa.BasicBlock, keep func(PathGuard) bool) (PathGuards, GuardContradiction) {
+	return guards.extendWithin(block, successor, keep, nil)
+}
+
+func (guards PathGuards) extendWithin(
+	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *SearchBudget,
+) (PathGuards, GuardContradiction) {
 	if len(block.Succs) != 2 || len(block.Instrs) == 0 {
 		return guards, GuardConsistent
 	}
@@ -229,7 +223,10 @@ func (guards PathGuards) Extend(block, successor *ssa.BasicBlock, keep func(Path
 	if !ok {
 		return guards, GuardConsistent
 	}
-	identity, negated, stable, ok := GuardCondition(branch.Cond)
+	identity, negated, stable, ok := guardConditionWithin(branch.Cond, budget)
+	if budget.Exhausted() {
+		return nil, GuardConsistent
+	}
 	if !ok {
 		return guards, GuardConsistent
 	}
@@ -238,6 +235,9 @@ func (guards PathGuards) Extend(block, successor *ssa.BasicBlock, keep func(Path
 		return guards, GuardConsistent
 	}
 	for _, held := range guards {
+		if !budget.Spend() {
+			return nil, GuardConsistent
+		}
 		if held.Identity != identity {
 			continue
 		}
@@ -257,16 +257,27 @@ func (guards PathGuards) Extend(block, successor *ssa.BasicBlock, keep func(Path
 	return next, GuardConsistent
 }
 
-// Forget drops every guard about a cell the store may change: the stored
-// place itself and any path selected beneath or above it.
-func (guards PathGuards) Forget(store *ssa.Store) PathGuards {
-	address, ok := GuardAddressIdentity(store.Addr)
+// forgetWithin drops guards about the stored cell and paths above/beneath it.
+func (guards PathGuards) forgetWithin(store *ssa.Store, budget *SearchBudget) PathGuards {
+	address, ok := guardAddressIdentityWithin(store.Addr, budget)
+	if budget.Exhausted() {
+		return nil
+	}
 	if !ok {
 		return guards
 	}
+	return guards.withoutIdentityWithin(address, budget)
+}
+
+// Store invalidation and rerun-result invalidation share the same exact
+// identity filtering; neither may keep a partial guard list at cutoff.
+func (guards PathGuards) withoutIdentityWithin(identity string, budget *SearchBudget) PathGuards {
 	var kept PathGuards
 	for _, guard := range guards {
-		if !strings.Contains(guard.Identity, address) {
+		if !budget.Spend() {
+			return nil
+		}
+		if !strings.Contains(guard.Identity, identity) {
 			kept = append(kept, guard)
 		}
 	}
@@ -278,26 +289,31 @@ func (guards PathGuards) Forget(store *ssa.Store) PathGuards {
 // of a loop does, replaces its result, so the guards on the old result no
 // longer describe the new one.
 func (guards PathGuards) After(instruction ssa.Instruction) PathGuards {
+	return guards.afterWithin(instruction, nil)
+}
+
+func (guards PathGuards) afterWithin(instruction ssa.Instruction, budget *SearchBudget) PathGuards {
 	switch typed := instruction.(type) {
 	case *ssa.Store:
-		return guards.Forget(typed)
+		return guards.forgetWithin(typed, budget)
 	case *ssa.Call, *ssa.Extract:
 		identity := guardOperandIdentity(typed.(ssa.Value))
-		var kept PathGuards
-		for _, guard := range guards {
-			if !strings.Contains(guard.Identity, identity) {
-				kept = append(kept, guard)
-			}
-		}
-		return kept
+		return guards.withoutIdentityWithin(identity, budget)
 	}
 	return guards
 }
 
 // Key renders the guards for a walk's state key.
 func (guards PathGuards) Key() string {
+	return guards.keyWithin(nil)
+}
+
+func (guards PathGuards) keyWithin(budget *SearchBudget) string {
 	parts := make([]string, 0, len(guards))
 	for _, guard := range guards {
+		if !budget.Spend() {
+			return ""
+		}
 		parts = append(parts, fmt.Sprintf("%s=%t", guard.Identity, guard.Value))
 	}
 	return strings.Join(parts, ";")

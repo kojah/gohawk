@@ -2238,3 +2238,61 @@ Graph MCP tools remain unavailable; evidence uses scoped source and actual SSA.
 No production FP correction is credited; the 15-site queue and broader goal
 remain open. No full precision-regression, local race or candidate
 tests/generators/apps are run.
+
+
+## Flow state and edge guard allowance (dho.44.11.5.7)
+
+At parent `d3ae2d4`, obligation state keys were constructed before the state
+allowance check, instruction and guard-state work remained independent, and
+exhausted return/termination callbacks could still contribute proof. The shared
+work-list engine now exposes `WalkStatesWithin`: every queued visit, including
+revisits, spends before constructing its key. Interrupted key and step answers
+are rejected before admission. The obligation engine shares its allowance
+through instruction visits, guard key/filter work and edge condition decoding.
+Store and rerun-result invalidation use one identity filter. Default transitions
+still use the same engines with nil allowance; stable contradictions prune and
+loaded contradictions remain opaque. Caller cancellation removes its duplicate
+instruction-visit charge while retaining nested storage work charges.
+
+One obligation walk owns the outcome and return witness. Exhaustion in a
+classifier, return, edge, successor or termination callback produces uncertain
+coverage with no witness before its answer can settle, violate or prune a path.
+Actual SSA controls in `flow_state_budget_test.go` cover loaded/stable guards,
+store/key/edge cutoffs and callbacks; work-list controls cover revisits and
+interrupted key/step admission. The affected ssaflow/goroutineownership package
+suites pass in `.build/goal-flow-state-focused-final.log`; final early lint
+passes in `.build/goal-flow-state-lint-final.log`. A one-file Go overlay restores
+the parent obligation consumer with current helpers/tests. The return and
+termination cutoff controls fail in
+`.build/goal-flow-state-parent-counterfactual.log` (exit 1), detecting stale
+proof availability. No production FP correction is credited.
+
+The first canonical gate passed ordinary tests and dogfood but found three
+facades used only by tests. `GuardCondition` and `GuardAddressIdentity` now live
+as test probes in `flow_guards_export_test.go`; the lifecycle mutation control
+uses `PathGuards.After` and the unused production `Forget` facade is removed.
+Focused ssaflow/lifecycle controls and deadcode pass in
+`.build/goal-flow-state-cleanup-{tests,deadcode}.log`. Final canonical
+`make verify` passes in `.build/goal-flow-state-final-verify.log`, including
+ordinary tests (129 seconds), formatting, vet, lint, generated inventory,
+dead-code and local dogfood.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-guard-setup-current`
+has SHA-256 `920cf946f283fc323948009240f94ea8df4c93a0f62c00f6ac279a9502df2537`;
+current `.build/goal-flow-state-current` has SHA-256
+`aa3ea696c593af44b7dee90aa7b3ad3c4baf480d6e24802fe39f3cb3a2fe9cf2`.
+Fresh `.build/goal-flow-state-stargz-{guard-setup,flow-state}.{json,err}` scans
+both exit 3 with identical 827-byte diagnostic JSON, empty stderr and the
+reviewed TP at `store/manager.go:193:2`. Hashes identify immutable pre-commit
+binaries, not clean-tree VCS stamps.
+
+Parent `gohawk-dho.44.11.5` remains active for graph costs, other consumers,
+successor feasibility internals, deferred termination census and callback
+internal work. `gohawk-dho.44.11.5.8` records the concrete RunDefers census and
+dominance gap. Leaf rendering and allocation costs also remain independent;
+this is not a whole-query wall-clock bound. Graph MCP tools remain unavailable;
+evidence uses scoped source and actual SSA. The 15-site production FP queue and
+broader goal remain open. No full precision-regression, local race or candidate
+tests/generators/apps are run.

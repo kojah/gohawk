@@ -55,7 +55,9 @@ const (
 type ObligationFlow struct {
 	Start  ssa.Instruction
 	NonNil ssa.Value
-	// Budget, when set, bounds initial position/guard setup and expanded path states. Exhaustion is uncertain:
+	// Budget, when set, charges initial setup, queued states, instructions and
+	// guard transitions. Callbacks may share it for their own work; feasibility
+	// and termination internals have separate costs. Exhaustion is uncertain:
 	// it cannot establish either a violation or an exact discharge.
 	Budget *SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
@@ -138,13 +140,13 @@ type obligationKey struct {
 	guards      string
 }
 
-func (state obligationState) key() obligationKey {
+func (state obligationState) keyWithin(budget *SearchBudget) obligationKey {
 	predecessor := -1
 	if state.predecessor != nil {
 		predecessor = state.predecessor.Index
 	}
 	return obligationKey{
-		block: state.block.Index, predecessor: predecessor, index: state.index, covered: state.covered, guards: state.guards.Key(),
+		block: state.block.Index, predecessor: predecessor, index: state.index, covered: state.covered, guards: state.guards.keyWithin(budget),
 	}
 }
 
@@ -159,56 +161,100 @@ func (state obligationState) key() obligationKey {
 // loaded guard is walked as an opaque action, because a store the analysis
 // does not see could explain it; it hides a diagnostic, never proves one.
 func obligationOutcome(initial []obligationState, flow ObligationFlow) (ObligationOutcome, *ssa.Return) {
-	outcome := ObligationHonored
-	var witness *ssa.Return
-	policy := flow.successorPolicy()
-	WalkStates(initial, obligationState.key, func(state obligationState) ([]obligationState, bool) {
-		if flow.Budget != nil && !flow.Budget.Spend() {
-			outcome = ObligationUncertain
+	walk := obligationWalk{flow: flow, policy: flow.successorPolicy(), outcome: ObligationHonored}
+	WalkStatesWithin(initial, func(state obligationState) obligationKey {
+		return state.keyWithin(flow.Budget)
+	}, walk.step, flow.Budget)
+	walk.stopAtCutoff()
+	return walk.outcome, walk.witness
+}
+
+// One walk owns the outcome and witness. Every callback and shared guard query
+// must retain availability before it can settle, violate or prune a path.
+type obligationWalk struct {
+	flow    ObligationFlow
+	policy  SuccessorPolicy
+	outcome ObligationOutcome
+	witness *ssa.Return
+}
+
+func (walk *obligationWalk) stopAtCutoff() bool {
+	if !walk.flow.Budget.Exhausted() {
+		return false
+	}
+	walk.outcome, walk.witness = ObligationUncertain, nil
+	return true
+}
+
+func (walk *obligationWalk) step(state obligationState) ([]obligationState, bool) {
+	for _, instruction := range state.block.Instrs[state.index:] {
+		if !walk.flow.Budget.Spend() {
 			return nil, false
 		}
-		for _, instruction := range state.block.Instrs[state.index:] {
-			state.guards = state.guards.After(instruction)
-			state.covered = max(state.covered, flow.Instruction(instruction))
-			if InstructionTerminatesWith(instruction, flow.Terminates) {
-				return nil, true
-			}
-			returned, ok := instruction.(*ssa.Return)
-			if !ok {
-				continue
-			}
-			covered := state.covered
-			if flow.Return != nil {
-				covered = max(covered, flow.Return(returned))
-			}
-			switch covered {
-			case ObligationNone:
-				outcome, witness = ObligationViolated, returned
+		if !walk.instruction(&state, instruction) {
+			return nil, false
+		}
+		if InstructionTerminatesWith(instruction, walk.flow.Terminates) {
+			return nil, !walk.stopAtCutoff()
+		}
+		if walk.stopAtCutoff() {
+			return nil, false
+		}
+	}
+	edges := walk.policy.edgesWithin(state.block, state.predecessor, state.guards, walk.flow.Budget)
+	if walk.stopAtCutoff() {
+		return nil, false
+	}
+	next := make([]obligationState, 0, len(edges))
+	for _, edge := range edges {
+		covered := state.covered
+		if walk.flow.Edge != nil {
+			covered = max(covered, walk.flow.Edge(state.block, edge.To))
+			if walk.stopAtCutoff() {
 				return nil, false
-			case ObligationUnknown:
-				outcome = ObligationUncertain
-			case ObligationExact:
 			}
 		}
-		edges := policy.Edges(state.block, state.predecessor, state.guards)
-		next := make([]obligationState, 0, len(edges))
-		for _, edge := range edges {
-			covered := state.covered
-			if flow.Edge != nil {
-				covered = max(covered, flow.Edge(state.block, edge.To))
-			}
-			switch edge.Contradiction {
-			case GuardStableContradiction:
-				continue
-			case GuardLoadedContradiction:
-				covered = max(covered, ObligationUnknown)
-			case GuardConsistent:
-			}
-			next = append(next, obligationState{block: edge.To, predecessor: state.block, covered: covered, guards: edge.Guards})
+		switch edge.Contradiction {
+		case GuardStableContradiction:
+			continue
+		case GuardLoadedContradiction:
+			covered = max(covered, ObligationUnknown)
+		case GuardConsistent:
 		}
-		return next, true
-	})
-	return outcome, witness
+		next = append(next, obligationState{block: edge.To, predecessor: state.block, covered: covered, guards: edge.Guards})
+	}
+	return next, true
+}
+
+func (walk *obligationWalk) instruction(state *obligationState, instruction ssa.Instruction) bool {
+	state.guards = state.guards.afterWithin(instruction, walk.flow.Budget)
+	if walk.stopAtCutoff() {
+		return false
+	}
+	state.covered = max(state.covered, walk.flow.Instruction(instruction))
+	if walk.stopAtCutoff() {
+		return false
+	}
+	returned, ok := instruction.(*ssa.Return)
+	if !ok {
+		return true
+	}
+	covered := state.covered
+	if walk.flow.Return != nil {
+		covered = max(covered, walk.flow.Return(returned))
+		if walk.stopAtCutoff() {
+			return false
+		}
+	}
+	switch covered {
+	case ObligationNone:
+		walk.outcome, walk.witness = ObligationViolated, returned
+		return false
+	case ObligationUnknown:
+		walk.outcome = ObligationUncertain
+	case ObligationExact:
+	}
+	return true
 }
 
 // ExactOrNone lifts a Boolean ownership predicate to the two-level lattice

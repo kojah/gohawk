@@ -58,8 +58,9 @@ an alternative assumes can hold in one execution. A future check that reports
 a wait blocked only on an error path needs the same decision. The retired
 `feasibility.go` used this policy:
 
-- Condition identity and stability come from `ssaflow.GuardCondition`, the
-  guards lockorder and resourcelifetime prune with. A condition stored apart
+- Condition identity and stability came from the guard decoder, now
+  `guardConditionWithin`. Current consumers obtain that evidence through
+  `ssaflow.PathGuards.Extend`. A condition stored apart
   from its instruction also needed `GuardComparison`, which was removed with
   the graph and can be restored from the same revision.
 - Taking both arms of a stable guard (a parameter, a constant, or a value

@@ -51,10 +51,26 @@ type SuccessorEdge struct {
 // Edges returns the feasible edges out of block for a path that arrived from
 // predecessor carrying guards.
 func (policy SuccessorPolicy) Edges(block, predecessor *ssa.BasicBlock, guards PathGuards) []SuccessorEdge {
+	return policy.edgesWithin(block, predecessor, guards, nil)
+}
+
+func (policy SuccessorPolicy) edgesWithin(block, predecessor *ssa.BasicBlock, guards PathGuards, budget *SearchBudget) []SuccessorEdge {
+	if !budget.Spend() {
+		return nil
+	}
 	successors := policy.Successors(block, predecessor)
+	if budget.Exhausted() {
+		return nil
+	}
 	edges := make([]SuccessorEdge, 0, len(successors))
 	for _, successor := range successors {
-		extended, contradiction := guards.Extend(block, successor, nil)
+		if !budget.Spend() {
+			return nil
+		}
+		extended, contradiction := guards.extendWithin(block, successor, nil, budget)
+		if budget.Exhausted() {
+			return nil
+		}
 		edges = append(edges, SuccessorEdge{To: successor, Guards: extended, Contradiction: contradiction})
 	}
 	return edges
