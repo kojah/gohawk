@@ -254,8 +254,19 @@ func (storage *Storage) collect(address ssa.Value, observation ssa.Instruction, 
 		if !storage.budget.Spend() {
 			return nil, false
 		}
-		if use == observation || !whole && !ssaflow.InstructionMayFollow(use, observation) {
+		if use == observation {
 			continue
+		}
+		if !whole {
+			follows := ssaflow.InstructionMayFollowWithin(use, observation, storage.budget)
+			// An incomplete order query cannot discard a possibly relevant
+			// write or escape and then claim exact contents from the rest.
+			if storage.budget.Exhausted() {
+				return nil, false
+			}
+			if !follows {
+				continue
+			}
 		}
 		if blocked, ok := storage.collectUse(address, use, observation, stores, whole); !ok {
 			return blocked, false

@@ -428,3 +428,14 @@ differing and dynamic indexes, candidate-pool cutoff and exhaustion at the last
 path-comparison step. Heap graph queries, storage's default structural calls,
 other consumers and initial flow setup remain the parent transitive review;
 this does not replace possible alias evidence with exact structural identity.
+
+### Initial order lookup allowance
+
+The shared obligation walk charges its initial instruction lookup to the flow
+allowance. If that lookup is interrupted, it returns uncertain without a return
+witness or classifier invocation. This is a setup cutoff, not vacuous honored
+coverage. Caller cancellation's preceding-defer check also shares its allowance
+with exact dominance. `flow_setup_budget_test.go` pins actual block positions,
+same/cross-block dominance, shared-pool cutoff, initial uncertainty and fresh
+honored/violated outcomes. Initial dominating-guard extraction and downstream
+feasibility/guard costs remain open; this is not a whole-flow cost bound.

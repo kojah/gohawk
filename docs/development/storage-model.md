@@ -126,3 +126,15 @@ shared-pool cutoff, observed unknown, and content cutoff with a warmed graph.
 Existing storage snapshot fixtures cover fresh load and aggregate resolution.
 Graph construction, waiting and internal traversal remain independent costs;
 this change does not establish a bound for the entire storage query.
+
+## Ordering allowance
+
+Address-use collection uses `InstructionMayFollowWithin` and stops on cutoff
+before discarding or admitting the referrer. Reaching-write setup shares the
+allowance with sole-initializer dominance and the observation's instruction
+index. An interrupted order query cannot prove a write irrelevant or an
+initializer guaranteed. Unknown flows through storage's existing give-up point
+and is not rescued by graph fallback. `store_flow_budget_test.go` uses actual
+SSA cells, stores and loads for cutoff and fresh controls; snapshot fixtures
+retain branch, loop and deferred-observation coverage. Graph internals and
+other storage facilities remain outside this increment.

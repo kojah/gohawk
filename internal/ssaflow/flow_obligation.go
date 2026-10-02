@@ -55,7 +55,7 @@ const (
 type ObligationFlow struct {
 	Start  ssa.Instruction
 	NonNil ssa.Value
-	// Budget, when set, bounds expanded path states. Exhaustion is uncertain:
+	// Budget, when set, bounds initial instruction lookup and expanded path states. Exhaustion is uncertain:
 	// it cannot establish either a violation or an exact discharge.
 	Budget *SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
@@ -96,7 +96,10 @@ func EvaluateObligation(flow ObligationFlow) ObligationOutcome {
 // violated outcome, the normal return the walk reached with no action before
 // it. That return is the proof's witness, which a diagnostic can cite.
 func EvaluateObligationWitness(flow ObligationFlow) (ObligationOutcome, *ssa.Return) {
-	index := InstructionIndex(flow.Start)
+	index := InstructionIndexWithin(flow.Start, flow.Budget)
+	if flow.Budget.Exhausted() {
+		return ObligationUncertain, nil
+	}
 	if index < 0 {
 		return ObligationHonored, nil
 	}

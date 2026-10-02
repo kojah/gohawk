@@ -222,7 +222,7 @@ func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *heapmodel.Stora
 		if !ok {
 			continue
 		}
-		if ssaflow.InstructionDominates(deferred, spawn) && cancels(deferred) {
+		if ssaflow.InstructionDominatesWithin(deferred, spawn, budget) && cancels(deferred) {
 			return true
 		}
 	}

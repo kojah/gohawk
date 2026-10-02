@@ -27,15 +27,30 @@ func (storage *Storage) reachingContent(location storageLocation, observation ss
 	// There is no competing write to discover by walking their backedges.
 	// A callback defined outside a range loop can therefore be bound inside it:
 	// https://github.com/mariadb-operator/mariadb-operator/blob/e8ece7a8076954674e10e0381571bd80278ac35f/licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go#L191-L205
-	if len(writes) == 1 {
-		for store, write := range writes {
-			if !write.partial && ssaflow.InstructionDominates(store, observation) {
-				return storage.projectStored(store.Val, write.suffix)
-			}
+	if store, write, only := soleStorageWrite(writes); only && !write.partial {
+		dominates := ssaflow.InstructionDominatesWithin(store, observation, storage.budget)
+		if storage.budget.Exhausted() {
+			return storage.unknown(ssaflow.EvidenceBudgetExhausted, observation)
+		}
+		if dominates {
+			return storage.projectStored(store.Val, write.suffix)
 		}
 	}
+	index := ssaflow.InstructionIndexWithin(observation, storage.budget)
+	if index < 0 {
+		return storage.unknown(ssaflow.EvidenceStorageNoReachingWrite, observation)
+	}
 	query := reachingStorage{storage: storage, location: location, writes: writes, active: make(map[*ssa.BasicBlock]bool)}
-	return query.before(observation.Block(), ssaflow.InstructionIndex(observation))
+	return query.before(observation.Block(), index)
+}
+
+func soleStorageWrite(writes map[*ssa.Store]storageWrite) (*ssa.Store, storageWrite, bool) {
+	if len(writes) == 1 {
+		for store, write := range writes {
+			return store, write, true
+		}
+	}
+	return nil, storageWrite{}, false
 }
 
 // A field write invalidates a whole-aggregate value. It cannot be mistaken for

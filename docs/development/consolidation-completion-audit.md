@@ -2136,3 +2136,55 @@ tools remain unavailable; evidence uses scoped source and actual SSA. No
 production FP correction is credited; the 15-site queue and broader goal remain
 open. No full precision-regression, local race or candidate tests/generators/apps
 are run.
+
+
+## Storage ordering and initial flow position (dho.44.11.5.5)
+
+At parent `7b7d409`, storage used unbounded reachability, sole-initializer
+dominance and instruction indexing beneath its allowance. The existing index
+scan is exposed as `InstructionIndexWithin`; budgeted dominance shares the
+same-block order engine with possible-follow queries. Defaults delegate with
+nil allowance, retaining valid SSA order. Unindexed instructions supply no
+ordering evidence. Cross-block dominance charges its constant-time tree check.
+
+Storage address-use collection asks budgeted possible-follow and returns
+unknown before admitting or discarding a referrer if ordering cuts off.
+Reaching-write setup charges sole-initializer dominance and observation
+indexing. Caller cancellation's preceding-defer check uses budgeted dominance.
+The shared obligation walk now charges its initial index lookup; cutoff is
+uncertain with no witness or classifier invocation, never honored or violated.
+Initial dominating-guard extraction remains independent review scope.
+
+Actual SSA controls in `flow_setup_budget_test.go` and
+`store_flow_budget_test.go` cover block order, same/cross-block dominance,
+candidate-pool cutoff, incomplete setup, fresh honored/violated witnesses,
+sole initializer and address-use order cutoff. Existing storage snapshot,
+aggregate, deferred and caller-bound controls pass in
+`.build/goal-storage-flow-focused.log`; final new tests pass in
+`.build/goal-storage-flow-new-tests-final.log`. A three-file Go overlay restores
+parent storage model/reaching and obligation-flow consumers while retaining
+current helpers and tests. Both cutoff tests fail in
+`.build/goal-storage-flow-parent-counterfactual-final.log` (exit 1), showing
+the new assertions detect the bypass. Final canonical `make verify` passes in
+`.build/goal-storage-flow-final-verify.log`, including ordinary tests,
+formatting, vet, lint, generated inventory, dead-code and local dogfood.
+Initial lint failures were fixed with distinct fixture arguments and a
+mechanical sole-write selector that flattens the initializer decision.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-storage-identity-current`
+has SHA-256 `d91268f500c0c1eb92ebbb6762f8bb7d34a9c24656544f3cdff23357510c35e8`;
+current `.build/goal-storage-flow-current` has SHA-256
+`4c34f269067a339bc157dd5566ee27ac9bed13f8da18b0e8a591475ba81ca58c`.
+Fresh `.build/goal-storage-flow-stargz-{storage-identity,storage-flow}.{json,err}`
+scans both exit 3 with identical 827-byte JSON, empty stderr and the reviewed TP
+at `store/manager.go:193:2`. Hashes identify immutable pre-commit binaries.
+
+Parent `gohawk-dho.44.11.5` remains active for graph construction/waiting and
+internal query costs, other consumers, dominating guards and remaining flow
+setup/feasibility costs. This is not a whole-query wall-clock bound. Graph MCP
+tools remain unavailable; evidence uses scoped source and actual SSA. No
+production FP correction is credited; the 15-site queue and broader goal remain
+open. No full precision-regression, local race or candidate tests/generators/apps
+are run.

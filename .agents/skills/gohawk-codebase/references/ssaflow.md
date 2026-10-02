@@ -1536,6 +1536,18 @@ func InstructionDominates(before, after ssa.Instruction) bool
 InstructionDominates reports whether every path to after executes before.
 Instruction order is respected when both values belong to one block.
 
+## InstructionDominatesWithin
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func InstructionDominatesWithin(before, after ssa.Instruction, budget *SearchBudget) bool
+```
+
+InstructionDominatesWithin shares the allowance across same-block indexing
+or a constant-time dominator-tree comparison. False at cutoff is unavailable,
+not evidence of an uncovered path. A nil budget retains default order policy.
+
 ## InstructionIndex
 
 [Source](../../../../internal/ssaflow/flow_paths.go)
@@ -1545,6 +1557,18 @@ func InstructionIndex(instruction ssa.Instruction) int
 ```
 
 InstructionIndex returns instruction position within its basic block.
+
+## InstructionIndexWithin
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func InstructionIndexWithin(instruction ssa.Instruction, budget *SearchBudget) int
+```
+
+InstructionIndexWithin charges each inspected instruction before selecting
+its block position. At cutoff -1 is unavailable; callers inspect the budget.
+A nil budget retains the default scan.
 
 ## InstructionMayFollow
 
@@ -1895,7 +1919,7 @@ return, or edge with respect to a tracked obligation.
 type ObligationFlow struct {
 	Start	ssa.Instruction
 	NonNil	ssa.Value
-	// Budget, when set, bounds expanded path states. Exhaustion is uncertain:
+	// Budget, when set, bounds initial instruction lookup and expanded path states. Exhaustion is uncertain:
 	// it cannot establish either a violation or an exact discharge.
 	Budget	*SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,

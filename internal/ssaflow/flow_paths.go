@@ -15,10 +15,13 @@ import (
 
 // InstructionIndex returns instruction position within its basic block.
 func InstructionIndex(instruction ssa.Instruction) int {
-	return instructionIndexWithin(instruction, nil)
+	return InstructionIndexWithin(instruction, nil)
 }
 
-func instructionIndexWithin(instruction ssa.Instruction, budget *SearchBudget) int {
+// InstructionIndexWithin charges each inspected instruction before selecting
+// its block position. At cutoff -1 is unavailable; callers inspect the budget.
+// A nil budget retains the default scan.
+func InstructionIndexWithin(instruction ssa.Instruction, budget *SearchBudget) int {
 	for index, candidate := range instruction.Block().Instrs {
 		if !budget.Spend() {
 			return -1
@@ -30,16 +33,34 @@ func instructionIndexWithin(instruction ssa.Instruction, budget *SearchBudget) i
 	return -1
 }
 
+// Same-block dominance and possible-follow queries use one instruction order
+// decision. An unindexed instruction never contributes ordering evidence.
+func instructionOrderedWithin(before, after ssa.Instruction, budget *SearchBudget) bool {
+	first := InstructionIndexWithin(before, budget)
+	if first < 0 {
+		return false
+	}
+	last := InstructionIndexWithin(after, budget)
+	return last >= 0 && !budget.Exhausted() && first <= last
+}
+
 // InstructionDominates reports whether every path to after executes before.
 // Instruction order is respected when both values belong to one block.
 func InstructionDominates(before, after ssa.Instruction) bool {
+	return InstructionDominatesWithin(before, after, nil)
+}
+
+// InstructionDominatesWithin shares the allowance across same-block indexing
+// or a constant-time dominator-tree comparison. False at cutoff is unavailable,
+// not evidence of an uncovered path. A nil budget retains default order policy.
+func InstructionDominatesWithin(before, after ssa.Instruction, budget *SearchBudget) bool {
 	if before == nil || after == nil || before.Parent() != after.Parent() {
 		return false
 	}
 	if before.Block() == after.Block() {
-		return InstructionIndex(before) <= InstructionIndex(after)
+		return instructionOrderedWithin(before, after, budget)
 	}
-	return before.Block().Dominates(after.Block())
+	return budget.Spend() && before.Block().Dominates(after.Block())
 }
 
 // InstructionMayFollow reports whether after is reachable after before. This
@@ -57,9 +78,7 @@ func InstructionMayFollowWithin(before, after ssa.Instruction, budget *SearchBud
 		return false
 	}
 	if before.Block() == after.Block() {
-		first := instructionIndexWithin(before, budget)
-		last := instructionIndexWithin(after, budget)
-		return !budget.Exhausted() && first <= last
+		return instructionOrderedWithin(before, after, budget)
 	}
 	return blockReachableFromWithin(before.Block().Succs, after.Block(), budget)
 }
