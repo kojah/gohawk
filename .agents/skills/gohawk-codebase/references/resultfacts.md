@@ -76,6 +76,18 @@ type Guarantee uint8
 Guarantee describes one result on every normal return. Unknown includes
 conflicting evidence, unsupported values, and absence of a return witness.
 
+## Guarantee.Outcome
+
+[Source](../../../../internal/passes/resultfacts/results.go)
+
+```go
+func (guarantee Guarantee) Outcome() (ssaflow.Outcome, bool)
+```
+
+Outcome projects a known unconditional guarantee into flow evidence. Unknown
+and invalid guarantees leave the outcome unconstrained; this projection
+establishes neither ownership nor that a cleanup action occurred.
+
 ## Guarantee.String
 
 [Source](../../../../internal/passes/resultfacts/describe.go)

@@ -4,6 +4,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"slices"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -45,31 +46,31 @@ func InstructionMayFollow(before, after ssa.Instruction) bool {
 	if before.Block() == after.Block() {
 		return InstructionIndex(before) <= InstructionIndex(after)
 	}
-	seen := map[*ssa.BasicBlock]bool{}
-	queue := append([]*ssa.BasicBlock(nil), before.Block().Succs...)
-	for len(queue) > 0 {
-		block := queue[0]
-		queue = queue[1:]
-		if block == after.Block() {
-			return true
-		}
-		if seen[block] {
-			continue
-		}
-		seen[block] = true
-		queue = append(queue, block.Succs...)
-	}
-	return false
+	return blockReachableFrom(before.Block().Succs, after.Block())
 }
 
 // BlockReachable reports whether target is reachable from within their
-// shared function.
+// shared function. A block is reachable from itself without traversing an edge.
 func BlockReachable(from, target *ssa.BasicBlock) bool {
 	if from == nil || target == nil || from.Parent() != target.Parent() {
 		return false
 	}
+	return blockReachableFrom([]*ssa.BasicBlock{from}, target)
+}
+
+// BlockInCycle reports whether control flow can return to start.
+func BlockInCycle(start *ssa.BasicBlock) bool {
+	// Starting at successors requires at least one edge. Starting at the block
+	// itself would incorrectly classify every acyclic block as a cycle.
+	return blockReachableFrom(start.Succs, start)
+}
+
+// blockReachableFrom owns raw CFG traversal; callers choose whether the
+// initial block or only its successors can count. Clone the seeds because
+// queue growth must not overwrite an SSA block's successor backing array.
+func blockReachableFrom(seeds []*ssa.BasicBlock, target *ssa.BasicBlock) bool {
 	seen := map[*ssa.BasicBlock]bool{}
-	queue := []*ssa.BasicBlock{from}
+	queue := slices.Clone(seeds)
 	for len(queue) > 0 {
 		block := queue[0]
 		queue = queue[1:]

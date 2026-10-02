@@ -341,6 +341,10 @@ any other variable, such as the transaction idiom's `committed` flag, keeps
 the data-dependent policy that credits a deferred literal which may release.
 Fixtures: `resourcelifetime/result_guarded_defers.go`.
 
+Literal outcomes precede the summary query. The unconditional guarantee's
+`Outcome` projection is shared with cancellation ownership in `resultfacts`;
+it neither spends another budget nor strengthens unknown result evidence.
+
 A nil comparison is a presence check of the resource only when the compared
 value can hold it: it derives from the resource and the resource's type is
 assignable to it. An error returned by a helper that was handed the file

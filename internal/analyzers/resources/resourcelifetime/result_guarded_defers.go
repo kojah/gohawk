@@ -2,7 +2,6 @@ package resourcelifetime
 
 import (
 	"github.com/kojah/gohawk/internal/lifecycle"
-	"github.com/kojah/gohawk/internal/passes/resultfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -104,22 +103,5 @@ func (analysis *resourceAnalysis) outcomeOf(value ssa.Value) (ssaflow.Outcome, b
 	if outcome, ok := ssaflow.ValueOutcome(value); ok {
 		return outcome, true
 	}
-	return guaranteedOutcome(analysis.summaries.ResultOf(value, analysis.budget(releaseSearchBudget)))
-}
-
-// guaranteedOutcome turns a callee's result guarantee into the outcome it
-// fixes.
-func guaranteedOutcome(guarantee resultfacts.Guarantee) (ssaflow.Outcome, bool) {
-	switch guarantee {
-	case resultfacts.AlwaysNil:
-		return ssaflow.OutcomeNil, true
-	case resultfacts.AlwaysNonNil:
-		return ssaflow.OutcomeNonNil, true
-	case resultfacts.AlwaysTrue:
-		return ssaflow.OutcomeTrue, true
-	case resultfacts.AlwaysFalse:
-		return ssaflow.OutcomeFalse, true
-	case resultfacts.Unknown:
-	}
-	return ssaflow.OutcomeAny, false
+	return analysis.summaries.ResultOf(value, analysis.budget(releaseSearchBudget)).Outcome()
 }

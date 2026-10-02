@@ -2,7 +2,6 @@ package cancellationownership
 
 import (
 	"github.com/kojah/gohawk/internal/lifecycle"
-	"github.com/kojah/gohawk/internal/passes/resultfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -136,16 +135,5 @@ func (classifier *cancellationClassifier) outcomeOf(value ssa.Value) (ssaflow.Ou
 	if classifier.knowledge == nil {
 		return ssaflow.OutcomeAny, false
 	}
-	switch classifier.knowledge.ResultOf(value, classifier.budget()) {
-	case resultfacts.AlwaysNil:
-		return ssaflow.OutcomeNil, true
-	case resultfacts.AlwaysNonNil:
-		return ssaflow.OutcomeNonNil, true
-	case resultfacts.AlwaysTrue:
-		return ssaflow.OutcomeTrue, true
-	case resultfacts.AlwaysFalse:
-		return ssaflow.OutcomeFalse, true
-	case resultfacts.Unknown:
-	}
-	return ssaflow.OutcomeAny, false
+	return classifier.knowledge.ResultOf(value, classifier.budget()).Outcome()
 }

@@ -102,7 +102,7 @@ It does not establish function termination: deferred recovery may return.
 
 ## BlockInCycle
 
-[Source](../../../../internal/ssaflow/call_goroutines.go)
+[Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
 func BlockInCycle(start *ssa.BasicBlock) bool
@@ -119,7 +119,7 @@ func BlockReachable(from, target *ssa.BasicBlock) bool
 ```
 
 BlockReachable reports whether target is reachable from within their
-shared function.
+shared function. A block is reachable from itself without traversing an edge.
 
 ## BoundedLoop
 

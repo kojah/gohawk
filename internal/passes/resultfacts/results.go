@@ -24,6 +24,24 @@ const (
 	AlwaysFalse
 )
 
+// Outcome projects a known unconditional guarantee into flow evidence. Unknown
+// and invalid guarantees leave the outcome unconstrained; this projection
+// establishes neither ownership nor that a cleanup action occurred.
+func (guarantee Guarantee) Outcome() (ssaflow.Outcome, bool) {
+	switch guarantee {
+	case AlwaysNil:
+		return ssaflow.OutcomeNil, true
+	case AlwaysNonNil:
+		return ssaflow.OutcomeNonNil, true
+	case AlwaysTrue:
+		return ssaflow.OutcomeTrue, true
+	case AlwaysFalse:
+		return ssaflow.OutcomeFalse, true
+	case Unknown:
+	}
+	return ssaflow.OutcomeAny, false
+}
+
 const maxResults = 16
 
 // Summary is immutable after publication. Available means inference could be

@@ -61,6 +61,11 @@ recognized), a literal deferred before the store (the walk never meets it),
 or one launched or handed to a callee. Fixtures:
 `cancellationownership/result_guarded_defers.go`.
 
+Literal outcomes are checked before asking the summary broker. An unconditional
+result guarantee is projected by `resultfacts.Guarantee.Outcome`, shared with
+resource lifetime; unknown guarantees cannot select the cleanup branch. The
+classifier retains its own budget and absent-provider boundary.
+
 Elapsed sleep durations and command-wide process lifetimes remain known
 precision gaps, not blanket exemptions for timers or command entry points.
 

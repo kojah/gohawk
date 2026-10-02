@@ -2,7 +2,6 @@ package ssaflow
 
 import (
 	"go/token"
-	"slices"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -53,23 +52,4 @@ func MayAliasThroughLoads(value, target ssa.Value) bool {
 		return ok && load.Op == token.MUL && walk.Any(load.X, leaf)
 	}
 	return target != nil && NewReachingWalk(forms).Any(value, leaf)
-}
-
-// BlockInCycle reports whether control flow can return to start.
-func BlockInCycle(start *ssa.BasicBlock) bool {
-	seen := map[*ssa.BasicBlock]bool{}
-	queue := slices.Clone(start.Succs)
-	for len(queue) > 0 {
-		block := queue[0]
-		queue = queue[1:]
-		if block == start {
-			return true
-		}
-		if seen[block] {
-			continue
-		}
-		seen[block] = true
-		queue = append(queue, block.Succs...)
-	}
-	return false
 }

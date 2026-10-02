@@ -102,6 +102,12 @@ imply that its Boolean result is always true. Unknown never removes a branch.
 Existing literal/integer branch evidence remains in place where the result
 component does not replace its semantics.
 
+`Guarantee.Outcome` projects an already-obtained unconditional guarantee into
+the flow outcome vocabulary. Unknown and invalid guarantees remain unconstrained.
+The conversion performs no query or binding and establishes no cleanup.
+Cancellation and resource result guards share it after their existing literal
+evidence and broker query; their query order and budgets remain unchanged.
+
 ## Result cases
 
 Beside the unconditional guarantees, the result component proves result

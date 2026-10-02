@@ -305,6 +305,72 @@ following the project policy. The broader classifier review and the other
 FP-family reassessments remain open; this correction does not establish goal
 completion.
 
+## Partial-block mechanics review
+
+Beads `gohawk-dho.32` extends the earlier complete-body scan to every nested
+Go block beneath production function declarations, at baseline `0fc74e8`.
+It uses the same exclusions and identifier normalization. The 270 files and
+1,994 functions yield no repeated blocks at 80 tokens and 20 candidate groups
+at 35 tokens. This is a syntactic candidate search: it does not compare
+arbitrary statement subsequences or semantically equivalent expressions.
+Artifacts are `.build/goal-duplicate-blocks.go` and
+`.build/goal-duplicate-blocks{,-current}.json`.
+
+Two groups identify actual duplicated mechanics. Cancellation and resource
+result guards repeated the unconditional guarantee-to-outcome switch; it now
+belongs to `resultfacts.Guarantee.Outcome`. The conversion cannot infer a
+summary, strengthen an unknown guarantee, bind a call or establish cleanup.
+Both consumers keep literal evidence before their broker query, and retain
+their existing query budgets and provider assumptions.
+
+`BlockInCycle` and `BlockReachable` repeated a raw CFG breadth-first traversal.
+Inspection also found the same loop in `InstructionMayFollow`; all three now
+delegate to one private driver in the flow file. Each wrapper retains its
+start policy: identity counts for block reachability, a cycle requires at
+least one edge, and instructions in the same block retain source order even
+inside loops. Nil/cross-function guards remain in their existing wrappers.
+The driver clones its starting slice so queue growth cannot alter SSA
+successors. No path-feasibility or lifecycle policy is shared through this
+mechanical traversal.
+
+The other 18 candidate groups remain review inputs, not automatic duplication
+findings. They include already-disposed domain state keys, classifier caches,
+store predicates and budget adapters, plus projection roots, result conditions,
+CLI ordering, completion coverage and local switch arms. Exact body similarity
+does not establish that their argument contracts or conservative boundaries
+agree. Their source review remains part of the open completion audit.
+
+Targeted source inspection also confirms two further mechanical candidates:
+the CLI's position/string ordering comparator (`gohawk-dho.33`) and heap
+slice-view lookup with array fallback (`gohawk-dho.34`). Other matches expose
+material distinctions: callback roots allow slices but cap the search at eight
+steps, while ownership roots follow fields without that cap; process captures
+use captured-binding identity before arguments use may-alias identity; HTTP
+error claims use derivation while nil claims use may-alias. Condition negation
+in concurrency publication additionally stops at an existing compared value.
+Those distinctions must survive any future extraction. Completion's normal
+return/action witness scan and CLI selection parsing still need a shared-helper
+review; they are not disposed as distinct merely because their enclosing
+functions differ.
+
+Focused SSA, result-domain, broker and affected analyzer tests pass. The
+guarantee control covers every underlying uint8 value, leaving unspecified
+values unknown; actual SSA controls distinguish reachability from cycles and
+retain instruction order inside cycles. Parent/current `-enable-all -json`
+fixture scans of cancellation and resource lifetime both exit 3 with empty
+stderr and byte-identical nonempty diagnostics (35,065 and 335,147 bytes).
+Receipts use `.build/goal-partial-mechanics-*`. Their baseline binary hash is
+`68ac5a420286b77de2814d0eba3cbc72e8a627ee481a37c79c88767fe0210423`;
+the corrected hash is
+`0f8c99d52a52e509e7619393dd42d78aec8d7f0a86985e7a45c78e139a25b6a5`.
+Both are retained pre-commit executables; the hashes identify the scanned
+binaries rather than clean VCS stamps. No FP removal or fact-schema change is
+credited. Final `make verify` passes all checks
+(`.build/goal-partial-mechanics-completion-verify.log`), including ordinary
+tests (five seconds). Earlier gates found fixture duplicate-word and complexity
+lint issues; distinct marker arguments and splitting the tests by contract
+corrected them. No full precision corpus or local race run was performed.
+
 ## Next verification
 
 After the catalog reporting-boundary consolidations, the architecture audit
