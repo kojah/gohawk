@@ -3198,3 +3198,44 @@ error baseline: terminal exits 3/0, empty stderr. Pins/scopes remain those
 recorded above. Cute's known TP remains and Ferro's corrected storage report
 stays absent. No production FP removal, full precision replay or local race run
 is credited; parent `.17.8` and the broader consolidation goal remain active.
+
+## HEAD request and client allowance
+
+`gohawk-dho.44.11.5.17.8.2` composes HEAD origin, immutable request/header uses,
+fresh/stable/captured client provenance and default effects under the observed
+candidate allowance. Request and client models move into focused files, keeping
+existing durable rationale and source links with the applicability proof. Shared
+reaching folds replace direct recursive value walks while retaining direct
+call/extract chains and opaque phis; backward origins and forward uses have
+independent visited sets but one allowance. Referrer and capture visits charge
+the same child. Known HTTP Do identity reuses the existing symbol declaration.
+
+The default-effect child keeps its 4,000-step cap and explicit availability.
+A shortened child no longer becomes a modified-client decline followed by
+ordinary leak reporting. HTTP orchestration preserves the returned budget reason;
+HEAD still supplies acquisition uncertainty, never exact cleanup. The pool now
+starts after the memory policy exclusion and before HTTP queries and is reused
+through later candidate binding and ordinary flow. Local-server provenance,
+handler effects and graph/type/alias internals remain `.17.8.3`/broader work.
+
+Thirteen actual-SSA cases cover exact/context/cloned HEAD, headers, default and
+captured clients, GET, phi/opaque inputs, mutation/escape and configured clients.
+Controls cover all insufficient allowances, child cutoff with parent available
+and fresh recovery. A visible harmless helper exceeding the default child cap
+retains budget unknown in complete resource flow. Ignoring caller allowance
+fails eleven queried families plus child recovery; checking only the parent
+instead of the default child fails availability and emits a leak on the same
+fixture. SSA is retained in `.build/goal-head-allowance-fixture.ssa.txt`.
+Focused tests pass in 0.291 seconds; lint and architecture pass. Initial gates
+requested rationale for the two fold directions and the named TransparentNone
+mask instead of literal zero; both are corrected. The final canonical gate
+passes in `.build/goal-head-allowance-final-verify.log`, including ordinary tests
+(4 seconds). No full precision replay or local race run was performed.
+
+Immutable pre-commit `.build/goal-head-allowance-current`, SHA-256
+`712060807c81a940a65b50325e2af7540fae92fccd5ed2ac4c9834a97a711014`,
+retains byte-identical pinned Cute/Ferro resource JSON against the shared-default-
+effects baseline: terminal exits 3/0, empty stderr. Pins/scopes remain those
+recorded above. Cute's known TP remains and Ferro's corrected storage report
+stays absent. No production FP removal is credited. Local-server `.17.8.3`,
+the parent and the broader consolidation objective remain active.

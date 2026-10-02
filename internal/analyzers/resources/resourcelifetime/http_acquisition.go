@@ -2,7 +2,6 @@ package resourcelifetime
 
 import (
 	"go/constant"
-	"go/token"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -17,10 +16,10 @@ import (
 // exact local protocol shapes that may acquire no body. They feed the ordinary
 // resource flow; no separate cleanup or reporting decision is made here.
 
-func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call) resourceLifetimeReason {
-	head := headAcquisition(call)
+func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call, budget *ssaflow.SearchBudget) resourceLifetimeReason {
+	head := proveHeadAcquisitionWithin(call, budget)
 	if head.State == ssaflow.EvidenceUnknown && head.Reason != resourceReasonNone {
-		return resourceReasonHeadAcquisition
+		return head.Reason
 	}
 	if head.Reason != resourceReasonNone {
 		// The rule applied to a Client.Do and declined; say which input failed
@@ -60,37 +59,35 @@ func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call) resourceLifeti
 // https://github.com/vishen/go-chromecast/blob/5dd70bb91787fe28e3d8946682c66cb2a1d61d21/application/application.go#L723-L732
 // https://github.com/alexellis/arkade/blob/0a0a800fd7554d4eddb1856f9ef8a21214e95bab/pkg/get/get.go#L236-L244
 // https://github.com/deweizhu/bookget/blob/2cdbf6d6c3ce70355a5c4411c0faf3450e9ae877/pkg/downloader/downloader.go#L510-L522
-func headAcquisition(call *ssa.Call) resourceProof {
+func proveHeadAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
+	proof := findHeadAcquisitionWithin(call, budget)
+	if resourceFlowExhausted(budget) {
+		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	}
+	return proof
+}
+
+func findHeadAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
 	common := call.Common()
 	if !ssaflow.CallMatchesSymbol(common, httpClientDo) || len(common.Args) != 2 {
 		return resourceProof{}
 	}
 	// A request that never came from a HEAD constructor is outside this rule,
 	// so it stays silent; the rule explains itself only when it applied.
-	if !headConstructed(common.Args[1]) {
+	if !headConstructedWithin(common.Args[1], budget) {
 		return resourceProof{}
 	}
-	if !headRequest(common.Args[1]) {
+	if !headRequestWithin(common.Args[1], budget) {
 		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonHeadRequestModified}
 	}
-	if !headClientUnconfigured(common.Args[0], call.Parent()) {
+	client := proveHeadClientUnconfiguredWithin(common.Args[0], call.Parent(), budget)
+	if client.State == ssaflow.EvidenceUnknown {
+		return client
+	}
+	if !client.Proven() {
 		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonHeadClientNotUnconfigured}
 	}
 	return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonHeadAcquisition}
-}
-
-// headConstructed reports whether the request traces back, through rebinding
-// calls only, to a HEAD constructor. It asks nothing about the uses in between.
-func headConstructed(request ssa.Value) bool {
-	switch typed := request.(type) {
-	case *ssa.Extract:
-		constructor, ok := typed.Tuple.(*ssa.Call)
-		return ok && typed.Index == 0 && headConstructor(constructor.Common())
-	case *ssa.Call:
-		return ssaflow.CallMatchesAnySymbol(typed.Common(), httpRequestWithContext, httpRequestClone) &&
-			headConstructed(ssaflow.CallReceiver(typed.Common()))
-	}
-	return false
 }
 
 var (
@@ -109,195 +106,6 @@ var (
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Header", Name: "Values"}),
 	}
 )
-
-func headClientUnconfigured(client ssa.Value, function *ssa.Function) bool {
-	if local, ok := client.(*ssa.Alloc); ok {
-		return onlyHTTPDoUses(local)
-	}
-	load, ok := client.(*ssa.UnOp)
-	if !ok || load.Op != token.MUL {
-		return false
-	}
-	if ssaflow.ValueMatchesSymbol(load.X, httpDefaultClient) {
-		return onlyHTTPDoUses(load) && !defaultClientVisiblyModified(function)
-	}
-	cell, ok := load.X.(*ssa.Alloc)
-	return ok && zeroClientCell(cell)
-}
-
-// zeroClientCell accepts a local variable that holds one fresh zero-value
-// client and is only ever loaded for direct Do calls, here or inside a
-// literal that captures it. A worker that shares the client can still
-// change nothing about it. pmtiles keeps one client in a variable its
-// download workers capture:
-// https://github.com/protomaps/go-pmtiles/blob/a3e4951ea6a0477b784c27c1dcbfd9c130878c5a/pmtiles/sync.go#L73-L80
-func zeroClientCell(cell *ssa.Alloc) bool {
-	if cell.Referrers() == nil {
-		return false
-	}
-	stored := false
-	for _, use := range *cell.Referrers() {
-		switch typed := use.(type) {
-		case *ssa.DebugRef:
-		case *ssa.Store:
-			fresh, ok := typed.Val.(*ssa.Alloc)
-			if stored || typed.Addr != cell || !ok || !onlyStoredInto(fresh, typed) {
-				return false
-			}
-			stored = true
-		case *ssa.UnOp:
-			if typed.Op != token.MUL || !onlyHTTPDoUses(typed) {
-				return false
-			}
-		case *ssa.MakeClosure:
-			if !closureLoadsCellForDo(typed, cell) {
-				return false
-			}
-		default:
-			return false
-		}
-	}
-	return stored
-}
-
-// onlyStoredInto reports whether the fresh allocation's only use is the store
-// that puts it in the cell: no field was addressed, so it is zero-valued.
-func onlyStoredInto(fresh *ssa.Alloc, store *ssa.Store) bool {
-	if fresh.Referrers() == nil {
-		return false
-	}
-	for _, use := range *fresh.Referrers() {
-		if _, debug := use.(*ssa.DebugRef); !debug && use != store {
-			return false
-		}
-	}
-	return true
-}
-
-func closureLoadsCellForDo(closure *ssa.MakeClosure, cell *ssa.Alloc) bool {
-	function, ok := closure.Fn.(*ssa.Function)
-	if !ok {
-		return false
-	}
-	for _, pair := range ssaflow.ClosureBindingPairs(function, closure) {
-		if pair.Binding != cell {
-			continue
-		}
-		free := pair.Free
-		if free.Referrers() == nil {
-			return false
-		}
-		for _, use := range *free.Referrers() {
-			load, loaded := use.(*ssa.UnOp)
-			if _, debug := use.(*ssa.DebugRef); debug {
-				continue
-			}
-			if !loaded || load.Op != token.MUL || !onlyHTTPDoUses(load) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-// headRequest accepts the direct result of a HEAD constructor, or that result
-// rebound through WithContext or Clone, when every use of each intermediate
-// preserves Method.
-func headRequest(request ssa.Value) bool {
-	switch typed := request.(type) {
-	case *ssa.Extract:
-		constructor, ok := typed.Tuple.(*ssa.Call)
-		return ok && typed.Index == 0 && headConstructor(constructor.Common()) && requestUsesPreserveMethod(typed)
-	case *ssa.Call:
-		return ssaflow.CallMatchesAnySymbol(typed.Common(), httpRequestWithContext, httpRequestClone) &&
-			headRequest(ssaflow.CallReceiver(typed.Common())) && requestUsesPreserveMethod(typed)
-	}
-	return false
-}
-
-func headConstructor(common *ssa.CallCommon) bool {
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "NewRequest")) {
-		return len(common.Args) == 3 && constantString(common.Args[0]) == "HEAD"
-	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "NewRequestWithContext")) {
-		return len(common.Args) == 4 && constantString(common.Args[1]) == "HEAD"
-	}
-	return false
-}
-
-func requestUsesPreserveMethod(request ssa.Value) bool {
-	refs := request.Referrers()
-	if refs == nil || len(*refs) == 0 {
-		return false
-	}
-	for _, ref := range *refs {
-		switch typed := ref.(type) {
-		case *ssa.DebugRef:
-		case *ssa.Call:
-			common := typed.Common()
-			if ssaflow.CallMatchesSymbol(common, httpClientDo) && len(common.Args) == 2 && common.Args[1] == request {
-				continue
-			}
-			if ssaflow.CallMatchesAnySymbol(common, httpRequestWithContext, httpRequestClone) &&
-				ssaflow.CallReceiver(common) == request && requestUsesPreserveMethod(typed) {
-				continue
-			}
-			return false
-		case *ssa.FieldAddr:
-			if requestFieldName(typed) != "Header" || !headerUsesAreEdits(typed) {
-				return false
-			}
-		default:
-			return false
-		}
-	}
-	return true
-}
-
-func requestFieldName(field *ssa.FieldAddr) string {
-	structure := syntax.PointerStruct(field.X.Type())
-	if structure == nil || !syntax.NamedType(field.X.Type(), "net/http", "Request") {
-		return ""
-	}
-	return structure.Field(field.Field).Name()
-}
-
-func headerUsesAreEdits(field *ssa.FieldAddr) bool {
-	if field.Referrers() == nil {
-		return false
-	}
-	for _, use := range *field.Referrers() {
-		load, ok := use.(*ssa.UnOp)
-		if !ok || load.Op != token.MUL || load.Referrers() == nil {
-			return false
-		}
-		for _, edit := range *load.Referrers() {
-			call, ok := edit.(*ssa.Call)
-			if !ok || ssaflow.CallReceiver(call.Common()) != load || !ssaflow.CallMatchesAnySymbol(call.Common(), httpHeaderEdits...) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-// Only direct Do calls may observe these fresh values. Field addresses, aliases
-// and helper escapes would hide configuration or method mutation.
-func onlyHTTPDoUses(value ssa.Value) bool {
-	refs := value.Referrers()
-	if refs == nil || len(*refs) == 0 {
-		return false
-	}
-	for _, ref := range *refs {
-		call, ok := ref.(*ssa.Call)
-		if !ok || !ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageMethod(syntax.MethodSymbol{
-			PackagePath: "net/http", Receiver: "Client", Name: "Do",
-		})) {
-			return false
-		}
-	}
-	return true
-}
 
 func constantString(value ssa.Value) string {
 	text, ok := value.(*ssa.Const)

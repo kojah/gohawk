@@ -511,7 +511,8 @@ exclusively by direct Do calls. This allowance does not enter helper summaries
 or the strict local-server effect query: a helper that loads the default client
 still supplies possible modification. Exact global/field stores, escapes,
 recursive bodies and budget cuts retain their previous conservative answers.
-The 4,000-step quota and instruction charging are unchanged. Cut summaries are
+The 4,000-step child quota is retained; HEAD default-load use visits also charge
+that allowance. Cut summaries are
 not cached, and a fresh query in the same memo can recover an unchanged helper.
 `http_default_effects_test.go` covers root versus nested Do, harmless helpers,
 client/transport stores, field mutation, recursion and cutoff/fresh recovery.
@@ -1023,7 +1024,7 @@ conditional cleanup diagnostics and accepted exact-parent cleanup forms.
 all dominating defers with anywhere coverage. Instruction census and nested
 completion queries share one child allowance from the observed candidate pool;
 a completed witness supplies prior-defer uncertainty, never exact settlement.
-The pool is created after existing memory and HTTP exclusions, before context
+The pool is created after the memory exclusion, before HTTP, context
 and optional-acquisition queries, and is reused after the final resource binding
 by owner discovery and ordinary flow. Cutoff returns budget unknown
 rather than an exhausted negative or an exact cleanup label.
@@ -1035,7 +1036,8 @@ cleanup, unrelated and by-value defers, non-deferred registration, multiple
 defers, child cutoff, nested completion under a census-sufficient allowance,
 and fresh recovery. The independent nested-budget counterfactual must fail;
 `evidence_local_test.go` separately pins no cache publication at cutoff.
-Earlier HTTP/error predicates and graph/type internals retain separate cost scope. Ordinary resource flow remains the sole diagnostic proof.
+Local-server HTTP provenance and graph/type internals retain separate cost scope.
+Ordinary resource flow remains the sole diagnostic proof.
 
 ### Canceled acquisition context allowance
 
@@ -1049,14 +1051,14 @@ pair decoding precede the query; unrelated APIs do not spend this allowance.
 
 Instruction visits use a child allowance from the observed candidate pool. The
 same probe/pool is passed into resource analysis after error/optional evidence
-has selected the final resource binding. Memory and HTTP policy exclusions
-remain before pool construction; canceled acquisitions retain their accepted
+has selected the final resource binding. The memory policy exclusion
+remains before pool construction; canceled acquisitions retain their accepted
 reason, while cutoff returns budget unknown before any leak witness. No alias
 traversal or deadline timing is added. `acquisition_context_test.go` checks
 exact/cause cancellation, all eligible APIs, the exclusions above, every
 insufficient allowance, child cutoff with parent available, fresh recovery and
 complete-flow canceled versus independent statement-leak controls. Earlier
-HTTP/error predicates and graph/type internals remain separate work.
+Local-server HTTP provenance and graph/type internals remain separate work.
 
 ### Optional acquisition diamond allowance
 
@@ -1073,7 +1075,7 @@ An interrupted proof clears every correlation field and returns budget unknown,
 so the authoritative flow never binds a phi from partial evidence. A completed
 structural decline continues ordinary acquisition analysis. The observed pool
 already exists before this query and remains shared with later owner and flow
-queries; HTTP/error predicates and graph/type internals remain separate costs.
+queries; local-server HTTP provenance and graph/type internals remain separate costs.
 `optional_acquisition_test.go` covers exact/inverse guards, a retained leak,
 ambiguous alternatives, boxed error nilness, cycles, every insufficient allowance,
 child cutoff with parent available and fresh recovery. Shared reachability tests
@@ -1098,3 +1100,30 @@ NotNil, exact/non-HTTP pairs, reversed and sibling branches, unrelated inputs,
 earlier claims, no-assertion leaks, all insufficient allowances, partial-list
 discard and child cutoff/fresh recovery. Ordinary resource flow remains the
 sole diagnostic proof; HTTP acquisition boundaries are separate work.
+
+### HEAD request and client allowance
+
+`http_head_request.go` shares exact constructor/rebinding mechanics between the
+origin-only and immutable-use questions. Shared reaching folds own recursion
+and cycle handling; backward origins and forward uses keep distinct visited
+sets under the same allowance. Only direct call/extract roots and receivers
+qualify. Phi requests, opaque parameters, helper escapes, method mutation and
+unrecognized header-map use retain the former declines.
+
+`http_head_client.go` keeps fresh allocation, stable local cell and captured
+client-use checks together. Referrer, capture and header-use visits charge the
+candidate child. Exact default clients also ask the shared mutation engine
+through its existing 4,000-step child. Exhaustion of that child is budget unknown
+even while the caller remains available; it cannot become a completed modified-
+client decline that falls through to ordinary leak reporting. The observed pool
+now starts after the memory exclusion and before HTTP, then continues unchanged
+through context/error/optional binding and resource flow. Local-server endpoint
+and handler provenance remain separate work.
+
+`http_head_allowance_test.go` covers exact and cloned/context HEAD requests,
+headers, default and captured clients, GET, phi/opaque inputs, mutation/escape,
+configured clients, every insufficient allowance, child cutoff and fresh
+recovery. A large visible harmless helper exhausts the default-effect child;
+full resource flow returns budget unknown without a leak witness. The unchecked-
+child counterfactual reports a leak on that actual-SSA fixture. This establishes
+an availability regression boundary, not a production-audit FP correction.

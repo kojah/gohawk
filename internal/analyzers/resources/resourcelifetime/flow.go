@@ -35,11 +35,11 @@ func evaluateResourceFlow(
 	}
 	evidence.ForCandidate(call.Pos())
 	errorValue := acquisitionErrorResult(call)
-	if reason := httpAcquisitionBoundary(pass, call); reason != resourceReasonNone {
-		return unknownResourceLifetime(reason)
-	}
 	probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos())
 	pool := ssaflow.NewSearchBudget(resourcePoolBudget).Observed(probe.Observer())
+	if reason := httpAcquisitionBoundary(pass, call, pool.Within(releaseSearchBudget)); reason != resourceReasonNone {
+		return unknownResourceLifetime(reason)
+	}
 	canceled := proveAcquisitionContextCanceledWithin(call, pool.Within(releaseSearchBudget))
 	if canceled.State == ssaflow.EvidenceUnknown {
 		return unknownResourceLifetime(canceled.Reason)

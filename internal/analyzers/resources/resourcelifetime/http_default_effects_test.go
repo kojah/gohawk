@@ -26,7 +26,7 @@ func TestHTTPDefaultOverridePolicies(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
-			if got := defaultClientVisiblyModified(fn); got != test.root {
+			if got := !proveDefaultClientUnmodifiedWithin(fn, nil).Proven(); got != test.root {
 				t.Fatalf("HEAD root override=%v, want %v; SSA:\n%s", got, test.root, carriedSSA(t, fn))
 			}
 			if got := newHTTPWriterEffects().overrides.Function(fn, ssaflow.NewSearchBudget(httpEffectsBudget)); got != test.strict {

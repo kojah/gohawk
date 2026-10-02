@@ -18,12 +18,12 @@ import (
 // answer rather than evidence that a global default is unchanged.
 const httpEffectsBudget = 4000
 
-// defaultClientVisiblyModified reports visible configuration or escapes of the
-// package defaults. HEAD permits direct default-client Do loads in the root,
-// while nested visible callees retain the strict default-effect policy.
-func defaultClientVisiblyModified(function *ssa.Function) bool {
-	budget := ssaflow.NewSearchBudget(httpEffectsBudget)
-	return newHTTPWriterEffects().scanDefaultOverrides(function, budget, true)
+// Default mutation keeps its existing child cap while sharing the caller's
+// allowance. A shortened child is unavailable even when the caller can continue.
+func proveDefaultClientUnmodifiedWithin(function *ssa.Function, budget *ssaflow.SearchBudget) resourceProof {
+	child := budget.Within(httpEffectsBudget)
+	modified := newHTTPWriterEffects().scanDefaultOverrides(function, child, true)
+	return carriedValueProof(!modified, resourceReasonUntouched, child)
 }
 
 func (effects *httpWriterEffects) visibleOverrides(function *ssa.Function, budget *ssaflow.SearchBudget) bool {
@@ -34,7 +34,7 @@ func (effects *httpWriterEffects) scanDefaultOverrides(function *ssa.Function, b
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		if allowRootDo {
 			if load, ok := instruction.(*ssa.UnOp); ok && load.Op == token.MUL &&
-				ssaflow.ValueMatchesSymbol(load.X, httpDefaultClient) && onlyHTTPDoUses(load) {
+				ssaflow.ValueMatchesSymbol(load.X, httpDefaultClient) && onlyHTTPDoUsesWithin(load, budget) {
 				continue
 			}
 		}
