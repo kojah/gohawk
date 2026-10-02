@@ -63,6 +63,7 @@ that only need to know whether some return is uncovered.
 | `SuccessorPolicy` | the one successor-feasibility view: the literal or an analyzer's view, bound constants, and a non-nil assumption, with `Edges` extending path guards |
 | `FeasibleSuccessors`, `SuccessBranch`, `BlockReachable`, `BlockInCycle` | control-flow feasibility primitives |
 | `FeasibleSuccessorsWithin`, `BranchValueWithin`, `BranchBoolWithin` | share incoming-phi and literal helper-return visits; caller cutoff supplies no branch pruning |
+| `FixedValues.HoldsWithin`, `DecidedSuccessorWithin`, `NarrowWithin` | share bound negation/nil evidence and successor filtering; cutoff supplies no decided condition |
 | `InstructionDominates`, `InstructionMayFollow`, `InstructionIndex` | ordering between instructions |
 | `ProveCountedLoop` | exact bounded induction count and whether body operands depend on the counter; not termination or an unrolling policy |
 
@@ -156,6 +157,7 @@ unknown; do not convert them into ownership transfers.
 | `CallBindingsWithin`, `ClosureBindingPairsWithin` | lazy argument/capture census; early stop avoids materializing later bindings |
 | `SourceSSAFunctions`, `FunctionFile` | source functions and their files |
 | `InstructionTerminatesControlFlow`, `SpawnedValueAtCall`, `ChannelType`, `DefinitelyNil` | miscellaneous facts about instructions and values |
+| `DefinitelyNilWithin` | nilness through the selected transparent forms under shared allowance; boxing stays opaque and cutoff supplies no positive proof |
 | `InstructionTerminatesWithin` | shared call/deferred termination evidence; census and dominance share allowance, cutoff supplies no positive termination |
 
 Match well-known functions through `syntax.Symbol`; do not reconstruct

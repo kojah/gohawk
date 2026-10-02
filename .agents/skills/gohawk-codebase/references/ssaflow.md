@@ -864,6 +864,17 @@ func DefinitelyNil(value ssa.Value) bool
 DefinitelyNil reports whether every represented SSA value is nil.
 Interface boxing remains opaque: an interface holding a typed nil is nonnil.
 
+## DefinitelyNilWithin
+
+[Source](../../../../internal/ssaflow/value_matching.go)
+
+```go
+func DefinitelyNilWithin(value ssa.Value, budget *SearchBudget) bool
+```
+
+DefinitelyNilWithin shares the allowance through every represented value.
+False at cutoff is unavailable, not nonnil; interface boxing stays opaque.
+
 ## DerivesFrom
 
 [Source](../../../../internal/ssaflow/value_derivation.go)
@@ -1287,17 +1298,17 @@ what every load of the captured copy reads when the closure runs, as a
 named result does once a return has set it before the deferred calls; the
 binding holds only when the closure never writes the cell.
 
-## FixedValues.DecidedSuccessor
+## FixedValues.DecidedSuccessorWithin
 
 [Source](../../../../internal/ssaflow/call_constants.go)
 
 ```go
-func (fixed FixedValues) DecidedSuccessor(block *ssa.BasicBlock) (*ssa.BasicBlock, bool)
+func (fixed FixedValues) DecidedSuccessorWithin(block *ssa.BasicBlock, budget *SearchBudget) (*ssa.BasicBlock, bool)
 ```
 
-DecidedSuccessor returns the successor a block's branch takes when its
+DecidedSuccessorWithin returns the successor a block's branch takes when its
 condition is a bound Boolean value, possibly negated, or a comparison of a
-bound nilable value with nil.
+bound nilable value with nil. Cutoff supplies no decided successor.
 
 ## FixedValues.Holds
 
@@ -1309,6 +1320,17 @@ func (fixed FixedValues) Holds(condition ssa.Value) (holds, decided bool)
 
 Holds decides a Boolean value from the bindings: a bound Boolean, possibly
 negated, or a bound nilable value compared with nil.
+
+## FixedValues.HoldsWithin
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func (fixed FixedValues) HoldsWithin(condition ssa.Value, budget *SearchBudget) (holds, decided bool)
+```
+
+HoldsWithin shares negation and nil-fold visits with the caller allowance.
+Exhaustion cannot decide a bound condition; a nil budget retains defaults.
 
 ## FixedValues.Key
 
@@ -1332,6 +1354,17 @@ func (fixed FixedValues) Narrow(successors []*ssa.BasicBlock, block *ssa.BasicBl
 
 Narrow keeps only the decided successor of block, if the bindings decide
 its branch and it is among successors.
+
+## FixedValues.NarrowWithin
+
+[Source](../../../../internal/ssaflow/call_constants.go)
+
+```go
+func (fixed FixedValues) NarrowWithin(successors []*ssa.BasicBlock, block *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock
+```
+
+NarrowWithin shares bound-condition and successor-filter visits. Cutoff
+keeps the primitive's input edges; callers retain availability before use.
 
 ## ForwardedValue
 

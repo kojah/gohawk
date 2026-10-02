@@ -52,8 +52,14 @@ func StructurallySame(value, target ssa.Value) bool {
 // DefinitelyNil reports whether every represented SSA value is nil.
 // Interface boxing remains opaque: an interface holding a typed nil is nonnil.
 func DefinitelyNil(value ssa.Value) bool {
+	return DefinitelyNilWithin(value, nil)
+}
+
+// DefinitelyNilWithin shares the allowance through every represented value.
+// False at cutoff is unavailable, not nonnil; interface boxing stays opaque.
+func DefinitelyNilWithin(value ssa.Value, budget *SearchBudget) bool {
 	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert
-	return NewReachingWalk(forms).Every(value, func(_ ReachingWalk, value ssa.Value) bool {
+	return NewReachingWalk(forms).Within(budget).Every(value, func(_ ReachingWalk, value ssa.Value) bool {
 		literal, ok := value.(*ssa.Const)
 		return ok && literal.IsNil()
 	})

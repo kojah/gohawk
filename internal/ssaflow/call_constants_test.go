@@ -117,7 +117,7 @@ func TestFixedValuesDecideBranches(t *testing.T) {
 		if got := effectReached(function, constants); got != test.reached {
 			t.Errorf("%s(%t): effect reached = %t, want %t", test.name, test.value, got, test.reached)
 		}
-		_, decided := constants.DecidedSuccessor(function.Blocks[0])
+		_, decided := constants.DecidedSuccessorWithin(function.Blocks[0], nil)
 		if decided != test.decides {
 			t.Errorf("%s(%t): decided = %t, want %t", test.name, test.value, decided, test.decides)
 		}

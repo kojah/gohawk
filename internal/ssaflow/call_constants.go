@@ -178,10 +178,10 @@ func capturedOutcome(binding ssa.Value, known FixedValues) (Outcome, bool) {
 	return OutcomeAny, false
 }
 
-// DecidedSuccessor returns the successor a block's branch takes when its
+// DecidedSuccessorWithin returns the successor a block's branch takes when its
 // condition is a bound Boolean value, possibly negated, or a comparison of a
-// bound nilable value with nil.
-func (fixed FixedValues) DecidedSuccessor(block *ssa.BasicBlock) (*ssa.BasicBlock, bool) {
+// bound nilable value with nil. Cutoff supplies no decided successor.
+func (fixed FixedValues) DecidedSuccessorWithin(block *ssa.BasicBlock, budget *SearchBudget) (*ssa.BasicBlock, bool) {
 	if len(fixed) == 0 || len(block.Instrs) == 0 || len(block.Succs) != 2 {
 		return nil, false
 	}
@@ -189,7 +189,7 @@ func (fixed FixedValues) DecidedSuccessor(block *ssa.BasicBlock) (*ssa.BasicBloc
 	if !ok {
 		return nil, false
 	}
-	holds, decided := fixed.Holds(branch.Cond)
+	holds, decided := fixed.HoldsWithin(branch.Cond, budget)
 	if !decided {
 		return nil, false
 	}
@@ -202,27 +202,44 @@ func (fixed FixedValues) DecidedSuccessor(block *ssa.BasicBlock) (*ssa.BasicBloc
 // Holds decides a Boolean value from the bindings: a bound Boolean, possibly
 // negated, or a bound nilable value compared with nil.
 func (fixed FixedValues) Holds(condition ssa.Value) (holds, decided bool) {
-	condition, negated := BooleanNegationSource(condition)
+	return fixed.HoldsWithin(condition, nil)
+}
+
+// HoldsWithin shares negation and nil-fold visits with the caller allowance.
+// Exhaustion cannot decide a bound condition; a nil budget retains defaults.
+func (fixed FixedValues) HoldsWithin(condition ssa.Value, budget *SearchBudget) (holds, decided bool) {
+	condition, negated := booleanNegationSourceWithin(condition, budget)
+	if budget.Exhausted() {
+		return false, false
+	}
 	if comparison, ok := condition.(*ssa.BinOp); ok && (comparison.Op == token.EQL || comparison.Op == token.NEQ) {
-		operand := comparison.X
-		if !DefinitelyNil(comparison.Y) {
-			if !DefinitelyNil(comparison.X) {
-				return false, false
-			}
-			operand = comparison.Y
-		}
-		outcome, known := fixed[boundKey(operand)]
-		if !known || outcome != OutcomeNil && outcome != OutcomeNonNil {
-			return false, false
-		}
-		equal := outcome == OutcomeNil
-		return equal == (comparison.Op == token.EQL) != negated, true
+		return fixed.nilComparisonWithin(comparison, negated, budget)
 	}
 	outcome, known := fixed[boundKey(condition)]
 	if !known || outcome != OutcomeTrue && outcome != OutcomeFalse {
 		return false, false
 	}
 	return (outcome == OutcomeTrue) != negated, true
+}
+
+func (fixed FixedValues) nilComparisonWithin(comparison *ssa.BinOp, negated bool, budget *SearchBudget) (bool, bool) {
+	operand := comparison.X
+	rightNil := DefinitelyNilWithin(comparison.Y, budget)
+	if budget.Exhausted() {
+		return false, false
+	}
+	if !rightNil {
+		if !DefinitelyNilWithin(comparison.X, budget) {
+			return false, false
+		}
+		operand = comparison.Y
+	}
+	outcome, known := fixed[boundKey(operand)]
+	if !known || outcome != OutcomeNil && outcome != OutcomeNonNil {
+		return false, false
+	}
+	equal := outcome == OutcomeNil
+	return equal == (comparison.Op == token.EQL) != negated, true
 }
 
 // BooleanNegationSource returns the operand behind a chain of SSA Boolean NOT
@@ -261,14 +278,21 @@ func boundKey(value ssa.Value) ssa.Value {
 // Narrow keeps only the decided successor of block, if the bindings decide
 // its branch and it is among successors.
 func (fixed FixedValues) Narrow(successors []*ssa.BasicBlock, block *ssa.BasicBlock) []*ssa.BasicBlock {
-	taken, decided := fixed.DecidedSuccessor(block)
+	return fixed.NarrowWithin(successors, block, nil)
+}
+
+// NarrowWithin shares bound-condition and successor-filter visits. Cutoff
+// keeps the primitive's input edges; callers retain availability before use.
+func (fixed FixedValues) NarrowWithin(successors []*ssa.BasicBlock, block *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock {
+	taken, decided := fixed.DecidedSuccessorWithin(block, budget)
 	if !decided {
 		return successors
 	}
-	if slices.Contains(successors, taken) {
-		return []*ssa.BasicBlock{taken}
+	kept := keepSuccessorWithin(successors, taken, budget)
+	if budget.Exhausted() {
+		return successors
 	}
-	return nil
+	return kept
 }
 
 // Key renders the bindings of function's own parameters and captured

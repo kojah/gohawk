@@ -480,7 +480,7 @@ actual SSA stable/loaded guards, mutation/key/edge cutoffs and callback cutoffs.
 Existing default flow controls pin fresh honored and violated paths.
 
 These charges cover the listed visits, not complete callback internals.
-Bound-value and assumed-non-nil feasibility, graph construction/waiting,
+Graph construction/waiting,
 leaf string/type rendering and allocation costs remain independent review
 scope. This is not a whole-query wall-clock bound.
 
@@ -536,6 +536,39 @@ versus interrupted obligation coverage. Existing historical-phi and literal
 Boolean controls retain their policy. Literal branch evidence now lives in
 `flow_branch_literals.go`, separate from CFG reachability/order in `flow_paths.go`.
 
-Bound-value negation, assumed-non-nil identity/type checks, custom feasibility
-hook internals, library-contract inference and heap graph costs remain separate
+Type-system and custom feasibility hook internals, library-contract inference
+and heap graph costs remain separate
 review scope. This is not a whole-query wall-clock bound.
+
+
+### Bound-value and assumed-successor allowance
+
+Successor policy passes the shared allowance to `FixedValues.NarrowWithin` and
+the nonnil/type-assumption engine. Bound conditions use `HoldsWithin` and
+`DecidedSuccessorWithin`; their negation decoder and `DefinitelyNilWithin` reuse
+existing traversal policy. Nil folds retain the selected conversions and keep
+interface boxing opaque. Interrupted conditions supply no decided successor;
+primitive narrowing keeps its input edges while the policy rejects unavailable
+results before judging paths. The unused `DecidedSuccessor` facade is removed;
+its test callers use the budgeted engine with nil allowance.
+
+Assumed successors share exact structural identity and nil-fold evidence for
+the original value or directly loaded field. Concrete assertions require exact
+receiver identity and compatible types. A foreign field or incompatible
+assertion retains both edges. Bound filtering and both assumed-edge forms use
+one successor-membership filter, replacing three equivalent loops. Assumption
+mechanics and their pinned rationale comments now live in `flow_assumptions.go`,
+separate from CFG/order queries. Default facades use the same engines with nil
+allowance and preserve existing precision boundaries.
+
+`flow_assumptions_budget_test.go` constructs actual SSA for bound booleans,
+returned negation, nil comparisons, nil conversions, boxing, mixed phis,
+receiver fields and compatible/incompatible assertions. It checks interrupted
+visits, fresh filtering and both consumer cutoff paths. Whole-flow controls
+retain exact coverage with fresh assumptions and return uncertain with no
+witness at every allowance shorter than the completed query.
+
+These charges cover visits and dispatch, not type-system internals,
+custom feasibility hook internals, library-contract inference or heap graph
+construction/waiting. Other consumers retain separate review scope; this is
+not a whole-query wall-clock bound.

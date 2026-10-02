@@ -2405,3 +2405,68 @@ wall-clock bound. Graph MCP tools remain unavailable; evidence uses scoped
 source and actual SSA. No production FP removal is credited; the 15-site queue
 and broader goal remain open. No full precision-regression, local race or
 candidate tests/generators/apps are run.
+
+
+## Bound-value and assumed-successor allowance (dho.44.11.5.10)
+
+At parent `92e9be7`, literal successor evidence shared the flow allowance but
+bound-condition and assumed-nonnil/type queries did not. Successor policy now
+passes the same allowance through `FixedValues.HoldsWithin`,
+`DecidedSuccessorWithin`, `NarrowWithin` and the assumed-successor engine.
+Negation, `DefinitelyNilWithin` and exact structural identity reuse the existing
+shared traversal engines. Nil folds preserve the selected transparent forms
+and keep interface boxing opaque. Caller cutoff supplies no decided condition;
+primitive narrowing leaves its input edges unpruned and the policy rejects
+unavailable evidence before judging paths. The unused `DecidedSuccessor` facade
+is removed; its test callers use the budgeted engine with nil allowance.
+
+Bound-value filtering and the two assumed-edge forms now share one successor
+membership filter, replacing three equivalent loops. Compatible concrete
+assertions require exact receiver identity; incompatible assertions and foreign
+fields retain both edges. Type-check dispatch is charged, with type-system
+internals still separate costs. Assumption mechanics and their pinned rationale
+comments move to `flow_assumptions.go`, separate from CFG/order queries.
+
+Actual SSA controls in `flow_assumptions_budget_test.go` cover bound booleans,
+returned negation, nil comparisons/conversions, boxing, mixed phis, exact/foreign
+fields and compatible/incompatible assertions. Every incomplete visit allowance
+supplies no positive proof. Whole-flow controls retain fresh exact coverage
+and return uncertain with no witness at every allowance shorter than the
+complete query. Focused ssaflow/lifecycle tests pass in
+`.build/goal-assumed-flow-focused-final.log`; final early lint and deadcode pass
+in `.build/goal-assumed-flow-lint-final-clean.log` and
+`.build/goal-assumed-flow-deadcode.log`. Initial test corrections include the
+Outcome type spelling, a formatter-joined long assertion, and SSA normalization
+of `if !flag` by swapping edges. A returned negation separately pins the actual
+NOT traversal; `.build/goal-assumed-flow-bound-probe.log` records the branch
+condition that corrected the mistaken expectation.
+
+A consumer-bypass overlay selectively gives bound and assumed queries nil
+allowance while retaining current helpers and tests. Both consumer controls
+fail in `.build/goal-assumed-flow-bypass-counterfactual.log` (exit 1), detecting
+the two uncharged routes. This is a selective bypass, not a complete parent
+source restoration. Canonical `make verify` passes in
+`.build/goal-assumed-flow-verify.log`, including ordinary tests (66 seconds),
+formatting, vet, lint, generated inventory, dead-code and local dogfood.
+
+Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`, `./store`,
+is scanned statically with `-enable=goroutineownership -json`, CGO disabled,
+readonly modules and GOWORK off. Parent `.build/goal-literal-flow-current`
+has SHA-256 `f1f3df28738374173bf2b61f15a7b16664a6edee4beac88b40da109d9e0d1820`;
+current `.build/goal-assumed-flow-current` has SHA-256
+`b7c7866f9e9e6dba0a91aaa15dd27a861293bd2992b5e106b7b11411db60d1d5`.
+Fresh `.build/goal-assumed-flow-stargz-{literal,assumed}.{json,err}` scans both
+exit 3 with identical 827-byte diagnostic JSON, empty stderr and the reviewed
+worker TP at `store/manager.go:193:2`. Hashes identify immutable pre-commit
+binaries, not clean-tree VCS stamps.
+
+Parent `gohawk-dho.44.11.5` remains active for library-contract/custom-hook
+internals, heap graph costs and other consumers. `gohawk-dho.44.11.5.11` records
+the separate queue/termination work in normal-return reachability and its use
+in result-fact termination inference, where cutoff must never become a positive
+no-return guarantee. Leaf rendering, type-system internals and allocation also
+retain independent costs; this is not a whole-query wall-clock bound. Graph MCP
+tools remain unavailable; evidence uses scoped source and actual SSA. No
+production FP removal is credited; the 15-site queue and broader goal remain
+open. No full precision-regression, local race or candidate tests/generators/apps
+are run.

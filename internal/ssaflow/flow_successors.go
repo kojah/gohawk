@@ -43,8 +43,25 @@ func (policy SuccessorPolicy) successorsWithin(block, predecessor *ssa.BasicBloc
 	if budget.Exhausted() {
 		return nil
 	}
-	successors = policy.Constants.Narrow(successors, block)
-	return assumedSuccessors(successors, block, policy.NonNil, policy.NonNilType)
+	successors = policy.Constants.NarrowWithin(successors, block, budget)
+	if budget.Exhausted() {
+		return nil
+	}
+	return assumedSuccessorsWithin(successors, block, policy.NonNil, policy.NonNilType, budget)
+}
+
+// Keep one already-feasible edge through the same filter for bound values
+// and nonnil assumptions. Cutoff never admits a partially inspected edge set.
+func keepSuccessorWithin(successors []*ssa.BasicBlock, taken *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock {
+	for _, successor := range successors {
+		if !budget.Spend() {
+			return nil
+		}
+		if successor == taken {
+			return []*ssa.BasicBlock{successor}
+		}
+	}
+	return nil
 }
 
 // SuccessorEdge is one feasible edge with the path guards extended across it
