@@ -1,0 +1,62 @@
+package goroutineownership
+
+import (
+	"testing"
+
+	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
+	"golang.org/x/tools/go/ssa"
+)
+
+func TestClosureChoiceCaptures(t *testing.T) {
+	for _, test := range []struct {
+		name, branches, launch string
+		want                   bool
+	}{
+		{"mixed", "if flag {worker=func(){<-target}} else {worker=func(){<-other}}", "go worker()", true},
+		{"unrelated", "if flag {worker=func(){<-other}} else {worker=func(){println(1)}}", "go worker()", false},
+		{"loop", "if flag {worker=func(){<-target}} else {worker=func(){<-other}}", "for range count {go worker()}", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			source := `package choiceprobe
+func subject(flag bool,count int){
+ target:=make(chan int);other:=make(chan int)
+ go func(){close(target)}()
+ var worker func()
+` + test.branches + ";" + test.launch + "}"
+			pkg := ssaflowtest.BuildPackage(t, "choiceprobe", source)
+			fn := pkg.Func("subject")
+			target := ssaflow.InstructionsOf[*ssa.MakeChan](fn)[0]
+			calls := ssaflow.InstructionsOf[*ssa.Go](fn)
+			candidate := &spawnAnalysis{
+				function: fn, spawn: calls[0], signals: []ssa.Value{target},
+				tracked: []trackedValue{{value: target, kind: trackedSignal}},
+				pool:    ssaflow.NewSearchBudget(spawnPoolBudget),
+			}
+			if got := candidate.closureConsumes(calls[1].Common().Value); got != test.want {
+				t.Errorf("captures=%v want %v", got, test.want)
+			}
+			if got := candidate.otherWorkerConsumesSignal(); got != test.want {
+				t.Errorf("participant=%v want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestClosureChoiceCaptureCutoff(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "choicecut", `package choicecut
+ func subject(flag bool){target:=make(chan int);other:=make(chan int);var worker func()
+ if flag {worker=func(){<-target}} else {worker=func(){<-other}}
+ go worker()}`)
+	fn := pkg.Func("subject")
+	target := ssaflow.InstructionsOf[*ssa.MakeChan](fn)[0]
+	value := ssaflow.InstructionsOf[*ssa.Go](fn)[0].Common().Value
+	candidate := &spawnAnalysis{tracked: []trackedValue{{value: target, kind: trackedSignal}}, pool: ssaflow.NewSearchBudget(1)}
+	if !candidate.closureConsumes(value) || !candidate.pool.Exhausted() {
+		t.Fatal("cutoff established absent captures")
+	}
+	candidate.pool = ssaflow.NewSearchBudget(spawnPoolBudget)
+	if !candidate.closureConsumes(value) || candidate.pool.Exhausted() {
+		t.Fatal("fresh query lost possible capture")
+	}
+}

@@ -4659,3 +4659,24 @@ remains open; this is not a new corpus census.
 Final canonical validation passes all eight targets and final architecture
 validation passes. Ten scoped scan receipts exit zero with empty stderr. No
 full precision regression replay or local race run was used.
+
+
+## Closure choices and opaque worker participation
+
+Beads `gohawk-dho.4.7` extends one possible-capture query across phi choices,
+shared by the instruction classifier and existing worker census. Positive
+capture evidence or interrupted discovery leaves ownership unknown; it never
+proves a join, unique target, participant count or unconditional fact.
+Conversions and loads retain their boundary.
+
+The [closure-choice review](../../benchmarks/precision/audits/closure-choice-consumers-2026-10-02.md)
+records compiled SSA controls, two assertion-failing counterfactuals and six
+terminal scoped scan receipts. All 126 existing goroutine fixture findings stay
+identical. The new fixture preserves unrelated-consumer and converted-callable
+diagnostics. Two pinned Debian producers disappear with an explicit
+`signal-consumed-by-worker` decision, rather than budget-driven silence.
+This credits two FP corrections, leaving seven recorded production sites plus
+Rune. The broader architecture completion audit remains open.
+
+Final canonical validation passes all eight targets and final architecture
+validation passes. No full precision replay or local race run was used.

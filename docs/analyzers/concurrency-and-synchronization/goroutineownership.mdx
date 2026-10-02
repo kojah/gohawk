@@ -19,7 +19,7 @@ exit stops it. Cleaning up a captured resource or its field can replace the
 join when the worker has no later blocking work. Workers using helper-supplied
 groups with unclear ownership and workers handed to recursive cleanup helpers
 are left alone. So are workers with conditional nested notifications,
-changed completion channels, or very large bodies.
+changed completion channels, channels handled by other workers, or very large bodies.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [goroutineownership design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/goroutineownership.md).

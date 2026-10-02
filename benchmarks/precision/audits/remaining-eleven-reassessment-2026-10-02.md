@@ -55,3 +55,9 @@ boxesandglue's file acquisition through a complete unique private entry call
 chain. Final scoped production evidence credits this additional removal,
 leaving nine unresolved production sites plus Rune after the local pipe fix.
 The eleven-site table remains the historical snapshot.
+
+
+The [closure-choice follow-up](closure-choice-consumers-2026-10-02.md) corrects
+two Debian producer findings through the existing opaque worker-participation
+boundary. Final scoped scans and decision traces credit these removals, leaving
+seven recorded production sites plus Rune. The historical table is unchanged.

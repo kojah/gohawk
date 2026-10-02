@@ -1,0 +1,7 @@
+scope	version	revision	exit	stderr_bytes	diagnostics	binary_sha256	receipt
+goroutine-fixture	parent		0	0	126	0af0e315c50a7a5cdcef1286008e9315c459afb808e4e6a3aac6b86407ec43a2	.build/goal-closure-choices-final/goroutine-fixture-parent-receipt.json
+goroutine-fixture	current		0	0	126	6689a62a422c2e8e5b35ffc6017d52cd49e6cac0f3ccc88520aef8d24152560f	.build/goal-closure-choices-final/goroutine-fixture-current-receipt.json
+choice-fixture	parent		0	0	3	0af0e315c50a7a5cdcef1286008e9315c459afb808e4e6a3aac6b86407ec43a2	.build/goal-closure-choices-final/choice-fixture-parent-receipt.json
+choice-fixture	current		0	0	2	6689a62a422c2e8e5b35ffc6017d52cd49e6cac0f3ccc88520aef8d24152560f	.build/goal-closure-choices-final/choice-fixture-current-receipt.json
+debian	parent	567a9be49163cbf731f25bf79890f692e04d22d9	0	0	2	0af0e315c50a7a5cdcef1286008e9315c459afb808e4e6a3aac6b86407ec43a2	.build/goal-closure-choices-final/debian-parent-receipt.json
+debian	current	567a9be49163cbf731f25bf79890f692e04d22d9	0	0	0	6689a62a422c2e8e5b35ffc6017d52cd49e6cac0f3ccc88520aef8d24152560f	.build/goal-closure-choices-final/debian-current-receipt.json

@@ -249,8 +249,7 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	// A launched observer runs independently of the caller. Handle it before
 	// receiver, summary and library contracts that describe synchronous calls.
 	if _, launched := instruction.(*ssa.Go); launched {
-		_, closure := ssaflow.DirectCallee(common)
-		return analysis.opaqueCallAction(common, closure, reasonLabelLaunchedHelper)
+		return analysis.opaqueCallAction(common, reasonLabelLaunchedHelper)
 	}
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
 		// append retains its arguments in a slice the caller keeps; the other
@@ -292,19 +291,20 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	if callee == nil || len(callee.Blocks) == 0 {
 		// An opaque callee may retain the value.
 		if callee == nil {
-			return analysis.opaqueCallAction(common, closure, reasonLabelDynamicCallee)
+			return analysis.opaqueCallAction(common, reasonLabelDynamicCallee)
 		}
-		return analysis.opaqueCallAction(common, closure, reasonLabelCalleeWithoutBody)
+		return analysis.opaqueCallAction(common, reasonLabelCalleeWithoutBody)
 	}
 	return analysis.helperAction(common, callee, closure, analysis.tracked), reasonLabelHelper
 }
 
-// Opaque and launched calls share the same handoff boundary. Only positive
-// argument or capture consumption makes the tracked worker uncertain.
+// Opaque and launched calls share the same handoff boundary. Positive argument
+// or capture consumption, or an interrupted capture search, leaves ownership
+// uncertain without establishing a join.
 func (analysis *spawnAnalysis) opaqueCallAction(
-	common *ssa.CallCommon, closure *ssa.MakeClosure, reason goroutineOwnershipReason,
+	common *ssa.CallCommon, reason goroutineOwnershipReason,
 ) (ownershipAction, goroutineOwnershipReason) {
-	if analysis.anyArgumentConsumes(common) || analysis.closureConsumes(closure) {
+	if analysis.anyArgumentConsumes(common) || analysis.closureConsumes(common.Value) {
 		return actionUnknown, reason
 	}
 	return actionNone, reasonNone
@@ -564,13 +564,29 @@ func (analysis *spawnAnalysis) anyArgumentConsumes(common *ssa.CallCommon) bool 
 	return slices.ContainsFunc(common.Args, analysis.consumes)
 }
 
-func (analysis *spawnAnalysis) closureConsumes(closure *ssa.MakeClosure) bool {
-	if closure == nil {
+// Closure choices establish possible consumption, never a unique callee or a
+// join. Only phi alternatives are transparent here; converted or loaded function
+// values retain their existing opaque boundary. Interrupted capture discovery
+// must also leave ownership unknown, rather than establish absent consumption.
+// https://github.com/Debian/dcs/blob/567a9be49163cbf731f25bf79890f692e04d22d9/internal/sourcebackend/sourcebackend.go#L433-L644
+func (analysis *spawnAnalysis) closureConsumes(value ssa.Value) bool {
+	budget := analysis.budget()
+	consumes := ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(budget).Any(value, func(_ ssaflow.ReachingWalk, current ssa.Value) bool {
+		closure, ok := current.(*ssa.MakeClosure)
+		if !ok {
+			return false
+		}
+		for _, binding := range closure.Bindings {
+			for _, tracked := range analysis.tracked {
+				if !budget.Spend() {
+					return false
+				}
+				if bindingCarries(binding, tracked.value) {
+					return true
+				}
+			}
+		}
 		return false
-	}
-	return slices.ContainsFunc(closure.Bindings, func(binding ssa.Value) bool {
-		return slices.ContainsFunc(analysis.tracked, func(tracked trackedValue) bool {
-			return bindingCarries(binding, tracked.value)
-		})
 	})
+	return consumes || budget.Exhausted()
 }

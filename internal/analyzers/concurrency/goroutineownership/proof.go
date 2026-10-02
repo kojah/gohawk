@@ -1,6 +1,8 @@
 package goroutineownership
 
 import (
+	"slices"
+
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
@@ -178,15 +180,12 @@ func (analysis *spawnAnalysis) otherWorkerConsumesSignal() bool {
 			switch typed := instruction.(type) {
 			case *ssa.Go:
 				common := typed.Common()
-				closure, _ := common.Value.(*ssa.MakeClosure)
-				if analysis.anyArgumentConsumes(common) || analysis.closureConsumes(closure) {
+				if analysis.anyArgumentConsumes(common) || analysis.closureConsumes(common.Value) {
 					return true
 				}
 			case *ssa.Call:
-				for _, argument := range typed.Common().Args {
-					if closure, ok := argument.(*ssa.MakeClosure); ok && analysis.closureConsumes(closure) {
-						return true
-					}
+				if slices.ContainsFunc(typed.Common().Args, analysis.closureConsumes) {
+					return true
 				}
 			}
 		}

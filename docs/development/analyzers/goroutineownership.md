@@ -585,3 +585,27 @@ These charges cover visits and dispatch, not type-system internals,
 custom feasibility hook internals, library-contract inference or heap graph
 construction/waiting. Other consumers retain separate review scope; this is
 not a whole-query wall-clock bound.
+
+
+## Closure choices and opaque consumer participation
+
+The classifier and other-worker census use one `closureConsumes` query over
+callable values. `ReachingWalk` folds phi alternatives; a possible matching
+capture supplies unknown ownership, never a unique call target or a join.
+Direct closures retain their binding policy. Function conversions and loads
+remain deliberately opaque to this query. Candidate allowance pays for reaching
+visits and binding/tracked-value comparisons; cutoff preserves uncertainty.
+Underlying binding/heap evidence retains its existing separate cost boundary.
+
+`closurechoices` pairs a selected consumer launched in a dynamic loop with an
+unrelated selected consumer whose producer has a partial join. The former is
+opaque participation and the latter still reports. Callback choice and converted
+callable fixtures keep their separate boundaries. SSA controls check mixed and
+unrelated alternatives, loop launch, exhausted discovery and fresh-query recovery.
+
+The real pattern is [Debian's source worker selection](https://github.com/Debian/dcs/blob/567a9be49163cbf731f25bf79890f692e04d22d9/internal/sourcebackend/sourcebackend.go#L433-L644).
+Classifying the later launch alone cannot cover a loop that may execute zero
+times. The existing other-worker census already handles opaque worker pools;
+its missing phi captures caused the two alerts. This correction widens that
+unknown boundary. It proves no producer/consumer count, group registration or
+protocol-completion contract and changes no cross-package fact.
