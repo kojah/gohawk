@@ -13,6 +13,18 @@ Reading a field of the handle, such as logging the child's PID, does not
 count as handing it on. The `missing-wait` check reports handles that are
 waited on or released on some paths but not all.
 
+Synchronous `Read`, `Write`, and `Close` on exact `exec.Cmd` standard IO pipe
+results do not hand on a process wait owner. Their returned errors and counts
+also carry no wait handle. A launch using only these operations retains the
+unused-command unknown outcome; it may still leak a child and is an accepted
+coverage gap. This covers the [rev-dep telemetry launch](https://github.com/jayu/rev-dep/blob/8a2fdb0927e2fc9b2a5b178c94f55d1887659152/internal/telemetry/telemetry.go#L75-L103).
+Returning a pipe, handing it to other code, or launching its operations in a
+goroutine retains the ordinary ownership question. Partial waits, direct
+process operations and misleading project-defined pipe methods remain checked.
+`pipe_handles.go` pins local input/output/error IO and partial waits beside
+Kill and unrelated methods; `orphanedPipe` retains the returned-pipe diagnostic.
+The final trace tests require unused-command unknown without budget exhaustion.
+
 The post-Start reporting decision includes that unused-handle boundary before
 emitting its final trace. An uncovered return whose command is unused produces
 `unused-command-ownership-unknown`, rather than a rejected `unowned-return`

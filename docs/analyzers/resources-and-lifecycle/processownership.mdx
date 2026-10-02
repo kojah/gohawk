@@ -17,7 +17,8 @@ Launching a process without waiting is not reported on its own: opening a
 browser or relaunching a daemon may intentionally outlive the caller. The
 check reports a command that is waited on or handed on along some return paths
 but not others. Commands built by helpers or reached through callbacks are not checked.
-A command started at most once by `main` of an executable is also left alone.
+A command used only for local pipe reads, writes, and closes is left alone, as
+is a command started at most once by `main` of an executable.
 Branches excluded by a helper’s guaranteed return value are skipped.
 
 The full list of precision boundaries, with the fixtures that pin each one, is

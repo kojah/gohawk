@@ -10,6 +10,29 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Synchronous Read/Write/Close on a known command pipe consumes IO locally;
+// it neither hands on a process handle nor returns one in its result. Returning
+// the pipe itself or passing it to other code retains the ordinary ownership
+// question. This applies the unused-command boundary without proving reaping.
+// https://github.com/jayu/rev-dep/blob/8a2fdb0927e2fc9b2a5b178c94f55d1887659152/internal/telemetry/telemetry.go#L75-L103
+func commandPipeOperation(common *ssa.CallCommon) bool {
+	if common == nil {
+		return false
+	}
+	pipe, index, called := ssaflow.CallResultSource(ssaflow.CallReceiver(common))
+	if !called || index != 0 || !ssaflow.CallMatchesAnySymbol(pipe.Common(),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "StdinPipe"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "StdoutPipe"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "StderrPipe"})) {
+		return false
+	}
+	return ssaflow.CallMatchesAnySymbol(common,
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "io", Receiver: "WriteCloser", Name: "Write"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "io", Receiver: "WriteCloser", Name: "Close"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "io", Receiver: "ReadCloser", Name: "Read"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "io", Receiver: "ReadCloser", Name: "Close"}))
+}
+
 func osProcessDerivedFromCommand(value, command ssa.Value) bool {
 	if value == nil || value.Type() == nil {
 		return false

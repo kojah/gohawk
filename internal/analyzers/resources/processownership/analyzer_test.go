@@ -29,7 +29,9 @@ func TestAnalyzer(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := map[string]bool{}
-	unusedDecisions := 0
+	unusedDecisions := map[string]int{
+		"launchBrowser": 0, "pipeOnlyInput": 0, "pipeOnlyOutput": 0, "pipeOnlyErrorOutput": 0,
+	}
 	for line := range strings.SplitSeq(strings.TrimSpace(string(data)), "\n") {
 		var event processTraceEvent
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
@@ -38,17 +40,13 @@ func TestAnalyzer(t *testing.T) {
 		if event.Phase == "decision" {
 			found[event.Outcome] = true
 		}
-		if event.Phase == "decision" && strings.HasSuffix(event.Function, ".launchBrowser") {
-			unusedDecisions++
-			if event.Outcome != "unknown" || event.Reason != "unused-command-ownership-unknown" ||
-				!strings.Contains(event.Candidate, "processownership.go:") {
-				t.Errorf("unused command must retain uncertain ownership: %+v", event)
-			}
-		}
+		assertUnusedProcessTrace(t, event, unusedDecisions)
 		assertProcessTraceBoundary(t, event, found)
 	}
-	if unusedDecisions != 1 {
-		t.Errorf("unused command: want one final decision, got %d", unusedDecisions)
+	for function, count := range unusedDecisions {
+		if count != 1 {
+			t.Errorf("%s: want one final unused-command decision, got %d", function, count)
+		}
 	}
 	for _, outcome := range []string{
 		"accepted", "rejected", "unknown", "merged-wait-proven", "helper-result", "returned-handle-owner", "immediate-process-guard",
@@ -56,6 +54,24 @@ func TestAnalyzer(t *testing.T) {
 	} {
 		if !found[outcome] {
 			t.Errorf("missing process trace outcome %s", outcome)
+		}
+	}
+}
+
+func assertUnusedProcessTrace(t *testing.T, event processTraceEvent, decisions map[string]int) {
+	t.Helper()
+	for function := range decisions {
+		if !strings.HasSuffix(event.Function, "."+function) {
+			continue
+		}
+		if event.Reason == "budget-exhausted" {
+			t.Errorf("%s: unused ownership must not depend on exhausted evidence: %+v", function, event)
+		}
+		if event.Phase == "decision" {
+			decisions[function]++
+			if event.Outcome != "unknown" || event.Reason != "unused-command-ownership-unknown" {
+				t.Errorf("%s: unused command must retain uncertain ownership: %+v", function, event)
+			}
 		}
 	}
 }

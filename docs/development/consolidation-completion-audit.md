@@ -4398,3 +4398,20 @@ counterfactual above verify the changed boundary; no broader production replay,
 full precision-regression audit or local race run is needed for this unchanged
 policy projection. The initial owner-query scan's confirmed wrapper work is now
 closed; its other six candidate dispositions remain unchanged.
+
+## Current precision reassessment and local pipe correction
+
+The [eleven-site reassessment](../../benchmarks/precision/audits/remaining-eleven-reassessment-2026-10-02.md)
+refreshes seven pinned scopes at `707913f`: eight sites visible, three absent
+with exhausted evidence, all eleven still semantically unresolved in that
+snapshot. The historical labels and replay ledgers remain unchanged.
+
+The [local pipe follow-up](../../benchmarks/precision/audits/process-local-pipes-followup-2026-10-02.md)
+corrects rev-dep at the existing unused-command boundary. One private contract
+distinguishes local standard IO operations and their results from handing on a
+pipe or command owner. Returned-pipe, partial-wait and Kill fixtures remain
+diagnostic; two pinned production process TPs remain byte-identical. Actual SSA,
+unknown-reason traces, two failing counterfactuals and final canonical validation
+support the correction. This leaves ten unresolved production sites plus Rune;
+budget-driven silence remains open. It does not complete the broader graph,
+alias, type, package-inventory or fact-consumer consolidation reviews.

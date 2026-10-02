@@ -228,7 +228,8 @@ func externallyOwnedAddress(address ssa.Value) bool {
 }
 
 // commandUnusedAfterStart reports whether no instruction reachable after
-// Start reads the command or anything derived from it, such as its Process.
+// Start hands on the command or something derived from it, such as its Process.
+// Synchronous IO on its pipes alone leaves process ownership unknown.
 func commandUnusedAfterStart(start *ssa.Call, command ssa.Value) bool {
 	for _, block := range start.Parent().Blocks {
 		for _, instruction := range block.Instrs {
@@ -269,9 +270,12 @@ func commandUnusedAfterStart(start *ssa.Call, command ssa.Value) bool {
 }
 
 // handsValueOn reports whether an instruction can pass a value it consumes
-// to code or storage that outlives the instruction.
+// to code or storage that outlives the instruction. Local standard IO on a
+// command pipe does not hand on its process owner; Go and Defer retain that question.
 func handsValueOn(instruction ssa.Instruction) bool {
-	switch instruction.(type) {
+	switch operation := instruction.(type) {
+	case *ssa.Call:
+		return !commandPipeOperation(operation.Common())
 	case ssa.CallInstruction, *ssa.Store, *ssa.Return, *ssa.Send, *ssa.MapUpdate, *ssa.Panic:
 		return true
 	}
@@ -291,6 +295,9 @@ func handleCarried(value, command ssa.Value) bool {
 	// https://github.com/kiwifs/kiwifs/blob/3961d5e70a9e0ef457e58e29c40c52c870d57e73/go.mod
 	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
 	leaf = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+		if call, _, result := ssaflow.CallResultSource(value); result && commandPipeOperation(call.Common()) {
+			return false
+		}
 		if _, scalar := value.Type().Underlying().(*types.Basic); scalar {
 			return false
 		}
