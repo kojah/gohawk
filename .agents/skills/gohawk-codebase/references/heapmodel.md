@@ -19,22 +19,22 @@ analyzers decide what the evidence proves for a check.
 func AccessPathFromParameter(value, parameter ssa.Value) ([]string, bool)
 ```
 
-AccessPathFromParameter is AccessPathOf with the parameter's spill cells as
+AccessPathFromParameter extends ssaflow.AccessPathSteps with spill cells as
 alternative roots: a struct or array parameter is copied into a local
 cell before a field is selected, and a cell that is only ever written
 whole from the parameter holds exactly the parameter's contents.
 
-## AccessPathOf
+## AccessPathFromParameterWithin
 
 [Source](../../../../internal/heapmodel/store_access_paths.go)
 
 ```go
-func AccessPathOf(value, root ssa.Value) ([]string, bool)
+func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *ssaflow.SearchBudget) ([]string, bool)
 ```
 
-AccessPathOf returns the field and constant-index steps by which value is
-selected beneath root, empty for root itself. A load through an address
-beneath root has the address's path.
+AccessPathFromParameterWithin shares direct path, spill-store and whole-cell
+questions with budget. A cutoff publishes no path, including an empty one;
+callers retain budget availability. Nil keeps the original spill policy.
 
 ## AliasDecision
 

@@ -15,34 +15,40 @@ import (
 // a parameter, including through the cell a by-value parameter is spilled
 // into, and resolve the value a caller stored at a path beneath an argument.
 
-// AccessPathOf returns the field and constant-index steps by which value is
-// selected beneath root, empty for root itself. A load through an address
-// beneath root has the address's path.
-func AccessPathOf(value, root ssa.Value) ([]string, bool) {
-	return ssaflow.AccessPathSteps(value, root)
-}
-
-// AccessPathFromParameter is AccessPathOf with the parameter's spill cells as
+// AccessPathFromParameter extends ssaflow.AccessPathSteps with spill cells as
 // alternative roots: a struct or array parameter is copied into a local
 // cell before a field is selected, and a cell that is only ever written
 // whole from the parameter holds exactly the parameter's contents.
 func AccessPathFromParameter(value, parameter ssa.Value) ([]string, bool) {
-	if path, ok := AccessPathOf(value, parameter); ok {
+	return AccessPathFromParameterWithin(value, parameter, nil)
+}
+
+// AccessPathFromParameterWithin shares direct path, spill-store and whole-cell
+// questions with budget. A cutoff publishes no path, including an empty one;
+// callers retain budget availability. Nil keeps the original spill policy.
+func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *ssaflow.SearchBudget) ([]string, bool) {
+	if path, ok := ssaflow.AccessPathStepsWithin(value, parameter, budget); ok {
 		return path, true
 	}
-	if parameter.Referrers() == nil {
+	if budget.Exhausted() || budget.PoolExhausted() || parameter.Referrers() == nil {
 		return nil, false
 	}
 	for _, reference := range *parameter.Referrers() {
+		if !budget.Spend() {
+			return nil, false
+		}
 		store, ok := reference.(*ssa.Store)
 		if !ok || store.Val != parameter {
 			continue
 		}
 		cell, ok := store.Addr.(*ssa.Alloc)
-		if !ok || !ssaflow.WholeWrittenCell(cell) {
+		if !ok || !ssaflow.WholeWrittenCellWithin(cell, budget) {
 			continue
 		}
-		if path, ok := AccessPathOf(value, cell); ok {
+		if budget.Exhausted() || budget.PoolExhausted() {
+			return nil, false
+		}
+		if path, ok := ssaflow.AccessPathStepsWithin(value, cell, budget); ok {
 			return path, true
 		}
 	}

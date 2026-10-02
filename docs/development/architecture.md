@@ -58,9 +58,12 @@ for each; these times include each check's prerequisite passes.
   allowance through identity, derivation and path queries. Strict projections
   retain a QueryBudget child cap and expose its cutoff as unknown; a stopped
   projection or stored-path question cannot fall through into broader mapping.
-  Static storage-owner roots share path and selection visits. Deferred storage-
-  path censuses, parameter spill-path extraction and graph/alias internals retain
-  separate costs; this is not a whole-query bound.
+  Static storage-owner roots share path and selection visits. Parameter spill
+  paths use bounded direct-path and whole-written-cell queries; path recording
+  and translation share the same request allowance. Exact cleanup receivers
+  charge only the selected wrapper traversal and retain phi/load opacity.
+  Deferred storage-path censuses and graph/alias internals retain separate
+  costs; this is not a whole-query bound.
   Named-result identity uses one shared all-return cell census. Deferred
   result-guard discovery builds it lazily at the first captured cell and
   reuses only a completed census within that discovery. First-slot direct

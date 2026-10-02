@@ -146,7 +146,13 @@ func enclosingAggregateAddressWithin(address ssa.Value, budget *SearchBudget) ss
 // shape the builder gives a spilled by-value parameter or a local copy. Such
 // a cell's contents are exactly what was stored into it.
 func WholeWrittenCell(cell *ssa.Alloc) bool {
-	return enclosingAggregateAddressWithin(&ssa.FieldAddr{X: cell}, nil) != nil
+	return WholeWrittenCellWithin(cell, nil)
+}
+
+// WholeWrittenCellWithin shares whole-cell and selection-referrer visits with
+// budget. Cutoff supplies no whole-written evidence; nil retains the default.
+func WholeWrittenCellWithin(cell *ssa.Alloc, budget *SearchBudget) bool {
+	return enclosingAggregateAddressWithin(&ssa.FieldAddr{X: cell}, budget) != nil && !budget.Exhausted() && !budget.PoolExhausted()
 }
 
 // addressOnlyLoaded reports whether an address, and every field or element

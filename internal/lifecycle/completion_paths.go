@@ -63,7 +63,7 @@ func (search *completionSearch) receiverPath(local mappedLocal, receiver, target
 	if search.exactTarget {
 		return search.mappedPath(local, target, nil, true)
 	}
-	actual, ok := heapmodel.AccessPathFromParameter(receiver, local.local)
+	actual, ok := heapmodel.AccessPathFromParameterWithin(receiver, local.local, search.budget)
 	return search.mappedPath(local, target, actual, ok)
 }
 
@@ -83,7 +83,7 @@ func (search *completionSearch) mappedPath(local mappedLocal, target ssa.Value, 
 			// on the aggregate around it.
 			return "", ssaflow.JoinAccessPath(actual) == ssaflow.JoinAccessPath(local.path)
 		}
-		supplied, ok := heapmodel.AccessPathOf(local.supplied, target)
+		supplied, ok := ssaflow.AccessPathStepsWithin(local.supplied, target, search.budget)
 		if !ok {
 			return "", false
 		}
@@ -94,7 +94,7 @@ func (search *completionSearch) mappedPath(local mappedLocal, target ssa.Value, 
 		if len(actual) > 0 {
 			return "", false
 		}
-		supplied, ok := heapmodel.AccessPathOf(local.supplied, target)
+		supplied, ok := ssaflow.AccessPathStepsWithin(local.supplied, target, search.budget)
 		return ssaflow.JoinAccessPath(supplied), ok
 	case localOwner:
 		// A direct call was already matched to the path beneath the local
@@ -105,7 +105,7 @@ func (search *completionSearch) mappedPath(local mappedLocal, target ssa.Value, 
 		if actual == nil {
 			return "", true
 		}
-		mirrored, ok := heapmodel.AccessPathOf(local.supplied, target)
+		mirrored, ok := ssaflow.AccessPathStepsWithin(local.supplied, target, search.budget)
 		return "", ok && ssaflow.JoinAccessPath(actual) == ssaflow.JoinAccessPath(mirrored)
 	case localCallback:
 	}

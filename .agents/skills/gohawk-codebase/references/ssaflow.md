@@ -3272,6 +3272,17 @@ and otherwise read, directly or through field and element selections: the
 shape the builder gives a spilled by-value parameter or a local copy. Such
 a cell's contents are exactly what was stored into it.
 
+## WholeWrittenCellWithin
+
+[Source](../../../../internal/ssaflow/value_derivation.go)
+
+```go
+func WholeWrittenCellWithin(cell *ssa.Alloc, budget *SearchBudget) bool
+```
+
+WholeWrittenCellWithin shares whole-cell and selection-referrer visits with
+budget. Cutoff supplies no whole-written evidence; nil retains the default.
+
 ## WrittenOnceCellAtWithin
 
 [Source](../../../../internal/ssaflow/written_once_cell.go)

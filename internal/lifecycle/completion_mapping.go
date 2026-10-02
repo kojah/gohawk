@@ -259,13 +259,13 @@ func (local mappedLocal) receives(receiver, target ssa.Value, budget *ssaflow.Se
 			// local itself, or a receiver with no static path, keeps the
 			// derivation rule, since the aggregate's own method may release
 			// what it holds.
-			if actual, ok := heapmodel.AccessPathFromParameter(receiver, local.local); ok && len(actual) > 0 {
+			if actual, ok := heapmodel.AccessPathFromParameterWithin(receiver, local.local, budget); ok && len(actual) > 0 {
 				return ssaflow.JoinAccessPath(actual) == ssaflow.JoinAccessPath(local.path)
 			}
 		}
 		return heapmodel.ValueDerivesFromWithin(receiver, local.local, budget)
 	case localProjection:
-		return exactCleanupReceiver(receiver, local.local)
+		return exactCleanupReceiver(receiver, local.local, budget)
 	case localOwner:
 		// The callee closes the path beneath its local that mirrors the
 		// target's path beneath the supplied owner, such as resp.Body from a
@@ -277,14 +277,14 @@ func (local mappedLocal) receives(receiver, target ssa.Value, budget *ssaflow.Se
 	return false
 }
 
-func exactCleanupReceiver(receiver, parameter ssa.Value) bool {
-	if receiver == nil || parameter == nil {
+func exactCleanupReceiver(receiver, parameter ssa.Value, budget *ssaflow.SearchBudget) bool {
+	if receiver == nil || parameter == nil || !budget.Spend() {
 		return false
 	}
 	if inner, ok := ssaflow.UnwrapTransparentValue(
 		receiver, ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
 	); ok {
-		return exactCleanupReceiver(inner, parameter)
+		return exactCleanupReceiver(inner, parameter, budget)
 	}
 	return receiver == parameter
 }
