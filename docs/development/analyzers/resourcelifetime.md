@@ -1024,3 +1024,24 @@ and fresh recovery. The independent nested-budget counterfactual must fail;
 `evidence_local_test.go` separately pins no cache publication at cutoff.
 Earlier HTTP/context/error/optional predicates and graph/type internals retain
 separate cost scope. Ordinary resource flow remains the sole diagnostic proof.
+
+### Canceled acquisition context allowance
+
+`acquisition_context.go` keeps exact standard constructor/cancel pairing together
+for pre-acquisition DB cancellation and later transaction cleanup uncertainty.
+The cancellation census accepts only an ordinary paired cancel dominating
+DB.PrepareContext, DB.QueryContext or DB.BeginTx. Conn, Tx and Stmt entry behavior,
+deferred or conditional cancellation, sibling/replaced contexts and opaque
+context parameters retain their previous exclusions. Applicability and exact
+pair decoding precede the query; unrelated APIs do not spend this allowance.
+
+Instruction visits use a child allowance from the observed candidate pool. The
+same probe/pool is passed into resource analysis after error/optional evidence
+has selected the final resource binding. Memory and HTTP policy exclusions
+remain before pool construction; canceled acquisitions retain their accepted
+reason, while cutoff returns budget unknown before any leak witness. No alias
+traversal or deadline timing is added. `acquisition_context_test.go` checks
+exact/cause cancellation, all eligible APIs, the exclusions above, every
+insufficient allowance, child cutoff with parent available, fresh recovery and
+complete-flow canceled versus independent statement-leak controls. Earlier
+HTTP/error/optional predicates and graph/type internals remain separate work.

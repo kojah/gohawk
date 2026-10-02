@@ -39,7 +39,13 @@ func evaluateResourceFlow(
 	if reason := httpAcquisitionBoundary(pass, call); reason != resourceReasonNone {
 		return unknownResourceLifetime(reason)
 	}
-	if acquisitionContextCanceled(call) {
+	probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos())
+	pool := ssaflow.NewSearchBudget(resourcePoolBudget).Observed(probe.Observer())
+	canceled := proveAcquisitionContextCanceledWithin(call, pool.Within(releaseSearchBudget))
+	if canceled.State == ssaflow.EvidenceUnknown {
+		return unknownResourceLifetime(canceled.Reason)
+	}
+	if canceled.Proven() {
 		return acceptedResourceLifetime(resourceReasonCanceledAcquisition)
 	}
 	if testProvesAcquisitionError(call, resource, errorValue, contract.packagePath == "net/http") {
@@ -54,7 +60,7 @@ func evaluateResourceFlow(
 		summaries:   resourceSummaries.Provider(pass),
 		pass:        pass, evidence: evidence, function: call.Parent(), resource: resource, candidate: call.Pos(),
 		contract: contract, optional: optionalAcquisition, actions: map[ssa.Instruction]resourceAction{},
-		probe: analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()),
+		probe: probe, pool: pool,
 	}
 	// This query uses anywhere coverage, not every-return settlement. A
 	// dominating defer may release a later acquisition through captured storage.

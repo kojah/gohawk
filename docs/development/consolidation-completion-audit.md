@@ -3051,3 +3051,43 @@ The current production contract lookup callsite uses the direct conditional-case
 search; this memo correction has no demonstrated production FP removal. No full
 precision replay ran. Earlier acquisition and cleanup-uncertainty families remain
 open in the broader consolidation objective.
+
+## Canceled acquisition context census
+
+`gohawk-dho.44.11.5.17.5` replaces the default pre-acquisition cancellation
+call census with one structured proof. Exact standard constructor result-zero
+context and result-one cancel pairing remains unchanged; only an ordinary
+paired invocation dominating DB.PrepareContext, DB.QueryContext or DB.BeginTx
+supplies the existing canceled-acquisition exclusion. Conn/Tx/Stmt entry behavior,
+deferred/conditional calls, sibling/replaced contexts and opaque context
+parameters do not acquire that guarantee. Pair applicability precedes scanning.
+
+The census uses InstructionsWithin and a child allowance from the observed
+candidate pool. Probe and pool are constructed after existing memory/HTTP policy
+exclusions and handed unchanged to resourceAnalysis after acquisition-error and
+optional-resource binding. Later owner, defer and ordinary flow queries reuse
+that same pool; cutoff returns explicit budget unknown before leak evidence.
+Paired context contracts now live together in acquisition_context.go, retaining
+all durable API rationale and motivating pinned links. Later transaction
+cancellation remains uncertain asynchronous cleanup rather than exact rollback.
+No alias walk or deadline timing inference is introduced.
+
+Actual-SSA controls cover four positive API/cause cases, five eligible negative
+ordering/identity variants, five excluded API/opaque forms, every insufficient
+allowance, child cutoff with parent available, fresh recovery and complete-flow
+canceled versus independent statement-leak witnesses. Focused controls pass in
+0.152 seconds; ignoring census allowance fails all nine eligible families and
+the child cutoff. The SSA receipt shows the exact context/cancel extracts and
+ordinary cancel invocation in `.build/goal-acquisition-context-fixture.ssa.txt`.
+Lint and architecture gates pass. The canonical completion gate passes,
+including ordinary tests (75 seconds) and repository dogfood (33 seconds).
+
+Immutable `.build/goal-acquisition-context-current`, SHA-256
+`4a01def69a4c6f39b1b0fdb965811bd1dc62ff80467ae488b16a10f458840773`,
+keeps pinned Cute/Ferro resource JSON byte-identical to the contract-cache
+binary, terminal exits 3/0 with empty stderr. Pins/scopes remain those recorded
+above; Cute's known TP remains and Ferro's corrected storage report stays absent.
+No additional production FP correction or full precision replay is credited.
+Child `.17.6` tracks optional-diamond reachability/phi census; earlier HTTP/error
+predicates and graph/type internals remain separate work. The parent and broader
+consolidation objective remain active.
