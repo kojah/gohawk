@@ -4489,3 +4489,21 @@ records receipts and the remaining private-function escape question in
 `gohawk-dho.44.11.5.27.19`. That follow-up must verify completeness before the
 exclusive precondition can be certified. Broader graph/alias/type and fact
 consumer reviews, ten production FP sites and Rune remain open.
+
+## Exclusive caller completeness correction
+
+Beads `gohawk-dho.44.11.5.27.19` reproduces and corrects the preceding review's
+private-function escape gap. Fresh synchronous calls had allowed an exclusivity
+answer despite shared Go/Defer or callback uses. Both preconditions now consume
+one complete private caller set; the parallel exclusive view is removed.
+Escaped, method, exported, empty and interrupted caller sets remain unknown,
+and initialization callers must pass the same exact fresh-argument check.
+
+Actual SSA, caller-count and cutoff controls, a minimized callback-cycle
+diagnostic and the existing accepted direct-only initialization fixture pin the
+boundary. Two counterfactuals fail assertions. The [completeness review](../../benchmarks/precision/audits/exclusive-caller-completeness-2026-10-02.md)
+records canonical validation and twelve successful scoped scans: one expected
+lock fixture diagnostic added, none lost, and resource/goroutine fixtures plus
+production controls unchanged. The earlier two-view disposition is superseded.
+Ten production FP sites and Rune remain unresolved; graph/alias/type and other
+fact-consumer reviews still prevent an overall completion claim.

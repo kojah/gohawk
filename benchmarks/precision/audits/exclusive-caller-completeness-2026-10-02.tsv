@@ -1,0 +1,7 @@
+case	revision	scope	scan_exit	comparison	stdout_bytes	parent_receipt	current_receipt	bead
+lock-fixture	local-fixtures	lockorder	0	one expected callback-cycle diagnostic added; none lost	122985	.build/goal-exclusive-callers-final/lock-fixture-parent.json	.build/goal-exclusive-callers-final/lock-fixture-current.json	gohawk-dho.44.11.5.27.19
+skywalking	e83d5925500a7e63dd55c080a9b1542d6cedaefb	./pkg/tools/buffer	0	byte-identical	3095	.build/goal-exclusive-callers-final/skywalking-parent.json	.build/goal-exclusive-callers-final/skywalking-current.json	gohawk-dho.44.11.5.27.19
+resource-fixture	local-fixtures	resourcelifetime	0	byte-identical	335148	.build/goal-exclusive-callers-final/resource-fixture-parent.json	.build/goal-exclusive-callers-final/resource-fixture-current.json	gohawk-dho.44.11.5.27.19
+goroutine-fixture	local-fixtures	goroutineownership	0	byte-identical	116184	.build/goal-exclusive-callers-final/goroutine-fixture-parent.json	.build/goal-exclusive-callers-final/goroutine-fixture-current.json	gohawk-dho.44.11.5.27.19
+xd	b905a14ecfeceaa21a5dde82b52f164d075002ab	./lib/configparser	0	byte-identical	838	.build/goal-exclusive-callers-final/xd-parent.json	.build/goal-exclusive-callers-final/xd-current.json	gohawk-dho.44.11.5.27.19
+goiardi	937cae400a92d8036b88ae2f65d93506271c292e	./datastore ./indexer	0	byte-identical	1476	.build/goal-exclusive-callers-final/goiardi-parent.json	.build/goal-exclusive-callers-final/goiardi-current.json	gohawk-dho.44.11.5.27.19

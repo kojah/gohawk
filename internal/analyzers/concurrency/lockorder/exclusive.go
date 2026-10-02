@@ -35,11 +35,11 @@ import (
 // dogfood shapes: a job, gauge, or channel registered under a global lock
 // after its own lock is taken.
 
-// exclusiveCallers indexes, per unexported function, the call sites in the
-// package, so the caller half of the proof can be asked once per function.
+// exclusiveCallers consumes the same complete private caller census as return
+// contracts, so an unseen callback or asynchronous use cannot prove exclusivity.
 type exclusiveCallers struct {
 	pass  *analysis.Pass
-	sites map[*ssa.Function][]*ssa.Call
+	sites map[*ssa.Function]conditionalCallerSet
 	// exclusive caches the answer per function and parameter.
 	exclusive map[exclusiveKey]bool
 }
@@ -49,14 +49,15 @@ type exclusiveKey struct {
 	index    int
 }
 
-func newExclusiveCallers(pass *analysis.Pass, sites map[*ssa.Function][]*ssa.Call) *exclusiveCallers {
+func newExclusiveCallers(pass *analysis.Pass, sites map[*ssa.Function]conditionalCallerSet) *exclusiveCallers {
 	return &exclusiveCallers{pass: pass, sites: sites, exclusive: map[exclusiveKey]bool{}}
 }
 
 // parameterExclusive reports whether every call of the function in the
 // package passes, at the parameter's position, a fresh local object that has
-// not escaped at the call. An exported function, a function no call site
-// reaches, or a call through a closure or interface is never proven.
+// not escaped at the call. Exported functions, methods, functions with escaped
+// uses, and incomplete or empty caller sets remain unknown. A fresh direct
+// caller cannot establish what a callback or asynchronous caller hands in.
 func (callers *exclusiveCallers) parameterExclusive(function *ssa.Function, index int) bool {
 	key := exclusiveKey{function: function, index: index}
 	if answer, ok := callers.exclusive[key]; ok {
@@ -64,8 +65,9 @@ func (callers *exclusiveCallers) parameterExclusive(function *ssa.Function, inde
 	}
 	callers.exclusive[key] = false
 	object := function.Object()
-	sites := callers.sites[function]
-	if object == nil || object.Exported() || len(sites) == 0 {
+	entry := callers.sites[function]
+	sites := entry.calls
+	if object == nil || object.Exported() || entry.escaped || len(sites) == 0 {
 		return false
 	}
 	for _, call := range sites {
@@ -104,7 +106,7 @@ func (callers *exclusiveCallers) acquisitionExclusive(function *ssa.Function, in
 	case callers.parameterExclusive(function, exclusive.Parameter):
 		probe.Decision(analysisTrace.Step{
 			Reason: lockReasonExclusiveParameterFromFreshCallers.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
-			Details: map[string]string{"parameter": strconv.Itoa(exclusive.Parameter), "callers": strconv.Itoa(len(callers.sites[function]))},
+			Details: map[string]string{"parameter": strconv.Itoa(exclusive.Parameter), "callers": strconv.Itoa(len(callers.sites[function].calls))},
 		})
 		return true
 	}

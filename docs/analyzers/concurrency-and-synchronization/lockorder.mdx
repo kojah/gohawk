@@ -40,6 +40,9 @@ for each edge.
 
 Local mutexes are named by the receiver written at their lock call.
 
+A helper's fresh-object callers do not hide a lock-order cycle when the helper
+is also used as a callback or launched asynchronously.
+
 ## How to fix it
 
 Choose one order for acquiring multiple locks and use it everywhere. Arrange

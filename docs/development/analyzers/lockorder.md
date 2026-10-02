@@ -273,15 +273,19 @@ they do not imply that a read-only pair necessarily deadlocks by itself.
 
 ### Package caller inventories
 
-Package caller discovery uses one instruction census for conditional release
-and exclusive ownership. Conditional release records private non-method
+Package caller discovery uses one complete caller set for conditional release
+and exclusive ownership. It records private non-method
 function operands, including initialization, and rejects escaped values or more
 than 32 synchronous callers. Its 20,000-instruction cutoff discards the entire
-set. Exclusive ownership retains a separate static synchronous-call view outside
-initialization; discovery continues after the conditional allowance is exhausted.
-These views supply different preconditions and do not infer a field's guard or
-participant confinement. `callers_test.go` pins scope, escape, call-count and
-cutoff boundaries with compiled SSA.
+set for both consumers. Exclusive ownership checks every recorded caller's exact
+argument, so a fresh direct caller cannot excuse a callback, Go/Defer use or
+shared initialization caller. Methods remain unknown because this operand census
+does not establish their complete interface/method-value callers. The consumers
+retain separate cleanup and ownership policies; neither infers a field's guard
+or participant confinement. `callers_test.go` and `exclusive_callers_test.go`
+pin scope, escape, call-count, fresh caller and cutoff boundaries with compiled
+SSA. `exclusive_callbacks.go` keeps the callback cycle diagnostic alongside the
+accepted direct-only initialization pattern in `exclusive_owners.go`.
 
 ### Writes under a read lock
 
