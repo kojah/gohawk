@@ -77,7 +77,7 @@ that only need to know whether some return is uncovered.
 |---|---|
 | `MethodCallCoverage`, `ValueCallsMethod` | does the launched callee call the lifecycle method before each normal return? |
 | `ProveCompletion` | the structured completion proof behind those |
-| `CallInvokesArgumentOnEveryReturn`, `SpawnInvokesArgumentOnEveryReturn`, `DeferredClosureInvokesArgumentOnEveryReturn` | is the func argument itself invoked synchronously on every return, including inside a spawned wrapper? |
+| `CallInvokesArgumentOnEveryReturn`, `ProveSpawnedInvocation`, `DeferredClosureInvokesArgumentOnEveryReturn` | is the func argument itself invoked synchronously on every return, including inside a spawned wrapper? |
 | `DeferredClosureCallsValue`, `ClosureCallsValue`, `CallReturnsDeferredCleanup` | deferred and callback cleanup shapes |
 
 ## Could a helper hide evidence that changes this check's answer?

@@ -23,15 +23,16 @@ func signalSuppliedAtCall(
 	function *ssa.Function,
 	closure *ssa.MakeClosure,
 	channel ssa.Value,
+	budget *ssaflow.SearchBudget,
 ) ssa.Value { //nolint:ireturn // Completion signals retain their concrete SSA value types.
-	if supplied := completionValueAtCall(spawn, function, closure, channel); supplied != nil {
+	if supplied := completionValueAtCall(spawn, function, closure, channel, budget); supplied != nil {
 		return supplied
 	}
-	root := aggregateRoot(channel)
+	root := aggregateRootWithin(channel, budget)
 	if root == channel {
 		return nil
 	}
-	return completionValueAtCall(spawn, function, closure, root)
+	return completionValueAtCall(spawn, function, closure, root, budget)
 }
 
 // completionValueAtCall requires an exact worker-to-caller binding. Possible
@@ -39,13 +40,15 @@ func signalSuppliedAtCall(
 // Captured cells must stay read-only in the worker and stable in its caller;
 // the first initializer is not a guarantee about a later asynchronous load.
 func completionValueAtCall(
-	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value,
+	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *ssaflow.SearchBudget,
 ) ssa.Value { //nolint:ireturn // Completion handles retain their concrete SSA value types.
-	budget := ssaflow.NewSearchBudget(spawnQueryBudget)
 	storage := heapmodel.NewStorage(budget)
 	bindings := ssaflow.CallBindings(spawn.Common(), function, closure)
 	for _, captured := range []bool{true, false} {
 		for _, binding := range bindings {
+			if !budget.Spend() {
+				return nil
+			}
 			if binding.Captured != captured {
 				continue
 			}
@@ -78,7 +81,14 @@ func completionValueAtCall(
 // index operands are deliberately not followed: a loop counter used to select
 // an element is not the aggregate that owns it.
 func aggregateRoot(value ssa.Value) ssa.Value { //nolint:ireturn // Roots retain their concrete SSA forms.
+	return aggregateRootWithin(value, nil)
+}
+
+func aggregateRootWithin(value ssa.Value, budget *ssaflow.SearchBudget) ssa.Value { //nolint:ireturn // Roots retain their concrete SSA forms.
 	for {
+		if !budget.Spend() {
+			return nil
+		}
 		if inner, ok := ssaflow.UnwrapTransparentValue(
 			value,
 			ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,

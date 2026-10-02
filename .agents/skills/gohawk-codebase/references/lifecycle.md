@@ -456,6 +456,18 @@ ProveReturnedCleanup proves a factory relation using the completion request's
 methods or InvokeTarget mode, budget, and imported-summary policies. Target
 and Instruction are unused: relation identifies values inside the factory.
 
+## ProveSpawnedInvocation
+
+[Source](../../../../internal/lifecycle/completion_callbacks.go)
+
+```go
+func ProveSpawnedInvocation(spawn *ssa.Go, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.CompletionProof
+```
+
+ProveSpawnedInvocation observes the launched wrapper's body and requires
+synchronous invocation of target before every normal return. The caller's
+budget bounds this query; a cutoff stays unknown and proves no invocation.
+
 ## ResultGuard
 
 [Source](../../../../internal/lifecycle/completion_result_guards.go)
@@ -613,18 +625,6 @@ func SendsValue(instruction ssa.Instruction, value ssa.Value) bool
 ```
 
 SendsValue reports whether instruction hands value to a channel receiver.
-
-## SpawnInvokesArgumentOnEveryReturn
-
-[Source](../../../../internal/lifecycle/completion_callbacks.go)
-
-```go
-func SpawnInvokesArgumentOnEveryReturn(spawn *ssa.Go, target ssa.Value) bool
-```
-
-SpawnInvokesArgumentOnEveryReturn reports whether the function launched by
-spawn invokes target synchronously before every normal return. The spawn is
-asynchronous to its caller, but calls made inside its wrapper must not be.
 
 ## StoredInto
 

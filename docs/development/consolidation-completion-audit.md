@@ -1625,3 +1625,84 @@ Documentation checks pass after the inventory update. Pinned clean stargz
 `.build/goal-binding-stargz-{parent,final}.{json,err}`. Its reviewed
 `store/manager.go:193:2` true positive remains. No candidate tests, generators
 or applications, full precision-regression corpus or local race run were run.
+
+
+## Observed positive discovery budget
+
+`gohawk-dho.44.11.1` implements the positive-discovery subset of `.44.11`.
+The actual oversized-worker SSA from source `6e6e087` and parent constructor
+regression show that discovery could invent a report after an unbounded census.
+The parent focused test fails with `unowned-return`. The corrected constructor
+sets its candidate probe before queries, draws one `SummaryBudget` allowance
+from the existing candidate pool and retains that allowance's availability.
+Census steps, exact/stable bindings, group/nested notification coverage,
+terminal tails and synchronous callback wrapper invocation share it. The shared
+obligation flow's tri-state entry walk supplies coverage; a single adapter
+charges examined instructions as well as expanded path states. No second
+return-coverage engine is introduced.
+
+A local or candidate-pool cutoff produces whole-candidate unknown with reason
+`completion-discovery-budget-exhausted`, even if a positive signal was found
+before a later census missed another handle. Constructor follow-up queries
+stop then; cutoff evidence is attributed to the spawn and distinguishes pool
+exhaustion. The focused tests include oversized real SSA, attributed trace,
+a 64-step pool that finds a signal before cutting off, and a fresh full-budget
+missing-join proof. No incomplete discovery is memoized. Existing notification
+and exact binding controls pass, along with ordinary lifecycle/goroutine package
+tests (0.646/69.579 seconds on the first implementation).
+
+`spawn.go` now owns state, probe initialization, allowances and constructor
+orchestration; `obligation.go` owns promise selection. This separates two
+existing responsibilities and fixes the initial file-length lint failure.
+The ordinary spawned invocation engine is now exposed as
+`lifecycle.ProveSpawnedInvocation` with an explicit caller budget. Its unused
+Boolean facade was removed; existing semantic and cutoff tests now call the
+same authoritative structured proof. The derived lifecycle helper inventory
+is regenerated. Initial local gates also caught overlong source lines and one
+obsolete test-only facade comparison; these are corrected rather than waived.
+
+Immutable parent `.build/goal-binding-final` implements production source
+`6e6e087`, SHA-256
+`5a24c7abba52ed7bb374941ec22dcbd1433ec544ca91ebf6537e412d28ef72eb`.
+Final `.build/goal-discovery-budget-final` has SHA-256
+`15f7e0e51bb729d37365fef2f4863d3d70f00f294f033b44ea4c3e9eef19dc1d`.
+Actual pilot SSA is `.build/goal-discovery-budget-pilot.ssa.txt`;
+`.build/goal-discovery-budget-pilot-{parent,final}.{json,trace.jsonl,err}` retain
+its observed change: parent exit 3, 678-byte diagnostic JSON; final exit 0,
+2-byte JSON, explicit attributed budget evidence and unknown discovery decision.
+Both have empty stderr. This is an intentional accepted false negative for an
+oversized worker, not production precision credit.
+
+Fresh 13-package fixture receipts in
+`.build/goal-discovery-budget-{parent,final}-receipt.{json,trace.jsonl,err}`
+have byte-identical 128,139-byte JSON, exit 3 and empty stderr. They retain 586
+final decision events and 238 classifier labels. Three dependency proofs in
+`testing` remain unknown but now explicitly name discovery exhaustion;
+all other final decisions agree as multisets. No all-event equivalence is
+claimed. Pinned clean stargz `624678b4e421947534cbf0618f9609853cccee0f`,
+`./store`, statically scanned under `CGO_ENABLED=0`, `GOFLAGS=-mod=readonly`,
+`GOWORK=off`, retains byte-identical 827-byte JSON, exit 3 and empty stderr in
+`.build/goal-discovery-budget-stargz-{parent,final}.{json,err}`. The known
+`store/manager.go:193:2` true positive remains.
+
+Graph tools are unavailable; this is bounded source/SSA/trace evidence. Parent
+`.44.11` remains active for relay, owner and pipe constructor adapters and
+other standalone suppression budgets. The aggregate-root and completion-defer
+suppression wrappers still delegate to their single implementation under the
+prior policy; they are outside this positive-discovery budget claim.
+The imported callback claim fallback reads the existing declaration fact;
+`CalleeClaims` does not introduce a second body search. None of these statements
+certifies broader transitive helper completeness. Parent `.44`, the wider
+architecture goal, Rune publication and the 15-site production queue remain
+open. No full precision-regression, local race run or candidate tests,
+generators or applications were executed.
+
+
+Final `make verify` passes with receipts in
+`.build/goal-discovery-budget-publish-verify.log`, including generated helper
+inventory, ordinary tests, formatting, vet, lint, dead-code and local dogfood.
+The last ordinary-test run takes three seconds with passing receipts reused
+from prior runs; it is not a fresh three-second performance measurement.
+The final reference check also required updating the handwritten shared-helper
+map to the structured spawned invocation API. This child can close with the
+focused budget contract verified; its parent and the overall objective cannot.

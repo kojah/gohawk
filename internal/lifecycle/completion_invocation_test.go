@@ -113,12 +113,9 @@ func TestSpawnedInvocationCompletion(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
 			spawn := ssaflow.InstructionsOf[*ssa.Go](function)[0]
-			proof := proveSpawnedInvocation(spawn, function.Params[0], ssaflow.NewSearchBudget(1000))
+			proof := ProveSpawnedInvocation(spawn, function.Params[0], ssaflow.NewSearchBudget(1000))
 			if proof.Proven() != test.want {
 				t.Fatalf("body invocation = %+v, want proven %v", proof, test.want)
-			}
-			if got := SpawnInvokesArgumentOnEveryReturn(spawn, function.Params[0]); got != proof.Proven() {
-				t.Fatalf("spawn helper = %v, structured proof = %+v", got, proof)
 			}
 			// The body promise never makes its outer launch synchronous.
 			if outer := ProveCompletion(CompletionRequest{
@@ -148,7 +145,7 @@ func TestSpawnedInvocationUnknownAndBudget(t *testing.T) {
 		if name == "spawnedForwarded" {
 			limit = 1
 		}
-		proof := proveSpawnedInvocation(spawn, function.Params[0], ssaflow.NewSearchBudget(limit))
+		proof := ProveSpawnedInvocation(spawn, function.Params[0], ssaflow.NewSearchBudget(limit))
 		if proof.State != ssaflow.EvidenceUnknown {
 			t.Fatalf("%s proof = %+v, want unknown", name, proof)
 		}

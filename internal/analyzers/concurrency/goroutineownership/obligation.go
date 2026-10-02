@@ -11,7 +11,6 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -48,84 +47,11 @@ type joinEdgeEvidence struct {
 	action ssaflow.ObligationAction
 }
 
-type spawnAnalysis struct {
-	pass          *analysis.Pass
-	function      *ssa.Function
-	spawn         *ssa.Go
-	checkID       check.ID
-	signals       []ssa.Value
-	groups        []ssa.Value
-	owners        []ssa.Value
-	pipePeers     []trackedValue
-	relayGroup    ssa.Value
-	tracked       []trackedValue
-	unsettledDone ssa.Instruction
-	actions       map[ssa.Instruction]ownershipAction
-	edgeEvidence  map[[2]int]joinEdgeEvidence
-	// tracing gates the record of ruled-out steps, which is worth keeping only
-	// when a reader will see it.
-	tracing    bool
-	considered []goroutineOwnershipReason
-	// probe attributes shared-engine give-ups to this spawn; it is inert when
-	// the spawn is not being traced, so the budgets it observes stay silent.
-	probe analysisTrace.Probe
-	// pool is this spawn's total across every query its proof asks; see
-	// budget. It is created on first use so it carries the probe's observer.
-	pool *ssaflow.SearchBudget
-}
-
-// spawnQueryBudget bounds each shared storage or origin query a spawn proof
-// asks; exhaustion is unknown evidence, never a join or a leak.
-const spawnQueryBudget = ssaflow.QueryBudget
-
-// spawnPoolBudget bounds a whole spawn proof. A per-query bound does not
-// bound the proof, which asks one question per tracked value per
-// instruction; a candidate in a large function could otherwise cost without
-// limit. A hundred full queries is far beyond an ordinary proof, so the
-// pool decides only pathological candidates, and it decides them the way a
-// single exhausted query does: as unknown.
-const spawnPoolBudget = 100 * spawnQueryBudget
-
-// budget draws one shared query's allowance from this spawn's pool so the
-// storage, summary, and completion give-ups inside it reach the trace and
-// the proof as a whole stays bounded.
-func (analysis *spawnAnalysis) budget() *ssaflow.SearchBudget {
-	if analysis.pool == nil {
-		analysis.pool = ssaflow.NewSearchBudget(spawnPoolBudget).Observed(analysis.probe.Observer())
-	}
-	return analysis.pool.Within(spawnQueryBudget)
-}
-
-func newSpawnAnalysis(pass *analysis.Pass, function *ssa.Function, spawn *ssa.Go) *spawnAnalysis {
-	analysis := &spawnAnalysis{
-		pass:     pass,
-		function: function,
-		spawn:    spawn,
-		actions:  make(map[ssa.Instruction]ownershipAction),
-	}
-	analysis.signals, analysis.groups, analysis.unsettledDone = spawnedCompletionValues(pass, spawn)
-	analysis.relayGroup = analysis.relayCompletionGroup()
-	if analysis.relayGroup != nil {
-		analysis.groups = append(analysis.groups, analysis.relayGroup)
-	}
-	analysis.owners = spawnedLifecycleOwners(pass, spawn)
-	analysis.pipePeers = analysis.spawnedPipePeers()
-	for _, signal := range analysis.signals {
-		analysis.tracked = append(analysis.tracked, trackedValue{value: signal, kind: trackedSignal})
-	}
-	for _, group := range analysis.groups {
-		analysis.tracked = append(analysis.tracked, trackedValue{value: group, kind: trackedGroup})
-	}
-	for _, owner := range analysis.owners {
-		analysis.tracked = append(analysis.tracked, trackedValue{value: owner, kind: trackedOwner})
-	}
-	analysis.checkID = check.GoroutineJoin
-	analysis.tracing = analysisTrace.Enabled("goroutineownership", string(analysis.checkID))
-	analysis.probe = analysisTrace.For(pass, "goroutineownership", string(analysis.checkID), spawn.Pos())
-	return analysis
-}
-
 func spawnedFunction(pass *analysis.Pass, spawn *ssa.Go) (*ssa.Function, *ssa.MakeClosure) {
+	return resolveSpawnedFunction(pass, spawn, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+}
+
+func resolveSpawnedFunction(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) (*ssa.Function, *ssa.MakeClosure) {
 	function, closure := ssaflow.DirectCallee(spawn.Common())
 	if closure != nil {
 		return function, closure
@@ -136,11 +62,14 @@ func spawnedFunction(pass *analysis.Pass, spawn *ssa.Go) (*ssa.Function, *ssa.Ma
 	// so its context, completion signal, and lifecycle owner remain visible.
 	evidence, _ := summaryKnowledge.Provider(pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	for index, argument := range spawn.Common().Args {
+		if !budget.Spend() {
+			return nil, nil
+		}
 		callback, callbackClosure := callbackTarget(argument)
 		if callback == nil || len(callback.Params) != 0 {
 			continue
 		}
-		invoked := lifecycle.SpawnInvokesArgumentOnEveryReturn(spawn, argument)
+		invoked := lifecycle.ProveSpawnedInvocation(spawn, argument, budget).Proven()
 		if !invoked {
 			invoked, _ = evidence.CalleeClaims(spawn, index, lifecyclefacts.ClaimSynchronouslyInvokes)
 		}
@@ -173,23 +102,27 @@ func callbackTarget(value ssa.Value) (*ssa.Function, *ssa.MakeClosure) {
 func spawnedCompletionValues(
 	pass *analysis.Pass,
 	spawn *ssa.Go,
+	budget *ssaflow.SearchBudget,
 ) (signals, groups []ssa.Value, unsettledDone ssa.Instruction) {
-	function, closure := spawnedFunction(pass, spawn)
+	function, closure := resolveSpawnedFunction(pass, spawn, budget)
 	if function == nil {
 		return nil, nil, nil
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
+			if !budget.Spend() {
+				return signals, nil, nil
+			}
 			// A disabled optional channel cannot establish a join obligation at
 			// this call site, even if another invocation uses the worker's send.
 			// https://github.com/paradigmxyz/iron-proxy/blob/5bd11abeb95ca734c767cfc992ea9be862700614/internal/postgres/manager.go#L64-L97
-			if signal := spawnedCompletionSignal(spawn, function, closure, instruction); signal != nil && !ssaflow.DefinitelyNil(signal) {
+			if signal := spawnedCompletionSignal(spawn, function, closure, instruction, budget); signal != nil && !ssaflow.DefinitelyNil(signal) {
 				signals = append(signals, signal)
 			}
 		}
 	}
-	groups, unsettledDone = waitGroupCompletionValues(spawn, function, closure)
-	groups = append(groups, deferredCompletionGroups(spawn, function, closure)...)
+	groups, unsettledDone = waitGroupCompletionValues(spawn, function, closure, budget)
+	groups = append(groups, deferredCompletionGroups(spawn, function, closure, budget)...)
 	return signals, groups, unsettledDone
 }
 
@@ -197,10 +130,13 @@ func spawnedCompletionValues(
 // Keep that group as an alternative completion handle, so returning its owner
 // is visible even when the worker also sends on an unrelated output channel.
 // https://github.com/vbauerster/mpb/blob/ddeb4bb7bcb86e114648760018b10700841a081a/heap_manager.go#L46-L61
-func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure) []ssa.Value {
+func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, budget *ssaflow.SearchBudget) []ssa.Value {
 	var groups []ssa.Value
 	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		group := completionValueAtCall(spawn, function, closure, pair.Local)
+		if !budget.Spend() {
+			return groups
+		}
+		group := completionValueAtCall(spawn, function, closure, pair.Local, budget)
 		// A typed nil actual satisfies the parameter's static WaitGroup type,
 		// but the callee's guarded deferred Done cannot run for this launch.
 		if group == nil || ssaflow.DefinitelyNil(group) || !syntax.NamedType(group.Type(), "sync", "WaitGroup") {
@@ -211,7 +147,7 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 		// use the same flag to decide whether to wait. Require return coverage,
 		// not merely one deferred helper that would call Done if registered.
 		// https://github.com/hashicorp/vault-secrets-operator/blob/451a61fc0eda5b26e65dedb03e76fa8ec02b2984/vault/client_factory.go#L890-L909
-		unsettled := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: func(instruction ssa.Instruction) bool {
+		unsettled := completionReturnCoverage(function, pair.Local, budget, func(instruction ssa.Instruction) bool {
 			deferred, ok := instruction.(*ssa.Defer)
 			if !ok {
 				return false
@@ -222,10 +158,10 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 			}
 			proof := lifecycle.ProveCompletion(lifecycle.CompletionRequest{
 				Instruction: deferred, Target: pair.Local, Methods: []string{"Done"},
-				Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
+				Budget: budget,
 			})
 			return proof.Proven()
-		}, Assume: ssaflow.EntryAssumptions{NonNil: pair.Local}}) != nil
+		}) != ssaflow.ObligationHonored
 
 		if !unsettled {
 			groups = append(groups, group)
@@ -241,12 +177,13 @@ func spawnedCompletionSignal(
 	function *ssa.Function,
 	closure *ssa.MakeClosure,
 	instruction ssa.Instruction,
+	budget *ssaflow.SearchBudget,
 ) ssa.Value { //nolint:ireturn // Completion signals retain their concrete SSA value types.
-	if channel := completionNotification(instruction); channel != nil {
-		if _, send := instruction.(*ssa.Send); !send && !notifiesChannelOnEveryReturn(function, channel) {
+	if channel := completionNotification(instruction, budget); channel != nil {
+		if _, send := instruction.(*ssa.Send); !send && !notifiesChannelOnEveryReturn(function, channel, budget) {
 			return nil
 		}
-		return signalSuppliedAtCall(spawn, function, closure, channel)
+		return signalSuppliedAtCall(spawn, function, closure, channel, budget)
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
@@ -261,15 +198,15 @@ func spawnedCompletionSignal(
 	}
 	// The inner notification and its invocation must both cover returns.
 	// A conditional defer cannot promise an unconditional worker join.
-	covered := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
-		Entry: function, Owns: func(candidate ssa.Instruction) bool { return candidate == instruction },
-	}) == nil
+	covered := completionReturnCoverage(function, nil, budget, func(candidate ssa.Instruction) bool {
+		return candidate == instruction
+	}) == ssaflow.ObligationHonored
 	_, deferred := instruction.(*ssa.Defer)
-	if !covered || (!deferred && !terminalCompletion(instruction)) {
+	if !covered || (!deferred && !terminalCompletion(instruction, budget)) {
 		return nil
 	}
-	if signal := nestedClosureSignal(nested); signal != nil {
-		return signalSuppliedAtCall(spawn, function, closure, signal)
+	if signal := nestedClosureSignal(nested, budget); signal != nil {
+		return signalSuppliedAtCall(spawn, function, closure, signal, budget)
 	}
 	return nil
 }
@@ -277,7 +214,9 @@ func spawnedCompletionSignal(
 // completionNotification selects the same completion operations for direct
 // discovery, nested closures and return coverage. A detached notification
 // belongs to another worker and cannot settle this one.
-func completionNotification(instruction ssa.Instruction) ssa.Value { //nolint:ireturn // Notifications retain their concrete SSA value types.
+func completionNotification(
+	instruction ssa.Instruction, budget *ssaflow.SearchBudget,
+) ssa.Value { //nolint:ireturn // Notifications retain their concrete SSA value types.
 	if _, launched := instruction.(*ssa.Go); launched {
 		return nil
 	}
@@ -285,7 +224,7 @@ func completionNotification(instruction ssa.Instruction) ssa.Value { //nolint:ir
 		// A send followed by further work can announce readiness or progress,
 		// not completion. Blocking-producer checks use the full send lifecycle.
 		// https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/blob/39dd2288da294e98d683c5619fc3556016df1e76/pkg/autoscaler/autoscaler_server.go#L109-L124
-		if terminalCompletion(send) {
+		if terminalCompletion(send, budget) {
 			return send.Chan
 		}
 		return nil
@@ -307,38 +246,42 @@ func completionNotification(instruction ssa.Instruction) ssa.Value { //nolint:ir
 // Require exact notification coverage before treating the channel as completion;
 // otherwise the caller may legitimately observe a separate success event.
 // https://github.com/zmap/zgrab2/blob/a1231792c51576f1818825fae51db042b4dcd41e/lib/http2/transport.go#L3028-L3043
-func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value) bool {
-	if len(ssaflow.InstructionsOf[*ssa.Return](function)) == 0 {
+func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value, budget *ssaflow.SearchBudget) bool {
+	if !completionHasReturn(function, budget) {
 		return false
 	}
 	identity := channel
 	if source, ok := ssaflow.IdentitySource(channel); ok {
 		identity = source
 	}
-	return ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: func(instruction ssa.Instruction) bool {
-		notified := completionNotification(instruction)
+	return completionReturnCoverage(function, channel, budget, func(instruction ssa.Instruction) bool {
+		notified := completionNotification(instruction, budget)
 		if source, ok := ssaflow.IdentitySource(notified); ok {
 			notified = source
 		}
 		return heapmodel.DefinitelySameValue(notified, identity)
-	}, Assume: ssaflow.EntryAssumptions{NonNil: channel}}) == nil
+	}) == ssaflow.ObligationHonored
 }
 
 // nestedClosureSignal returns the worker-level value that a synchronously
 // invoked inner closure sends on or closes. A deferred inner closure is the
 // common shape: `defer func() { done <- recover() }()`.
-func nestedClosureSignal(nested *ssa.MakeClosure) ssa.Value { //nolint:ireturn // Join handles retain their concrete SSA value types.
+func nestedClosureSignal(
+	nested *ssa.MakeClosure, budget *ssaflow.SearchBudget,
+) ssa.Value { //nolint:ireturn // Join handles retain their concrete SSA value types.
 	function, _ := nested.Fn.(*ssa.Function)
 	if function == nil {
 		return nil
 	}
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
-			channel := completionNotification(instruction)
-			if channel == nil || !notifiesChannelOnEveryReturn(function, channel) {
+			if !budget.Spend() {
+				return nil
+			}
+			channel := completionNotification(instruction, budget)
+			if channel == nil || !notifiesChannelOnEveryReturn(function, channel, budget) {
 				continue
 			}
-			budget := ssaflow.NewSearchBudget(spawnQueryBudget)
 			storage := heapmodel.NewStorage(budget)
 			source := channel
 			if identity, ok := ssaflow.IdentitySource(channel); ok {
@@ -368,9 +311,13 @@ func waitGroupCompletionValues(
 	spawn *ssa.Go,
 	function *ssa.Function,
 	closure *ssa.MakeClosure,
+	budget *ssaflow.SearchBudget,
 ) (groups []ssa.Value, unsettled ssa.Instruction) {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
+			if !budget.Spend() {
+				return groups, unsettled
+			}
 			if _, launched := instruction.(*ssa.Go); launched {
 				// `go group.Done()` is a readiness notification detached from the
 				// worker's own completion, not a join obligation for that worker.
@@ -382,7 +329,7 @@ func waitGroupCompletionValues(
 				continue
 			}
 			receiver := ssaflow.CallReceiver(common)
-			group := completionValueAtCall(spawn, function, closure, receiver)
+			group := completionValueAtCall(spawn, function, closure, receiver, budget)
 			// A callee's nil-guarded Done is not a promise when this launch passes
 			// nil. OpenIM's fire-and-forget branch uses the same worker as its
 			// counted branch but supplies a nil group:
@@ -390,7 +337,7 @@ func waitGroupCompletionValues(
 			if group == nil || ssaflow.DefinitelyNil(group) || heapmodel.MayAliasAny(group, groups) {
 				continue
 			}
-			if !waitGroupSettlesFunction(function, receiver) {
+			if !waitGroupSettlesFunction(function, receiver, budget) {
 				// A deferred Done cannot be an early progress notification. If its
 				// registration is conditional, the completion promise is unknown;
 				// do not misclassify missing coverage as Done preceding work.
@@ -414,16 +361,8 @@ func waitGroupCompletionValues(
 	return groups, unsettled
 }
 
-func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value) bool {
-	hasReturn := false
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if _, ok := instruction.(*ssa.Return); ok {
-				hasReturn = true
-			}
-		}
-	}
-	if !hasReturn {
+func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value, budget *ssaflow.SearchBudget) bool {
+	if !completionHasReturn(function, budget) {
 		return false
 	}
 	// Paths reachable only when the group is nil carry no obligation: without a
@@ -431,7 +370,7 @@ func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value) bool {
 	// check on the group itself still settles every path that has a group.
 	// Vitess passes a group only on the shutdown path that waits for it:
 	// https://github.com/vitessio/vitess/blob/44321d8ca0e2b2689e869bc680b6ce6402bba977/go/vt/vttablet/tabletserver/state_manager.go#L605-L631
-	return ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: func(instruction ssa.Instruction) bool {
+	return completionReturnCoverage(function, receiver, budget, func(instruction ssa.Instruction) bool {
 		common := ssaflow.InstructionCall(instruction)
 		if common == nil || !ssaflow.CallMatchesSymbol(common, waitGroupDone) ||
 			!ssaflow.MayAliasThroughLoads(ssaflow.CallReceiver(common), receiver) {
@@ -440,13 +379,13 @@ func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value) bool {
 		if _, deferred := instruction.(*ssa.Defer); deferred {
 			return true
 		}
-		return terminalCompletion(instruction)
-	}, Assume: ssaflow.EntryAssumptions{NonNil: receiver}}) == nil
+		return terminalCompletion(instruction, budget)
+	}) == ssaflow.ObligationHonored
 }
 
 // terminalCompletion reports whether only returns can follow a completion
 // operation. Later work cannot be joined by observing an earlier signal.
-func terminalCompletion(done ssa.Instruction) bool {
+func terminalCompletion(done ssa.Instruction, budget *ssaflow.SearchBudget) bool {
 	index := ssaflow.InstructionIndex(done)
 	if index < 0 {
 		return false
@@ -458,6 +397,9 @@ func terminalCompletion(done ssa.Instruction) bool {
 	queue := []cursor{{block: done.Block(), index: index + 1}}
 	seen := make(map[cursor]bool)
 	for len(queue) > 0 {
+		if !budget.Spend() {
+			return false
+		}
 		current := queue[0]
 		queue = queue[1:]
 		if seen[current] {
@@ -469,7 +411,7 @@ func terminalCompletion(done ssa.Instruction) bool {
 			case *ssa.Return:
 				continue
 			case *ssa.RunDefers:
-				if !ssaflow.CallMatchesSymbol(ssaflow.InstructionCall(done), waitGroupDone) || !completionOnlyDefers(done.Parent()) {
+				if !ssaflow.CallMatchesSymbol(ssaflow.InstructionCall(done), waitGroupDone) || !completionOnlyDefersWithin(done.Parent(), budget) {
 					return false
 				}
 				queue = append(queue, cursor{block: current.block, index: current.index + 1})
@@ -496,11 +438,24 @@ func terminalCompletion(done ssa.Instruction) bool {
 // arbitrary deferred callback as complete: it may still block or mutate data.
 // https://github.com/murphysecurity/murphysec/blob/59d5cdc9a53a9e7940250aa30ea4434d0e258c40/module/nuget/nuget_cmd_build.go#L611-L640
 func completionOnlyDefers(function *ssa.Function) bool {
-	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](function) {
-		common := deferred.Common()
-		if !ssaflow.CallMatchesSymbol(common, waitGroupDone) &&
-			!ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) {
-			return false
+	return completionOnlyDefersWithin(function, nil)
+}
+
+func completionOnlyDefersWithin(function *ssa.Function, budget *ssaflow.SearchBudget) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if !budget.Spend() {
+				return false
+			}
+			deferred, ok := instruction.(*ssa.Defer)
+			if !ok {
+				continue
+			}
+			common := deferred.Common()
+			if !ssaflow.CallMatchesSymbol(common, waitGroupDone) &&
+				!ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) {
+				return false
+			}
 		}
 	}
 	return true
@@ -576,4 +531,38 @@ func bufferedLocalChannel(function *ssa.Function, signal ssa.Value) bool {
 	}
 	size, constantSize := created.Size.(*ssa.Const)
 	return !constantSize || size.Value == nil || constant.Sign(size.Value) > 0
+}
+
+// completionHasReturn requires a witness before coverage can create a promise.
+func completionHasReturn(function *ssa.Function, budget *ssaflow.SearchBudget) bool {
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if !budget.Spend() {
+				return false
+			}
+			if _, ok := instruction.(*ssa.Return); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// completionReturnCoverage charges both examined instructions and flow states.
+// The supplied predicate owns operation policy; exhaustion remains uncertain.
+func completionReturnCoverage(
+	function *ssa.Function, nonNil ssa.Value, budget *ssaflow.SearchBudget, owns func(ssa.Instruction) bool,
+) ssaflow.ObligationOutcome {
+	return ssaflow.EvaluateObligationFromEntry(function, ssaflow.ObligationFlow{
+		Budget: budget, NonNil: nonNil,
+		Instruction: func(instruction ssa.Instruction) ssaflow.ObligationAction {
+			if !budget.Spend() {
+				return ssaflow.ObligationUnknown
+			}
+			if owns(instruction) {
+				return ssaflow.ObligationExact
+			}
+			return ssaflow.ObligationNone
+		},
+	})
 }

@@ -7,6 +7,22 @@ why. Update it with the fixtures when a boundary changes.
 ## Detection boundaries
 
 Reports goroutines whose proven completion obligation is not honored on every return path.
+
+Positive completion discovery draws a `SummaryBudget` allowance from the spawn's
+observed candidate pool. Its instruction census, exact/stable binding queries,
+nested notification and group coverage, terminal completion tails and callback
+wrapper invocation proof share that allowance. Return coverage uses the shared
+tri-state obligation walk; the adapter charges examined instructions as well
+as expanded path states. Discovery exhaustion yields
+`completion-discovery-budget-exhausted` and unknown for the whole candidate,
+even if a partial census found a signal before missing an alternative handle.
+The probe is initialized before discovery, and its cutoff evidence records
+whether the local allowance or candidate pool ran out. Constructor follow-up
+work stops at that cutoff. No incomplete discovery is cached.
+`discovery_budget_test.go` checks an oversized actual SSA body, attributed trace
+cutoff, partial evidence at a candidate-pool cutoff and a fresh full-budget
+missing-join proof. This can miss defects in oversized workers. Owner/lifecycle
+suppression adapters outside positive discovery remain separate review scope.
 Launching background work without a recognizable completion obligation is not
 itself a diagnostic, including with `-enable-all`.
 

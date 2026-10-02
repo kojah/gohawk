@@ -89,7 +89,7 @@ func (analysis *spawnAnalysis) relayDependencyUncertain() bool {
 			if function == nil {
 				continue
 			}
-			groups, _ := waitGroupCompletionValues(worker, function, closure)
+			groups, _ := waitGroupCompletionValues(worker, function, closure, analysis.budget())
 			if heapmodel.MayAliasAny(analysis.relayGroup, groups) && goroutineReceivesLocallyCanceledContext(analysis.pass, worker, analysis.budget()) {
 				return true
 			}

@@ -47,6 +47,11 @@ func (analysis *spawnAnalysis) ruledOut(reason goroutineOwnershipReason) {
 }
 
 func (analysis *spawnAnalysis) prove() GoroutineProof {
+	// A cutoff may hide an alternative completion handle. Partial discovery
+	// cannot justify a defect, even when it already found one obligation.
+	if analysis.discoveryBudget.Exhausted() {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonDiscoveryBudgetExhausted}
+	}
 	// Absence of a recognizable owner is not evidence of a defect. This also
 	// applies in join mode: a policy setting cannot create a completion promise.
 	if len(analysis.signals) == 0 && len(analysis.groups) == 0 {

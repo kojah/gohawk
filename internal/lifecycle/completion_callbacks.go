@@ -18,14 +18,10 @@ func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Va
 	}).Proven()
 }
 
-// SpawnInvokesArgumentOnEveryReturn reports whether the function launched by
-// spawn invokes target synchronously before every normal return. The spawn is
-// asynchronous to its caller, but calls made inside its wrapper must not be.
-func SpawnInvokesArgumentOnEveryReturn(spawn *ssa.Go, target ssa.Value) bool {
-	return proveSpawnedInvocation(spawn, target, ssaflow.NewSearchBudget(ssaflow.QueryBudget)).Proven()
-}
-
-func proveSpawnedInvocation(spawn *ssa.Go, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.CompletionProof {
+// ProveSpawnedInvocation observes the launched wrapper's body and requires
+// synchronous invocation of target before every normal return. The caller's
+// budget bounds this query; a cutoff stays unknown and proves no invocation.
+func ProveSpawnedInvocation(spawn *ssa.Go, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.CompletionProof {
 	if spawn == nil || target == nil {
 		return ssaflow.CompletionProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
 	}
