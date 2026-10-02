@@ -2785,3 +2785,61 @@ keeps pinned Cute/Ferro JSON byte-identical to the observed-path binary, with
 exits 3/0 and empty stderr. The ignored-cutoff overlay fails the three independent
 proofs and both classifier controls. These receipts complete the bounded
 ownership integration review; the larger cost and precision audits remain open.
+
+## Recursive returned-owner completion review
+
+`gohawk-dho.44.11.5.18.1` is reviewed against its original recursive engine,
+constructor, storage and view-binding requirements at production source
+`9353eb7`. The five direct children are closed; the ownership integration child
+has its nine-family review above.
+
+`lifecycle/store_returns.go` keeps alias dispatch at the aggregate query entry,
+with the existing aggregate/value pair guard. Stored-address traversal delegates
+to `StoredIntoWithin`, whose shared work driver owns address cycles and charges
+referrer visits. Same-path lookup uses `AccessPathStepsWithin` and
+`SelectionsOfWithin`; captured ownership shares bounded binding and cell-value
+mechanics. The final ownership proof checks child/pool availability before
+publishing either a positive or completed negative result.
+
+`store_constructors.go` shares the search allowance through arguments, body
+census, summary dispatch and one every-return obligation query. It preserves
+the nil/error-only unsuccessful-construction exception. `flow_returns.go`
+retains distinct possible ownership and strict returned-wrapper guarantees;
+projection/view binding cutoff is unknown before method-set fallback.
+The broker delegates declared views to the fact binder, which retains its
+storage child cap and ambiguous-alias exclusion.
+
+Constructor parameter indexing was checked against actual SSA before approving
+the review. Direct methods carry the receiver in `Args`; invoked interface
+methods have no static callee and are declined by this engine. The new
+`store_constructor_binding_test.go` covers direct, dynamic and boxed-concrete
+call shapes and interrupted allowance. The completed decline means this model
+found no owner; it does not prove that an opaque constructor cannot retain input.
+
+Fresh focused lifecycle, broker and resource controls passed, covering recursive
+ownership, delegated successful constructors versus uncovered returns, stored
+and copied aggregates, callback/pool cutoff, wrapper depth and returned-view
+binding. Existing production source remains covered by the last canonical gate
+and pinned Cute/Ferro receipts; the new regression and this review receive their
+own local completion gate. Source evidence is scoped because graph MCP remains
+unavailable. Graph/type/alias, callee-resolution and summary-hook internals retain
+separate cost scope. Pre-acquisition and cleanup uncertainty remain `.17` and
+`.19`; no new production FP removal or full precision replay is credited.
+
+The review's completion gate passed (ordinary tests 7 seconds, repository
+dogfood 26 seconds), with lint and architecture checks passing as well.
+The constructor regression records the actual direct and invoke call shapes.
+Production proof source is unchanged from `9353eb7`, so its previously recorded
+immutable Cute/Ferro receipts remain applicable; no new scoped scan is claimed.
+The next concrete pre-acquisition boundary is owner discovery: the instruction
+census and alias deduplication run before pool creation. Child `.44.11.5.17.1`
+tracks sharing that census and the existing storage proof under one allowance.
+
+The enclosing `gohawk-dho.44.11.5.18` return-disposition requirements are also
+covered: `proveResourceReturn` requests the shared returned-owner proof and
+`ReturnedMayAliasAnyWithin`, checks child/pool availability, and admits an
+uncovered-return witness only after both complete. The fresh return controls
+check direct/nested handoff, an unrelated return, possible owner alias and a
+scalar observation, with interrupted proofs carrying no leak witness. The
+recursive child review and existing scoped receipts finish this bounded return
+family; pre-acquisition and cleanup uncertainty remain in the larger cost audit.
