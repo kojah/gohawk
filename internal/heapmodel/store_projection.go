@@ -171,21 +171,42 @@ func StrictProjectionPath(value, root ssa.Value) bool {
 	return ProveStrictProjectionPathWithin(value, root, nil).Proven()
 }
 
+// ProjectionPathProof proves a strict projection and retains its exact static
+// parameter path when available. A proven storage-derived projection can have
+// no Path; that cannot publish an exact field cleanup contract.
+type ProjectionPathProof struct {
+	ssaflow.Proof
+	Path []string
+}
+
 // ProveStrictProjectionPathWithin shares path and stored-value visits with
 // budget while retaining the default QueryBudget cap. A child cutoff remains
 // unknown even if its parent still has allowance. This establishes a path,
-// not stability or ownership; graph and alias internals retain separate costs.
-func ProveStrictProjectionPathWithin(value, root ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+// not stability or ownership. Parameter paths reuse read-time spill identity;
+// other roots retain the existing storage-derived projection rule. Graph and
+// alias internals retain separate costs.
+func ProveStrictProjectionPathWithin(value, root ssa.Value, budget *ssaflow.SearchBudget) ProjectionPathProof {
 	child := budget.Within(ssaflow.QueryBudget)
+	if _, parameter := root.(*ssa.Parameter); parameter {
+		path, known := AccessPathFromParameterWithin(value, root, child)
+		if child.Exhausted() || child.PoolExhausted() {
+			return ProjectionPathProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}}
+		}
+		if known && len(path) > 0 {
+			return ProjectionPathProof{Proof: ssaflow.Proof{
+				State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath, Provenance: ssaflow.EvidenceFromLocalSSA,
+			}, Path: path}
+		}
+	}
 	depth, ok := strictAccessPathDepth(value, root, map[ssa.Value]bool{}, child)
 	if child.Exhausted() || child.PoolExhausted() {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		return ProjectionPathProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}}
 	}
 	state, reason := ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
 	if ok && depth > 0 {
 		state, reason = ssaflow.EvidenceProven, ssaflow.EvidenceSameAccessPath
 	}
-	return ssaflow.Proof{State: state, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}
+	return ProjectionPathProof{Proof: ssaflow.Proof{State: state, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}}
 }
 
 func strictAccessPathDepth(value, root ssa.Value, seen map[ssa.Value]bool, budget *ssaflow.SearchBudget) (int, bool) {

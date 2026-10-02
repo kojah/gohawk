@@ -57,6 +57,12 @@ func (paths *completionPaths) known() bool {
 	return paths.seen && paths.exact
 }
 
+// requiresNestedPath identifies mappings where completing the local as a whole
+// is insufficient: the nested answer must name the caller's exact field.
+func (local mappedLocal) requiresNestedPath() bool {
+	return local.kind == localOwner || local.kind == localExact && len(local.path) > 0
+}
+
 // receiverPath names the path beneath the target of a completing call's
 // receiver, which receives established stands for the target through local.
 func (search *completionSearch) receiverPath(local mappedLocal, receiver, target ssa.Value) (string, bool) {
@@ -93,6 +99,9 @@ func (search *completionSearch) mappedPath(local mappedLocal, target ssa.Value, 
 		// completion is a call on the local itself.
 		if len(actual) > 0 {
 			return "", false
+		}
+		if len(local.path) > 0 {
+			return ssaflow.JoinAccessPath(local.path), true
 		}
 		supplied, ok := ssaflow.AccessPathStepsWithin(local.supplied, target, search.budget)
 		return ssaflow.JoinAccessPath(supplied), ok

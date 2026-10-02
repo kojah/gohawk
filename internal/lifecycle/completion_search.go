@@ -109,7 +109,8 @@ type mappedLocal struct {
 	supplied ssa.Value
 	kind     localKind
 	// path is where the target sits beneath the supplied aggregate when the
-	// mapping came from containment. A receiver inside the callee that is a
+	// mapping came from containment (localExact). For localProjection it is
+	// the supplied value's proven path beneath the target. A receiver that is a
 	// proper projection of the local must then be at this path: closing
 	// j.other is not closing the file stored in j.out.
 	path []string
@@ -311,12 +312,14 @@ func (search *completionSearch) instructionCompletes(candidate ssa.Instruction, 
 			// The nested answer's path is beneath the local; translate it
 			// onto the target through the local's mapping.
 			path, known := search.mappedPath(local, target, ssaflow.SplitAccessPath(answer.paths.path), answer.paths.known())
-			if local.kind == localOwner && !known {
+			if !known && local.requiresNestedPath() {
 				// The local owns the target at a path, so completing the local
 				// is not completing the target unless the nested answer names
 				// that path. libovsdb's monitor locks and unlocks rpc while its
 				// caller holds monitors, beneath the same client:
 				// https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
+				// A contained field target likewise needs that exact path:
+				// forwarding cleanup of a sibling does not settle the target.
 				continue
 			}
 			search.paths.record(path, known)

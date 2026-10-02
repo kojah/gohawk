@@ -181,7 +181,7 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{}, false
 	}
 	if projection.Proven() {
-		return mappedLocal{local: parameter, supplied: argument, kind: localProjection}, true
+		return mappedLocal{local: parameter, supplied: argument, kind: localProjection, path: projection.Path}, true
 	}
 	if owner := sameValueStorageOwner(target, argument, search.budget); owner != nil {
 		// The same storage beneath an owner proven to be the argument: a

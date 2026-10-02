@@ -888,6 +888,14 @@ both answers; possible cleanup never becomes a settling action. Shared controls
 live in `completion_spill_replacement_test.go`; the accepted loop cases remain
 in `looped_helper_cleanup.go` and `returned_slice_elements.go`.
 
+Forwarded cleanup carries the strict projection's read-time parameter path
+through nested helpers. A saved by-value field retains its original resource
+after whole-aggregate replacement; a sibling-field cleanup cannot settle it.
+The shared strict-projection proof owns the path, and completion requires an
+exact matching nested path when the caller's target sits inside an aggregate.
+`completion_forwarded_fields_test.go` pins both the honored field and the
+unsettled sibling/replacement forms.
+
 Passing the collection whole to a helper that releases every element of it on
 every normal return is also understood, and settles the resource at the call,
 as the loop's exit edge does. The helper's claim is the lifecycle discharge

@@ -301,6 +301,14 @@ while conflicting writes leave it unknown. Address-only paths require every
 whole write to agree because they supply no read snapshot. The shared storage
 query proves these identities without constructing a points-to graph.
 
+Deferred cleanup forwarded through a helper uses the same static projection
+path retained by local completion. Saving `j.out` before replacing `j`, then
+deferring a helper on that saved value, discharges the original `out` field.
+Reading it after replacement discharges only the replacement parameter's field.
+Conflicting writes export no discharge. A helper on a sibling field never
+discharges `out`; the nested completion must name the selected field.
+`forwarded_discharge_paths_test.go` pins these exported contracts.
+
 ## Three answers to "what happened to my value?"
 
 | mask | guarantee | what it means for the caller |

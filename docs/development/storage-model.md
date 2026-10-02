@@ -34,6 +34,19 @@ be read after registration. Its caller must check the observation's own effects;
 callback mapping already checks that the callee reads its supplied aggregate.
 `Projection` proves an acquired owner's field has not been replaced or exposed.
 
+`ProveStrictProjectionPathWithin` retains its `QueryBudget` child cap and
+returns `ProjectionPathProof`. For parameter roots it reuses the read-time
+parameter-path query and keeps the non-empty path in the proof. Completion
+maps that path once into its local, so a saved field forwarded through a
+helper keeps its original snapshot after whole-aggregate replacement. A nested
+cleanup can settle a contained field target only when its published path
+matches that field. Other roots retain the existing storage-derived rule;
+their positive projection proof may carry no exact static path. Cutoff is
+unknown and carries no path, even while the parent remains available.
+`strict_parameter_projection_test.go` and `completion_forwarded_fields_test.go`
+pin saved/wrapped reads, agreeing and conflicting writes, replacement, sibling
+cleanup, exact path publication and cold cutoff recovery.
+
 `ProveStoredPathWithin` names the exact observed path beneath an aggregate.
 It preserves the graph-first lookup and the structural fallback's two-selection
 depth. Graph dispatch, referrer/selection visits and storage queries share the

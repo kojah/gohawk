@@ -58,6 +58,12 @@ for each; these times include each check's prerequisite passes.
   allowance through identity, derivation and path queries. Strict projections
   retain a QueryBudget child cap and expose its cutoff as unknown; a stopped
   projection or stored-path question cannot fall through into broader mapping.
+  Strict parameter projections retain the static path from the shared
+  read-time spill query in `ProjectionPathProof`. Completion carries that path
+  through the mapped local instead of rediscovering it from raw SSA. A nested
+  cleanup of a contained field must name that exact field; an unavailable or
+  sibling path cannot settle the caller's target. Other roots retain their
+  storage-derived projection policy and may have no publishable static path.
   Static storage-owner roots share path and selection visits. Parameter spill
   paths use bounded direct-path, whole-written-cell and reaching-write queries.
   A spill path requires the original contents at its nearest-root read;

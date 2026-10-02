@@ -877,6 +877,21 @@ ProjectHeap computes the heap summary of a function from its points-to
 graph. It reports false when the graph is unavailable, or when the
 function has no normal return to project.
 
+## ProjectionPathProof
+
+[Source](../../../../internal/heapmodel/store_projection.go)
+
+```go
+type ProjectionPathProof struct {
+	ssaflow.Proof
+	Path	[]string
+}
+```
+
+ProjectionPathProof proves a strict projection and retains its exact static
+parameter path when available. A proven storage-derived projection can have
+no Path; that cannot publish an exact field cleanup contract.
+
 ## ProveMayAlias
 
 [Source](../../../../internal/heapmodel/query.go)
@@ -906,13 +921,15 @@ internals remain separate costs. Nil retains the default storage allowance.
 [Source](../../../../internal/heapmodel/store_projection.go)
 
 ```go
-func ProveStrictProjectionPathWithin(value, root ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+func ProveStrictProjectionPathWithin(value, root ssa.Value, budget *ssaflow.SearchBudget) ProjectionPathProof
 ```
 
 ProveStrictProjectionPathWithin shares path and stored-value visits with
 budget while retaining the default QueryBudget cap. A child cutoff remains
 unknown even if its parent still has allowance. This establishes a path,
-not stability or ownership; graph and alias internals retain separate costs.
+not stability or ownership. Parameter paths reuse read-time spill identity;
+other roots retain the existing storage-derived projection rule. Graph and
+alias internals retain separate costs.
 
 ## QueryEscape
 
