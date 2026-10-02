@@ -259,27 +259,3 @@ func benignHTTPHeaders(header *ssa.Call, budget *ssaflow.SearchBudget) bool {
 	}
 	return true
 }
-
-// This query excludes visible overrides, not unseen global effects. Only
-// visible helper bodies are expanded; exhausted or recursive searches reject
-// the acquisition boundary instead of interpreting missing work as purity.
-func (effects *httpWriterEffects) visibleOverrides(function *ssa.Function, budget *ssaflow.SearchBudget) bool {
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return true
-			}
-			for _, operand := range instruction.Operands(nil) {
-				if operand != nil && ssaflow.ValueMatchesAnySymbol(*operand,
-					syntax.PackageVariable("net/http", "DefaultClient"), syntax.PackageVariable("net/http", "DefaultTransport")) {
-					return true
-				}
-			}
-			callee, _ := ssaflow.DirectCallee(ssaflow.InstructionCall(instruction))
-			if callee != nil && len(callee.Blocks) != 0 && effects.overrides.Function(callee, budget) {
-				return true
-			}
-		}
-	}
-	return false
-}

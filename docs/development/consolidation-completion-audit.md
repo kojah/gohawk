@@ -3161,3 +3161,40 @@ stays absent. The canonical gate passes all checks, including ordinary tests
 (98 seconds) and repository dogfood (52 seconds), in
 `.build/goal-acquisition-error-verify.log`. Focused documentation checks pass. No production FP removal or full precision
 replay is credited; HTTP boundary `.17.8` and the broader goal remain open.
+
+## Shared visible HTTP default effects
+
+`gohawk-dho.44.11.5.17.8.1` consolidates HEAD's root default-mutation scan and
+the local-header-only helper scan into `http_default_effects.go`. One engine
+owns instruction census, exact default-client/transport operand detection and
+visible-callee expansion. HEAD's root alone permits a default-client load used
+exclusively by Do; helper summaries and local-server effects keep the strict
+policy. The caller-specific root allowance is never cached as a declaration
+summary. Existing default-effect symbols are reused instead of redeclared.
+
+Instruction charging uses InstructionsWithin and retains the 4,000-step quota.
+Recursion and shortened queries retain possible-modification answers, and the
+existing shared memo discards interrupted summaries. No candidate-budget
+composition, referrer/provenance policy, alias/type or operand-internal cost
+change is claimed. Parent `.17.8` remains open for those families.
+
+Actual-SSA controls distinguish direct and nested default-client Do, ordinary
+and harmless helper bodies, client/transport stores, field mutation, nested
+mutation and recursion. Insufficient allowances retain possible effects; a
+fresh allowance on the same memo recovers a harmless body after child cutoff.
+The counterfactual that lets the root allowance enter helper summaries fails
+direct and nested Do strict-policy controls. The actual-SSA receipt is
+`.build/goal-http-default-effects-fixture.ssa.txt`. A final focused control
+also proves that a strict cached answer neither intercepts nor gets overwritten
+by the root-only query; focused tests (0.218 seconds) and lint pass after that
+addition. The canonical gate passes all checks, including ordinary tests
+(75 seconds) and repository dogfood (34 seconds), in
+`.build/goal-http-default-effects-verify.log`. Documentation checks pass.
+
+Immutable pre-commit `.build/goal-http-default-effects-current`, SHA-256
+`89d4d85c40e66a21f90534b32e8ec1d351ffa5b7a9baa8e9bb71e845cb59b738`,
+retains byte-identical pinned Cute/Ferro resource JSON against the acquisition-
+error baseline: terminal exits 3/0, empty stderr. Pins/scopes remain those
+recorded above. Cute's known TP remains and Ferro's corrected storage report
+stays absent. No production FP removal, full precision replay or local race run
+is credited; parent `.17.8` and the broader consolidation goal remain active.

@@ -200,43 +200,6 @@ func closureLoadsCellForDo(closure *ssa.MakeClosure, cell *ssa.Alloc) bool {
 	return true
 }
 
-// httpEffectsBudget bounds the walks that look for a transport or client
-// override through visible callees. They visit every instruction of every
-// reachable body once, so they are given twice a summary question; an
-// exhausted walk counts as modified, which is the conservative answer.
-const httpEffectsBudget = 4000
-
-// defaultClientVisiblyModified reports any use of the package default client
-// or transport, here or in a visible callee, other than loading the client
-// for a direct Do call. A store, a field address, or an argument position
-// could install the timeout or transport that gives a HEAD response a body
-// wrapper. Exhausted searches count as modified.
-func defaultClientVisiblyModified(function *ssa.Function) bool {
-	budget := ssaflow.NewSearchBudget(httpEffectsBudget)
-	overrides := newHTTPWriterEffects().overrides
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return true
-			}
-			if load, ok := instruction.(*ssa.UnOp); ok && load.Op == token.MUL &&
-				ssaflow.ValueMatchesSymbol(load.X, httpDefaultClient) && onlyHTTPDoUses(load) {
-				continue
-			}
-			for _, operand := range instruction.Operands(nil) {
-				if operand != nil && ssaflow.ValueMatchesAnySymbol(*operand, httpDefaultClient, httpDefaultTransport) {
-					return true
-				}
-			}
-			callee, _ := ssaflow.DirectCallee(ssaflow.InstructionCall(instruction))
-			if callee != nil && len(callee.Blocks) != 0 && overrides.Function(callee, budget) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // headRequest accepts the direct result of a HEAD constructor, or that result
 // rebound through WithContext or Clone, when every use of each intermediate
 // preserves Method.

@@ -505,6 +505,19 @@ and any other client, exclude it (`http_servers.go`). Mutations of global HTTP d
 other packages remain an accepted coverage gap; this is not proof that a body
 can never need closing.
 
+Visible default-client and transport changes use one instruction/callee scan in
+`http_default_effects.go`. HEAD's root may ignore a default-client load used
+exclusively by direct Do calls. This allowance does not enter helper summaries
+or the strict local-server effect query: a helper that loads the default client
+still supplies possible modification. Exact global/field stores, escapes,
+recursive bodies and budget cuts retain their previous conservative answers.
+The 4,000-step quota and instruction charging are unchanged. Cut summaries are
+not cached, and a fresh query in the same memo can recover an unchanged helper.
+`http_default_effects_test.go` covers root versus nested Do, harmless helpers,
+client/transport stores, field mutation, recursion and cutoff/fresh recovery.
+Candidate-budget composition and HEAD/local-server provenance scans remain
+separate work; this consolidation does not bound alias/type/operand internals.
+
 A returned wrapper that holds the resource, proven by the `ReturnedOwner`
 summary of every constructor in the chain, as `log.New`, `slog.New`, and
 `slog.NewTextHandler` hold their argument, is a handover when the constructor's
