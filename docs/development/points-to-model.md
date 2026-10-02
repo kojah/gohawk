@@ -201,6 +201,23 @@ opaque clobbers and sibling fields; cycle and depth cutoffs remain unknown.
 `store_backing_paths_test.go` pins nested/deeper/repeated copies and snapshots
 taken before a source change beside mutation and opaque-call controls.
 
+## By-value type queries
+
+`CanHoldReference` and `holdsByValue` share `anyByValueType`: visit the current
+type, struct fields and array elements, stopping at reference edges. Their
+predicates remain separate. Reference capability accepts pointer, interface,
+slice and function leaves; overwrite capability matches the owner's underlying
+struct identity. Distinct named declarations with identical underlying structs
+retain the existing conservative overwrite answer. Zero-length arrays retain
+element traversal. Compiled-type controls in `byvalue_types_test.go` cover these
+boundaries, aliases and recursive types whose recursion crosses a pointer.
+
+`containsPrimitive` retains its field-based synchronization predicate rather
+than becoming a root-matching query. `walkStructReferences` enumerates paths
+under depth/slot limits and cuts at arrays; it is a different contract from a
+Boolean type-capability query. This consolidation adds neither a type-walk
+budget nor a cross-package guarantee.
+
 ## Heap summaries
 
 An instantiation of a generic function is usually a synthetic wrapper that

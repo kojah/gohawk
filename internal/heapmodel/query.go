@@ -81,19 +81,14 @@ func graphStoredPath(root, target ssa.Value, at ssa.Instruction) ([]string, bool
 // while the entry's reader is open,
 // https://github.com/ForceCLI/force/blob/662af739b980a568fa55e3a4d7efe65cf2ec15b1/command/fetch.go#L321-L330
 func CanHoldReference(value types.Type) bool {
-	switch value := value.Underlying().(type) {
-	case *types.Basic:
-		return value.Kind() == types.UnsafePointer || value.Kind() == types.Invalid
-	case *types.Struct:
-		for field := range value.Fields() {
-			if CanHoldReference(field.Type()) {
-				return true
-			}
+	return anyByValueType(value, func(value types.Type) bool {
+		switch value := value.Underlying().(type) {
+		case *types.Basic:
+			return value.Kind() == types.UnsafePointer || value.Kind() == types.Invalid
+		case *types.Struct, *types.Array:
+			return false
+		default:
+			return true
 		}
-		return false
-	case *types.Array:
-		return CanHoldReference(value.Elem())
-	default:
-		return true
-	}
+	})
 }

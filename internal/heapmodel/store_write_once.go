@@ -227,20 +227,10 @@ func initializesFresh(store *ssa.Store) bool {
 // holdsByValue reports whether a value of type value contains a struct of
 // type owner without a pointer in between, so writing it overwrites owner.
 func holdsByValue(value types.Type, owner *types.Struct) bool {
-	switch value := value.Underlying().(type) {
-	case *types.Struct:
-		if types.Identical(value, owner) {
-			return true
-		}
-		for field := range value.Fields() {
-			if holdsByValue(field.Type(), owner) {
-				return true
-			}
-		}
-	case *types.Array:
-		return holdsByValue(value.Elem(), owner)
-	}
-	return false
+	return anyByValueType(value, func(value types.Type) bool {
+		structure, ok := value.Underlying().(*types.Struct)
+		return ok && types.Identical(structure, owner)
+	})
 }
 
 func containsPrimitive(value types.Type) bool {

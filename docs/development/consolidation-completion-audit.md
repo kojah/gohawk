@@ -4539,3 +4539,20 @@ records four parent-failing SSA cases, ten current controls, full heapmodel
 validation, a failing raw-path counterfactual and canonical/scoped receipts.
 No production FP removal is credited. Structural alias/type and other
 fact-consumer reviews, ten production FP sites and Rune remain open.
+
+## By-value type traversal
+
+Beads `gohawk-dho.44.11.5.27.22` shares the struct/array recursion used by
+reference capability and by-value overwrite detection. Leaf predicates retain
+their meanings, including underlying-struct identity and zero-length arrays.
+Field-based synchronization detection and bounded slot enumeration stay separate.
+
+The [type review](../../benchmarks/precision/audits/byvalue-type-consolidation-2026-10-02.md)
+records thirteen compiled-type controls, two assertion-failing counterfactuals,
+focused tests, all successful canonical target receipts (lint passes separately
+after a process-lock collision) and twelve successful scoped comparisons.
+All 552 fixture diagnostics and pinned production output remain byte-identical.
+No production FP reduction is credited. The bounded alias/path/type inventory
+identifies possible structural identity's independent recursion for follow-up
+in `gohawk-dho.44.11.5.27.23`. Other fact-consumer review, ten production FP
+sites and Rune still prevent overall completion.
