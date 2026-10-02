@@ -851,3 +851,49 @@ local dogfood and ordinary tests (64 seconds); its receipt is
 `.build/goal-completion-pool-verify.log`. Documentation architecture checks on
 the added inventory pass (0.563 seconds), recorded in
 `.build/goal-completion-pool-docs.log`.
+
+## Resource/cancellation classifier review disposition
+
+The remaining local evidence families in `gohawk-dho.40` were read at
+`30631c8`. This finishes that finite input-to-proof inventory; it does not
+finish the repository-wide consolidation audit. The review used source
+fallback because graph tools are unavailable. Previously recorded child
+corrections remain authoritative: cancellation return caching (`dho.41`),
+resource exhaustion labels (`dho.42`) and ordinary completion budget ownership
+(`dho.43`). No additional behavior change or FP correction is credited here.
+
+| Inspected source family | Inputs, proof route and disposition |
+| --- | --- |
+| `resourcelifetime/local_collections.go` | `resourceAppends` requires an explicit appended acquisition (with only the selected interface boxing); `findLocalCollection` requires all append results to belong to one `SliceVersions` closure, a fresh origin and every version use to be understood. Whole-slice returns transfer; exact whole-slice helpers and complete element-release loops settle at their call/exit edge. Any other use declines the entire model and leaves ordinary append uncertainty. This is collection coverage, not scalar identity or a guessed loop count. |
+| Selected collection adapters | `ssaflow/slice_elements.go:AppendedValues/SliceVersions/RangeElementLoop/ReadsElement` supply SSA append/version/index mechanics. `lifecycle/completion_element_releases.go:ElementLoopReleasesEach` is already shared by caller collections and summary inference: release must dominate every backedge, and element uses must match the cleanup receiver. `lifecyclefacts/element_discharges.go:ReleasesEachElement` selects an unconditional each-element discharge or a local same-package inference. No second per-element policy was introduced downstream. |
+| `resourcelifetime/captured_cleanup.go` | `opaqueClosureCall` combines possible captured-cell cleanup, narrowly guarded HTTP Body cleanup, aggregate capture, asynchronous invocation and unreadable/retaining callees. `cleanupRegisteredBefore` supplies the same uncertain cell/parent-cleanup boundaries before acquisition. A cleanup witness for a cell proves possible cleanup, never which stored acquisition was released. Deferred by-value arguments and read-only captures remain outside this cell contract. |
+| Guarded captured HTTP cleanup | `guardedCapturedBodyCleanup` requires current stable content equal to this acquisition, and both caller/callee exposure checks must pass under one candidate allowance. `guardedBodyCoverage` uses Body-load identity and every-normal-return coverage with a nonnil assumption. Exhaustion cannot make that narrower positive witness succeed. This differs from cancellation's written-once cell/direct-defer ownership proof; a common broad capture traversal would erase the distinction. |
+| Selected coverage adapter | `lifecycle/completion_search.go:MethodCallCoverage` delegates every-return coverage to the existing return/action witness and shared obligation walk, while anywhere coverage is an existential instruction witness. Captured-cell callers request anywhere coverage only for unknown classification; the guarded Body proof requests every-return coverage. These polarities remain explicit at their callers. |
+| `resourcelifetime/optional_acquisition.go` | `proveOptionalAcquisition` requires one acyclic diamond, exact resource and paired-error phis, nil alternate edges and a repeated equality of the same operands. It pairs phi values with predecessor blocks through the shared adapter. Only the acquired merge successor is selected, and cleanup must target the exact resource phi through the selected transparent wrappers. Generic existential derivation and helper/edge completion remain excluded. |
+| SQL parent/context classifier boundaries | `contracts.go:closesStatementDatabase/finishesRowsTransaction/cancelsTransactionContext` require known database/sql symbols and the exact receiver or paired context-constructor cancel. They yield uncertainty about parent-owned/asynchronous cleanup, never synchronous child release. `statementParentIdentity` uses shared storage identity at the loads; its nil budget selects NewStorage's bounded default, not an unbounded search. Resource SQL lifetime and cancellation-owner policy remain separate. |
+| Constant comparison boundaries | Optional acquisition's `sameExactOperand` accepts SSA identity or equal nonnil constants of identical static types. `ssaflow/flow_paths.go:sameLiteral` compares return literals within one declared result and accepts nil literals; lock scalar comparison additionally requires equal constant kinds and its own bindings. These are different input/precision contracts, not a candidate for a universal equality predicate. The optional nil-constant boundary is retained, not silently widened. |
+
+The local collection origin query accepts nil or a local MakeSlice; the code
+checks freshness rather than asserting a particular initial length. Its release
+proof covers every element of the exact range, independent of the length.
+This distinction is recorded explicitly rather than using the nearby word
+"empty" as stronger evidence than the implementation supplies.
+
+Inspection covered the complete local collection, captured-cleanup and
+optional-acquisition files, plus the selected shared entry bodies named above.
+It did not cover every transitive range-counter/natural-loop helper, every
+summary-inference function, every storage/retention engine or every acquisition
+contract. Collection budgets and selected adapter behavior were inspected;
+no global claim that every candidate query shares one pool is made. The
+broader normalized-scan dispositions also retain their previously stated
+scope and limitations.
+
+This review's concrete mismatches are fixed in the three pushed child commits;
+the remaining inspected comparison families have distinct-contract dispositions.
+`gohawk-dho.44` now owns the next finite review: goroutine obligation discovery
+and spawn classification. Process pre-Start/merged-command policy, deferred-loop
+classification, producer protocol reasoning and lock evidence remain in the
+larger audit's open scope. The 15 production FP locations and separate Rune
+publication issue remain unresolved. Closing dho.40 certifies this finite
+inventory and its child fixes, not complete architecture consolidation or the
+absence of differently structured duplication elsewhere.
