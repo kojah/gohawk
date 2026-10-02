@@ -461,6 +461,18 @@ ProveMayContainValueWithin shares value, aggregate and capture traversal with
 budget. Graph construction, graph-query and type internals remain separate.
 Cutoff is unknown; a negative means no modeled containment, not actual absence.
 
+## ProveResultGuards
+
+[Source](../../../../internal/lifecycle/completion_result_guards.go)
+
+```go
+func ProveResultGuards(function *ssa.Function, request CompletionRequest) ResultGuardsProof
+```
+
+ProveResultGuards shares request.Budget across instruction, capture,
+named-result and opposing completion questions. Cutoff discards all guards;
+completed opaque completion answers retain the ordinary discovery policy.
+
 ## ProveReturnedCleanup
 
 [Source](../../../../internal/lifecycle/completion_returned.go)
@@ -555,18 +567,20 @@ named result is fixed to the outcome outcomeOf gives the value the return
 stores; a value with no known outcome, or a result the return does not set
 itself, leaves the answer unknown.
 
-## ResultGuards
+## ResultGuardsProof
 
 [Source](../../../../internal/lifecycle/completion_result_guards.go)
 
 ```go
-func ResultGuards(function *ssa.Function, request CompletionRequest) []ResultGuard
+type ResultGuardsProof struct {
+	ssaflow.Proof
+	Guards	[]ResultGuard
+}
 ```
 
-ResultGuards returns the deferred literals of function whose completion,
-asked by request on every return of the literal, is proven under one
-outcome of a captured named result and disproven under the other.
-Instruction, Coverage, and Constants of request are set per question.
+ResultGuardsProof publishes only a complete census of modeled result guards.
+Proven means discovery completed, including when Guards is empty; it does
+not assert completion at any return of the enclosing function.
 
 ## ReturnedCleanupLookup
 

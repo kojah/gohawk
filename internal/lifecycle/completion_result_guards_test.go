@@ -51,7 +51,7 @@ func TestResultGuards(t *testing.T) {
 	guarded := pkg.Func("closeOnError")
 	target := openedFile(t, guarded)
 	request := CompletionRequest{Target: target, Methods: []string{"Close"}}
-	guards := ResultGuards(guarded, request)
+	guards := ProveResultGuards(guarded, request).Guards
 	if len(guards) != 1 || len(guards[0].Cells) != 1 {
 		t.Fatalf("ResultGuards(closeOnError) = %+v, want one guard on the err result", guards)
 	}
@@ -72,7 +72,7 @@ func TestResultGuards(t *testing.T) {
 		}
 	}
 	always := pkg.Func("closeAlways")
-	if guards := ResultGuards(always, CompletionRequest{Target: openedFile(t, always), Methods: []string{"Close"}}); len(guards) != 0 {
+	if guards := ProveResultGuards(always, CompletionRequest{Target: openedFile(t, always), Methods: []string{"Close"}}).Guards; len(guards) != 0 {
 		t.Errorf("ResultGuards(closeAlways) = %+v, want none: its release does not turn on the result", guards)
 	}
 }

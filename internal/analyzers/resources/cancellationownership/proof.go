@@ -95,7 +95,13 @@ func proveCancellation(
 		evidence: evidence,
 	}
 	classifier.knowledge = knowledge
-	for _, guard := range lifecycle.ResultGuards(call.Parent(), classifier.invokeRequest()) {
+	// Missing guards cannot establish loss when the discovery census or one
+	// of its opposing completion questions stopped before deciding.
+	discovery := lifecycle.ProveResultGuards(call.Parent(), classifier.invokeRequest())
+	if !discovery.Proven() {
+		return CancellationProof{Outcome: CancellationUnknown, Reason: reasonCancellationUnknown}
+	}
+	for _, guard := range discovery.Guards {
 		if closure, ok := guard.Defer.Call.Value.(*ssa.MakeClosure); ok && classifier.capturesThroughDeferredCell(closure) {
 			classifier.guards = append(classifier.guards, guard)
 		}

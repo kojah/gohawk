@@ -61,6 +61,9 @@ func evaluateResourceFlow(
 	if assertedError.Proven() {
 		return acceptedResourceLifetime(resourceReasonReleaseProven)
 	}
+	// Optional acquisition correlates the resource and its paired error on
+	// the same diamond edge. Only a complete correlation may replace the
+	// resource input used by owner discovery and the subsequent path proof.
 	optionalAcquisition := proveOptionalAcquisitionWithin(call, resource, errorValue, pool.Within(releaseSearchBudget))
 	if optionalAcquisition.proof.State == ssaflow.EvidenceUnknown {
 		return unknownResourceLifetime(optionalAcquisition.proof.Reason)
@@ -75,29 +78,11 @@ func evaluateResourceFlow(
 		contract: contract, optional: optionalAcquisition, actions: map[ssa.Instruction]resourceAction{},
 		probe: probe, pool: pool,
 	}
-	// This query uses anywhere coverage, not every-return settlement. A
-	// dominating defer may release a later acquisition through captured storage.
-	deferred := analysis.proveDeferredBeforeAcquisitionWithin(call, analysis.budget(releaseSearchBudget))
-	if deferred.State == ssaflow.EvidenceUnknown {
-		return unknownResourceLifetime(deferred.Reason)
+	setup := analysis.prepareResourceFlow()
+	if setup.State == ssaflow.EvidenceUnknown {
+		return unknownResourceLifetime(setup.Reason)
 	}
-	if deferred.Proven() {
-		return unknownResourceLifetime(resourceReasonPriorDeferMayRelease)
-	}
-	owners := analysis.discoverResourceOwnersWithin(analysis.budget(releaseSearchBudget))
-	if !owners.Proven() {
-		return unknownResourceLifetime(resourceReasonBudgetExhausted)
-	}
-	analysis.collection = analysis.localCollection()
-	analysis.guardedDefers = analysis.findResultGuardedDefers()
-	prior := analysis.provePriorCleanupWithin(call, analysis.budget(releaseSearchBudget))
-	if prior.State == ssaflow.EvidenceUnknown {
-		return unknownResourceLifetime(prior.Reason)
-	}
-	if prior.Proven() {
-		analysis.emitAction(prior.Instruction, actionUnknown, prior.Reason)
-		return unknownResourceLifetime(resourceReasonOpaqueConsumption)
-	}
+
 	flow := analysis.proveResourceFlow(errorValue)
 	if flow.state != ssaflow.EvidenceProven {
 		return flow

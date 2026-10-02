@@ -26,21 +26,39 @@ type ResultGuard struct {
 	Cells []*ssa.Alloc
 }
 
-// ResultGuards returns the deferred literals of function whose completion,
-// asked by request on every return of the literal, is proven under one
-// outcome of a captured named result and disproven under the other.
-// Instruction, Coverage, and Constants of request are set per question.
-func ResultGuards(function *ssa.Function, request CompletionRequest) []ResultGuard {
+// ResultGuardsProof publishes only a complete census of modeled result guards.
+// Proven means discovery completed, including when Guards is empty; it does
+// not assert completion at any return of the enclosing function.
+type ResultGuardsProof struct {
+	ssaflow.Proof
+	Guards []ResultGuard
+}
+
+// ProveResultGuards shares request.Budget across instruction, capture,
+// named-result and opposing completion questions. Cutoff discards all guards;
+// completed opaque completion answers retain the ordinary discovery policy.
+func ProveResultGuards(function *ssa.Function, request CompletionRequest) ResultGuardsProof {
+	unknown := ResultGuardsProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}}
+	if !request.Budget.Spend() {
+		return unknown
+	}
 	var guards []ResultGuard
-	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](function) {
+	for instruction := range ssaflow.InstructionsWithin(function, request.Budget) {
+		deferred, ok := instruction.(*ssa.Defer)
+		if !ok {
+			continue
+		}
 		closure, ok := deferred.Call.Value.(*ssa.MakeClosure)
 		if !ok {
 			continue
 		}
 		var cells []*ssa.Alloc
 		for _, binding := range closure.Bindings {
+			if !request.Budget.Spend() {
+				return unknown
+			}
 			if cell, ok := binding.(*ssa.Alloc); ok {
-				if _, named := ssaflow.NamedResultCell(function, cell); named {
+				if _, named := ssaflow.NamedResultCellWithin(function, cell, request.Budget); named {
 					cells = append(cells, cell)
 				}
 			}
@@ -49,12 +67,26 @@ func ResultGuards(function *ssa.Function, request CompletionRequest) []ResultGua
 		if len(cells) != 0 && guard.turnsOnResult(request) {
 			guards = append(guards, guard)
 		}
+		// Neither a missing guard nor a partial positive list is authoritative
+		// when either the census or an opposing completion query stopped early.
+		if request.Budget.Exhausted() || request.Budget.PoolExhausted() {
+			return unknown
+		}
 	}
-	return guards
+	if request.Budget.Exhausted() || request.Budget.PoolExhausted() {
+		return unknown
+	}
+	return ResultGuardsProof{
+		Proof:  ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA},
+		Guards: guards,
+	}
 }
 
 func (guard ResultGuard) turnsOnResult(request CompletionRequest) bool {
 	for _, cell := range guard.Cells {
+		if !request.Budget.Spend() {
+			return false
+		}
 		first, second := opposingOutcomes(cell)
 		if first == ssaflow.OutcomeAny {
 			continue

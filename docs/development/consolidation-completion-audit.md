@@ -3334,10 +3334,10 @@ current authoritative decision and closed child receipts:
 | Paired-error decode | `proveAcquisitionErrorResultWithin` distinguishes unavailable from absent input | `.17.9` |
 
 The scoped `.17` requirement is now covered; this does not complete the broader
-transitive-cost or consolidation objective. In particular, post-construction
-`findResultGuardedDefers` consumes `lifecycle.ResultGuards`, whose defer/capture
-census is independent of the completion request allowance. New `.44.11.5.21`
-records that discovery and partial-list availability review. Cleanup uncertainty
+transitive-cost or consolidation objective. At that review, post-construction
+guard discovery consumed a slice-only lifecycle API whose defer/capture census
+was independent of the completion request allowance. New `.44.11.5.21`
+recorded that discovery and partial-list availability review. Cleanup uncertainty
 `.44.11.5.19`, graph/type/alias/list internals and the remaining production FP
 families remain outstanding. Graph MCP tools were unavailable; this review uses
 scoped source reads and makes no graph coverage or repository-wide absence claim.
@@ -3351,3 +3351,82 @@ Pins were confirmed before scoped scans: Cute
 to the preceding local-HTTP receipts (980/2 bytes), and both stderr files are
 empty. Cute's known TP remains; Ferro's corrected storage FP stays absent.
 These controls credit no production FP removal; the frozen queue remains at 15 sites.
+
+## Result-guard discovery availability and setup cohesion
+
+`gohawk-dho.44.11.5.21` closes the discovery gap recorded above. The sole shared
+census is `lifecycle.ProveResultGuards`; `ResultGuardsProof` publishes guards only
+on completed discovery. Instruction, capture, exact named-result and opposing
+completion queries share the request allowance. The bounded named-result query
+is `ssaflow.NamedResultCellWithin`; the old default-only helper and slice-only
+guard API are removed after both production consumers migrate. Completed opaque
+completion answers keep the previous modeled-guard policy; cutoff is unknown,
+with no partial list.
+
+Resource setup publishes only the complete list across cleanup methods and
+deduplicates deferred instructions within that new census. It does not filter
+fresh results against a previously published list. The exact owner, collection,
+prior-defer and prior-cleanup setup sequence now lives in `prepareResourceFlow`,
+whose availability result keeps orchestration out of the evidence rules. This
+extraction also resolves the entry's cyclomatic-complexity regression from the
+new discovery check. Existing anywhere may-release semantics and trace labels
+are preserved. Cancellation ownership, the second consumer found by the broader
+source search, stops at unknown on unavailable discovery before its obligation
+walk. Its deferred-capture filter policy is unchanged.
+
+Shared actual-SSA tests cover error and Boolean guards, unconditional cleanup,
+unrelated/wrong-cell/opaque captures and multiple defers, every insufficient
+allowance, child cutoff with parent available, fresh recovery and partial-list
+publication. Named-result selection has its own cutoff control. Resource tests
+cover duplicate methods, repeated fresh discovery, close-on-error success-path
+leak and close-on-success cleanup; cancellation tests distinguish ordinary loss,
+release and a function whose discovery exceeds its 1,000-step child.
+
+An unbudgeted census overlay fails all eight shared families and the child
+control. Removing post-census availability checks publishes one partial guard
+at allowance 193 in the two-guard fixture, failing the dedicated publication
+control. Artifacts are `.build/goal-result-guard-*`. No production FP correction
+is credited by these infrastructure controls, and the frozen queue remains at 15 sites.
+
+The first focused lint pass identified an entry complexity regression and a
+long test line, both corrected before the gate. Ordinary tests and repository
+dogfood in the first gate pass; the only gate failure is the historical audit
+reference to the removed slice API, corrected here. Generated shared-helper
+references include the new proof APIs and remove obsolete symbols.
+
+This completes discovery, not all result-dependent lifecycle costs. New
+`.44.11.5.22` tracks per-return cell/store/outcome binding and reaching-defer
+queries; `.44.11.5.23` tracks the cancellation deferred-capture filter. Cleanup
+uncertainty `.44.11.5.19` and broader graph/type/alias costs remain open. Scoped
+source reads were used because graph MCP tools are unavailable; no complete
+repository graph or absence claim is made.
+
+A flow integration overlay limits only resource guard discovery to one visit.
+The setup proof returns budget unknown. Bypassing its availability check instead
+returns accepted cleanup (`state:1`, reason50), masking the fixture's known
+close-on-error success-path leak; the integration assertion fails. This is a
+fixture proof boundary, not a production FP removal.
+
+The final `make verify VERIFY_TIMINGS=1` passes ordinary tests (3s with current
+receipts cached), repository dogfood (1s), vet, lint, formatter, deadcode, module
+verification and generation. The first gate's uncached ordinary tests and
+dogfood took 66s/38s; only its obsolete documentation citation failed.
+Receipts: `.build/goal-result-guard-{verify,final-verify}.log`. No local race or
+full precision-regression audit was run.
+
+Immutable `.build/goal-result-guard-current` has SHA-256
+`794f66a5250d38014c54bdf7f04549c4723c50a0a6df6c39e593671eb4c077de`.
+Confirmed pinned Cute `9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3`
+(`./...`, resource-only, exit 3) and Ferro
+`d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4`
+(`./internal/admin/repository ./mcp`, resource-only, exit 0) keep byte-identical
+JSON to the acquisition-result baseline (980/2 bytes), with empty stderr. Cute's
+known TP remains and Ferro's corrected storage FP stays absent. Openase's
+pinned cancellation controls are additionally replayed below.
+
+Openase pin `e530faf137e764337d5beaaf68af3be159eb17aa` is confirmed;
+`./internal/orchestrator` with every check enabled exits3 with byte-identical
+JSON to the earlier program-entry-context corrected control (1,827 bytes,
+empty stderr). Both reviewed cancellation TPs remain at
+`runtime_launcher.go:414:22` and `runtime_process_lifecycle_slice.go:192:22`.
+These three pinned scopes are controls, not a latest whole-corpus replay.

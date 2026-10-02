@@ -24,26 +24,42 @@ import (
 // https://github.com/grpc/grpc-go/commit/db35da8bc5e8dcfcb57b94e9be0fba306710cc77
 
 // cleanupRequests is one completion question per cleanup method.
-func (analysis *resourceAnalysis) cleanupRequests() []lifecycle.CompletionRequest {
+func (analysis *resourceAnalysis) cleanupRequests(budget *ssaflow.SearchBudget) []lifecycle.CompletionRequest {
 	requests := make([]lifecycle.CompletionRequest, 0, len(analysis.contract.cleanup))
 	for _, method := range analysis.contract.cleanup {
 		requests = append(requests, lifecycle.CompletionRequest{
-			Target: analysis.resource, Methods: []string{method}, Budget: analysis.budget(releaseSearchBudget),
+			Target: analysis.resource, Methods: []string{method}, Budget: budget,
 		})
 	}
 	return requests
 }
 
-func (analysis *resourceAnalysis) findResultGuardedDefers() []lifecycle.ResultGuard {
+func (analysis *resourceAnalysis) discoverResultGuardedDefersWithin(budget *ssaflow.SearchBudget) resourceProof {
 	var guards []lifecycle.ResultGuard
-	for _, request := range analysis.cleanupRequests() {
-		for _, guard := range lifecycle.ResultGuards(analysis.function, request) {
-			if !analysis.resultGuarded(guard.Defer) {
+	seen := make(map[*ssa.Defer]bool)
+	for _, request := range analysis.cleanupRequests(budget) {
+		if !budget.Spend() {
+			return carriedValueProof(false, resourceReasonUntouched, budget)
+		}
+		discovery := lifecycle.ProveResultGuards(analysis.function, request)
+		if !discovery.Proven() || resourceFlowExhausted(budget) {
+			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		}
+		for _, guard := range discovery.Guards {
+			if !budget.Spend() {
+				return carriedValueProof(false, resourceReasonUntouched, budget)
+			}
+			if !seen[guard.Defer] {
+				seen[guard.Defer] = true
 				guards = append(guards, guard)
 			}
 		}
 	}
-	return guards
+	if resourceFlowExhausted(budget) {
+		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	}
+	analysis.guardedDefers = guards
+	return carriedValueProof(true, resourceReasonNone, budget)
 }
 
 func (analysis *resourceAnalysis) resultGuarded(deferred *ssa.Defer) bool {
@@ -81,7 +97,7 @@ func (analysis *resourceAnalysis) resultGuardedReturn(returned *ssa.Return) (res
 			uncertain = uncertain || ssaflow.InstructionMayFollow(guard.Defer, returned)
 			continue
 		}
-		for _, request := range analysis.cleanupRequests() {
+		for _, request := range analysis.cleanupRequests(analysis.budget(releaseSearchBudget)) {
 			switch guard.CompletesAtReturn(request, returned, analysis.outcomeOf) {
 			case ssaflow.EvidenceProven:
 				return actionSettled, resourceReasonResultGuardedRelease, true

@@ -1811,16 +1811,18 @@ func MayAliasThroughLoadsWithin(value, target ssa.Value, budget *SearchBudget) b
 MayAliasThroughLoadsWithin charges reaching-value visits to budget. A cutoff
 cannot prove that value does not possibly originate at target.
 
-## NamedResultCell
+## NamedResultCellWithin
 
 [Source](../../../../internal/ssaflow/named_results.go)
 
 ```go
-func NamedResultCell(function *ssa.Function, cell *ssa.Alloc) (int, bool)
+func NamedResultCellWithin(function *ssa.Function, cell *ssa.Alloc, budget *SearchBudget) (int, bool)
 ```
 
-NamedResultCell reports whether cell holds one of function's named
-results: every return reads that result from the cell.
+NamedResultCellWithin reports whether every return reads one exact named
+result from cell, sharing instruction and result visits with budget.
+Cutoff cannot identify a result; callers must check budget availability
+before interpreting a negative answer as a completed search.
 
 ## NaturalLoop
 

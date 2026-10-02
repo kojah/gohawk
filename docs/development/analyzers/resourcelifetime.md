@@ -1175,3 +1175,23 @@ shared-parent cuts, fresh recovery, and full-flow cleanup/leak controls. Actual
 SSA retains an error extract for a blank assignment; only the discarded call
 has no result extracts. These are lookup and flow controls, not new production
 FP corrections or a measurement of global call-target analysis.
+
+## Result-guard census availability
+
+`discoverResultGuardedDefersWithin` asks the shared structured result-guard
+census under one candidate child across cleanup methods. Discovery publishes
+its guard list only when all instruction, capture, named-result and opposing
+completion questions finish. A cutoff stops flow setup at budget unknown;
+partial guards cannot become authoritative labels. Deferred instructions are
+deduplicated within the new census, independently of any prior published list,
+so repeated complete discovery retains the same guards.
+
+`prepareResourceFlow` owns the existing owner, collection and deferred-release
+setup sequence, preserving anywhere may-release uncertainty and prior cleanup
+labels before the path proof. Its structured availability result keeps the
+entry limited to collecting inputs, requesting proofs and applying policy.
+`result_guard_budget_test.go` covers interrupted publication, duplicate cleanup
+methods, repeated fresh discovery, the close-on-error success-path leak and
+close-on-success cleanup. Shared lifecycle tests cover error/Boolean guards,
+unrelated/opaque captures, multiple defers and child/fresh cutoff. Per-return
+value decoding and other capture queries remain separate cost questions.

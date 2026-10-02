@@ -52,7 +52,7 @@ only directly deferred literals read, each deferred after the store. Such a
 literal that calls cancel on every return releases it where it is deferred.
 One whose call turns on a named result, as `defer func() { if err != nil {
 cancel() } }()` does, settles nothing at the defer; each return it dominates
-asks the shared completion search (`lifecycle.ResultGuards`) whether the
+asks the shared completion search (`lifecycle.ProveResultGuards`) whether the
 literal calls cancel given the value that return stores, so a success path
 returning nil without cancelling is reported, as grpc-go's ALTS handshake
 was before its fix. Any other capture keeps the store an opaque use: a cell
@@ -135,3 +135,20 @@ it on failure, which cannot be ordered against the function's returns, so it
 stays unknown. hermesx drops its cancel on an error return before the owning
 struct exists, after passing the context to other components, which is also
 unknown.
+
+## Result-guard discovery availability
+
+The shared result-guard census now returns `lifecycle.ResultGuardsProof`.
+Instruction, capture, named-result and opposing-completion queries consume the
+same request child. Interrupted discovery publishes no guards and stops the
+cancellation proof at unknown before the ordinary obligation walk; it cannot
+turn an omitted result guard into release or loss. Ordinary opaque completion
+answers retain the existing modeled-guard policy.
+
+`result_guard_budget_test.go` compares actual-SSA cancel-on-error loss,
+cancel-on-success release, and a larger function whose discovery exhausts the
+1,000-step child while the candidate pool remains available. Shared lifecycle
+controls exercise multiple guards, partial-list cutoff and fresh recovery.
+Capture-filter and per-return value/outcome queries retain their existing
+policies and costs; this change bounds discovery rather than claiming that all
+cancellation evidence is now transitively bounded.
