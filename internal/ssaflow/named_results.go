@@ -8,39 +8,78 @@ import "golang.org/x/tools/go/ssa"
 // return statement set. These helpers find that cell and that value; what a
 // deferred call does with it is the caller's question.
 
-// NamedResultCellWithin reports whether every return reads one exact named
-// result from cell, sharing instruction and result visits with budget.
-// Cutoff cannot identify a result; callers must check budget availability
-// before interpreting a negative answer as a completed search.
-func NamedResultCellWithin(function *ssa.Function, cell *ssa.Alloc, budget *SearchBudget) (int, bool) {
-	if cell.Parent() != function || function.Signature.Results().Len() == 0 {
-		return 0, false
+// NamedResultCellsProof contains cells read at the same first result position
+// on every normal return. Proven means the census completed, including an
+// empty Cells map; it does not prove any deferred action or stored value.
+// Cutoff publishes no cells. The map belongs to this proof and is unordered.
+type NamedResultCellsProof struct {
+	Proof
+	Cells map[*ssa.Alloc]int
+}
+
+// ProveNamedResultCellsWithin shares one instruction/result census across all
+// candidate cells. Only direct reads of cells owned by function are recognized;
+// wrappers and earlier stored result values remain outside this query. Each
+// return's first read decides a cell's slot, preserving duplicate-read policy.
+// Instruction, result and intersection visits share budget; nil is unbounded.
+func ProveNamedResultCellsWithin(function *ssa.Function, budget *SearchBudget) NamedResultCellsProof {
+	unknown := NamedResultCellsProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+	if !budget.Spend() {
+		return unknown
 	}
-	index := -1
+	if function == nil {
+		return NamedResultCellsProof{Proof: Proof{Reason: EvidenceUnavailable}}
+	}
+	complete := NamedResultCellsProof{Proof: Proof{State: EvidenceProven, Reason: EvidenceStructuralWalk, Provenance: EvidenceFromLocalSSA}}
+	if function.Signature.Results().Len() == 0 {
+		return complete
+	}
+	var cells map[*ssa.Alloc]int
 	for instruction := range InstructionsWithin(function, budget) {
 		returned, ok := instruction.(*ssa.Return)
 		if !ok {
 			continue
 		}
-		position := resultReadFromWithin(returned, cell, budget)
-		if position < 0 || index >= 0 && position != index {
-			return 0, false
+		current := resultCellsWithin(function, returned, budget)
+		if cells == nil {
+			cells = current
+		} else {
+			for cell, slot := range cells {
+				if !budget.Spend() {
+					return unknown
+				}
+				if position, found := current[cell]; !found || position != slot {
+					delete(cells, cell)
+				}
+			}
 		}
-		index = position
 	}
-	return index, index >= 0 && !budget.Exhausted() && !budget.PoolExhausted()
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return unknown
+	}
+	complete.Cells = cells
+	return complete
 }
 
-func resultReadFromWithin(returned *ssa.Return, cell *ssa.Alloc, budget *SearchBudget) int {
+func resultCellsWithin(function *ssa.Function, returned *ssa.Return, budget *SearchBudget) map[*ssa.Alloc]int {
+	cells := make(map[*ssa.Alloc]int)
 	for position, result := range returned.Results {
 		if !budget.Spend() {
-			return -1
+			return nil
 		}
-		if load, ok := result.(*ssa.UnOp); ok && load.X == cell {
-			return position
+		load, ok := result.(*ssa.UnOp)
+		if !ok {
+			continue
+		}
+		cell, ok := load.X.(*ssa.Alloc)
+		if !ok || cell.Parent() != function {
+			continue
+		}
+		if _, found := cells[cell]; !found {
+			cells[cell] = position
 		}
 	}
-	return -1
+	return cells
 }
 
 // ValueAtReturnWithin returns the exact cell's last store in the return block

@@ -49,6 +49,11 @@ for each; these times include each check's prerequisite passes.
   and target materialization share the request allowance, preserving origin
   order and requiring every alternative to resolve. Cutoff discards the whole
   target set; an early dispatch cutoff has no body-evidence provenance.
+  Named-result identity uses one shared all-return cell census. Deferred
+  result-guard discovery builds it lazily at the first captured cell and
+  reuses only a completed census within that discovery. First-slot direct
+  reads and every-return agreement remain distinct from cleanup coverage;
+  cutoff publishes neither a partial cell map nor a partial guard list.
   Local completion evidence caches only answers independent of per-request
   lookup callbacks and constants. `Summarized`, `CallContract` and returned-
   summary overrides bypass that outer memo because callback identity is not a

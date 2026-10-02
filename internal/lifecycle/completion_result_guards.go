@@ -43,6 +43,7 @@ func ProveResultGuards(function *ssa.Function, request CompletionRequest) Result
 		return unknown
 	}
 	var guards []ResultGuard
+	var named ssaflow.NamedResultCellsProof
 	for instruction := range ssaflow.InstructionsWithin(function, request.Budget) {
 		deferred, ok := instruction.(*ssa.Defer)
 		if !ok {
@@ -52,17 +53,11 @@ func ProveResultGuards(function *ssa.Function, request CompletionRequest) Result
 		if !ok {
 			continue
 		}
-		var cells []*ssa.Alloc
-		for _, binding := range closure.Bindings {
-			if !request.Budget.Spend() {
-				return unknown
-			}
-			if cell, ok := binding.(*ssa.Alloc); ok {
-				if _, named := ssaflow.NamedResultCellWithin(function, cell, request.Budget); named {
-					cells = append(cells, cell)
-				}
-			}
+		cells := capturedResultCells(function, closure, request.Budget, &named)
+		if request.Budget.Exhausted() || request.Budget.PoolExhausted() {
+			return unknown
 		}
+
 		guard := ResultGuard{Defer: deferred, Cells: cells}
 		if len(cells) != 0 && guard.turnsOnResult(request) {
 			guards = append(guards, guard)
@@ -80,6 +75,34 @@ func ProveResultGuards(function *ssa.Function, request CompletionRequest) Result
 		Proof:  ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA},
 		Guards: guards,
 	}
+}
+
+// One discovery owns the named-cell census. Captures retain their original
+// order; repeated cells do not repeat the function search. Only a completed
+// census may be reused, and its map says nothing about cleanup coverage.
+func capturedResultCells(
+	function *ssa.Function, closure *ssa.MakeClosure, budget *ssaflow.SearchBudget, named *ssaflow.NamedResultCellsProof,
+) []*ssa.Alloc {
+	var cells []*ssa.Alloc
+	for _, binding := range closure.Bindings {
+		if !budget.Spend() {
+			return nil
+		}
+		cell, ok := binding.(*ssa.Alloc)
+		if !ok {
+			continue
+		}
+		if !named.Proven() {
+			*named = ssaflow.ProveNamedResultCellsWithin(function, budget)
+			if !named.Proven() {
+				return nil
+			}
+		}
+		if _, found := named.Cells[cell]; found {
+			cells = append(cells, cell)
+		}
+	}
+	return cells
 }
 
 func (guard ResultGuard) turnsOnResult(request CompletionRequest) bool {

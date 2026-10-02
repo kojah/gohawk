@@ -3358,7 +3358,8 @@ These controls credit no production FP removal; the frozen queue remains at 15 s
 census is `lifecycle.ProveResultGuards`; `ResultGuardsProof` publishes guards only
 on completed discovery. Instruction, capture, exact named-result and opposing
 completion queries share the request allowance. The bounded named-result query
-is `ssaflow.NamedResultCellWithin`; the old default-only helper and slice-only
+was the single-cell named-result query (replaced by the shared all-cell census
+in `.27.6` below); the old default-only helper and slice-only
 guard API are removed after both production consumers migrate. Completed opaque
 completion answers keep the previous modeled-guard policy; cutoff is unknown,
 with no partial list.
@@ -4303,3 +4304,28 @@ partial results. Clean pinned XD/goiardi scans retain the four reviewed lock
 findings with byte-identical JSON; no production FP correction is credited.
 Receipts and limitations are in
 [the callee resolution follow-up](../../benchmarks/precision/audits/completion-callee-resolution-followup-2026-10-02.md).
+
+
+## Named-result cell discovery
+
+Beads `gohawk-dho.44.11.5.27.6` makes named-result recognition one all-return
+cell census under `ssaflow.ProveNamedResultCellsWithin`; the obsolete
+single-cell loop and test-only adapter are removed. Lifecycle discovery reuses one
+completed map across captures and literals. Exact direct reads, first-slot
+selection, every-SSA-return agreement and capture ordering remain separate
+from cleanup coverage. Cutoff publishes neither a partial map nor guard list.
+
+Actual SSA and five behavioral counterfactuals cover mismatched/missing return
+reads, duplicate slots, shared allowance, positive prefix publication and
+warm capture reuse. Synthetic result cells and recovery returns are preserved.
+The initial gate identified the now-unreachable adapter; it is removed rather
+than retained for fixtures. No production allowance is increased. This is discovery consolidation, not completion of
+all result storage, identity/path/alias/heap/type or package inventory work.
+The eleven recorded production FP locations and Rune remain open. See
+[the named-result follow-up](../../benchmarks/precision/audits/named-result-census-followup-2026-10-02.md).
+
+Final canonical local validation passes, including ordinary tests, self-dogfood,
+lint and deadcode. Scoped pinned XD/goiardi scans retain all four reviewed lock
+findings unchanged. Parent/current goiardi transaction scans also remain
+byte-identical, including the two open transaction FPs; the other transaction
+findings are not relabelled by this replay. No FP removal is credited.

@@ -152,9 +152,10 @@ func returnBindingGuards(fn *ssa.Function, request CompletionRequest) []ResultGu
 			continue
 		}
 		guard := ResultGuard{Defer: deferred}
+		named := ssaflow.ProveNamedResultCellsWithin(fn, nil)
 		for _, binding := range closure.Bindings {
 			if cell, ok := binding.(*ssa.Alloc); ok {
-				if _, named := ssaflow.NamedResultCellWithin(fn, cell, nil); named {
+				if _, found := named.Cells[cell]; found {
 					guard.Cells = append(guard.Cells, cell)
 				}
 			}

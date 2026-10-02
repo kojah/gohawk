@@ -1823,18 +1823,21 @@ func MayAliasThroughLoadsWithin(value, target ssa.Value, budget *SearchBudget) b
 MayAliasThroughLoadsWithin charges reaching-value visits to budget. A cutoff
 cannot prove that value does not possibly originate at target.
 
-## NamedResultCellWithin
+## NamedResultCellsProof
 
 [Source](../../../../internal/ssaflow/named_results.go)
 
 ```go
-func NamedResultCellWithin(function *ssa.Function, cell *ssa.Alloc, budget *SearchBudget) (int, bool)
+type NamedResultCellsProof struct {
+	Proof
+	Cells	map[*ssa.Alloc]int
+}
 ```
 
-NamedResultCellWithin reports whether every return reads one exact named
-result from cell, sharing instruction and result visits with budget.
-Cutoff cannot identify a result; callers must check budget availability
-before interpreting a negative answer as a completed search.
+NamedResultCellsProof contains cells read at the same first result position
+on every normal return. Proven means the census completed, including an
+empty Cells map; it does not prove any deferred action or stored value.
+Cutoff publishes no cells. The map belongs to this proof and is unordered.
 
 ## NaturalLoop
 
@@ -2406,6 +2409,20 @@ func ProveIdentityWithin(left, right AccessPath, budget *SearchBudget) IdentityP
 ProveIdentityWithin shares budget across structural identity, both path
 searches and step comparison. Exhaustion is an unknown proof with the budget
 reason, never differing paths. Roots must already be established as equivalent.
+
+## ProveNamedResultCellsWithin
+
+[Source](../../../../internal/ssaflow/named_results.go)
+
+```go
+func ProveNamedResultCellsWithin(function *ssa.Function, budget *SearchBudget) NamedResultCellsProof
+```
+
+ProveNamedResultCellsWithin shares one instruction/result census across all
+candidate cells. Only direct reads of cells owned by function are recognized;
+wrappers and earlier stored result values remain outside this query. Each
+return's first read decides a cell's slot, preserving duplicate-read policy.
+Instruction, result and intersection visits share budget; nil is unbounded.
 
 ## ProveNormalReturnWithin
 
