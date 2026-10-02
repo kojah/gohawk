@@ -4948,3 +4948,22 @@ records validation and the deliberate false negatives for unordered fallback
 protocols. Seven recorded production sites plus Rune and broader semantic and
 partial-duplication completion remain open; no production FP credit or full
 precision replay is claimed.
+
+## Producer receiver count at identity cutoffs
+
+Beads `gohawk-dho.23.15` closes a receiver-count availability leak. Binding a
+complete helper summary can consume the allowance before channel identity is
+resolved. The parent treated that identity cutoff as a known zero receive count,
+which can inflate apparent excess production. The existing helper classifier
+now returns `receiver-budget-exhausted` and discards partial counts after either
+query stops. Binding orchestration delegates to one focused summary receive
+counter rather than growing the top-level helper condition.
+
+Cold/warm one/two-receive SSA controls enumerate allowances through completion;
+parent controls fail and current cutoffs retain unknown, zero count and the
+stable reason. Complete all-check fixture payloads remain identical at 21
+findings. The [scoped audit](../../benchmarks/precision/audits/producer-receiver-budget-2026-10-03.md)
+records validation. Non-budget identity ambiguity, indirect receivers, broader
+semantic/partial-duplication review and seven recorded production sites plus
+Rune remain outside this correction. No production FP credit or full precision
+replay is claimed.

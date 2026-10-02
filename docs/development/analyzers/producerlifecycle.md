@@ -43,6 +43,16 @@ covers a balanced branching worker, competition with another worker, and
 straight-line/nested excess-send diagnostics. This deliberately leaves some
 real excess protocols with unordered fallback sends unknown.
 
+Receiver helper summaries and channel-identity queries share an allowance.
+The incomplete-worker non-receiving-use proof shares that allowance too.
+A cutoff at any of these steps yields `receiver-budget-exhausted`, discarding even
+an earlier partial receive count. A complete summary alone cannot prove an
+absent receive after identity resolution stops. `receiver_budget_test.go`
+checks cold and warm one/two-receive helpers and non-receiving workers across
+every allowance through
+first completion. Normal complete and asynchronous receiver policies remain
+separate from this cutoff boundary.
+
 Loop-based send counts remain unknown: a repeated statement does not prove
 multiple sends are feasible. This deliberately misses unbounded producer loops
 until their excess production can be established without a cardinality guess.

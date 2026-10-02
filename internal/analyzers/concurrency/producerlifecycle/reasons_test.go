@@ -20,6 +20,7 @@ func TestProducerReasonCodes(t *testing.T) {
 		reasonReceiverHelperComplete:     "receiver-helper-complete",
 		reasonAsynchronousReceiver:       "asynchronous-receiver",
 		reasonProducerCountKnown:         "producer-count-known",
+		reasonReceiverBudgetExhausted:    "receiver-budget-exhausted",
 	}
 	if len(want) != int(producerReasonCount) {
 		t.Fatal("every reason needs a boundary spelling assertion")

@@ -121,10 +121,16 @@ func helperReceives(
 		return receiveProof{reason: reasonBuiltinNotReceive}
 	}
 	summary := engine.AtCall(call, budget)
+	if budget.Exhausted() {
+		return receiveProof{unknown: true, reason: reasonReceiverBudgetExhausted}
+	}
 	_, launched := call.(*ssa.Go)
 	if !summary.Complete() {
 		if launched && nonReceivingUses(call, channel, budget).Proven() {
 			return receiveProof{reason: reasonWorkerChannelUsesComplete}
+		}
+		if budget.Exhausted() {
+			return receiveProof{unknown: true, reason: reasonReceiverBudgetExhausted}
 		}
 		// An opaque callback may receive later, including registered cleanup.
 		// We cannot prove its execution paths from a captured channel alone.
@@ -138,10 +144,23 @@ func helperReceives(
 		}
 		return receiveProof{unknown: uncertain, reason: reasonReceiverHelperUnknown}
 	}
+	return summaryReceives(summary, channel, launched, budget)
+}
+
+// A complete protocol still needs exact channel binding. Losing that identity
+// query to the shared allowance cannot establish an absent receive.
+func summaryReceives(summary concurrencyfacts.Summary, channel ssa.Value, launched bool, budget *ssaflow.SearchBudget) receiveProof {
 	proof := receiveProof{reason: reasonReceiverHelperComplete}
 	storage := heapmodel.NewStorage(budget)
 	for _, operation := range summary.Operations {
-		if operation.Kind == concurrencyfacts.Receive && !operation.Resource.Indirect && storage.Same(operation.Resource.Value, channel).Proven() {
+		if operation.Kind != concurrencyfacts.Receive || operation.Resource.Indirect {
+			continue
+		}
+		same := storage.Same(operation.Resource.Value, channel)
+		if budget.Exhausted() {
+			return receiveProof{unknown: true, reason: reasonReceiverBudgetExhausted}
+		}
+		if same.Proven() {
 			if launched {
 				return receiveProof{unknown: true, reason: reasonAsynchronousReceiver}
 			}
