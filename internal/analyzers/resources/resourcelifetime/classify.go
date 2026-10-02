@@ -8,7 +8,6 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
-	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -361,8 +360,9 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// can outlive this call even when the helper returns nothing. A read-only
 	// helper is not an ownership handoff and must keep the obligation live.
 	// https://github.com/goshs-labs/goshs/blob/c65ca19696e87cd5ec2206b2a488c5f5f5b621db/smbserver/session.go#L135-L137
-	if analysis.aggregateOwnerMayEscape(instruction, common) {
-		return resourceReasonAggregateOwnerMayEscape, true
+	escape := analysis.proveAggregateOwnerEscapeWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
+	if escape.State != ssaflow.EvidenceDisproven {
+		return escape.Reason, true
 	}
 	// A resource that reaches the callee only inside an aggregate argument is
 	// beyond a parameter-level completion proof: that proof follows the
@@ -382,76 +382,6 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// through the completion proof already consulted; without either, the
 	// callee is a boundary.
 	return resourceReasonUnsummarizedCallee, !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
-}
-
-func (analysis *resourceAnalysis) aggregateOwnerMayEscape(instruction ssa.Instruction, common *ssa.CallCommon) bool {
-	for index, argument := range common.Args {
-		// The resource itself, or a load that resolves to it, is not an
-		// aggregate holding the resource; only a genuine container is asked
-		// whether it may escape.
-		// Containment is judged as the call receives the argument: a callee
-		// summarized as storing the resource into this very aggregate does
-		// not make the aggregate an owner of it before the call.
-		// A returned wrapper can derive from the resource without being the
-		// resource itself. Only a same-object argument is excluded here; the
-		// wrapper may be retained by this callee and publish its contents.
-		// https://github.com/bazelbuild/bazel-watcher/blob/ed00d96be0ce5b01aa2c43abbcd29172d4573091/cmd/ibazel/main.go#L178-L182
-		if heapmodel.MayAlias(argument, analysis.resource) || analysis.carriedWithinClosure(argument) ||
-			(!lifecycle.MayContainValueAt(argument, analysis.resource, instruction) && !analysis.possibleAggregateWrapper(argument)) {
-			continue
-		}
-		// Dependence on the resource alone does not establish that a returned
-		// wrapper is an owning aggregate. Require a proven store by this callee
-		// before treating such a value as published through the next helper.
-		if analysis.carriesDirectly(argument) {
-			stored, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimStores)
-			if !stored {
-				continue
-			}
-		}
-		// A parameter-level retention fact also makes its nested contents
-		// uncertain. Variadic values stored for later callbacks are a common
-		// example; a wrapper around that aggregate can retain it too.
-		// A clear retention bit is not a purity proof.
-		// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/convert/filecopy_test.go#L92-L106
-		// https://github.com/Mmx233/BitSrunLoginGo/blob/a744f312b3835f329eb98e45c8d19bc2a5b7d4c0/internal/config/log.go#L50-L60
-		if retained, _ := analysis.evidence.ArgumentRetained(instruction, index); retained {
-			return true
-		}
-		if syntax.PointerStruct(argument.Type()) == nil {
-			continue
-		}
-		effects := analysis.evidence.CallEffects(instruction, argument)
-		if effects.Proven() {
-			if effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
-				return true
-			}
-			continue
-		}
-		// A body this pass cannot read is judged by its summary alone. The
-		// kept-contents claim is loose and indexed by path, so a summary
-		// that keeps nothing at the path where this resource sits proves
-		// that the resource cannot outlive the call through this callee,
-		// while a helper that keeps or closes the other field says nothing
-		// about this one. A resource whose position is unknown asks about
-		// the whole aggregate. An unsummarized callee stays a boundary:
-		// silence is not a proof.
-		if kept, known := analysis.evidence.ContentsKeptAt(instruction, index, analysis.pathWithin(argument, instruction)); known && !kept {
-			continue
-		}
-		return true
-	}
-	return false
-}
-
-// pathWithin returns the joined access path at which the resource is stored
-// beneath the aggregate, or the empty path when its position is not known.
-func (analysis *resourceAnalysis) pathWithin(aggregate ssa.Value, observation ssa.Instruction) string {
-	relation := resourcemodel.ProveRelation(aggregate, analysis.resource, observation, analysis.budget(1000))
-	if !relation.Proven() {
-		return ""
-	}
-	return ssaflow.JoinAccessPath(relation.Relation.Path())
 }
 
 // Retaining a callback also retains its captured resource. A known test

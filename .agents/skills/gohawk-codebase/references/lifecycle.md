@@ -323,19 +323,6 @@ MayContainValue reports whether owner may be an aggregate or closure that
 transitively contains value. Possible containment only: it can hide a
 diagnostic behind an opaque owner, never prove that the owner settles it.
 
-## MayContainValueAt
-
-[Source](../../../../internal/lifecycle/store_ownership.go)
-
-```go
-func MayContainValueAt(owner, value ssa.Value, at ssa.Instruction) bool
-```
-
-MayContainValueAt is MayContainValue asked at one instruction: whether the
-owner may hold the value when the instruction runs. A call's argument is
-judged before the call, so a callee summarized as storing the value into
-the argument does not make the argument contain it already.
-
 ## MethodCallCoverage
 
 [Source](../../../../internal/lifecycle/completion_search.go)
@@ -443,6 +430,22 @@ func ProveEnclosingCompletion(request EnclosingCompletionRequest) ssaflow.Comple
 ProveEnclosingCompletion follows callback arguments from their lexical
 owner, requiring all discovered invocations to have the same cleanup
 guarantee. An incomplete traversal is Unknown, never a cleanup proof.
+
+## ProveMayContainValueAtWithin
+
+[Source](../../../../internal/lifecycle/store_ownership.go)
+
+```go
+func ProveMayContainValueAtWithin(owner, value ssa.Value, at ssa.Instruction, budget *ssaflow.SearchBudget) ssaflow.Proof
+```
+
+ProveMayContainValueAtWithin asks structural may-containment with its graph
+fallback observed at at. Later visible stores remain possible structural
+ownership, never an exact before-call guarantee or cleanup. The graph observes
+a call's argument before the callee's stores. Structural visits share budget;
+graph construction, graph-query and type internals remain independent. Cutoff
+is unknown; a completed negative means no modeled relation, including when
+the graph cannot answer. A nil budget retains the existing default policy.
 
 ## ProveMayContainValueWithin
 

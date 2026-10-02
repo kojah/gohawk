@@ -178,6 +178,28 @@ allowance, fresh classifier recovery and reuse without another search. The
 obsolete Boolean/default facades are removed, and the return-specific chain
 mechanics live with this proof in `flow_returns.go`.
 
+Observed and timeless lifecycle containment now delegate to one structural
+proof, with an explicit graph fallback chosen by their entry point.
+`ProveMayContainValueAtWithin` preserves the existing observation policy,
+including nil observations. The structural search may include later visible
+stores; only the graph fallback is observed at the call. This remains possible
+ownership and cannot establish exact before-call identity or cleanup. A graph
+that cannot answer retains the legacy completed-negative/no-modeled-relation
+outcome; budget cutoff remains unknown.
+
+Aggregate escape classification now propagates argument-census and observed
+containment cutoff through a structured proof. Direct resources and closures
+retain their exclusions, retaining/effect evidence still decides publication,
+and imported kept-contents facts retain their access-path policy. These rules
+live with the other publication evidence in `ownership.go`. The lifecycle
+observation controls cover boxing, direct and aggregate values, captures,
+unrelated values, later visible stores and nil observations at every
+insufficient allowance. The resource controls retain opaque/retaining helpers
+against borrowing, unrelated values, direct resources and callbacks, plus fresh
+classifier recovery after cutoff. Closure/wrapper/effect/path queries and
+external-origin, graph/alias/type internals retain separate cost and availability
+reviews under `gohawk-dho.44.11.5.18.1.5`.
+
 The resource projection decision propagates view-binding and storage-projection
 cutoff rather than treating it as missing evidence. A known non-cleaning view
 still cannot discharge its resource merely because it has a Close method;

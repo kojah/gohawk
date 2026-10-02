@@ -55,6 +55,10 @@ func MayContainValue(owner, value ssa.Value) bool {
 // budget. Graph construction, graph-query and type internals remain separate.
 // Cutoff is unknown; a negative means no modeled containment, not actual absence.
 func ProveMayContainValueWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	return proveContainmentWithin(owner, value, budget, func() bool { return heapmodel.Contains(owner, value) })
+}
+
+func proveContainmentWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget, graphContains func() bool) ssaflow.Proof {
 	if !budget.Spend() {
 		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
 	}
@@ -66,7 +70,7 @@ func ProveMayContainValueWithin(owner, value ssa.Value, budget *ssaflow.SearchBu
 		// Graph containment adds copies, merges and captured cells; visible
 		// constructors remain the recursive search's responsibility.
 		if !found && !search.exhausted() && budget.Spend() {
-			found = heapmodel.Contains(owner, value)
+			found = graphContains()
 		}
 	}
 	if budget.Exhausted() || budget.PoolExhausted() {
@@ -79,19 +83,18 @@ func ProveMayContainValueWithin(owner, value ssa.Value, budget *ssaflow.SearchBu
 	return ssaflow.Proof{State: state, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}
 }
 
-// MayContainValueAt is MayContainValue asked at one instruction: whether the
-// owner may hold the value when the instruction runs. A call's argument is
-// judged before the call, so a callee summarized as storing the value into
-// the argument does not make the argument contain it already.
-func MayContainValueAt(owner, value ssa.Value, at ssa.Instruction) bool {
-	if !heapmodel.CanHoldReference(owner.Type()) {
-		return false
-	}
-	if valueOwnsValue(owner, value) || newOwnershipSearch(nil).aggregateStoresValue(owner, value) {
-		return true
-	}
-	contained, known := heapmodel.ContainsAt(owner, value, at)
-	return known && contained
+// ProveMayContainValueAtWithin asks structural may-containment with its graph
+// fallback observed at at. Later visible stores remain possible structural
+// ownership, never an exact before-call guarantee or cleanup. The graph observes
+// a call's argument before the callee's stores. Structural visits share budget;
+// graph construction, graph-query and type internals remain independent. Cutoff
+// is unknown; a completed negative means no modeled relation, including when
+// the graph cannot answer. A nil budget retains the existing default policy.
+func ProveMayContainValueAtWithin(owner, value ssa.Value, at ssa.Instruction, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	return proveContainmentWithin(owner, value, budget, func() bool {
+		contained, known := heapmodel.ContainsAt(owner, value, at)
+		return known && contained
+	})
 }
 
 func valueOwnsValue(owner, value ssa.Value) bool { return valueOwnsValueWithin(owner, value, nil) }
