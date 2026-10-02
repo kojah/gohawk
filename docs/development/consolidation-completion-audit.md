@@ -1194,3 +1194,69 @@ canonical formatting, vet, lint, dead-code and local dogfood. Documentation
 conformance is rechecked after recording these receipts. No full precision
 corpus replay or local race run is performed. The 15 production FP locations
 receive no correction credit from this proof-strength change.
+
+### Caller lifetime bounds versus completion-handle transfer
+
+`gohawk-dho.44.6` reviews `lifecycleProof`, `callerSuppliedValue`,
+`spawnedParameterIsReceived`, `bindingIsExternallyOwned`, `receivesAnywhere`
+and `workerReceiveSearch`. Graph tools remain unavailable, so this is a finite
+source fallback, not a complete transitive review of storage or lifecycle
+engines. The receive search is keyed by function and local value and finds a
+receive on any path. Its may-derivation, call bindings, recursion and budget
+rules provide possible lifetime evidence, never completion before parent return.
+
+Actual SSA shows the raw stop/context workers receiving before sending on a
+separate fresh completion channel. The explicit helper form supplies a
+read-only channel argument to the worker, which calls `receiveStop(input)`
+before the independent completion send
+(`.build/goal-caller-bound.ssa.txt` and
+`.build/goal-caller-bound-final.ssa.txt`). The captured pointer-to-channel helper
+form does not pass the existing channel type guard. Its uncovered-send
+diagnostic is retained; no matcher widening or FP removal is credited.
+
+Caller stop/context bounds now return `GoroutineUnknown` with their existing
+reasons. The existing completion-ownership loop runs before these weaker
+bounds, once, preserving its internal factory-opacity, external-transfer and
+opaque-group ordering. A caller-owned completion channel or group remains
+`GoroutineTransferred`; an incoming stop/context input cannot replace that
+contract with an honored join. Local/receiver context, synctest and exhaustion
+outcomes remain unchanged. No second acceptance engine or traversal is added.
+
+`callerbounds/bounds.go` pairs raw/helper lifetime bounds, caller-owned
+completion handles, an exact local receive, ignored context, local stop and the
+unsupported captured-cell helper. The initial parent proof test fails in
+4.516 seconds; the captured helper mismatch is investigated and retained as a
+diagnostic control. Final proof controls pass in 4.864 seconds, and combined
+proof/trace controls pass in 9.342 seconds. The trace requires one authoritative
+decision with its candidate and position association for each selected case.
+
+Final fixture CLI scans cover `goroutineownership`, `summaryjoins`,
+`processexit`, `returnlabels`, `transferlabels`, `joinbindings`,
+`ownerparticipation` and `callerbounds`. Parent binary SHA-256:
+`ad6de69692a2e055f888118ac5704af57a656c7748a48174dc44af483a675b9b`;
+current binary SHA-256:
+`3c3d6d97509225864dba5524294265344edb62e15192d9f133b80ae2c2306aa5`.
+Both exit 3 with empty stderr and identical 119,758-byte JSON diagnostics
+(`.build/goal-caller-bound-*-final.json`). Both have 529 final decisions and
+212 labels. Comparing decision multisets by function, check, candidate and
+position avoids dependence on concurrent trace order. Seven decision keys
+change: four new caller bounds and the existing unobserved-display stop bound
+become unknown; the new caller channel/group controls retain acceptance with
+the external-owner transfer reason. Every other final decision agrees. This
+does not claim equivalence of all trace events.
+
+Pinned stargz-snapshotter remains clean at
+`624678b4e421947534cbf0618f9609853cccee0f`. Parent/current static `./store`
+scans both exit 3 with empty stderr and identical 827-byte nonempty JSON
+(`.build/goal-caller-bound-stargz-*.json`). The reviewed worker TP at
+`store/manager.go:193:2` remains. Candidate tests, applications and generators
+were not run.
+
+The first `make verify` passes ordinary tests in 66 seconds but fails a
+test-only modernize lint check. The test uses `bytes.SplitSeq` in the final
+revision. Final `make verify` passes all gates, including ordinary tests in
+57 seconds, canonical formatting, generation, vet, lint, dead-code and local
+dogfood (`.build/goal-caller-bound-final-verify.log`). Documentation conformance
+also passes after recording these receipts. No full precision corpus replay
+or local race run is performed. The production FP queue remains 15 locations
+and the wider `gohawk-dho.44` review remains incomplete.

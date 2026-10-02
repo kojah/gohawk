@@ -181,30 +181,16 @@ func (analysis *spawnAnalysis) otherWorkerConsumesSignal() bool {
 	return false
 }
 
-// lifecycleProof settles workers whose completion is owned outside the
-// spawning function before any local flow is consulted.
+// lifecycleProof distinguishes an exact caller-owned completion handle from a
+// possible caller lifetime bound before local flow. A received stop signal or
+// context can explain ownership, but cannot prove the worker has been joined.
 func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 	if analysis.relayDependencyUncertain() {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonRelayDependency}, true
 	}
-	receiveBudget := analysis.budget()
-	if goroutineReceivesCallerSignal(analysis.pass, analysis.spawn, receiveBudget) {
-		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonStopLifecycle}, true
-	}
-	if goroutineReceivesCallerContext(analysis.pass, analysis.spawn, receiveBudget) {
-		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonContextLifecycle}, true
-	}
-	if goroutineReceivesLocallyCanceledContext(analysis.pass, analysis.spawn, receiveBudget) {
-		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonLocallyCanceledContext}, true
-	}
-	if goroutineReceivesReceiverContext(analysis.pass, analysis.spawn, receiveBudget) {
-		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonReceiverContext}, true
-	}
-	if receiveBudget.Exhausted() {
-		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonReceiveBudgetExhausted}, true
-	}
-	// A goroutine that completes through a caller-owned channel or wait group
-	// transfers its join obligation across the call boundary.
+	// Completion-handle ownership is independent of stop/context inputs. Keep
+	// the existing factory-opacity boundary before an external transfer claim;
+	// a possible lifetime bound must not replace either contract with a join.
 	for _, tracked := range analysis.tracked {
 		if tracked.kind == trackedSignal && helperSignalOrigin(tracked.value, analysis.spawn, analysis.budget()) {
 			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true
@@ -215,6 +201,22 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 		if tracked.kind == trackedGroup && opaqueGroupOrigin(tracked.value, analysis.budget()) {
 			return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true
 		}
+	}
+	receiveBudget := analysis.budget()
+	if goroutineReceivesCallerSignal(analysis.pass, analysis.spawn, receiveBudget) {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonStopLifecycle}, true
+	}
+	if goroutineReceivesCallerContext(analysis.pass, analysis.spawn, receiveBudget) {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonContextLifecycle}, true
+	}
+	if goroutineReceivesLocallyCanceledContext(analysis.pass, analysis.spawn, receiveBudget) {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonLocallyCanceledContext}, true
+	}
+	if goroutineReceivesReceiverContext(analysis.pass, analysis.spawn, receiveBudget) {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonReceiverContext}, true
+	}
+	if receiveBudget.Exhausted() {
+		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonReceiveBudgetExhausted}, true
 	}
 	if synctestOwnsGoroutine(analysis.function) {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonSynctestBubbleOwner}, true

@@ -56,6 +56,15 @@ bounds, never joins; the search preserves the existing opaque captured-cell
 boundary and receiver-field mutation checks. Its queries share the candidate's
 budget. Exhaustion suppresses reporting as `worker-receive-budget-exhausted`,
 while recursive and unavailable bodies remain unknown within the search.
+`gohawk-dho.44.6` projects the caller stop/context bounds as unknown too. The
+search finds a receive on any path; it does not show completion before the
+spawning function returns. Completion-handle ownership is resolved separately
+before those bounds, retaining the existing factory/registry opacity rules and
+the caller-owned channel/group transfer contract. `callerbounds/bounds.go`
+pairs both outcomes with real join and missing-join controls. The channel type
+guard still does not select a captured pointer-to-channel cell for the helper
+search; that form retains its uncovered-send diagnostic. Matcher coverage is
+unchanged by this outcome correction.
 Fixtures in `goroutineownership/receive_bindings.go` cover a receiver bound
 through the second helper call and an unrelated local receiver that supplies
 no caller-owned bound. Unit tests additionally cover diamonds, nested launches,
