@@ -53,6 +53,7 @@ const (
 	reasonLabelReturnedTracked
 	reasonLabelReturnedProjection
 	reasonLabelReturnedContainment
+	reasonLabelPossibleJoin
 	goroutineOwnershipReasonCount
 )
 
@@ -105,6 +106,7 @@ var ownershipReasonCodes = [...]string{
 	reasonLabelReturnedTracked:        "returned-tracked-value",
 	reasonLabelReturnedProjection:     "returned-signal-projection",
 	reasonLabelReturnedContainment:    "returned-possible-owner",
+	reasonLabelPossibleJoin:           "possible-join-receiver",
 }
 
 func (reason goroutineOwnershipReason) String() string {

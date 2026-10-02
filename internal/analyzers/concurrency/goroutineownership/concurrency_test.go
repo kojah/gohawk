@@ -8,11 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
-
-	"golang.org/x/tools/go/analysis/analysistest"
-	"golang.org/x/tools/go/ssa"
 )
 
 func TestConcurrencyJoinProofs(t *testing.T) {
@@ -33,32 +29,7 @@ func TestConcurrencyJoinProofs(t *testing.T) {
 		"uninvokedWaiter":     GoroutineUnknown,
 		"asynchronousWaiter":  GoroutineUnknown,
 	}
-	for _, result := range analysistest.Run(t, analysistest.TestData(), Analyzer(), "summaryjoins") {
-		functions, err := ssaflow.SourceSSAFunctions(result.Pass)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, function := range functions {
-			expected, ok := want[function.Name()]
-			if !ok {
-				continue
-			}
-			for _, spawn := range ssaflow.InstructionsOf[*ssa.Go](function) {
-				// The first launch owns the completion signal; a later waiter is
-				// deliberately not a join by the launching goroutine itself.
-				analysis := newSpawnAnalysis(result.Pass, function, spawn)
-				proof := analysis.prove()
-				if proof.Outcome != expected {
-					t.Errorf("%s: got %+v, want outcome %v", function.Name(), proof, expected)
-				}
-				delete(want, function.Name())
-				break
-			}
-		}
-	}
-	if len(want) != 0 {
-		t.Errorf("missing proof cases: %v", want)
-	}
+	assertSpawnProofs(t, want, "summaryjoins")
 	assertSummaryJoinTrace(t, tracePath)
 }
 

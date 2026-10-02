@@ -1025,3 +1025,96 @@ current source and fixtures with canonical formatting, vet, lint, generation,
 dead-code and local dogfood. Documentation conformance is checked separately
 again after recording these receipts. No local race or full precision corpus
 replay is run. The production FP queue remains 15 locations.
+
+### Goroutine join bindings at call boundaries
+
+`gohawk-dho.44.3.1` corrects exact join credit from possible call-site binding.
+The finite source fallback covers `classify.go` direct receiver acceptance,
+helper argument/capture binding, `Storage.Same`, the existing summary join
+adapter, and the fixture proof harness. Graph tools remain unavailable. The
+internal helper search and `isSignal` were read far enough to identify their
+may-relation use, but are not certified by this call-boundary correction;
+`gohawk-dho.44.4` owns that separate review.
+
+Actual SSA (`.build/goal-join-binding.ssa.txt`) supplies a phi between the
+worker's channel and another channel to a receiving helper, passes an aggregate
+whose channel field was overwritten, and calls Wait on a phi between the
+worker group and another group. The parent calls each `join-proven`. The new
+proof regression fails for all three in 4.254 seconds
+(`.build/goal-join-binding-parent-test.log`). A supplementary owner-receiver
+control likewise calls Close on a phi of the captured object and another
+object (`.build/goal-join-binding-owner.ssa.txt`).
+
+Direct WaitGroup and lifecycle acceptance now requires the shared storage
+identity proof for the receiver. Possible receiver identity remains unknown,
+with a stable `possible-join-receiver` label. A source-visible helper's
+must-join reaches the worker only after exact identity matches the supplied
+argument or capture to the tracked value; past containment and aggregate
+projections preserve unknown helper use. The existing exact summary adapter
+remains authoritative before that fallback. Exact helper and WaitGroup controls
+still honor the obligation, while the unrelated-channel diagnostic remains.
+
+The repeated fixture-to-proof loops in concurrency, transfer and new join
+binding tests now share `assertSpawnProofs`. It runs the diagnostic contract
+harness, checks the first launch's authoritative proof and requires every named
+case to be found. Later waiter launches retain their separate obligations;
+existing summary evidence tracing remains checked by its original assertion.
+Focused concurrency, transfer and join proof controls pass together in
+8.894 seconds; the supplementary mixed-owner control passes in 4.960 seconds.
+
+Scoped fixture CLI scans select goroutine ownership over `goroutineownership`,
+`summaryjoins`, `processexit`, `returnlabels`, `transferlabels` and `joinbindings`
+in the fixture GOPATH. Parent `.build/goal-join-binding-parent` SHA-256 is
+`662fed52e2e59ee5ecde2bb8b3ce99a1ce97182138e6405a55080a5a171d014e`;
+current `.build/goal-join-binding-current` SHA-256 is
+`eda518c15c0381ba6768066283f5856d7c7d452926452f66e846dfb109e1fe24`.
+Both exit 3 with empty stderr and identical 116,512-byte diagnostic JSON
+(`.build/goal-join-binding-*-final.json`). Both emit 506 final decisions and
+202 labels. Five final decisions change from `join-proven`/accepted to
+`opaque-ownership-transfer`/unknown: the four new uncertain-binding controls
+and the included dependency function `testing.runExample`. Every other final
+decision agrees. The two uncertain direct receivers emit the new unknown label
+with their launch candidates. These scans precede the final mechanical move
+of that label's reason selection into the direct classifier; final validation
+checks the resulting code below. No production FP removal is credited.
+
+The final unrelated-channel control receives from a closed channel, making its
+reported normal return feasible. With this fixture and direct reason selection
+moved into `directJoinAction`, final binary `.build/goal-join-binding-final`
+SHA-256 is
+`4eb4ca56a347235bdf73306da60aa877777ca2a2dddacd0c4e012dc13b0adf36`.
+Final scoped scans against the same parent again exit 3 with empty stderr,
+identical 116,512-byte JSON, 506 final decisions and 202 labels; the same five
+outcomes change to unknown (`.build/goal-join-binding-parent-control.*` and
+`.build/goal-join-binding-final.*`). The final focused join-binding regression
+passes in 16.275 seconds.
+
+Pinned production control containerd/stargz-snapshotter remains clean at
+`624678b4e421947534cbf0618f9609853cccee0f`. Parent and the pre-reason-relocation
+corrected binary scan `./store` with `CGO_ENABLED=0`, `GOFLAGS=-mod=readonly`
+and `GOWORK=off`; both exit 3 with empty stderr and identical nonempty 827-byte
+JSON (`.build/goal-join-binding-stargz-*.json`). The reviewed worker TP at
+`store/manager.go:193:2` is retained. These are static scans, with no candidate
+tests, generators or applications executed. No full precision corpus replay
+or local race run is performed. The 15 production FP locations are unchanged.
+
+The canonical gate initially passed ordinary tests in 132 seconds but found a
+complexity regression in the call dispatcher. Returning the action and stable
+reason together from `directJoinAction` removes that second reason-selection
+branch. `make verify` then passes all checks, including ordinary tests in
+72 seconds (`.build/goal-join-binding-final-verify.log`). A focused trace test
+also checks one label per mixed WaitGroup/mixed owner/exact WaitGroup receiver,
+with stable phase, reason, outcome, classifier label and candidate association.
+The final gate is rerun for that added trace control below.
+
+Exact receiver identity does not itself prove that an arbitrary lifecycle
+method observes worker completion. That remaining contract question, including
+name-based Close/Stop acceptance, is explicitly tracked in `gohawk-dho.44.5`.
+This call-boundary correction establishes a necessary identity gate, not a
+complete lifecycle-method semantics model. `gohawk-dho.44.3` and the broader
+finite classifier review remain open pending their outstanding proof scopes.
+
+The focused trace regression passes in 4.919 seconds. Final `make verify` with
+that control passes (`.build/goal-join-binding-trace-verify.log`), covering
+canonical formatting, generation, vet, lint, dead-code, ordinary tests and local
+dogfood. Documentation conformance is rechecked after recording the receipts.

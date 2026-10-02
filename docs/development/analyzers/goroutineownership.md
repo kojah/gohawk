@@ -32,8 +32,15 @@ handle returned beside an opaque result still covers the obligation.
 `transferlabels/transfers.go` pins both proof outcomes; the reporter continues
 to accept unknown ownership. GoMock result registration likewise retains
 possible containment as unknown rather than establishing exact stream identity.
-Helper join bindings based on broad containment require the separate review in
-`gohawk-dho.44.3`.
+`gohawk-dho.44.3.1` additionally requires exact call-site identity before a
+helper's join can cover the tracked value. A mixed argument or an aggregate
+that previously contained the channel keeps the helper use unknown. Direct
+WaitGroup and lifecycle acceptance likewise require the exact receiver;
+possible receivers are labelled `possible-join-receiver` and stay unknown.
+`joinbindings/joins.go` pairs those uncertain forms with exact helper and
+WaitGroup joins and an unrelated-channel diagnostic. Internal helper-body
+derivation and aggregate receive selection remain under review in
+`gohawk-dho.44.4`; the call-site correction does not certify them.
 Caller-owned channel and stable receiver-context bounds share one receive
 search, keyed by both function and local value. Repeated calls to the same
 helper therefore retain distinct formal bindings. These are possible lifetime

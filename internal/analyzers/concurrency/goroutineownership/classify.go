@@ -241,8 +241,8 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 		}
 		return actionNone, reasonNone
 	}
-	if analysis.callJoinsDirectly(common) {
-		return actionJoin, reasonLabelDirectJoin
+	if action, reason := analysis.directJoinAction(common); action != actionNone {
+		return action, reason
 	}
 	if analysis.closesRetainedWorkerOwner(instruction, common) {
 		return actionUnknown, reasonLabelClosesRetainedOwner
@@ -285,18 +285,32 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	return analysis.helperAction(common, callee, closure, analysis.tracked), reasonLabelHelper
 }
 
-// callJoinsDirectly recognizes Wait on a settling group or a lifecycle method
-// on a tracked owner as acceptance evidence. A deferred call counts because
-// it runs on every return.
-func (analysis *spawnAnalysis) callJoinsDirectly(common *ssa.CallCommon) bool {
+// Direct acceptance needs the exact receiver on every reaching path. A mixed
+// receiver might observe completion, so it remains unknown instead of being
+// treated as unrelated bookkeeping or as a guaranteed join.
+func (analysis *spawnAnalysis) directJoinAction(common *ssa.CallCommon) (ownershipAction, goroutineOwnershipReason) {
 	receiver := ssaflow.CallReceiver(common)
 	if receiver == nil {
-		return false
+		return actionNone, reasonNone
 	}
-	if ssaflow.CallMatchesSymbol(common, waitGroupWait) && heapmodel.MayAliasAny(receiver, analysis.groups) {
-		return true
+	targets := analysis.owners
+	possible := ownerReceiver(receiver, targets)
+	if ssaflow.CallMatchesSymbol(common, waitGroupWait) {
+		targets = analysis.groups
+		possible = heapmodel.MayAliasAny(receiver, targets)
+	} else if !lifecycleMethod(ssaflow.CallName(common)) {
+		return actionNone, reasonNone
 	}
-	return lifecycleMethod(ssaflow.CallName(common)) && ownerReceiver(receiver, analysis.owners)
+	storage := heapmodel.NewStorage(analysis.budget())
+	for _, target := range targets {
+		if storage.Same(receiver, target).Proven() {
+			return actionJoin, reasonLabelDirectJoin
+		}
+	}
+	if possible || storage.Budget().Exhausted() {
+		return actionUnknown, reasonLabelPossibleJoin
+	}
+	return actionNone, reasonNone
 }
 
 var waitGroupAdd = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "WaitGroup", Name: "Add"})
@@ -349,8 +363,14 @@ func (analysis *spawnAnalysis) helperAction(
 			// possible shutdown path, but loses the exact field identity. A
 			// helper action on that aggregate is unknown, never an exact join.
 			// https://github.com/jech/galene/blob/6d9338e909fdecdd906150e4dda34e10d9869654/rtpconn/webclient.go#L878-L894
-			if !carried && action != actionNone {
-				action = actionUnknown
+			// Containment includes mixed arguments and past aggregate writes.
+			// Only exact binding can carry a callee's must-join back to this
+			// worker; possible bindings retain the helper use as unknown.
+			if action == actionJoin {
+				exactBinding := carried && heapmodel.NewStorage(analysis.budget()).Same(pair.Supplied, tracked.value).Proven()
+				if !exactBinding {
+					action = actionUnknown
+				}
 			}
 			result = strongerAction(result, action)
 		}
