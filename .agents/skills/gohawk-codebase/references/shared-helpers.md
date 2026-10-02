@@ -196,7 +196,7 @@ through the broker; the domain passes own raw fact import/export.
 |---|---|
 | `summaries.Provider.LifecycleEvidence` and `LifecycleEvidence.Prove` | obtain selected lifecycle evidence, then consult local and imported guarantees |
 | `lifecyclefacts.ResourceCleanup(type)` | which methods release a resource of this type |
-| `summaries.Provider.CallReturnsView` | does the call return a view onto its argument rather than a new owner? |
+| `summaries.Provider.ProveCallReturnsViewWithin` | does the call return a view onto its argument rather than a new owner? |
 
 Consumers obtain `LifecycleEvidence` through the broker. Raw `analysis.Pass.ImportObjectFact`
 and `analysis.Pass.ExportObjectFact` calls belong only in the package that

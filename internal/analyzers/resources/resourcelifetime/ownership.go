@@ -250,9 +250,14 @@ func (analysis *resourceAnalysis) wrapsResource(value ssa.Value, depth int, dire
 
 // unwrapWrapper peels the interface conversions a wrapper passes through on
 // its way to the next constructor, such as a handler boxed as slog.Handler.
-func unwrapWrapper(value ssa.Value) ssa.Value {
+func unwrapWrapper(value ssa.Value) ssa.Value { return unwrapWrapperWithin(value, nil) }
+
+func unwrapWrapperWithin(value ssa.Value, budget *ssaflow.SearchBudget) ssa.Value {
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentMakeInterface
 	for {
+		if !budget.Spend() {
+			return nil
+		}
 		inner, ok := ssaflow.UnwrapTransparentValue(value, forms)
 		if !ok {
 			return value

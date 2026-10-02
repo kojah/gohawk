@@ -586,7 +586,14 @@ func CallReturnsView(pass *analysis.Pass, instruction ssa.Instruction, target ss
 // ReturnsView binds this declaration's returned-view mask to the supplied
 // call and target using the same argument policy as lifecycle evidence.
 func (fact *Fact) ReturnsView(instruction ssa.Instruction, target ssa.Value) bool {
-	return factOwnsArgument(instruction, target, fact.Must.ReturnedView, nil)
+	return fact.ProveReturnsViewWithin(instruction, target, nil).Proven()
+}
+
+// ProveReturnsViewWithin binds the returned-view mask using existing exact
+// storage and guarded containment policy. Visits share budget; storage keeps
+// its QueryBudget cap. Cutoff is unknown, never evidence of a non-view.
+func (fact *Fact) ProveReturnsViewWithin(instruction ssa.Instruction, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	return proveFactOwnsArgumentWithin(instruction, target, fact.Must.ReturnedView, nil, budget)
 }
 
 // ArgumentRetainedByCallee reports whether the call's static callee is

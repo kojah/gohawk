@@ -10,8 +10,6 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
-	"github.com/kojah/gohawk/internal/lifecycle"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -490,65 +488,6 @@ func receiverCount(signature *types.Signature) int {
 		return 1
 	}
 	return 0
-}
-
-// factOwnsExactArgument is factOwnsArgument without containment: only the
-// target itself passed as the masked argument counts, so a literal that
-// captured the target is not mistaken for it.
-func factOwnsExactArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask) bool {
-	return factArgumentMatches(instruction, target, mask, func(value, target ssa.Value) bool {
-		return heapmodel.NewStorage(nil).Same(value, target).Proven()
-	})
-}
-
-func factArgumentMatches(instruction ssa.Instruction, target ssa.Value, mask ParameterMask, matches func(ssa.Value, ssa.Value) bool) bool {
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	for index, argument := range common.Args {
-		if mask.contains(index) && matches(argument, target) {
-			return true
-		}
-	}
-	return false
-}
-
-// factOwnsArgument reports whether mask covers the argument which contains
-// target at this callsite.
-func factOwnsArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask, observer ssaflow.Observer) bool {
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	for index, argument := range common.Args {
-		if !mask.contains(index) {
-			continue
-		}
-		if heapmodel.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer)).Same(argument, target).Proven() {
-			return true
-		}
-		// Containment must not turn an ambiguous phi or a storage-history
-		// match into a guarantee about this target.
-		if !heapmodel.MayAlias(argument, target) && lifecycle.MayContainValue(argument, target) {
-			return true
-		}
-	}
-	return false
-}
-
-func factOwnsProjectedArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask, observer ssaflow.Observer) bool {
-	common := ssaflow.InstructionCall(instruction)
-	if common == nil {
-		return false
-	}
-	for index, argument := range common.Args {
-		storage := heapmodel.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
-		if mask.contains(index) && storage.Projection(argument, target, instruction).Proven() {
-			return true
-		}
-	}
-	return false
 }
 
 // lifecycleMask names one parameter claim for the fact dump and the trace.

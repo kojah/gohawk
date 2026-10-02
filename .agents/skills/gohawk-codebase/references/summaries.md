@@ -104,17 +104,6 @@ identity only: what the caller passed in is what it got back. Ownership,
 release, and every other lifecycle question about that value stay with
 the caller's own evidence.
 
-## Provider.CallReturnsView
-
-[Source](../../../../internal/summaries/provider.go)
-
-```go
-func (provider *Provider) CallReturnsView(call *ssa.Call, target ssa.Value) bool
-```
-
-CallReturnsView binds a selected lifecycle declaration through the domain's
-existing exact call-site evidence policy.
-
 ## Provider.Concurrency
 
 [Source](../../../../internal/summaries/provider.go)
@@ -171,6 +160,18 @@ func (provider *Provider) LifecycleEvidence(analyzer, check string) (*lifecyclef
 LifecycleEvidence provides existing exact call-site binding and local proof
 machinery under the selected lifecycle component. It does not equate a
 formal parameter guarantee with an instantiated caller obligation.
+
+## Provider.ProveCallReturnsViewWithin
+
+[Source](../../../../internal/summaries/provider.go)
+
+```go
+func (provider *Provider) ProveCallReturnsViewWithin(call *ssa.Call, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+```
+
+ProveCallReturnsViewWithin binds a selected lifecycle declaration using the
+domain's exact call-site policy and caller allowance. Missing declarations
+and binding cutoff remain unknown; graph/type and fact-copy costs are separate.
 
 ## Provider.ResultOf
 

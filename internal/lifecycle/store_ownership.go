@@ -48,16 +48,35 @@ func closureCallsCapturedValue(closure *ssa.MakeClosure, owns func(ssa.Value) bo
 // transitively contains value. Possible containment only: it can hide a
 // diagnostic behind an opaque owner, never prove that the owner settles it.
 func MayContainValue(owner, value ssa.Value) bool {
-	if !heapmodel.CanHoldReference(owner.Type()) {
-		return false
+	return ProveMayContainValueWithin(owner, value, nil).Proven()
+}
+
+// ProveMayContainValueWithin shares value, aggregate and capture traversal with
+// budget. Graph construction, graph-query and type internals remain separate.
+// Cutoff is unknown; a negative means no modeled containment, not actual absence.
+func ProveMayContainValueWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	if !budget.Spend() {
+		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
 	}
-	if valueOwnsValue(owner, value) || newOwnershipSearch(nil).aggregateStoresValue(owner, value) {
-		return true
+	found := false
+	if heapmodel.CanHoldReference(owner.Type()) {
+		search := newOwnershipSearch(nil)
+		search.budget = budget
+		found = valueOwnsValueWithin(owner, value, budget) || search.aggregateStoresValue(owner, value)
+		// Graph containment adds copies, merges and captured cells; visible
+		// constructors remain the recursive search's responsibility.
+		if !found && !search.exhausted() && budget.Spend() {
+			found = heapmodel.Contains(owner, value)
+		}
 	}
-	// The graph follows containment through copies, merges, and captured
-	// cells the value walk does not; the walk keeps the visible-constructor
-	// cases the graph, being intraprocedural, cannot see.
-	return heapmodel.Contains(owner, value)
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+	}
+	state, reason := ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
+	if found {
+		state, reason = ssaflow.EvidenceProven, ssaflow.EvidenceStructuralWalk
+	}
+	return ssaflow.Proof{State: state, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}
 }
 
 // MayContainValueAt is MayContainValue asked at one instruction: whether the
@@ -75,16 +94,18 @@ func MayContainValueAt(owner, value ssa.Value, at ssa.Instruction) bool {
 	return known && contained
 }
 
-func valueOwnsValue(owner, value ssa.Value) bool {
+func valueOwnsValue(owner, value ssa.Value) bool { return valueOwnsValueWithin(owner, value, nil) }
+
+func valueOwnsValueWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget) bool {
 	found := false
-	ssaflow.WalkStates([]ssa.Value{owner}, func(owner ssa.Value) ssa.Value { return owner }, func(owner ssa.Value) ([]ssa.Value, bool) {
+	ssaflow.WalkStatesWithin([]ssa.Value{owner}, func(owner ssa.Value) ssa.Value { return owner }, func(owner ssa.Value) ([]ssa.Value, bool) {
 		if owner == nil {
 			return nil, true
 		}
 		// A possible alias is evidence before wrappers are peeled. Only
 		// wrappers and closure captures extend this narrow ownership query;
 		// it does not independently fan out phi alternatives or call results.
-		if heapmodel.MayAlias(owner, value) {
+		if budget.Spend() && heapmodel.MayAlias(owner, value) {
 			found = true
 			return nil, false
 		}
@@ -95,22 +116,18 @@ func valueOwnsValue(owner, value ssa.Value) bool {
 		}
 		var successors []ssa.Value
 		if closure, ok := owner.(*ssa.MakeClosure); ok {
-			found = closureBindingsOwnValue(closure, value, func(binding ssa.Value) bool {
+			found = closureBindingsOwnValueWithin(closure, value, budget, func(binding ssa.Value) bool {
 				successors = append(successors, binding)
 				return false
 			})
 		}
 		return successors, !found
-	})
-	return found
+	}, budget)
+	return found && !budget.Exhausted() && !budget.PoolExhausted()
 }
 
 // Capture identity and cell contents are shared mechanics. The caller chooses
 // whether to follow only nested callbacks or also owning aggregates.
-func closureBindingsOwnValue(closure *ssa.MakeClosure, value ssa.Value, owns func(ssa.Value) bool) bool {
-	return closureBindingsOwnValueWithin(closure, value, nil, owns)
-}
-
 func closureBindingsOwnValueWithin(closure *ssa.MakeClosure, value ssa.Value, budget *ssaflow.SearchBudget, owns func(ssa.Value) bool) bool {
 	for _, binding := range closure.Bindings {
 		if !budget.Spend() {

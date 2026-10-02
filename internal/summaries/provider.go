@@ -183,9 +183,16 @@ func (provider *Provider) ConcurrencyAtCall(call ssa.CallInstruction, budget *ss
 	return provider.concurrency.AtCall(call, budget), Available
 }
 
-// CallReturnsView binds a selected lifecycle declaration through the domain's
-// existing exact call-site evidence policy.
-func (provider *Provider) CallReturnsView(call *ssa.Call, target ssa.Value) bool {
+// ProveCallReturnsViewWithin binds a selected lifecycle declaration using the
+// domain's exact call-site policy and caller allowance. Missing declarations
+// and binding cutoff remain unknown; graph/type and fact-copy costs are separate.
+func (provider *Provider) ProveCallReturnsViewWithin(call *ssa.Call, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	if !budget.Spend() {
+		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+	}
 	fact, availability := provider.ForFunction(call.Common().StaticCallee()).Lifecycle()
-	return availability == Available && fact.ReturnsView(call, target)
+	if availability != Available {
+		return ssaflow.Proof{Reason: ssaflow.EvidenceUnavailable}
+	}
+	return fact.ProveReturnsViewWithin(call, target, budget)
 }

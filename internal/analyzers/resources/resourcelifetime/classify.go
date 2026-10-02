@@ -468,7 +468,7 @@ func (analysis *resourceAnalysis) returnedWrapperPositionWithin(returned *ssa.Re
 		if !budget.Spend() {
 			return -1
 		}
-		if analysis.provenWrapperOf(result, maxWrapperChain) {
+		if analysis.provenWrapperOfWithin(result, maxWrapperChain, budget) && !resourceFlowExhausted(budget) {
 			return position
 		}
 	}
@@ -497,16 +497,32 @@ func (analysis *resourceAnalysis) returnedMayCarryWrapper(returned *ssa.Return) 
 }
 
 func (analysis *resourceAnalysis) provenWrapperOf(value ssa.Value, depth int) bool {
-	call, ok := unwrapWrapper(value).(*ssa.Call)
+	return analysis.provenWrapperOfWithin(value, depth, nil)
+}
+
+func (analysis *resourceAnalysis) provenWrapperOfWithin(value ssa.Value, depth int, budget *ssaflow.SearchBudget) bool {
+	if !budget.Spend() {
+		return false
+	}
+	call, ok := unwrapWrapperWithin(value, budget).(*ssa.Call)
 	if !ok || depth == 0 {
 		return false
 	}
 	for index, argument := range call.Common().Args {
-		inner := unwrapWrapper(argument)
-		if !heapmodel.MayAlias(inner, analysis.resource) && !analysis.provenWrapperOf(inner, depth-1) {
+		if !budget.Spend() {
+			return false
+		}
+		inner := unwrapWrapperWithin(argument, budget)
+		if resourceFlowExhausted(budget) {
+			return false
+		}
+		if !heapmodel.MayAlias(inner, analysis.resource) && !analysis.provenWrapperOfWithin(inner, depth-1, budget) {
 			continue
 		}
-		if owner, _ := analysis.evidence.CalleeClaims(call, index, lifecyclefacts.ClaimReturnsOwner); owner {
+		if !budget.Spend() {
+			return false
+		}
+		if owner, _ := analysis.evidence.CalleeClaims(call, index, lifecyclefacts.ClaimReturnsOwner); owner && !resourceFlowExhausted(budget) {
 			return true
 		}
 	}

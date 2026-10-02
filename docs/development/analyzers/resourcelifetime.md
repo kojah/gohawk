@@ -102,11 +102,9 @@ aggregate, derived and known-owner handoffs against unrelated and scalar
 results at every insufficient allowance. The heap census test uses two actual
 SSA results and two candidates to check dispatch cutoff and fresh recovery.
 
-Beads `gohawk-dho.44.11.5.18.1` retains the transitive cost review: wrapper
-decoding and view-summary
-binding still have independent costs, alongside graph and type internals.
-The return census, derivation and recursive ownership share allowance;
-this is not a complete query bound.
+The return census, derivation, recursive ownership, wrapper decoding and view
+binding now share allowance. Graph, alias-query and type internals retain
+independent costs; this is not a complete query bound.
 
 The recursive lifecycle ownership entry owns alias evidence as well as
 aggregate containment. Return results, loaded addresses, stored values and
@@ -146,8 +144,43 @@ allowance. Actual SSA controls cover direct and copied owners, helper stores,
 conditional construction, uncovered sibling returns, closures, phis and cycles;
 summary-hook pool cutoff cannot retain an owner, and a fresh query can retry.
 Graph construction, alias-query internals, type-system work and external summary
-hook internals still have independent costs. Resource wrapper decoding and view
-binding remain under Beads `gohawk-dho.44.11.5.18.1`.
+hook internals still have independent costs. Broader classifier integration
+remains under Beads `gohawk-dho.44.11.5.18.1`.
+
+Wrapper return queries now charge explicit interface/type/boxing decoding,
+constructor arguments, recursive chain steps and callee-claim dispatch against
+that flow allowance. The four-step chain cap and must-hold constructor policy
+are unchanged. `flow_wrapper_test.go` covers boxed direct/nested chains, unrelated
+inputs and over-depth chains at every insufficient allowance.
+
+Returned-view binding uses one domain proof through
+`summaries.Provider.ProveCallReturnsViewWithin`. Selected declaration lookup,
+argument visits and guarded containment share the allowance. Storage identity
+keeps its independent `QueryBudget` cap inside the caller pool, and its cutoff
+propagates as unknown even when the pool still has allowance. Ambiguous aliasing
+cannot become exact binding through containment. Legacy Boolean binding callers
+retain their previous independent cap and fallback; broader integration remains
+open. `binding_budget_test.go` checks exact, unrelated, ambiguous and contained
+arguments, fresh recovery, and an actual SSA conversion chain exceeding the
+storage cap without exhausting its caller. Broker tests distinguish absent
+knowledge from an available declaration with no view claim.
+
+The resource projection decision propagates view-binding and storage-projection
+cutoff rather than treating it as missing evidence. A known non-cleaning view
+still cannot discharge its resource merely because it has a Close method;
+missing declarations retain the existing method-set fallback. Graph construction,
+graph-query internals, alias/type queries and fact-copy costs remain separate.
+These changes do not establish cleanup through possible containment.
+
+The binding-cutoff overlay deliberately treats an interrupted view query as
+missing evidence; the resource control then fails because method-set acceptance
+wins despite the caller pool remaining available. This pins cutoff propagation
+at the consumer as well as the domain proof. Scoped resource controls use
+immutable `.build/goal-view-binding-current`, SHA-256
+`6e31425bec28db667942e9594c16b018a189256d95cabd9157e158cb36f7cf63`.
+Cute and Ferro retain the pins/scopes above, exit 3 and 0 respectively, and
+byte-identical JSON versus the recursive-owner binary. Both stderr files are
+empty. This credits no additional FP correction or corpus result.
 
 The scoped resource controls above were repeated with immutable
 `.build/goal-return-owner-complete`, SHA-256

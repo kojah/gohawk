@@ -444,6 +444,18 @@ ProveEnclosingCompletion follows callback arguments from their lexical
 owner, requiring all discovered invocations to have the same cleanup
 guarantee. An incomplete traversal is Unknown, never a cleanup proof.
 
+## ProveMayContainValueWithin
+
+[Source](../../../../internal/lifecycle/store_ownership.go)
+
+```go
+func ProveMayContainValueWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+```
+
+ProveMayContainValueWithin shares value, aggregate and capture traversal with
+budget. Graph construction, graph-query and type internals remain separate.
+Cutoff is unknown; a negative means no modeled containment, not actual absence.
+
 ## ProveReturnedCleanup
 
 [Source](../../../../internal/lifecycle/completion_returned.go)

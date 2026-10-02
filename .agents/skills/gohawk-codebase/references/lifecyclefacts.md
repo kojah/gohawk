@@ -319,6 +319,18 @@ MethodMask returns the parameters on which the callee calls method on the
 parameter itself on every normal return: the empty-path discharges. A
 cleanup of something beneath the parameter is not included.
 
+## Fact.ProveReturnsViewWithin
+
+[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+
+```go
+func (fact *Fact) ProveReturnsViewWithin(instruction ssa.Instruction, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+```
+
+ProveReturnsViewWithin binds the returned-view mask using existing exact
+storage and guarded containment policy. Visits share budget; storage keeps
+its QueryBudget cap. Cutoff is unknown, never evidence of a non-view.
+
 ## Fact.ReceiverStore
 
 [Source](../../../../internal/passes/lifecyclefacts/heap.go)
