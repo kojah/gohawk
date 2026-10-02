@@ -34,3 +34,23 @@ var (
 		}
 	}
 }
+
+func TestResultTupleReferenceCapability(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "resultreferences", `package resultreferences
+func void() {}
+func scalar() (int, bool) { return 0, false }
+func pointer() (int, *int) { return 0, new(int) }
+func boxed() (int, any) { return 0, nil }
+func callback() (int, func()) { return 0, func() {} }
+func nested() (int, struct{ p *int }) { return 0, struct{ p *int }{} }
+func plain() (int, struct{ n int }) { return 0, struct{ n int }{} }
+`)
+	for name, want := range map[string]bool{
+		"void": false, "scalar": false, "plain": false,
+		"pointer": true, "boxed": true, "callback": true, "nested": true,
+	} {
+		if got := CanHoldReference(pkg.Func(name).Signature.Results()); got != want {
+			t.Errorf("%s results hold references=%v, want %v", name, got, want)
+		}
+	}
+}

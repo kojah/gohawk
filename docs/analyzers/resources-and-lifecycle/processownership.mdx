@@ -19,6 +19,7 @@ check reports a command that is waited on or handed on along some return paths
 but not others. Commands built by helpers or reached through callbacks are not checked.
 A command used only for local pipe reads, writes, and closes is left alone, as
 is a command started at most once by `main` of an executable.
+Commands registered with other code before starting are left alone.
 Branches excluded by a helper’s guaranteed return value are skipped.
 
 The full list of precision boundaries, with the fixtures that pin each one, is

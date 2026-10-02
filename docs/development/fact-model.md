@@ -1156,3 +1156,13 @@ unknown/stale/mixed origins cannot. Fresh `make` maps, slices and channels can
 be local while their elements remain opaque, provided no selection has been
 exposed. Opaque calls and loaded unknown values remain unavailable. The query
 lives in `store_exclusivity.go`; exact slot and content policy remain separate.
+
+## Reference capability of SSA results
+
+Shared containment checks distinguish reference capability from provenance.
+By-value type traversal follows struct fields, arrays and SSA tuple components;
+reference edges remain leaves. Empty and scalar-only result tuples cannot
+retain lifecycle owners. Mixed tuples and their reference-bearing projections
+can, without proving that any particular result actually owns the supplied
+value. Process startup discovery applies this prerequisite before wrapper-owner
+completion; call effects remain a separate query about the instruction itself.

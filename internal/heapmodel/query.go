@@ -76,7 +76,8 @@ func graphStoredPath(root, target ssa.Value, at ssa.Instruction) ([]string, bool
 // object. A string, a number, or a struct or array made only of them cannot:
 // a string's bytes are never an object the program releases. The points-to
 // graph can still link such a value to the object it was read from, as a
-// string field is to its owner, so containment asks the type first.
+// string field is to its owner, so containment asks the type first. SSA result
+// tuples can retain references only through their component types.
 // Real-world form: ForceCLI passes a zip entry's Name to strings.HasPrefix
 // while the entry's reader is open,
 // https://github.com/ForceCLI/force/blob/662af739b980a568fa55e3a4d7efe65cf2ec15b1/command/fetch.go#L321-L330
@@ -85,7 +86,7 @@ func CanHoldReference(value types.Type) bool {
 		switch value := value.Underlying().(type) {
 		case *types.Basic:
 			return value.Kind() == types.UnsafePointer || value.Kind() == types.Invalid
-		case *types.Struct, *types.Array:
+		case *types.Struct, *types.Array, *types.Tuple:
 			return false
 		default:
 			return true

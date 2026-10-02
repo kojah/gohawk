@@ -211,6 +211,22 @@ internals retain independent costs.
 
 ## Startup owner and successful-return queries
 
+Only result types capable of retaining references enter the wrapper-owner
+inventory. Void calls, scalar-only SSA tuples and scalar projections cannot
+own the command. Mixed tuples keep the tuple and their reference-capable
+projections; pointers, interfaces, functions and reference-bearing aggregates
+remain eligible. This avoids asking completion about the nonexistent result of
+[Ferro's configuration helper](https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/mcp/stdio.go#L135).
+
+Result filtering does not erase instruction effects. A dominating helper with
+no reference-bearing result can still retain or asynchronously expose the
+command. The existing bounded local call-effect query makes such participation
+unknown, including unavailable bodies and cutoffs; known reads and configuration
+writes alone leave the obligation local. Possible retention never proves Wait.
+`prestart_values.go` pairs a void registration with a non-retaining scalar helper
+and a conditional Wait. `prestart_values_test.go` pins actual SSA result shapes,
+configuration writes and complete versus interrupted call-effect answers.
+
 Registered wrapper candidates are part of the completed pre-Start inventory.
 Argument and result-referrer visits share that census allowance; cutoff discards
 both instruction and owner prefixes. Later watcher discovery uses a bounded

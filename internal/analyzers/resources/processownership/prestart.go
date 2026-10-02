@@ -126,6 +126,9 @@ func processOwnershipDominatesStart(
 	command ssa.Value,
 ) bool {
 	for _, instruction := range before {
+		if handoff := possiblePreStartResultlessHandoff(proof, instruction, command); handoff.State == ssaflow.EvidenceUnknown {
+			return true
+		}
 		completion := lifecycle.CompletionRequest{
 			Instruction: instruction,
 			Target:      command,
@@ -151,6 +154,33 @@ func processOwnershipDominatesStart(
 	return false
 }
 
+// A non-reference result cannot be a wrapper owner, but its helper can still
+// retain or asynchronously expose the command. Such effects leave ownership
+// unknown; ordinary reads and configuration writes do not transfer it. Calls
+// with reference results retain the existing wrapper-owner proof above.
+func possiblePreStartResultlessHandoff(proof *commandProof, instruction ssa.Instruction, command ssa.Value) ssaflow.Proof {
+	missing := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+	call, ok := instruction.(*ssa.Call)
+	if !ok || heapmodel.CanHoldReference(call.Type()) {
+		return missing
+	}
+	budget := proof.budget()
+	for _, argument := range call.Common().Args {
+		if !budget.Spend() {
+			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+		}
+		if !heapmodel.MayAlias(argument, command) {
+			continue
+		}
+		effects := proof.evidence.CallEffectsWithin(call, argument, budget)
+		if !effects.Proven() || effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
+			effects.State = ssaflow.EvidenceUnknown
+			return effects.Proof
+		}
+	}
+	return missing
+}
+
 func processOwnersRegisteredBefore(before []ssa.Instruction, command ssa.Value, budget *ssaflow.SearchBudget) []ssa.Value {
 	var owners []ssa.Value
 	for _, instruction := range before {
@@ -159,6 +189,13 @@ func processOwnersRegisteredBefore(before []ssa.Instruction, command ssa.Value, 
 		}
 		call, ok := instruction.(*ssa.Call)
 		if !ok || call.Common().StaticCallee() == nil {
+			continue
+		}
+		// Only returned reference storage can be a wrapper owner. A void or
+		// scalar result cannot retain the command, even when its call uses it.
+		// Instruction-level cleanup and transfers are checked separately.
+		// https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/mcp/stdio.go#L135
+		if !heapmodel.CanHoldReference(call.Type()) {
 			continue
 		}
 		for _, argument := range call.Common().Args {
@@ -189,7 +226,7 @@ func appendRegisteredOwnerResults(owners []ssa.Value, call *ssa.Call, budget *ss
 		if !budget.Spend() {
 			return nil
 		}
-		if result, ok := reference.(*ssa.Extract); ok {
+		if result, ok := reference.(*ssa.Extract); ok && heapmodel.CanHoldReference(result.Type()) {
 			owners = append(owners, result)
 		}
 	}

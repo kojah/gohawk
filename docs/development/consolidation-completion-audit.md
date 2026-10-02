@@ -4988,3 +4988,26 @@ channel-phi hypothesis in `.23.16` was rejected by the engine before receiver
 counting; no behavior was changed for that unsupported case. Seven recorded
 production sites plus Rune and broader semantic/partial-duplication completion
 remain open; no production FP credit or full precision replay is claimed.
+
+## Startup result capability and pre-Start retention
+
+Beads `gohawk-dho.23.18` and `.23.19` reassess the seven production sites plus
+Rune and correct startup owner discovery. Shared reference-capability traversal
+now handles SSA tuples by their components. Void/scalar-only results and scalar
+projections cannot enter the wrapper-owner inventory. Pointer, interface,
+function and reference-bearing aggregate results remain candidates. A dominating
+helper with no reference-bearing result still receives the existing traced
+call-effect query: possible retention or asynchronous exposure is unknown,
+while known reads/configuration writes alone are not transfers.
+
+Parent-failing SSA/type controls and the accepted registry fixture pin the
+change. Full all-check process fixture payloads remove exactly one false alert
+(42 to 41); producer payloads remain identical at 22, with no added diagnostics.
+Canonical local verification passes. The
+[scoped audit](../../benchmarks/precision/audits/process-prestart-result-capability-2026-10-03.md)
+records five clean pinned production scopes and identical complete diagnostic
+payloads. Skywalking, goiardi and Rune alerts remain; Openase and Ferro silence
+still includes budget cutoffs and receives no FP credit. Ferro's invalid void
+owner is gone, but the next pipe-owner query cuts off. Constructor-state,
+caller-precondition, reader/session completion and guarded-publication models
+remain unresolved. No full precision replay or broad completion claim is made.
