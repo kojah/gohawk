@@ -129,24 +129,20 @@ func (graph *regionGraph) clobberedBeneath(state *regionState, target slot) (int
 }
 
 // backingOf finds the nearest slot above target that a snapshot was copied
-// into, and the path of target beneath it.
+// into, and the canonical relative path of target beneath it.
 func (graph *regionGraph) backingOf(state *regionState, target slot) (*region, string, bool) {
 	path := target.path
 	for {
 		if backing, ok := state.backing[slot{region: target.region, path: path}]; ok {
-			return backing, target.path[len(path):], true
+			// A nonempty prefix leaves a separating slash. The snapshot uses
+			// relative paths; keeping that slash names a different source slot
+			// and loses identity for an unchanged nested copy.
+			return backing, trimSlash(target.path[len(path):]), true
 		}
 		if path == "" {
 			return nil, "", false
 		}
 		path = parentPath(path)
-		if path == "" {
-			if backing, ok := state.backing[slot{region: target.region}]; ok {
-				rest := target.path
-				return backing, rest, true
-			}
-			return nil, "", false
-		}
 	}
 }
 
@@ -205,7 +201,7 @@ func (graph *regionGraph) copySubtree(state *regionState, source, destination sl
 	}
 	if backing, rest, ok := graph.backingOf(state, source); ok {
 		if _, direct := state.backing[destination]; !direct {
-			state.backing[destination] = graph.snapshotBeneath(backing, trimSlash(rest))
+			state.backing[destination] = graph.snapshotBeneath(backing, rest)
 		}
 	}
 }

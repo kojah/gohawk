@@ -4525,3 +4525,17 @@ probe identifies the next concrete correction, `gohawk-dho.44.11.5.27.21`.
 Structural alias/type and remaining summary-consumer review stay open, as do ten
 production FP sites and Rune. Independent cost boundaries are documented rather
 than claimed as one request-owned time bound.
+
+## Nested backing path correction
+
+Beads `gohawk-dho.44.11.5.27.21` corrects the confirmed nested copy defect:
+backingOf returns one canonical relative path, root lookup uses the same loop,
+and copy propagation no longer repairs the suffix independently. Unchanged
+copied fields retain exact identity while sibling, mutation and opaque-call
+cases remain unproved; existing cycle/depth cutoffs remain unknown.
+
+The [backing path review](../../benchmarks/precision/audits/nested-backing-paths-2026-10-02.md)
+records four parent-failing SSA cases, ten current controls, full heapmodel
+validation, a failing raw-path counterfactual and canonical/scoped receipts.
+No production FP removal is credited. Structural alias/type and other
+fact-consumer reviews, ten production FP sites and Rune remain open.

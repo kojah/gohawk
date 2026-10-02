@@ -192,6 +192,15 @@ turn uncertain unwritten contents into known zero values. The escaped-loop
 allocation bailout still precedes clearing, and resetting a site does not erase
 the graph's may-only history or another site's state.
 
+Backing snapshot lookup returns one canonical relative path below the nearest
+stored prefix. A nested prefix's separating slash is removed at lookup, so
+reading an unchanged copied field names the same source slot as a direct read.
+Root lookup uses the same traversal; copy propagation consumes that normalized
+path without repairing it again. Source stamps still distinguish later writes,
+opaque clobbers and sibling fields; cycle and depth cutoffs remain unknown.
+`store_backing_paths_test.go` pins nested/deeper/repeated copies and snapshots
+taken before a source change beside mutation and opaque-call controls.
+
 ## Heap summaries
 
 An instantiation of a generic function is usually a synthetic wrapper that
