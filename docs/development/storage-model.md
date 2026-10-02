@@ -34,6 +34,24 @@ be read after registration. Its caller must check the observation's own effects;
 callback mapping already checks that the callee reads its supplied aggregate.
 `Projection` proves an acquired owner's field has not been replaced or exposed.
 
+`StoreMayFollowWithin` shares dispatch, instruction-index scans and queued CFG
+visits with the requesting stability or completion query. Paths re-entering a
+loop-local allocation write a fresh cell and retain the existing exclusion.
+A false result at cutoff cannot certify that a later store is absent;
+`StableContent` and `StableFieldContent` inspect availability before publishing
+contents. The unused unbounded adapter is removed. Cycle metadata and
+graph/alias/type internals retain separate costs.
+
+Deferred binding setup also shares direct-store and target-relative store
+censuses with the completion request. A completed census supplies the
+intervening-write proof; no prefix or shortened negative ordering can establish
+target-relative cleanup. Stable binding lookup retains its `QueryBudget` child
+cap and explicitly invalidates the enclosing memo if that child stops while
+the request remains available. Default queries retain their prior alias and
+stable-content policy. `storage_order_budget_test.go` and
+`deferred_store_budget_test.go` cover later/intervening writes, fresh/reused
+loop cells, conditional acquisition, padded censuses, cutoff and recovery.
+
 `ProveStrictProjectionPathWithin` retains its `QueryBudget` child cap and
 returns `ProjectionPathProof`. For parameter roots it reuses the read-time
 parameter-path query and keeps the non-empty path in the proof. Completion

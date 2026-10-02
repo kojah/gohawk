@@ -33,7 +33,11 @@ func (storage *Storage) StableContent(address ssa.Value, observation ssa.Instruc
 		if !slotBeneath(location.path, written.path) && !slotBeneath(written.path, location.path) {
 			continue
 		}
-		if StoreMayFollow(location.root, observation, store) || ssaflow.BlockInCycle(store.Block()) && store.Block() != location.root.Block() {
+		follows := StoreMayFollowWithin(location.root, observation, store, storage.budget)
+		if storage.budget.Exhausted() || storage.budget.PoolExhausted() {
+			return storage.unknown(ssaflow.EvidenceBudgetExhausted, store)
+		}
+		if follows || ssaflow.BlockInCycle(store.Block()) && store.Block() != location.root.Block() {
 			return storage.unknown(ssaflow.EvidenceStorageWriteAfterObservation, store)
 		}
 	}

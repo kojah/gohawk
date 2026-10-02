@@ -75,8 +75,14 @@ for each; these times include each check's prerequisite passes.
   Path recording
   and translation share the same request allowance. Exact cleanup receivers
   charge only the selected wrapper traversal and retain phi/load opacity.
-  Deferred storage-path censuses and graph/alias internals retain separate
-  costs; this is not a whole-query bound.
+  Deferred direct-store and target-relative store censuses share the request
+  allowance. A complete census precedes the intervening-write proof; shortened
+  ordering cannot certify the absence of a replacement. Deferred stable-value
+  lookup retains its storage child cap and invalidates the enclosing memo at
+  an independent cutoff. Storage stability and deferred mapping use the same
+  bounded store-order query, preserving fresh loop allocations. Deferred graph
+  cell-relation queries and graph/alias/type internals retain separate costs;
+  this is not a whole-query bound.
   Named-result identity uses one shared all-return cell census. Deferred
   result-guard discovery builds it lazily at the first captured cell and
   reuses only a completed census within that discovery. First-slot direct

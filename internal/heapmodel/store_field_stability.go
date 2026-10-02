@@ -28,7 +28,11 @@ func (storage *Storage) StableFieldContent(address ssa.Value, observation ssa.In
 		if !exact || !slotBeneath(location.path, written.path) {
 			return storage.unknown(ssaflow.EvidenceStoragePartialWrite, store)
 		}
-		if store == observation || StoreMayFollow(location.root, observation, store) || ssaflow.BlockInCycle(store.Block()) {
+		follows := StoreMayFollowWithin(location.root, observation, store, storage.budget)
+		if storage.budget.Exhausted() || storage.budget.PoolExhausted() {
+			return storage.unknown(ssaflow.EvidenceBudgetExhausted, store)
+		}
+		if store == observation || follows || ssaflow.BlockInCycle(store.Block()) {
 			return storage.unknown(ssaflow.EvidenceStorageWriteAfterObservation, store)
 		}
 	}

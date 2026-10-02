@@ -66,16 +66,16 @@ func (search *completionSearch) capturedLocal(
 	// retain the original binding match for the later containment boundary.
 	exact := bindingMatches
 	if callee.launch == launchDeferred && invocation != nil {
-		if cell, ok := binding.(*ssa.Alloc); ok && valueHasDirectStore(cell) {
+		if cell, ok := binding.(*ssa.Alloc); ok && valueHasDirectStore(cell, search.budget) {
 			// A deferred literal reads its captured cell when the deferred
 			// calls run, after every store that follows the defer.
 			return search.deferredCellLocal(free, cell, target, invocation)
 		}
-		stable, ok := deferredBindingValue(binding, target, invocation)
-		if !ok {
+		stored := search.deferredBindingValue(binding, target, invocation)
+		if !stored.Proven() {
 			return mappedLocal{}, false
 		}
-		value, exact = stable, heapmodel.MayAlias(stable, target)
+		value, exact = stored.Value, heapmodel.MayAlias(stored.Value, target)
 	}
 	switch {
 	case exact:
@@ -142,7 +142,7 @@ func (search *completionSearch) deferredCellLocal(free ssa.Value, cell *ssa.Allo
 	case heapmodel.DeferredCellContains:
 		return mappedLocal{local: free, supplied: cell, kind: localExact}, true
 	case heapmodel.DeferredCellUnknown:
-		if !targetStoredOnPath(cell, target, invocation) {
+		if !targetStoredOnPath(cell, target, invocation, search.budget).Proven() {
 			return mappedLocal{}, false
 		}
 		// The merged state says the cell may hold something else, but only
@@ -310,4 +310,15 @@ func exactCleanupReceiver(receiver, parameter ssa.Value, budget *ssaflow.SearchB
 		return exactCleanupReceiver(inner, parameter, budget)
 	}
 	return receiver == parameter
+}
+
+// deferredBindingValue composes storage availability with completion's memo.
+// An independent storage child cutoff cannot become a cached negative mapping.
+func (search *completionSearch) deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction) heapmodel.StoredValue {
+	stored := deferredBindingValue(binding, target, invocation, search.budget)
+	if stored.Reason == ssaflow.EvidenceBudgetExhausted {
+		search.memo.Incomplete()
+		*search.incomplete = true
+	}
+	return stored
 }

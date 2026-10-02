@@ -18,21 +18,26 @@ var syncOnceFunc = syntax.PackageFunction("sync", "OnceFunc")
 // deferredBindingValue recovers the value a non-cell binding stands for
 // when the deferred callee runs. A captured cell is read by the points-to
 // graph instead; see deferredCellLocal.
-//
-//nolint:ireturn // SSA bindings have several concrete forms.
-func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction) (ssa.Value, bool) {
-	if heapmodel.MayAlias(binding, target) || ssaflow.ValueIsAccessPathFrom(target, binding) {
-		return binding, true
+// Stable lookup keeps the default storage child cap and preserves its cutoff
+// reason so completion can invalidate an enclosing memo answer.
+func deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction, budget *ssaflow.SearchBudget) heapmodel.StoredValue {
+	if !budget.Spend() {
+		return heapmodel.StoredValue{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}}
 	}
-	stored := heapmodel.NewStorage(nil).StableContent(binding, invocation)
-	return stored.Value, stored.Proven()
+	if heapmodel.MayAlias(binding, target) || ssaflow.ValueIsAccessPathFromWithin(target, binding, budget) {
+		return heapmodel.StoredValue{Proof: ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceCapturedByClosure}, Value: binding}
+	}
+	return heapmodel.NewStorage(budget.Within(ssaflow.QueryBudget)).StableContent(binding, invocation)
 }
 
-func valueHasDirectStore(value ssa.Value) bool {
+func valueHasDirectStore(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 	if value == nil || value.Referrers() == nil {
 		return false
 	}
 	for _, reference := range *value.Referrers() {
+		if !budget.Spend() {
+			return false
+		}
 		store, ok := reference.(*ssa.Store)
 		if ok && store.Addr == value {
 			return true
@@ -49,35 +54,64 @@ func valueHasDirectStore(value ssa.Value) bool {
 // does not dominate the defer. traefikoidc assigns a response in either a
 // retry callback or a direct call before deferring its close:
 // https://github.com/lukaszraczylo/traefikoidc/blob/61e60733a5be38428dee42eed626490f9609dad6/token_introspection.go#L84-L115
-func targetStoredOnPath(address, target ssa.Value, observation ssa.Instruction) bool {
+func targetStoredOnPath(address, target ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) ssaflow.Proof {
 	if address == nil || address.Referrers() == nil {
-		return false
+		return ssaflow.Proof{Reason: ssaflow.EvidenceUnavailable}
 	}
 	var stores []*ssa.Store
 	for _, reference := range *address.Referrers() {
+		if !budget.Spend() {
+			return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		}
 		store, ok := reference.(*ssa.Store)
 		if ok && store.Addr == address {
 			stores = append(stores, store)
 		}
 	}
 	for _, candidate := range stores {
-		if !heapmodel.MayAlias(candidate.Val, target) || !ssaflow.InstructionMayFollow(candidate, observation) {
+		if !budget.Spend() {
+			return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		}
+		matches := heapmodel.MayAlias(candidate.Val, target)
+		reaches := matches && ssaflow.InstructionMayFollowWithin(candidate, observation, budget)
+		if budget.Exhausted() || budget.PoolExhausted() {
+			return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		}
+		if !reaches {
 			continue
 		}
-		intervening := false
-		for _, other := range stores {
-			if other == candidate {
-				continue
-			}
-			if heapmodel.StoreMayFollow(address, observation, other) ||
-				ssaflow.InstructionMayFollow(candidate, other) && ssaflow.InstructionMayFollow(other, observation) {
-				intervening = true
-				break
-			}
+		intervening := proveInterveningStore(address, candidate, observation, stores, budget)
+		if intervening.State == ssaflow.EvidenceUnknown {
+			return intervening
 		}
-		if !intervening {
-			return true
+		if !intervening.Proven() {
+			return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStoredInEnclosingScope}
 		}
 	}
-	return false
+	return ssaflow.Proof{Reason: ssaflow.EvidenceUnavailable}
+}
+
+// proveInterveningStore checks the completed census before a target-relative
+// witness can be credited. A shortened absence search remains unknown.
+func proveInterveningStore(
+	address ssa.Value, candidate *ssa.Store, observation ssa.Instruction, stores []*ssa.Store, budget *ssaflow.SearchBudget,
+) ssaflow.Proof {
+	for _, other := range stores {
+		if !budget.Spend() {
+			return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		}
+		if other == candidate {
+			continue
+		}
+		follows := heapmodel.StoreMayFollowWithin(address, observation, other, budget)
+		between := !follows && ssaflow.InstructionMayFollowWithin(candidate, other, budget) &&
+			ssaflow.InstructionMayFollowWithin(other, observation, budget)
+		if budget.Exhausted() || budget.PoolExhausted() {
+			return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		}
+		if follows || between {
+			return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStorageConflictingWrites}
+		}
+	}
+	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
 }

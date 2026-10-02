@@ -1168,20 +1168,23 @@ Unlike StableContent, unrelated sibling fields are outside the question.
 Known asynchronous readers may read this slot but must not retain its
 address or write it. This says nothing about mutation of the loaded object.
 
-## StoreMayFollow
+## StoreMayFollowWithin
 
 [Source](../../../../internal/heapmodel/storage_order.go)
 
 ```go
-func StoreMayFollow(address ssa.Value, observation ssa.Instruction, store *ssa.Store) bool
+func StoreMayFollowWithin(address ssa.Value, observation ssa.Instruction, store *ssa.Store, budget *ssaflow.SearchBudget) bool
 ```
 
-StoreMayFollow reports whether the store can run after the observation on
+StoreMayFollowWithin reports whether the store can run after the observation on
 the same cell. A local declared inside a loop is a fresh allocation each
 iteration, so a store reached only by re-executing the allocation writes a
 different cell and does not reassign the observed one. cb-spider retries a
 request in a loop and defers the body close inside each iteration:
 https://github.com/cloud-barista/cb-spider/blob/5aa6bd8a8a09003dc168ac78f6ea987617de9d31/cloud-control-manager/cloud-driver/drivers/ibm/resources/PriceInfoHandler.go#L153-L169
+Dispatch, instruction indexing and queued CFG visits share budget.
+Cutoff supplies no ordering evidence: false cannot prove
+a store absent. Re-entering a loop allocation still denotes a fresh cell.
 
 ## StoredPathProof
 
