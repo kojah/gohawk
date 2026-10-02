@@ -66,6 +66,8 @@ type resourceAnalysis struct {
 	// pool is this acquisition's total across every query its proof asks;
 	// see budget.
 	pool *ssaflow.SearchBudget
+	// stores reuses one destination proof between release and opacity labels.
+	stores map[*ssa.Store]resourceStorageProof
 	// leak is the return at which the flow walk found the resource owed.
 	leak *ssa.Return
 }
@@ -250,13 +252,14 @@ func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction)
 	case *ssa.Return:
 		return resourceReasonReturnedWrapperRetains, analysis.returnedMayCarryWrapper(typed)
 	case *ssa.Store:
-		if proof := resourceExternalStorageProof(typed, analysis.resource); proof.State == ssaflow.EvidenceUnknown {
+		proof := analysis.resourceStorage(typed)
+		if proof.State == ssaflow.EvidenceUnknown {
 			return proof.Reason, true
 		}
 		// An owner selected from a collection may already be retained elsewhere.
 		// The local collection is not evidence that its elements are local owners.
 		// https://github.com/cloudflare/artifact-fs/blob/2b87a48691ef4ae82d391b7bbe4976c06c7fadf7/internal/fusefs/fuse_unix.go#L256-L287
-		owner := resourceFieldOwner(typed, analysis.resource)
+		owner := proof.Owner
 		_, field := typed.Addr.(*ssa.FieldAddr)
 		if field && owner != nil && ssaflow.ElementOfAggregate(owner) {
 			return resourceReasonStoredOnCollectionOwner, true

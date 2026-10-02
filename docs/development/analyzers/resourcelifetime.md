@@ -417,6 +417,19 @@ pins the accepted, reported, and opaque forms. The motivating
 [ferro receiver storage](https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/internal/admin/repository/sql_store.go#L73-L99)
 needs destination provenance, not a SQL-specific lifecycle exemption.
 
+Store disposition now returns the destination owner beside one structured proof.
+Owner collection no longer repeats stored-value derivation and containment to
+classify the same destination. During resource classification, release and
+opaque-consumption decisions reuse the completed disposition for that exact
+store. Cutoff answers are never memoized. Stored-value derivation and recursive
+containment share a `SummaryBudget` query drawn from the candidate pool; cutoff
+is unknown and cannot settle transfer. The default pre-acquisition owner census
+retains its existing allowance and remains separate work under
+`gohawk-dho.44.11.5.17`. Destination-origin and graph/alias internals retain
+independent costs. `storage_test.go` checks actual SSA for foreign/local,
+unrelated/contained, copied/replaced and opaque destinations at every
+insufficient allowance, plus fresh retry and reuse without a second search.
+
 
 The `owned` contract family is not a table. A constructor in another package
 whose returned struct holds a resource it acquired itself, and whose type has

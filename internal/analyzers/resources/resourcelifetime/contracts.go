@@ -341,7 +341,11 @@ func (analysis *resourceAnalysis) releasesOrdinaryResource(instruction ssa.Instr
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
-	if instructionSettlesResourceOwnership(evidence, instruction, resource) ||
+	stored := analysis.resourceStorage(instruction)
+	if stored.State == ssaflow.EvidenceUnknown && stored.Reason == resourceReasonBudgetExhausted {
+		return actionUnknown, stored.Reason
+	}
+	if stored.Proven() || instructionSettlesResourceOwnership(evidence, instruction, resource) ||
 		callTakesResourceOwnership(evidence, storage, instruction, resource, methods) ||
 		registersCleanupCallback(evidence, instruction, resource, methods) {
 		return settled()
@@ -527,12 +531,11 @@ func instructionSettlesResourceOwnership(
 			lifecycle.TransferOwnerStoredInExternalField | lifecycle.TransferStoredInOwnedMap |
 			lifecycle.TransferSentToReceiver | lifecycle.TransferCapturedByClosure,
 	}
-	return resourceExternalStorageProof(instruction, resource).Proven() ||
-		evidence.Prove(lifecyclefacts.EvidenceRequest{
-			Instruction: instruction,
-			Target:      resource,
-			Transfer:    &transfer,
-		}).Proven()
+	return evidence.Prove(lifecyclefacts.EvidenceRequest{
+		Instruction: instruction,
+		Target:      resource,
+		Transfer:    &transfer,
+	}).Proven()
 }
 
 // resourceReleaseMayFollow asks whether the caller can still claim cleanup
