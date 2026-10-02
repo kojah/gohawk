@@ -73,34 +73,6 @@ func checkPublicationCutoffs(t *testing.T, fn *ssa.Function, engine *Engine, wan
 	t.Fatal("publication never completed")
 }
 
-func TestDeclarationSharesInferenceAndPublicationAllowance(t *testing.T) {
-	fn := ssaflowtest.BuildPackage(t, "publication", publicationFixture).Func("Linear")
-	engine := NewEngine()
-	want, ok := engine.Declaration(fn, nil)
-	if !ok || len(want.Effects) != 2 || !reflect.DeepEqual(want.Effects[0].Fields, []int{0}) {
-		t.Fatalf("declaration=%+v/%v", want, ok)
-	}
-	// A cached summary saves inference work, but cannot skip field validation.
-	if got, ok := engine.Declaration(fn, ssaflow.NewSearchBudget(1)); ok || len(got.Effects) != 0 {
-		t.Fatalf("lookup-only allowance retained%+v/%v", got, ok)
-	}
-	for limit := 0; limit <= exportBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
-		got, ok := engine.Declaration(fn, budget)
-		if budget.Exhausted() {
-			if ok || len(got.Effects) != 0 || len(got.Workers) != 0 {
-				t.Fatalf("cut%d retained%+v", limit, got)
-			}
-			continue
-		}
-		if !ok || !reflect.DeepEqual(got, want) {
-			t.Fatalf("complete declaration=%+v/%v", got, ok)
-		}
-		return
-	}
-	t.Fatal("declaration never completed")
-}
-
 func TestInterruptedProjectionCannotUsePreviouslyInferredRoot(t *testing.T) {
 	fn := ssaflowtest.BuildPackage(t, "publication", publicationFixture).Func("Linear")
 	summary := NewEngine().Function(fn, nil)

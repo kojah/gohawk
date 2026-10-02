@@ -31,17 +31,6 @@ type Function struct {
 Function is an uninstantiated view of one declaration's guarantees.
 Call-site effects and ownership evidence require their separate adapters.
 
-## Function.Concurrency
-
-[Source](../../../../internal/summaries/provider.go)
-
-```go
-func (function Function) Concurrency(budget *ssaflow.SearchBudget) (concurrencyfacts.Fact, Availability)
-```
-
-Concurrency obtains complete formal-parameter effects, local or imported.
-Its completeness belongs only to this domain, never to the whole function.
-
 ## Function.Lifecycle
 
 [Source](../../../../internal/summaries/provider.go)

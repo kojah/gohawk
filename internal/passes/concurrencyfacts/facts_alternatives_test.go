@@ -81,3 +81,25 @@ func TestImportedAlternatives(t *testing.T) {
 	}
 	analysistest.Run(t, analysistest.TestData(), consumer, "branchuse")
 }
+
+// Mutating a caller-owned bound path must not rewrite the imported fact, even
+// before a summary of the caller has been cached.
+func assertImportedAlternativeCopy(t *testing.T, engine *Engine, caller *ssa.Function) {
+	t.Helper()
+	call := ssaflow.InstructionsOf[*ssa.Call](caller)[0]
+	bound := engine.AtCall(call, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	if len(bound.Paths) != 2 || len(bound.Paths[0].Operations) != 1 || len(bound.Paths[0].Conditions) != 1 {
+		t.Errorf("imported Pick binding = %+v", bound)
+		return
+	}
+	operation := bound.Paths[0].Operations[0]
+	condition := bound.Paths[0].Conditions[0]
+	bound.Paths[0].Operations[0].Resource.Value = nil
+	bound.Paths[0].Conditions[0].Holds = !condition.Holds
+	bound.Paths[0].Operations = nil
+	fresh := engine.AtCall(call, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	if len(fresh.Paths) != 2 || len(fresh.Paths[0].Operations) != 1 || len(fresh.Paths[0].Conditions) != 1 ||
+		fresh.Paths[0].Operations[0].Resource != operation.Resource || fresh.Paths[0].Conditions[0].Holds != condition.Holds {
+		t.Errorf("bound mutation changed imported evidence: %+v", fresh)
+	}
+}

@@ -1,0 +1,6 @@
+case	revision	scope	scan_exit	comparison	stdout_bytes	parent_receipt	current_receipt	bead
+lock-fixture	local-fixtures	lockorder	0	byte-identical	122985	.build/goal-concurrency-binding-final/lock-fixture-parent.json	.build/goal-concurrency-binding-final/lock-fixture-current.json	gohawk-dho.44.11.5.27.24.1
+capture-fixture	local-fixtures	concurrentcapture	0	byte-identical	18218	.build/goal-concurrency-binding-final/capture-fixture-parent.json	.build/goal-concurrency-binding-final/capture-fixture-current.json	gohawk-dho.44.11.5.27.24.1
+skywalking	e83d5925500a7e63dd55c080a9b1542d6cedaefb	./pkg/tools/buffer	0	byte-identical	3095	.build/goal-concurrency-binding-final/skywalking-parent.json	.build/goal-concurrency-binding-final/skywalking-current.json	gohawk-dho.44.11.5.27.24.1
+xd	b905a14ecfeceaa21a5dde82b52f164d075002ab	./lib/configparser	0	byte-identical	838	.build/goal-concurrency-binding-final/xd-parent.json	.build/goal-concurrency-binding-final/xd-current.json	gohawk-dho.44.11.5.27.24.1
+goiardi	937cae400a92d8036b88ae2f65d93506271c292e	./datastore ./indexer	0	byte-identical	1476	.build/goal-concurrency-binding-final/goiardi-parent.json	.build/goal-concurrency-binding-final/goiardi-current.json	gohawk-dho.44.11.5.27.24.1

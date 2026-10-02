@@ -98,18 +98,6 @@ func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBud
 
 AtCall binds complete local or imported effects to the caller's exact values.
 
-## Engine.BindDeclaration
-
-[Source](../../../../internal/passes/concurrencyfacts/declaration.go)
-
-```go
-func (engine *Engine) BindDeclaration(call ssa.CallInstruction, fact Fact, budget *ssaflow.SearchBudget) Summary
-```
-
-BindDeclaration instantiates published formal effects with the same binding
-rules as imported calls. Declaration identity must belong to this callee;
-the summary provider owns that lookup, while this pass owns field mapping.
-
 ## Engine.CondMutex
 
 [Source](../../../../internal/passes/concurrencyfacts/conditions.go)
@@ -121,20 +109,6 @@ func (engine *Engine) CondMutex(reference Reference, budget *ssaflow.SearchBudge
 CondMutex resolves the exact Mutex supplied to a NewCond allocation. It does
 not prove that L remains unchanged: callers need a complete root summary,
 which rejects condition-field access, mutation and opaque publication.
-
-## Engine.Declaration
-
-[Source](../../../../internal/passes/concurrencyfacts/declaration.go)
-
-```go
-func (engine *Engine) Declaration(function *ssa.Function, budget *ssaflow.SearchBudget) (Fact, bool)
-```
-
-Declaration returns the same formal-parameter vocabulary for local and
-imported functions. Local allocations and captures cannot be represented;
-callers needing local identities should use Function or AtCall instead.
-All returned slices are detached from the cached publication. Copying shares
-the supplied allowance; cutoff returns no declaration, never a partial fact.
 
 ## Engine.Function
 

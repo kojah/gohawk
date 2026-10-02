@@ -53,11 +53,20 @@ An available result component may still say `Unknown` for every result.
 Concurrency's complete ordered sequence remains its own domain contract, not
 a claim that the whole function is understood.
 
-Function views expose uninstantiated declaration guarantees. The provider's
+Result and lifecycle views expose uninstantiated declaration guarantees. The provider's
 lifecycle-evidence and concurrency-at-call adapters retain the existing exact
 argument, capture, and result binding machinery. A formal parameter mask is not
 already a guarantee about an arbitrary caller value. Private lifecycle bodies
 without a published declaration summary use the existing local evidence path.
+
+`ConcurrencyAtCall` delegates both local and imported calls to the concurrency
+engine's `AtCall`. The broker does not copy and bind a formal declaration first:
+the domain owns imported lookup, exact argument substitution, field
+materialization and cutoff reasons in one call path. The unused formal concurrency
+view and its declaration-copy adapter are removed. The imported/local two-mutex
+controls in `internal/summaries/concurrency_binding_test.go` pin effect order,
+caller values, call-site provenance, unavailable declarations and interrupted
+binding; an available component does not make an incomplete sequence complete.
 
 Every catalog analyzer consuming lifecycle or concurrency summaries obtains
 them through the broker. The existing domain evidence engines are retained.

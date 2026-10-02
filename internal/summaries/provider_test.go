@@ -53,23 +53,25 @@ func Unknown(value bool) bool { return value }
 	}}
 	for _, requested := range []bool{false, true} {
 		selection := Select(Requirements{Results: requested, Lifecycle: requested, Concurrency: requested})
-		view := selection.Provider(pass).ForFunction(function)
+		provider := selection.Provider(pass)
+		view := provider.ForFunction(function)
 		want := NotRequested
 		if requested {
 			want = Available
 		}
 		_, results := view.Results(ssaflow.NewSearchBudget(2000))
 		_, lifecycle := view.Lifecycle()
-		_, concurrency := view.Concurrency(ssaflow.NewSearchBudget(2000))
+		_, concurrency := provider.Concurrency()
 		if results != want || lifecycle != want || concurrency != want {
 			t.Fatalf("availability: %v %v %v want %v", results, lifecycle, concurrency, want)
 		}
 	}
 	selected := Select(Requirements{Results: true, Lifecycle: true, Concurrency: true})
-	missing := selected.Provider(nil).ForFunction(function)
+	missingProvider := selected.Provider(nil)
+	missing := missingProvider.ForFunction(function)
 	_, results := missing.Results(ssaflow.NewSearchBudget(2000))
 	_, lifecycle := missing.Lifecycle()
-	_, concurrency := missing.Concurrency(ssaflow.NewSearchBudget(2000))
+	_, concurrency := missingProvider.Concurrency()
 	if results != Unavailable || lifecycle != Unavailable || concurrency != Unavailable {
 		t.Fatal("missing prerequisites treated as requested evidence")
 	}

@@ -123,23 +123,6 @@ func (function Function) Lifecycle() (lifecyclefacts.Fact, Availability) {
 	return fact, Available
 }
 
-// Concurrency obtains complete formal-parameter effects, local or imported.
-// Its completeness belongs only to this domain, never to the whole function.
-func (function Function) Concurrency(budget *ssaflow.SearchBudget) (concurrencyfacts.Fact, Availability) {
-	provider := function.provider
-	if !provider.selection.requirements.Concurrency {
-		return concurrencyfacts.Fact{}, NotRequested
-	}
-	if provider.concurrency == nil {
-		return concurrencyfacts.Fact{}, Unavailable
-	}
-	fact, ok := provider.concurrency.Declaration(function.function, budget)
-	if !ok {
-		return fact, Unavailable
-	}
-	return fact, Available
-}
-
 // LifecycleEvidence provides existing exact call-site binding and local proof
 // machinery under the selected lifecycle component. It does not equate a
 // formal parameter guarantee with an instantiated caller obligation.
@@ -175,11 +158,8 @@ func (provider *Provider) ConcurrencyAtCall(call ssa.CallInstruction, budget *ss
 	if provider.concurrency == nil {
 		return concurrencyfacts.Summary{Reason: concurrencyfacts.ReasonComponentUnavailable}, Unavailable
 	}
-	if function := call.Common().StaticCallee(); function != nil && len(function.Blocks) == 0 {
-		if fact, availability := provider.ForFunction(function).Concurrency(budget); availability == Available {
-			return provider.concurrency.BindDeclaration(call, fact, budget), Available
-		}
-	}
+	// The domain engine owns both local and imported call binding. Copying a
+	// formal declaration here would add a second dispatch and cutoff path.
 	return provider.concurrency.AtCall(call, budget), Available
 }
 

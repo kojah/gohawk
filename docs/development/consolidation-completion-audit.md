@@ -4574,3 +4574,21 @@ twelve successful scoped scans. No production FP reduction is credited.
 `gohawk-dho.44.11.5.27.24` bounds the remaining summary-consumer review to a
 candidate source inventory that still requires verification. The overall
 architecture/easy-FP goal, ten production sites and Rune remain open.
+
+## Concurrency binding and unused formal view
+
+Beads `gohawk-dho.44.11.5.27.24.1` removes the broker's duplicate imported
+declaration copy/binding path and delegates selected calls to the concurrency
+engine. Dead-code and caller evidence identify the resulting unused formal
+view; its declaration lookup/copy path is removed too. Imported cache stability
+is tested through actual bound linear and alternative effects, while result and
+lifecycle views keep their existing role.
+
+The [binding review](../../benchmarks/precision/audits/concurrency-call-binding-2026-10-02.md)
+records parent/current local/imported controls, intermediate cutoff checks,
+three assertion-failing counterfactuals and final canonical validation. All 123
+lock/capture fixture diagnostics and pinned production output remain
+byte-identical across ten successful scans. No production FP reduction is
+credited. The typed location ledger identifies 71 broker references in 28
+analyzer files; semantic dispositions remain pending in parent .24. The overall
+goal, ten production FP sites and Rune remain open.
