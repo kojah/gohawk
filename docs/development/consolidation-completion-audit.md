@@ -4368,3 +4368,33 @@ The focused existing SSA mapping controls pass in
 targets in `.build/goal-owner-once-verify.log`, including ordinary tests and
 self-dogfood. No new test duplicates the unchanged policy, no production FP
 relabel is made, and no full precision replay or local race run is performed.
+
+
+## Resource acquisition cutoff projection
+
+Beads `gohawk-dho.44.11.5.28` consolidates the mechanically identical HEAD and
+local-header-only post-query cutoff wrappers into `resourceProof.within`.
+Each authoritative finder still runs first and retains its domain policy.
+The projection replaces interrupted evidence with Unknown/budget-exhausted;
+available state, reason and provenance pass through unchanged. No classifier,
+acquisition policy, evidence allowance or fact schema changes.
+
+Existing actual SSA HTTP allowance controls pass, including cold/fresh queries
+and accepted/diagnostic boundaries (`.build/goal-resource-cutoff-focused.log`).
+An ignored overlay returning the finder result without the projection fails
+both HTTP families on their cutoff assertions, rather than compilation:
+`.build/goal-resource-cutoff-overlay/result.log`. No new mirrored test is added.
+The refreshed same-scope duplicate scan examines 315 files and 2,138 bodies and
+retains exactly the six domain-distinct groups reviewed above; the wrapper
+copy is gone (`.build/goal-resource-cutoff-duplicates.json`). This is still a
+whole-function candidate review, not an absence claim about partial duplication.
+No production FP removal is credited. The broader architecture/identity review
+and eleven recorded production FP sites plus Rune remain open.
+
+Canonical `make verify` passes all local targets, including lint, deadcode,
+self-dogfood and ordinary tests (77 seconds):
+`.build/goal-resource-cutoff-verify.log`. The focused existing controls and
+counterfactual above verify the changed boundary; no broader production replay,
+full precision-regression audit or local race run is needed for this unchanged
+policy projection. The initial owner-query scan's confirmed wrapper work is now
+closed; its other six candidate dispositions remain unchanged.

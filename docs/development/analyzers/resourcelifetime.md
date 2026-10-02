@@ -24,6 +24,14 @@ one final decision for selected opaque/imported, deferred-release, memory-only,
 mixed-writer and reportable controls. No reporting policy, traversal, cleanup
 contract, query budget or exported summary schema changes with this projection.
 
+HTTP acquisition queries project their completed finder result through
+`resourceProof.within`. Child or shared-pool exhaustion replaces any earlier
+witness with `unknown/budget-exhausted`; available proofs retain their exact
+state, reason and provenance. HEAD acquisition uncertainty and proven local
+header-only framing keep separate finders and policies. The existing actual
+SSA HTTP allowance controls cover cold cutoffs, fresh children, changed request
+or server/client state and body-writing handlers.
+
 Helper cleanup labels preserve completion uncertainty: a budget-exhausted
 search yields `unknown/budget-exhausted`, not settled cleanup. Both suppress
 the leak report, but only proven cleanup or transfer discharges the obligation.

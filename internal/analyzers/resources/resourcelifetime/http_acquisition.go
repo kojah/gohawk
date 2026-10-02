@@ -63,11 +63,7 @@ func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call, budget *ssaflo
 // https://github.com/alexellis/arkade/blob/0a0a800fd7554d4eddb1856f9ef8a21214e95bab/pkg/get/get.go#L236-L244
 // https://github.com/deweizhu/bookget/blob/2cdbf6d6c3ce70355a5c4411c0faf3450e9ae877/pkg/downloader/downloader.go#L510-L522
 func proveHeadAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
-	proof := findHeadAcquisitionWithin(call, budget)
-	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
-	}
-	return proof
+	return findHeadAcquisitionWithin(call, budget).within(budget)
 }
 
 func findHeadAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {

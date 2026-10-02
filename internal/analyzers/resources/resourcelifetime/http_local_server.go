@@ -26,11 +26,7 @@ import (
 // same request: httptest configures that client with a transport to the
 // server and no timeout, so a header-only response has no body either.
 func proveLocalHeaderOnlyAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
-	proof := findLocalHeaderOnlyAcquisitionWithin(call, budget)
-	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
-	}
-	return proof
+	return findLocalHeaderOnlyAcquisitionWithin(call, budget).within(budget)
 }
 
 func findLocalHeaderOnlyAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
