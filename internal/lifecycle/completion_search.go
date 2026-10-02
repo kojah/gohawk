@@ -349,7 +349,7 @@ func (search *completionSearch) receives(local mappedLocal, receiver, target ssa
 	if search.exactTarget {
 		return search.invokesTargetLocal(receiver, local.local)
 	}
-	return local.receives(receiver, target)
+	return local.receives(receiver, target, search.budget)
 }
 
 func (search *completionSearch) startsTarget(candidate ssa.Instruction, locals []mappedLocal) bool {

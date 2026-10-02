@@ -47,12 +47,6 @@ func StructurallyIdenticalWithin(left, right ssa.Value, budget *SearchBudget) bo
 	})
 }
 
-// ProveIdentity reports whether two values denote corresponding access paths
-// beneath roots that the caller has already established as equivalent.
-func ProveIdentity(left, right AccessPath) IdentityProof {
-	return ProveIdentityWithin(left, right, nil)
-}
-
 // ProveIdentityWithin shares budget across structural identity, both path
 // searches and step comparison. Exhaustion is an unknown proof with the budget
 // reason, never differing paths. Roots must already be established as equivalent.

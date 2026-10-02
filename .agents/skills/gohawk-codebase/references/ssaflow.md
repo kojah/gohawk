@@ -2387,17 +2387,6 @@ share budget, including store-before-capture ordering. Cutoff publishes no
 map; nil budget retains the same binding policy without a work limit. Missing
 bodies yield a completed empty metadata census.
 
-## ProveIdentity
-
-[Source](../../../../internal/ssaflow/value_identity.go)
-
-```go
-func ProveIdentity(left, right AccessPath) IdentityProof
-```
-
-ProveIdentity reports whether two values denote corresponding access paths
-beneath roots that the caller has already established as equivalent.
-
 ## ProveIdentityWithin
 
 [Source](../../../../internal/ssaflow/value_identity.go)

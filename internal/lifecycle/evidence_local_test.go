@@ -143,20 +143,20 @@ func fields(left, right *owner) {
 		t.Fatalf("field address count = %d, want 3", len(fields))
 	}
 
-	direct := ssaflow.ProveIdentity(ssaflow.AccessPath{Value: function.Params[0]}, ssaflow.AccessPath{Value: function.Params[0]})
+	direct := ssaflow.ProveIdentityWithin(ssaflow.AccessPath{Value: function.Params[0]}, ssaflow.AccessPath{Value: function.Params[0]}, nil)
 	if !direct.Proven() || direct.Reason != ssaflow.EvidenceSameValue {
 		t.Fatalf("direct identity = %#v, want same-value proof", direct)
 	}
-	mapped := ssaflow.ProveIdentity(
+	mapped := ssaflow.ProveIdentityWithin(
 		ssaflow.AccessPath{Value: fields[0], Root: function.Params[0]},
-		ssaflow.AccessPath{Value: fields[1], Root: function.Params[1]},
+		ssaflow.AccessPath{Value: fields[1], Root: function.Params[1]}, nil,
 	)
 	if !mapped.Proven() || mapped.Reason != ssaflow.EvidenceSameAccessPath {
 		t.Fatalf("mapped identity = %#v, want same-access-path proof", mapped)
 	}
-	rejected := ssaflow.ProveIdentity(
+	rejected := ssaflow.ProveIdentityWithin(
 		ssaflow.AccessPath{Value: fields[0], Root: function.Params[0]},
-		ssaflow.AccessPath{Value: fields[2], Root: function.Params[1]},
+		ssaflow.AccessPath{Value: fields[2], Root: function.Params[1]}, nil,
 	)
 	if rejected.Proven() || rejected.State != ssaflow.EvidenceDisproven {
 		t.Fatalf("identity = %#v, want different fields disproven", rejected)

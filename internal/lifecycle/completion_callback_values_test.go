@@ -88,8 +88,12 @@ func TestCallbackCapabilityNestedCoverageChargesAllowance(t *testing.T) {
 	if proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("nested coverage bypassed allowance: %+v exhausted=%v/%v", proof, child.Exhausted(), pool.Exhausted())
 	}
-	if !ProveValueCallsMethodWithin(value, "Unlock", fn.Params[0], pool.Within(ssaflow.SummaryBudget)).Proven() {
-		t.Fatal("fresh nested coverage fails")
+	// Mapping the padded numeric capture now shares this allowance too.
+	// The thirty-step cutoff remains the coverage control; recovery gets
+	// a separate test allowance without changing any production limit.
+	fresh := pool.Within(2 * ssaflow.SummaryBudget)
+	if proof := ProveValueCallsMethodWithin(value, "Unlock", fn.Params[0], fresh); !proof.Proven() {
+		t.Fatalf("fresh nested coverage=%+v, exhausted=%v/%v", proof, fresh.Exhausted(), pool.Exhausted())
 	}
 }
 

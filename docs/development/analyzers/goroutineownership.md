@@ -288,7 +288,7 @@ connection. These are not join proofs.
 
 An opaque method can instead consume the exact field of a captured owner that
 the parent later cleans up. The retained-owner classifier maps that field with
-`ssaflow.ProveIdentity` through `CallBindings`, requiring stable captured cells.
+`ssaflow.ProveIdentityWithin` through `CallBindings`, requiring stable captured cells.
 It credits only unknown ownership on the cleanup path, never a join. The opaque
 call must be followed only by a nonblocking completion tail; a send, receive,
 second call, loop or arbitrary deferred work declines this additional mapping.

@@ -66,8 +66,11 @@ func TestLockReturnOwnerAndHandoffCutoff(t *testing.T) {
 		if ask(child) || !child.Exhausted() || pool.Exhausted() {
 			t.Fatalf("%s cutoff exhausted=%v/%v", name, child.Exhausted(), pool.Exhausted())
 		}
-		if !ask(pool.Within(ssaflow.SummaryBudget)) {
-			t.Fatalf("%s fresh capability query fails", name)
+		// Both padded callback bodies now charge numeric capture mapping too;
+		// retain their padding and small cutoff with separate recovery allowance.
+		fresh := pool.Within(2 * ssaflow.SummaryBudget)
+		if !ask(fresh) {
+			t.Fatalf("%s fresh capability query fails, exhausted=%v/%v", name, fresh.Exhausted(), pool.Exhausted())
 		}
 	}
 }

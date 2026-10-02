@@ -898,7 +898,20 @@ func ProveStoredPathWithin(root, target ssa.Value, observation ssa.Instruction, 
 ProveStoredPathWithin shares graph dispatch, selection/referrer visits and
 storage queries with budget. The storage child retains its QueryBudget cap;
 its cutoff is unknown even when the caller remains available. Graph/alias/type
-internals remain separate costs. Nil preserves StoredPath's default allowance.
+internals remain separate costs. Nil retains the default storage allowance.
+
+## ProveStrictProjectionPathWithin
+
+[Source](../../../../internal/heapmodel/store_projection.go)
+
+```go
+func ProveStrictProjectionPathWithin(value, root ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+```
+
+ProveStrictProjectionPathWithin shares path and stored-value visits with
+budget while retaining the default QueryBudget cap. A child cutoff remains
+unknown even if its parent still has allowance. This establishes a path,
+not stability or ownership; graph and alias internals retain separate costs.
 
 ## QueryEscape
 
@@ -1151,19 +1164,6 @@ iteration, so a store reached only by re-executing the allocation writes a
 different cell and does not reassign the observed one. cb-spider retries a
 request in a loop and defers the body close inside each iteration:
 https://github.com/cloud-barista/cb-spider/blob/5aa6bd8a8a09003dc168ac78f6ea987617de9d31/cloud-control-manager/cloud-driver/drivers/ibm/resources/PriceInfoHandler.go#L153-L169
-
-## StoredPath
-
-[Source](../../../../internal/heapmodel/store_access_paths.go)
-
-```go
-func StoredPath(root, target ssa.Value, observation ssa.Instruction) ([]string, bool)
-```
-
-StoredPath returns the access path beneath root at which target is stored,
-as observed at observation: the field or constant-index selection whose
-content is the target. It looks one and two selections deep, which covers
-a field of a struct and an element of an array held in a field.
 
 ## StoredPathProof
 

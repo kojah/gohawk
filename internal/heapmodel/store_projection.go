@@ -168,8 +168,24 @@ func instructionWithinObservation(candidate, origin, observation ssa.Instruction
 // selected storage remains unchanged at a later observation; use Projection
 // for that stronger question.
 func StrictProjectionPath(value, root ssa.Value) bool {
-	depth, ok := strictAccessPathDepth(value, root, map[ssa.Value]bool{}, ssaflow.NewSearchBudget(ssaflow.QueryBudget))
-	return ok && depth > 0
+	return ProveStrictProjectionPathWithin(value, root, nil).Proven()
+}
+
+// ProveStrictProjectionPathWithin shares path and stored-value visits with
+// budget while retaining the default QueryBudget cap. A child cutoff remains
+// unknown even if its parent still has allowance. This establishes a path,
+// not stability or ownership; graph and alias internals retain separate costs.
+func ProveStrictProjectionPathWithin(value, root ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+	child := budget.Within(ssaflow.QueryBudget)
+	depth, ok := strictAccessPathDepth(value, root, map[ssa.Value]bool{}, child)
+	if child.Exhausted() || child.PoolExhausted() {
+		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+	}
+	state, reason := ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
+	if ok && depth > 0 {
+		state, reason = ssaflow.EvidenceProven, ssaflow.EvidenceSameAccessPath
+	}
+	return ssaflow.Proof{State: state, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}
 }
 
 func strictAccessPathDepth(value, root ssa.Value, seen map[ssa.Value]bool, budget *ssaflow.SearchBudget) (int, bool) {

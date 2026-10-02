@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -72,4 +73,33 @@ func mappingBudgetCase(t *testing.T, fn *ssa.Function) (completionCallee, ssa.Va
 		target = ssaflow.CapturedBindingValue(closure.Bindings[0])
 	}
 	return callee, target, call
+}
+
+// A strict projection's own child may stop while the request remains usable.
+// That shortened answer must invalidate the enclosing completion memo too.
+func TestMappingChildCutoffInvalidatesMemo(t *testing.T) {
+	pkg := buildTestSSA(t, `package ssaflowtest
+ type node struct {child *node}
+ func(*node)Close(){}
+ func take(*node){}
+ func deep(p *node){take(p.`+strings.Repeat("child.", ssaflow.QueryBudget)+`child)}
+ `)
+	fn := pkg.Func("deep")
+	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
+	search := newCompletionSearch("Close", CoverageEveryReturn, ssaflow.NewSearchBudget(100*ssaflow.QueryBudget))
+	key := completionKey{instruction: call, target: fn.Params[0]}
+	attempts := 0
+	for range 2 {
+		search.memo.Answer(key, func() completionAnswer {
+			attempts++
+			_, ok := search.argumentLocal(call.Common().StaticCallee().Params[0], call.Common().Args[0], fn.Params[0], call)
+			if ok || search.budget.Exhausted() || !*search.incomplete {
+				t.Fatalf("child mapping=%v, exhausted=%v, incomplete=%v", ok, search.budget.Exhausted(), *search.incomplete)
+			}
+			return completionAnswer{available: true}
+		})
+	}
+	if attempts != 2 {
+		t.Fatal("memo retained a child-cut mapping answer")
+	}
 }

@@ -32,7 +32,7 @@ that fans out over phi edges or threads its own visited set.
 | `ValueDerivesFrom`, `MayAliasThroughLoads` | is this value a wrapped, loaded, or merged form of that one? (possible identity) |
 | `DefinitelySameValue` | definite value identity; does not infer equality from mutable storage history |
 | `MayAlias`, `MayAliasAny`, `MayContainValue` | possible identity or containment; the May prefix is the contract: never a guarantee that an action settles the target |
-| `ProveIdentity`, `SameAccessPath`, `ValueIsAccessPathFrom` | structured identity of two access paths; is this value a field or index path from that root? |
+| `ProveIdentityWithin`, `SameAccessPath`, `ValueIsAccessPathFrom` | structured identity of two access paths; is this value a field or index path from that root? |
 | `Storage.Resolve`, `Storage.Content`, `Storage.Same` | what value does local storage contain at this point, and does its identity agree? |
 | `Storage.StableContent`, `Storage.Projection` | is captured storage stable, or is an acquired owner's projection still unmodified? |
 | `IdentitySource` | the identity-only source behind wrappers and loads (not for ownership) |

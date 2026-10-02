@@ -45,7 +45,7 @@ func wrapped(a chan int) chan<- int { return a }
 				if got := heapmodel.DefinitelySameValue(pair[0], pair[1]); got != test.want {
 					t.Errorf("DefinitelySameValue(%s, %s) = %t, want %t", pair[0], pair[1], got, test.want)
 				}
-				proof := ssaflow.ProveIdentity(ssaflow.AccessPath{Value: pair[0]}, ssaflow.AccessPath{Value: pair[1]})
+				proof := ssaflow.ProveIdentityWithin(ssaflow.AccessPath{Value: pair[0]}, ssaflow.AccessPath{Value: pair[1]}, nil)
 				if proof.Proven() != test.want {
 					t.Errorf("identity proof = %#v, want proven %t", proof, test.want)
 				}

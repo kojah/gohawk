@@ -86,7 +86,8 @@ func TestCorrespondingPathIdentityBudget(t *testing.T) {
 	}
 	full := NewSearchBudget(QueryBudget)
 	proof := ProveIdentityWithin(left, right, full)
-	if !proof.Proven() || proof.Reason != EvidenceSameAccessPath || full.Exhausted() || proof != ProveIdentity(left, right) || !SameAccessPath(left, right) {
+	defaultProof := ProveIdentityWithin(left, right, nil)
+	if !proof.Proven() || proof.Reason != EvidenceSameAccessPath || full.Exhausted() || proof != defaultProof || !SameAccessPath(left, right) {
 		t.Fatal("corresponding paths must retain the exact default proof")
 	}
 	// Leave one fewer step than the completed query needs: path discovery

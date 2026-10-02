@@ -52,9 +52,7 @@ func twice(s, other *T) {
 		if target == nil || argument == nil {
 			t.Fatalf("%s: lock target or argument not found", name)
 		}
-		if got := sameValueStorageOwner(target, argument) != nil; got != want {
-			t.Errorf("%s: owner found = %t, want %t", name, got, want)
-		}
+		checkStorageOwnerAllowance(t, target, argument, want)
 	}
 }
 
@@ -115,4 +113,26 @@ func opaqueCell(s *T) {
 			}
 		})
 	}
+}
+
+func checkStorageOwnerAllowance(t *testing.T, target, argument ssa.Value, want bool) {
+	t.Helper()
+	if got := sameValueStorageOwner(target, argument, nil) != nil; got != want {
+		t.Fatalf("default owner=%v, want %v", got, want)
+	}
+	for limit := 1; limit <= ssaflow.QueryBudget; limit++ {
+		budget := ssaflow.NewSearchBudget(limit)
+		owner := sameValueStorageOwner(target, argument, budget)
+		if budget.Exhausted() {
+			if owner != nil {
+				t.Fatalf("cut %d publishes owner %v", limit, owner)
+			}
+			continue
+		}
+		if (owner != nil) != want {
+			t.Fatalf("complete %d: owner=%v, want found %v", limit, owner, want)
+		}
+		return
+	}
+	t.Fatal("owner query never completed")
 }

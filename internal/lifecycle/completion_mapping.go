@@ -128,7 +128,7 @@ func (search *completionSearch) deferredCellLocal(free ssa.Value, cell *ssa.Allo
 	// https://github.com/basecamp/basecamp-cli/blob/d91fc7b3ae5ee3c54a7fea389f59e791173e647b/internal/connector/queue.go#L264-L290
 	stored := heapmodel.NewStorage(search.budget).StableContent(cell, invocation)
 	if stored.Proven() {
-		if owner := sameValueStorageOwner(target, stored.Value); owner != nil {
+		if owner := sameValueStorageOwner(target, stored.Value, search.budget); owner != nil {
 			return mappedLocal{local: free, supplied: owner, kind: localOwner}, true
 		}
 	}
@@ -169,14 +169,21 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{}, false
 	}
 	switch {
-	case ssaflow.ProveIdentity(ssaflow.AccessPath{Value: argument}, ssaflow.AccessPath{Value: target}).Proven():
+	case ssaflow.ProveIdentityWithin(ssaflow.AccessPath{Value: argument}, ssaflow.AccessPath{Value: target}, search.budget).Proven():
 		return mappedLocal{local: parameter, supplied: argument, kind: localExact}, true
 	case search.valueCallsMethod(argument, target):
 		return mappedLocal{local: parameter, supplied: argument, kind: localCallback}, true
-	case heapmodel.StrictProjectionPath(argument, target):
+	}
+	projection := heapmodel.ProveStrictProjectionPathWithin(argument, target, search.budget)
+	if projection.Reason == ssaflow.EvidenceBudgetExhausted {
+		search.memo.Incomplete()
+		*search.incomplete = true
+		return mappedLocal{}, false
+	}
+	if projection.Proven() {
 		return mappedLocal{local: parameter, supplied: argument, kind: localProjection}, true
 	}
-	if owner := sameValueStorageOwner(target, argument); owner != nil {
+	if owner := sameValueStorageOwner(target, argument, search.budget); owner != nil {
 		// The same storage beneath an owner proven to be the argument: a
 		// receiver captured by a closure is spilled to a cell written once,
 		// so the lock's owner and the helper's argument are two loads of
@@ -186,10 +193,15 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{local: parameter, supplied: owner, kind: localOwner}, true
 	}
 	switch {
-	case MayContainValue(argument, target):
-		path, _ := heapmodel.StoredPath(argument, target, invocation)
-		return mappedLocal{local: parameter, supplied: argument, kind: localExact, path: path}, true
-	case ssaflow.ValueIsAccessPathFrom(target, argument):
+	case ProveMayContainValueWithin(argument, target, search.budget).Proven():
+		stored := heapmodel.ProveStoredPathWithin(argument, target, invocation, search.budget)
+		if stored.Reason == ssaflow.EvidenceBudgetExhausted {
+			search.memo.Incomplete()
+			*search.incomplete = true
+			return mappedLocal{}, false
+		}
+		return mappedLocal{local: parameter, supplied: argument, kind: localExact, path: stored.Path}, true
+	case ssaflow.ValueIsAccessPathFromWithin(target, argument, search.budget):
 		return mappedLocal{local: parameter, supplied: argument, kind: localOwner}, true
 	}
 	return mappedLocal{}, false
@@ -200,10 +212,10 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 // otherwise. The target is storage beneath the owner, not its stored value;
 // a matching cleanup must select the same path, never a sibling field.
 // https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
-func sameValueStorageOwner(target, argument ssa.Value) ssa.Value { //nolint:ireturn // SSA values keep their concrete forms.
+func sameValueStorageOwner(target, argument ssa.Value, budget *ssaflow.SearchBudget) ssa.Value { //nolint:ireturn // SSA values keep their concrete forms.
 	switch target.(type) {
 	case *ssa.FieldAddr, *ssa.IndexAddr:
-		if ssaflow.ValueIsAccessPathFrom(target, argument) {
+		if ssaflow.ValueIsAccessPathFromWithin(target, argument, budget) {
 			return argument
 		}
 	default:
@@ -211,6 +223,9 @@ func sameValueStorageOwner(target, argument ssa.Value) ssa.Value { //nolint:iret
 	}
 	root := target
 	for {
+		if !budget.Spend() {
+			return nil
+		}
 		switch address := root.(type) {
 		case *ssa.FieldAddr:
 			root = address.X
@@ -221,8 +236,11 @@ func sameValueStorageOwner(target, argument ssa.Value) ssa.Value { //nolint:iret
 		}
 		break
 	}
-	if root == target || !ssaflow.ValueIsAccessPathFrom(target, root) ||
+	if root == target || !ssaflow.ValueIsAccessPathFromWithin(target, root, budget) ||
 		root != argument && !heapmodel.DefinitelySameValue(root, argument) {
+		return nil
+	}
+	if budget.Exhausted() || budget.PoolExhausted() {
 		return nil
 	}
 	return root
@@ -230,7 +248,7 @@ func sameValueStorageOwner(target, argument ssa.Value) ssa.Value { //nolint:iret
 
 // receives reports whether a call receiver inside the callee stands for the
 // caller's target through this local.
-func (local mappedLocal) receives(receiver, target ssa.Value) bool {
+func (local mappedLocal) receives(receiver, target ssa.Value, budget *ssaflow.SearchBudget) bool {
 	if receiver == nil {
 		return false
 	}
@@ -245,14 +263,15 @@ func (local mappedLocal) receives(receiver, target ssa.Value) bool {
 				return ssaflow.JoinAccessPath(actual) == ssaflow.JoinAccessPath(local.path)
 			}
 		}
-		return heapmodel.ValueDerivesFrom(receiver, local.local)
+		return heapmodel.ValueDerivesFromWithin(receiver, local.local, budget)
 	case localProjection:
 		return exactCleanupReceiver(receiver, local.local)
 	case localOwner:
 		// The callee closes the path beneath its local that mirrors the
 		// target's path beneath the supplied owner, such as resp.Body from a
 		// captured resp.
-		return ssaflow.ProveIdentity(ssaflow.AccessPath{Value: receiver, Root: local.local}, ssaflow.AccessPath{Value: target, Root: local.supplied}).Proven()
+		return ssaflow.ProveIdentityWithin(ssaflow.AccessPath{Value: receiver, Root: local.local},
+			ssaflow.AccessPath{Value: target, Root: local.supplied}, budget).Proven()
 	case localCallback:
 	}
 	return false

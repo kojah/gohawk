@@ -54,8 +54,13 @@ for each; these times include each check's prerequisite passes.
   Captured-value selection, binding matching, derivation, static paths and
   aggregate containment reuse their bounded owning-layer queries. Original
   capture identity is evaluated once and kept separate from deferred stable-
-  value identity. Deferred storage-path censuses and graph/alias internals
-  retain separate costs; this is not a whole-query bound.
+  value identity. Argument mapping and receiver matching also share the request
+  allowance through identity, derivation and path queries. Strict projections
+  retain a QueryBudget child cap and expose its cutoff as unknown; a stopped
+  projection or stored-path question cannot fall through into broader mapping.
+  Static storage-owner roots share path and selection visits. Deferred storage-
+  path censuses, parameter spill-path extraction and graph/alias internals retain
+  separate costs; this is not a whole-query bound.
   Named-result identity uses one shared all-return cell census. Deferred
   result-guard discovery builds it lazily at the first captured cell and
   reuses only a completed census within that discovery. First-slot direct

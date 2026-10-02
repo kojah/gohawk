@@ -40,7 +40,7 @@ depth. Graph dispatch, referrer/selection visits and storage queries share the
 caller allowance; structural storage retains its independent `QueryBudget`
 child cap. Either caller or child cutoff returns unknown with the budget reason,
 even when the caller still has allowance. Graph/alias/type internals remain
-separate costs. `StoredPath` delegates with its existing default allowance.
+separate costs. A nil budget retains the existing default storage allowance.
 
 `resourcemodel.ProveRelation` first asks exact identity, then requests this
 stored-path proof. Interrupted identity cannot fall through to path evidence.
@@ -79,7 +79,7 @@ address checks use the effect query rather than separate read-only scanners.
 Return-to-argument relationships, conditional transfers, collection cleanup,
 and general pointer analysis remain outside this increment.
 
-The pure `DefinitelySameValue` and `ProveIdentity` primitives still answer
+The pure `DefinitelySameValue` and `ProveIdentityWithin` primitives still answer
 value identity and structural path correspondence, respectively. They do not
 guess current contents from historical stores. Likewise, `StoredInto` and
 possible-origin traversal remain useful for escape and containment questions;

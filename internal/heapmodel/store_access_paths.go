@@ -119,15 +119,6 @@ func SelectionsOfWithin(root ssa.Value, path []string, budget *ssaflow.SearchBud
 	return frontier
 }
 
-// StoredPath returns the access path beneath root at which target is stored,
-// as observed at observation: the field or constant-index selection whose
-// content is the target. It looks one and two selections deep, which covers
-// a field of a struct and an element of an array held in a field.
-func StoredPath(root, target ssa.Value, observation ssa.Instruction) ([]string, bool) {
-	proof := ProveStoredPathWithin(root, target, observation, nil)
-	return proof.Path, proof.Proven()
-}
-
 // StoredPathProof identifies the exact observed field/element path or preserves
 // an unavailable search. Possible containment does not establish this relation.
 type StoredPathProof struct {
@@ -138,7 +129,7 @@ type StoredPathProof struct {
 // ProveStoredPathWithin shares graph dispatch, selection/referrer visits and
 // storage queries with budget. The storage child retains its QueryBudget cap;
 // its cutoff is unknown even when the caller remains available. Graph/alias/type
-// internals remain separate costs. Nil preserves StoredPath's default allowance.
+// internals remain separate costs. Nil retains the default storage allowance.
 func ProveStoredPathWithin(root, target ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) StoredPathProof {
 	if !budget.Spend() {
 		return storedPathProof(nil, budget, nil)
