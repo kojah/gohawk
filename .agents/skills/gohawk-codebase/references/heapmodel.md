@@ -21,8 +21,8 @@ func AccessPathFromParameter(value, parameter ssa.Value) ([]string, bool)
 
 AccessPathFromParameter extends ssaflow.AccessPathSteps with spill cells as
 alternative roots: a struct or array parameter is copied into a local
-cell before a field is selected, and a cell that is only ever written
-whole from the parameter holds exactly the parameter's contents.
+cell before a field is selected. The cell must still contain that parameter
+when its contents are read; writing only whole values is not sufficient.
 
 ## AccessPathFromParameterWithin
 
@@ -34,7 +34,8 @@ func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *ssaflow.S
 
 AccessPathFromParameterWithin shares direct path, spill-store and whole-cell
 questions with budget. A cutoff publishes no path, including an empty one;
-callers retain budget availability. Nil keeps the original spill policy.
+callers retain budget availability. Replaced, ambiguous or exposed contents
+cannot name the original parameter. Nil retains the default storage allowance.
 
 ## AliasDecision
 

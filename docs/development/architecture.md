@@ -59,7 +59,14 @@ for each; these times include each check's prerequisite passes.
   retain a QueryBudget child cap and expose its cutoff as unknown; a stopped
   projection or stored-path question cannot fall through into broader mapping.
   Static storage-owner roots share path and selection visits. Parameter spill
-  paths use bounded direct-path and whole-written-cell queries; path recording
+  paths use bounded direct-path, whole-written-cell and reaching-write queries.
+  A spill path requires the original contents at its nearest-root read;
+  replacement cannot be rescued by possible derivation when matching cleanup
+  of a caller's field target. A proven empty path still permits the aggregate's
+  own cleanup method. Saved reads and agreeing writes retain exact paths.
+  Receiver proofs keep possible derivation separate: a loop can supply cleanup
+  uncertainty without supplying an exact completing action.
+  Path recording
   and translation share the same request allowance. Exact cleanup receivers
   charge only the selected wrapper traversal and retain phi/load opacity.
   Deferred storage-path censuses and graph/alias internals retain separate

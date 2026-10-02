@@ -879,6 +879,15 @@ retains diagnostics for another returned collection and a return that drops
 the populated slice. Shared tests cover fixed and dynamic element stores and
 unrelated values. Containment remains possible ownership, not exact release.
 
+Completion receiver matching distinguishes an exact field path from possible
+derivation through an aggregate. Whole-aggregate spill replacement cannot
+credit cleanup of the original field target. Saved reads and agreeing writes
+retain exact cleanup, while possible dynamic-element cleanup inside a cycle
+retains `helper-cleanup-in-loop` uncertainty. The same receiver proof supplies
+both answers; possible cleanup never becomes a settling action. Shared controls
+live in `completion_spill_replacement_test.go`; the accepted loop cases remain
+in `looped_helper_cleanup.go` and `returned_slice_elements.go`.
+
 Passing the collection whole to a helper that releases every element of it on
 every normal return is also understood, and settles the resource at the call,
 as the loop's exit edge does. The helper's claim is the lifecycle discharge

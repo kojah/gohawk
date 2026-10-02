@@ -22,6 +22,19 @@ type AccessPath struct {
 AccessPath identifies one SSA value relative to the aggregate root from
 which its fields and indexes are selected.
 
+## AccessPathReadWithin
+
+[Source](../../../../internal/ssaflow/access_paths.go)
+
+```go
+func AccessPathReadWithin(value, root ssa.Value, budget *SearchBudget) ([]string, *ssa.UnOp, bool)
+```
+
+AccessPathReadWithin names the same static path and its load nearest root.
+That load snapshots the root's contents before later pointer selections or
+wrappers. A path with no load has a nil read; it supplies no snapshot.
+Cutoff or an unmodeled path publishes neither the path nor a read.
+
 ## AccessPathSteps
 
 [Source](../../../../internal/ssaflow/access_paths.go)

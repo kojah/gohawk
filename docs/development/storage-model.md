@@ -49,6 +49,25 @@ never proves a path absent. `stored_path_budget_test.go` and
 `relations_budget_test.go` cover exact/replaced paths, the depth boundary,
 structural child cutoff, fresh recovery and identity-to-path cutoff.
 
+## Parameter spill paths
+
+Parameter spill paths reuse the same reaching-write query at the load nearest
+the root, obtained by `ssaflow.AccessPathReadWithin` through the existing static
+path traversal. An earlier field read survives later whole-aggregate replacement
+and interface wrapping; a read of replacement contents cannot name the original
+parameter. Agreeing branch writes retain identity, while conflicting writes and
+exposure leave it unknown. An address has no read snapshot, so all whole writes
+must agree. Path discovery uses writes-only storage identity and never requests
+a points-to graph. Supplied budgets cover path visits, contents and identity;
+cutoff publishes neither a path nor read metadata.
+
+`parameter_spill_replacement_test.go`, `spill_replacement_test.go` in
+`lifecyclefacts`, and `completion_spill_replacement_test.go` pin the storage,
+exported-contract and caller-target boundaries. Completion may not fall back to
+possible derivation when an aggregate field target's exact path is unavailable.
+The same receiver proof retains possible cleanup as loop uncertainty, preserving
+accepted dynamic-element helpers without claiming they settle the exact target.
+
 ## Call effects
 
 `ssaflow.CallEffects` supplies bounded local effect evidence to storage and

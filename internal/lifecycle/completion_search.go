@@ -334,7 +334,13 @@ func (search *completionSearch) methodCompletes(candidate ssa.Instruction, calle
 	}
 	receiver := ssaflow.CallReceiver(called)
 	for _, local := range locals {
-		if search.receives(local, receiver, target) {
+		match := search.receives(local, receiver, target)
+		if match.Possible && ssaflow.BlockInCycle(candidate.Block()) {
+			// A dynamic aggregate element can witness possible loop cleanup,
+			// never exact completion of the caller's field target.
+			*search.inCycle = true
+		}
+		if match.Proven() {
 			if ssaflow.BlockInCycle(candidate.Block()) {
 				*search.inCycle = true
 			}
@@ -345,9 +351,9 @@ func (search *completionSearch) methodCompletes(candidate ssa.Instruction, calle
 	return false
 }
 
-func (search *completionSearch) receives(local mappedLocal, receiver, target ssa.Value) bool {
+func (search *completionSearch) receives(local mappedLocal, receiver, target ssa.Value) receiverProof {
 	if search.exactTarget {
-		return search.invokesTargetLocal(receiver, local.local)
+		return receiverMatchProof(search.invokesTargetLocal(receiver, local.local))
 	}
 	return local.receives(receiver, target, search.budget)
 }

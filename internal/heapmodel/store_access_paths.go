@@ -17,15 +17,16 @@ import (
 
 // AccessPathFromParameter extends ssaflow.AccessPathSteps with spill cells as
 // alternative roots: a struct or array parameter is copied into a local
-// cell before a field is selected, and a cell that is only ever written
-// whole from the parameter holds exactly the parameter's contents.
+// cell before a field is selected. The cell must still contain that parameter
+// when its contents are read; writing only whole values is not sufficient.
 func AccessPathFromParameter(value, parameter ssa.Value) ([]string, bool) {
 	return AccessPathFromParameterWithin(value, parameter, nil)
 }
 
 // AccessPathFromParameterWithin shares direct path, spill-store and whole-cell
 // questions with budget. A cutoff publishes no path, including an empty one;
-// callers retain budget availability. Nil keeps the original spill policy.
+// callers retain budget availability. Replaced, ambiguous or exposed contents
+// cannot name the original parameter. Nil retains the default storage allowance.
 func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *ssaflow.SearchBudget) ([]string, bool) {
 	if path, ok := ssaflow.AccessPathStepsWithin(value, parameter, budget); ok {
 		return path, true
@@ -48,11 +49,38 @@ func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *ssaflow.S
 		if budget.Exhausted() || budget.PoolExhausted() {
 			return nil, false
 		}
-		if path, ok := ssaflow.AccessPathStepsWithin(value, cell, budget); ok {
+		path, read, ok := ssaflow.AccessPathReadWithin(value, cell, budget)
+		if ok && spillStillContainsParameter(cell, parameter, read, budget) {
 			return path, true
 		}
 	}
 	return nil, false
+}
+
+// Whole-written cells can also hold a different aggregate later. A loaded
+// value keeps the contents read at its own snapshot, including through later
+// wrappers; the reaching-write query already owns that point-in-time proof.
+// An address has no snapshot, so every whole write must agree with the parameter
+// before it can stand for the parameter's field at an unknown later use.
+func spillStillContainsParameter(cell *ssa.Alloc, parameter ssa.Value, read *ssa.UnOp, budget *ssaflow.SearchBudget) bool {
+	storage := NewStorage(budget)
+	// Fact path discovery must not build a graph for an opaque aggregate.
+	// Exact load identities use the same reaching-write engine as contents.
+	storage.writesOnly = true
+	if read != nil {
+		stored := storage.ContentFromWrites(cell, read)
+		return stored.Proven() && storage.Same(stored.Value, parameter).Proven()
+	}
+	for _, reference := range *cell.Referrers() {
+		if !budget.Spend() {
+			return false
+		}
+		store, ok := reference.(*ssa.Store)
+		if ok && store.Addr == cell && !storage.Same(store.Val, parameter).Proven() {
+			return false
+		}
+	}
+	return !budget.Exhausted() && !budget.PoolExhausted()
 }
 
 // ValueAtPath resolves the value stored at path beneath root as observed at

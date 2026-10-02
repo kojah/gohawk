@@ -246,35 +246,58 @@ func sameValueStorageOwner(target, argument ssa.Value, budget *ssaflow.SearchBud
 	return root
 }
 
-// receives reports whether a call receiver inside the callee stands for the
-// caller's target through this local.
-func (local mappedLocal) receives(receiver, target ssa.Value, budget *ssaflow.SearchBudget) bool {
+// receiverProof keeps a possible aggregate cleanup separate from an exact
+// receiver match. Only the latter can supply a must-complete action.
+type receiverProof struct {
+	ssaflow.Proof
+	Possible bool
+}
+
+// receives proves whether a call receiver stands for the caller's target.
+func (local mappedLocal) receives(receiver, target ssa.Value, budget *ssaflow.SearchBudget) receiverProof {
 	if receiver == nil {
-		return false
+		return receiverMatchProof(false)
 	}
 	switch local.kind {
 	case localExact:
 		if len(local.path) > 0 {
-			// A projection of the local must be the target's own path; the
-			// local itself, or a receiver with no static path, keeps the
-			// derivation rule, since the aggregate's own method may release
-			// what it holds.
-			if actual, ok := heapmodel.AccessPathFromParameterWithin(receiver, local.local, budget); ok && len(actual) > 0 {
-				return ssaflow.JoinAccessPath(actual) == ssaflow.JoinAccessPath(local.path)
+			// A field cleanup must select the target's exact path from the
+			// original aggregate. Possible derivation also sees overwritten
+			// spill contents, so it cannot rescue an unavailable path. An
+			// empty proven path still permits the aggregate's own method.
+			actual, ok := heapmodel.AccessPathFromParameterWithin(receiver, local.local, budget)
+			if !ok {
+				// Possible cleanup remains uncertainty, including a loop's
+				// dynamic element. It must never become a must-complete action.
+				if heapmodel.ValueDerivesFromWithin(receiver, local.local, budget) {
+					return receiverProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, Possible: true}
+				}
+				return receiverMatchProof(false)
+			}
+			if len(actual) > 0 {
+				return receiverMatchProof(ssaflow.JoinAccessPath(actual) == ssaflow.JoinAccessPath(local.path))
 			}
 		}
-		return heapmodel.ValueDerivesFromWithin(receiver, local.local, budget)
+		return receiverMatchProof(heapmodel.ValueDerivesFromWithin(receiver, local.local, budget))
 	case localProjection:
-		return exactCleanupReceiver(receiver, local.local, budget)
+		return receiverMatchProof(exactCleanupReceiver(receiver, local.local, budget))
 	case localOwner:
 		// The callee closes the path beneath its local that mirrors the
 		// target's path beneath the supplied owner, such as resp.Body from a
 		// captured resp.
-		return ssaflow.ProveIdentityWithin(ssaflow.AccessPath{Value: receiver, Root: local.local},
-			ssaflow.AccessPath{Value: target, Root: local.supplied}, budget).Proven()
+		return receiverProof{Proof: ssaflow.ProveIdentityWithin(ssaflow.AccessPath{Value: receiver, Root: local.local},
+			ssaflow.AccessPath{Value: target, Root: local.supplied}, budget).Proof}
 	case localCallback:
 	}
-	return false
+	return receiverMatchProof(false)
+}
+
+func receiverMatchProof(matches bool) receiverProof {
+	state, reason := ssaflow.EvidenceDisproven, ssaflow.EvidenceUnavailable
+	if matches {
+		state, reason = ssaflow.EvidenceProven, ssaflow.EvidenceCalledCompletion
+	}
+	return receiverProof{Proof: ssaflow.Proof{State: state, Reason: reason}}
 }
 
 func exactCleanupReceiver(receiver, parameter ssa.Value, budget *ssaflow.SearchBudget) bool {

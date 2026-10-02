@@ -293,7 +293,13 @@ cleanup call on one of its fields, such as `j.out.Close()` in
 `func finish(j job)`. The builder spills such a parameter into a local cell
 before it can select a field, and the summary follows that spill the same way
 it follows a field address selected from a pointer parameter, provided the
-cell is only ever written whole.
+cell is only ever written whole and still contains that parameter at the
+receiver's read. Whole-aggregate replacement does not discharge the original
+parameter's field. A saved field value retains its earlier snapshot, including
+through later interface wrapping; agreeing branch writes retain the path,
+while conflicting writes leave it unknown. Address-only paths require every
+whole write to agree because they supply no read snapshot. The shared storage
+query proves these identities without constructing a points-to graph.
 
 ## Three answers to "what happened to my value?"
 

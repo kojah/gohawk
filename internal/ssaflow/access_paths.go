@@ -78,10 +78,23 @@ func AccessPathSteps(value, root ssa.Value) ([]string, bool) {
 // one allowance. Cutoff returns no path; callers inspect budget availability.
 // A nil budget retains default field, constant-index, wrapper and load policy.
 func AccessPathStepsWithin(value, root ssa.Value, budget *SearchBudget) ([]string, bool) {
-	return accessPathSteps(value, root, map[ssa.Value]bool{}, budget)
+	return accessPathSteps(value, root, map[ssa.Value]bool{}, budget, nil)
 }
 
-func accessPathSteps(value, root ssa.Value, seen map[ssa.Value]bool, budget *SearchBudget) ([]string, bool) {
+// AccessPathReadWithin names the same static path and its load nearest root.
+// That load snapshots the root's contents before later pointer selections or
+// wrappers. A path with no load has a nil read; it supplies no snapshot.
+// Cutoff or an unmodeled path publishes neither the path nor a read.
+func AccessPathReadWithin(value, root ssa.Value, budget *SearchBudget) ([]string, *ssa.UnOp, bool) {
+	var read *ssa.UnOp
+	path, ok := accessPathSteps(value, root, map[ssa.Value]bool{}, budget, &read)
+	if !ok || budget.Exhausted() || budget.PoolExhausted() {
+		return nil, nil, false
+	}
+	return path, read, true
+}
+
+func accessPathSteps(value, root ssa.Value, seen map[ssa.Value]bool, budget *SearchBudget, read **ssa.UnOp) ([]string, bool) {
 	if !budget.Spend() || value == nil || root == nil || seen[value] {
 		return nil, false
 	}
@@ -96,27 +109,30 @@ func accessPathSteps(value, root ssa.Value, seen map[ssa.Value]bool, budget *Sea
 		value,
 		TransparentChangeInterface|TransparentChangeType|TransparentConvert|TransparentMakeInterface,
 	); ok {
-		return accessPathSteps(inner, root, seen, budget)
+		return accessPathSteps(inner, root, seen, budget, read)
 	}
 	switch typed := value.(type) {
 	case *ssa.FieldAddr:
-		path, ok := accessPathSteps(typed.X, root, seen, budget)
+		path, ok := accessPathSteps(typed.X, root, seen, budget, read)
 		return appendAccess(path, "field:"+strconv.Itoa(typed.Field), ok)
 	case *ssa.IndexAddr:
 		index, ok := ConstantIndex(typed.Index)
 		if !ok {
 			return nil, false
 		}
-		path, baseOK := accessPathSteps(typed.X, root, seen, budget)
+		path, baseOK := accessPathSteps(typed.X, root, seen, budget, read)
 		return appendAccess(path, "index:"+index, baseOK)
 	case *ssa.UnOp:
+		if typed.Op == token.MUL && read != nil {
+			*read = typed
+		}
 		if typed.Op == token.MUL && StructurallyIdenticalWithin(typed.X, root, budget) {
 			return nil, true
 		}
 		if budget.Exhausted() {
 			return nil, false
 		}
-		return accessPathSteps(typed.X, root, seen, budget)
+		return accessPathSteps(typed.X, root, seen, budget, read)
 	}
 	return nil, false
 }
