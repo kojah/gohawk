@@ -4454,3 +4454,20 @@ Graph build/replay, pointee internals, alias/type work, cycle metadata, package
 inventories and other fact consumers retain separate review scope. Ten production
 FP sites plus Rune remain open; this consolidation credits no FP correction or
 whole-query cost bound.
+
+## Call-cycle body inventories
+
+Beads `gohawk-dho.44.11.5.27.17` shares immutable owning-package/direct-callee
+inventories across reachability roots under the existing cycle-cache lock.
+Root queues own copied storage; foreign bodies are rejected before discovery.
+Static Go/Defer, generic wrapper/origin edges and cycle polarity remain unchanged.
+Summary publication leaves this structural metadata intact.
+
+Actual SSA and concurrent publication controls pass; three counterfactuals fail
+assertions. Canonical verification passes all eight targets, and scoped scans
+preserve all 444 fixture diagnostics and four pinned production controls
+byte-for-byte. The [inventory review](../../benchmarks/precision/audits/call-cycle-inventory-consolidation-2026-10-02.md)
+records receipts, retained metadata costs and source scope. Graph build/replay,
+pointee/alias/type internals, package inventories and other fact consumers remain
+open. The five complete-body candidate groups retain distinct contracts; partial
+duplication is not ruled out. Ten production FP sites plus Rune remain unresolved.

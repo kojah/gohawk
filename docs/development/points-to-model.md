@@ -159,6 +159,20 @@ binary and not others. A build never needs its own function's graph, and a
 graph applies no summary from its own call cycle, so neither wait can be
 reached from the goroutine doing the work.
 
+Call-cycle discovery shares one immutable direct-callee inventory per built
+SSA function across reachability roots. Static Go/Defer calls and generic
+wrapper/origin alternatives retain their existing edges; interface invokes,
+dynamic function values and builtins add none. The package boundary is checked
+before discovering a callee's body. Each traversal owns a copy of its initial
+queue, so appending successors cannot overwrite a published inventory. Summary
+registration changes heap evidence but not this structural metadata. Concurrent
+readers may discover privately and then reuse the first published inventory
+under the existing cycle-cache lock. Like cached reachability, the inventory
+assumes completed SSA bodies; it adds one direct-edge record per visited
+function, separate from the transitive reach sets. The call-cycle tests cover
+branching queues, shared roots, foreign packages, recursion, generic wrappers,
+summary registration and concurrent publication.
+
 Failed publication and eviction share `removeIndexedEntryLocked`: mark the
 entry stale and unlink only the cache slot still naming that exact entry.
 A finishing old build cannot delete its replacement. Dependency cleanup stays

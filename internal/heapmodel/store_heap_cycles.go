@@ -1,6 +1,7 @@
 package heapmodel
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -23,8 +24,9 @@ import (
 // and come back, because imports are acyclic, so the walk stays inside it.
 var callCycleReach = struct {
 	sync.Mutex
-	reach map[*ssa.Function]map[*ssa.Function]bool
-}{reach: map[*ssa.Function]map[*ssa.Function]bool{}}
+	reach    map[*ssa.Function]map[*ssa.Function]bool
+	metadata map[*ssa.Function]*callCycleMetadata
+}{reach: map[*ssa.Function]map[*ssa.Function]bool{}, metadata: map[*ssa.Function]*callCycleMetadata{}}
 
 // sameCallCycle reports whether the callee, called from function, can call
 // back into function.
@@ -42,10 +44,11 @@ func sameCallCycle(function, callee *ssa.Function) bool {
 	if instantiationWrapperCallsOrigin(function, callee) {
 		return false
 	}
-	if callee == function || ssaflow.ResolvedFunction(callee) == ssaflow.ResolvedFunction(function) {
+	callerOrigin, calleeOrigin := ssaflow.ResolvedFunction(function), ssaflow.ResolvedFunction(callee)
+	if callee == function || calleeOrigin == callerOrigin {
 		return true
 	}
-	return reachableCallees(callee)[function] || reachableCallees(ssaflow.ResolvedFunction(callee))[ssaflow.ResolvedFunction(function)]
+	return reachableCallees(callee)[function] || reachableCallees(calleeOrigin)[callerOrigin]
 }
 
 func instantiationWrapperCallsOrigin(function, callee *ssa.Function) bool {
@@ -64,9 +67,12 @@ func reachableCallees(function *ssa.Function) map[*ssa.Function]bool {
 	if ok {
 		return reach
 	}
-	home := functionPackage(function)
+	metadata := cycleMetadata(function)
+	home := metadata.home
 	reach = map[*ssa.Function]bool{}
-	pending := staticCallees(function)
+	// The queue grows into its popped tail. It must own that storage rather
+	// than overwrite a callee inventory another root or analyzer reuses.
+	pending := slices.Clone(metadata.callees)
 	for len(pending) > 0 {
 		next := pending[len(pending)-1]
 		pending = pending[:len(pending)-1]
@@ -74,7 +80,7 @@ func reachableCallees(function *ssa.Function) map[*ssa.Function]bool {
 			continue
 		}
 		reach[next] = true
-		pending = append(pending, staticCallees(next)...)
+		pending = append(pending, cycleMetadata(next).callees...)
 	}
 	callCycleReach.Lock()
 	callCycleReach.reach[function] = reach
@@ -82,23 +88,45 @@ func reachableCallees(function *ssa.Function) map[*ssa.Function]bool {
 	return reach
 }
 
-// staticCallees lists the functions a body calls directly, each with the
-// origin an instantiation resolves to.
-func staticCallees(function *ssa.Function) []*ssa.Function {
-	var callees []*ssa.Function
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			common := ssaflow.InstructionCall(instruction)
-			if common == nil || common.StaticCallee() == nil {
-				continue
-			}
-			callees = append(callees, common.StaticCallee())
-			if resolved := ssaflow.ResolvedFunction(common.StaticCallee()); resolved != common.StaticCallee() {
-				callees = append(callees, resolved)
-			}
+// callCycleMetadata is structural information about one built SSA body. Unlike
+// heap summaries, these edges and package ownership do not change when a callee
+// summary is registered. The published inventory is read-only.
+type callCycleMetadata struct {
+	home    *ssa.Package
+	callees []*ssa.Function
+}
+
+// cycleMetadata shares body discovery across reachability roots. Competing
+// readers may discover privately, but all reuse the first published inventory.
+func cycleMetadata(function *ssa.Function) *callCycleMetadata {
+	callCycleReach.Lock()
+	metadata := callCycleReach.metadata[function]
+	callCycleReach.Unlock()
+	if metadata != nil {
+		return metadata
+	}
+	metadata = &callCycleMetadata{home: functionPackage(function)}
+	for instruction := range ssaflow.InstructionsWithin(function, nil) {
+		common := ssaflow.InstructionCall(instruction)
+		if common == nil {
+			continue
+		}
+		callee := common.StaticCallee()
+		if callee == nil {
+			continue
+		}
+		metadata.callees = append(metadata.callees, callee)
+		if origin := ssaflow.ResolvedFunction(callee); origin != callee {
+			metadata.callees = append(metadata.callees, origin)
 		}
 	}
-	return callees
+	callCycleReach.Lock()
+	defer callCycleReach.Unlock()
+	if published := callCycleReach.metadata[function]; published != nil {
+		return published
+	}
+	callCycleReach.metadata[function] = metadata
+	return metadata
 }
 
 // functionPackage names the package that owns a function's body; an
