@@ -28,6 +28,18 @@ func WrittenOnceCellWithin(cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bo
 	return store.Val, true
 }
 
+// WrittenOnceCellAtWithin returns the unique stored value only when its store
+// dominates observation. This proves initialization at the caller-selected
+// instruction, not a universal capture or invocation policy. The census and
+// ordering share budget; callers retain availability before using rejection.
+func WrittenOnceCellAtWithin(cell *ssa.Alloc, observation ssa.Instruction, budget *SearchBudget) (ssa.Value, bool) {
+	store, ok := writtenOnceStoreWithin(cell, budget)
+	if !ok || !InstructionDominatesWithin(store, observation, budget) {
+		return nil, false
+	}
+	return store.Val, true
+}
+
 // Keep the exact store with the once-written identity evidence so consumers
 // that need execution order can apply their own observation boundary. The
 // identity-only API does not promise that a read occurs after this store.

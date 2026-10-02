@@ -4115,3 +4115,54 @@ the synthetic cutoff control supplies the specific signal-census exhaustion
 witness. Candidate tests, generators and applications are not executed.
 These scoped receipts earn no removal against the eleven-site production
 queue and do not replace a full-corpus census.
+
+### Read-time concurrency spill paths (dho.44.11.5.25.4)
+
+The actual SSA probe `.build/goal-concurrency-spill-timing-probe.log` shows a
+nil load before `p = d` being named as parameter `d` by the old sole-store
+shortcut. `ssaflow.WrittenOnceCellAtWithin` now shares the unique-store census
+and instruction ordering at a caller-selected observation. Fixed-argument
+binding chooses closure creation; concurrency spill paths choose the load.
+These consumers share mechanics without a universal invocation policy.
+
+Field-path folds, spill referrers, bounded storage equality, capture reads,
+canonical load enumeration and nested capture forwarding spend the engine's
+allowance. Captured-read cutoff returns no partial canonical read. An interrupted
+canonical field search deletes its package-shared sentinel or negative result,
+so a fresh allowance can retry. Complete positive identities remain reusable.
+The declaration-relative fact schema and ordinary spill/reassignment bindings
+are preserved. Publication still recomputes field metadata under its default
+query; new dho.44.11.5.25.5 owns that separate allowance boundary. Package
+write-once inventory construction, heap graph and type internals also retain
+independent costs; this is not an all-query cost claim.
+
+[spill_paths_budget_test.go](../../internal/passes/concurrencyfacts/spill_paths_budget_test.go)
+records SSA for pre-store, post-store, entry-spill and reassigned snapshots,
+checks every allowance boundary, and verifies canonical-cache child/fresh
+recovery. Large read-only captures discard interrupted reads. A padded spill
+isolates instruction-order cutoff and verifies that summary inference cannot
+cache its truncated answer. Three ignored overlays fail behaviorally when
+ordering is removed, spill searches ignore their allowance, or interrupted
+canonical results are retained. An initial control selected an opaque callback
+and then unmodeled printing before reaching the intended summary boundary;
+inert scalar arithmetic isolates that query. Lint initially rejected the test's
+nested setup; extracting the reusable cutoff check fixes the complexity gate.
+
+The final `make verify` passes: tests 7 seconds, dogfood 2 seconds, zero lint
+issues in 3 seconds, formatter check 1 second and deadcode 3 seconds. The initial
+ordinary suite also passed in 79 seconds before the test-only lint refactor.
+No local race test or full precision replay runs. The immutable binary
+`.build/goal-concurrency-spill-current` is parent `48e2078` plus this production
+change, SHA-256
+`798eee66f06d0d4853fc61558391e67c34b8f7f1bbd311c054be920642a21ef8`.
+
+At clean stargz pin `624678b4e421947534cbf0618f9609853cccee0f`, the all-check
+static `./store` scan exits 3 with empty stderr and JSON identical to the
+channel-census receipt, preserving the reviewed worker report. At clean Openase
+pin `e530faf137e764337d5beaaf68af3be159eb17aa`, all checks on
+`./internal/orchestrator` likewise exit 3 with empty stderr and identical JSON,
+retaining both cancellation true positives. Candidate tests, generators and
+applications are not executed. This local identity correction earns no removal
+against the eleven recorded unresolved production sites. Parent .25 remains
+active for cancellation owner cells and publication metadata; the broader
+consolidation requirements remain unproven.

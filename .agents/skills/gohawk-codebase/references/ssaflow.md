@@ -3277,6 +3277,19 @@ store, which is how a variable captured by several goroutines names one
 object. It answers identity only; whether the value itself is stable is the
 caller's question.
 
+## WrittenOnceCellAtWithin
+
+[Source](../../../../internal/ssaflow/written_once_cell.go)
+
+```go
+func WrittenOnceCellAtWithin(cell *ssa.Alloc, observation ssa.Instruction, budget *SearchBudget) (ssa.Value, bool)
+```
+
+WrittenOnceCellAtWithin returns the unique stored value only when its store
+dominates observation. This proves initialization at the caller-selected
+instruction, not a universal capture or invocation policy. The census and
+ordering share budget; callers retain availability before using rejection.
+
 ## WrittenOnceCellWithin
 
 [Source](../../../../internal/ssaflow/written_once_cell.go)

@@ -771,8 +771,11 @@ binding reaches a value a deferred closure captures: Go captures by reference,
 so the closure's free variable is a cell, bound only when
 the once-stored census proves all captures are read-only and the exact store
 dominates closure creation. `ssaflow.WrittenOnceCell` alone supplies identity
-after its store; the binding engine separately checks execution order with
-`ssaflow.InstructionDominatesWithin`. A sole assignment after registration or
+after its store. `ssaflow.WrittenOnceCellAtWithin` combines that census with
+instruction dominance at the caller-selected observation; fixed-argument
+binding selects closure creation, while concurrency spill paths select the
+actual load. These uses share ordering mechanics without imposing one universal
+capture or invocation policy. A sole assignment after registration or
 on only one incoming path cannot fix earlier reads. This includes a named
 result assigned by a later return: its outcome is supplied by the existing
 caller-fixed return analysis, rather than inferred from that later store.
@@ -995,3 +998,28 @@ metadata census without local SSA provenance; it establishes no behavior.
 Nil-budget binding retains the old literal, known-value, typed-nil-interface,
 mutable-cell and caller-fixed named-result policies. Summary guard discovery's
 default `ComparesWithNil` remains a separate setup query.
+
+
+### Concurrency spill paths and canonical-load availability
+
+Concurrency field paths retain the read time of a spilled parameter. A unique
+parameter assignment names a load only when its store dominates that load.
+A saved zero value before initialization is not the parameter stored later.
+Multiple-write spills use the existing storage identity query at the load, so
+reassignment preserves the old snapshot and names later reads as the new
+parameter when proven. Closure roots are bound separately at their invocation.
+
+Field-path reaching walks, spill/capture referrers, initialization order,
+canonical load enumeration and nested capture forwarding share the engine's
+request allowance. A cutoff supplies no path binding or canonical capture read.
+The package-shared canonical field map drops any sentinel or negative result
+from an interrupted search; a fresh request can recover the same canonical load.
+Complete positive field identities remain reusable.
+
+The actual SSA and child/fresh controls are in
+[spill_paths_budget_test.go](../../internal/passes/concurrencyfacts/spill_paths_budget_test.go).
+Existing imported formal-field guarantees and the fact schema remain unchanged.
+Fact publication's metadata validation, package write-once inventory setup,
+heap graph and type-system internals retain their separate costs. Beads
+`gohawk-dho.44.11.5.25.5` tracks sharing the publication allowance through field
+metadata; this engine-path correction does not certify that separate boundary.

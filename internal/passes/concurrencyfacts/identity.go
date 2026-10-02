@@ -55,9 +55,9 @@ func (engine *Engine) writeOnce(function *ssa.Function) *heapmodel.WriteOnceFiel
 // identityPath names a mutex by its path, allowing write-once loads as roots.
 func (engine *Engine) identityPath(value ssa.Value) (ssaflow.EmbeddedFieldPath, bool) {
 	if !MutexPointer(value.Type()) {
-		return embeddedPath(value)
+		return embeddedPathWithin(value, engine.budget)
 	}
-	return pathFrom(value, engine.fixedLoad)
+	return pathFromWithin(value, engine.fixedLoad, engine.budget)
 }
 
 // fixedLoad returns the canonical load for a load of a write-once field whose
@@ -70,7 +70,7 @@ func (engine *Engine) fixedLoad(load *ssa.UnOp) (*ssa.UnOp, bool) {
 		return nil, false
 	}
 	if capture, ok := load.X.(*ssa.FreeVar); ok {
-		return capturedLoad(load, capture)
+		return capturedLoadWithin(load, capture, engine.budget)
 	}
 	address, ok := load.X.(*ssa.FieldAddr)
 	if !ok || !engine.writeOnce(load.Parent()).Fixed(fieldOf(address)) {
@@ -81,11 +81,22 @@ func (engine *Engine) fixedLoad(load *ssa.UnOp) (*ssa.UnOp, bool) {
 		return canonical, canonical != nil
 	}
 	engine.fields.canonical[load] = nil
-	base, ok := pathFrom(address, engine.fixedLoad)
+	defer func() {
+		// A recursive sentinel or failed walk is reusable only after a completed
+		// search. Shared field metadata must not poison a later fresh allowance.
+		if engine.budget.Exhausted() || engine.budget.PoolExhausted() {
+			delete(engine.fields.canonical, load)
+		}
+	}()
+	base, ok := pathFromWithin(address, engine.fixedLoad, engine.budget)
 	if !ok {
 		return nil, false
 	}
-	for _, candidate := range ssaflow.InstructionsOf[*ssa.UnOp](load.Parent()) {
+	for instruction := range ssaflow.InstructionsWithin(load.Parent(), engine.budget) {
+		candidate, isLoad := instruction.(*ssa.UnOp)
+		if !isLoad {
+			continue
+		}
 		if !engine.budget.Spend() {
 			return nil, false
 		}
@@ -93,7 +104,7 @@ func (engine *Engine) fixedLoad(load *ssa.UnOp) (*ssa.UnOp, bool) {
 		if candidate.Op != token.MUL || !ok || fieldOf(other) != fieldOf(address) {
 			continue
 		}
-		if path, ok := pathFrom(other, engine.fixedLoad); ok && path == base {
+		if path, ok := pathFromWithin(other, engine.fixedLoad, engine.budget); ok && path == base {
 			engine.fields.canonical[load] = candidate
 			return candidate, true
 		}
@@ -103,9 +114,9 @@ func (engine *Engine) fixedLoad(load *ssa.UnOp) (*ssa.UnOp, bool) {
 
 // capturedLoad returns the closure's first read of capture when every use of
 // the capture is a read.
-func capturedLoad(load *ssa.UnOp, capture *ssa.FreeVar) (*ssa.UnOp, bool) {
+func capturedLoadWithin(load *ssa.UnOp, capture *ssa.FreeVar, budget *ssaflow.SearchBudget) (*ssa.UnOp, bool) {
 	var first *ssa.UnOp
-	for _, use := range *capture.Referrers() {
+	for use := range ssaflow.ReferrersWithin(capture, budget) {
 		read, ok := use.(*ssa.UnOp)
 		if !ok || read.Op != token.MUL {
 			return nil, false
@@ -113,6 +124,9 @@ func capturedLoad(load *ssa.UnOp, capture *ssa.FreeVar) (*ssa.UnOp, bool) {
 		if first == nil {
 			first = read
 		}
+	}
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return nil, false
 	}
 	return first, first != nil && load.X == capture
 }
@@ -130,7 +144,7 @@ func (engine *Engine) bindRoot(root ssa.Value, bindings []ssaflow.CallBinding, i
 		if !ok {
 			return ssaflow.EmbeddedFieldPath{}, false
 		}
-		base, ok := pathFrom(address, engine.fixedLoad)
+		base, ok := pathFromWithin(address, engine.fixedLoad, engine.budget)
 		if !ok {
 			return ssaflow.EmbeddedFieldPath{}, false
 		}
@@ -147,7 +161,7 @@ func (engine *Engine) bindRoot(root ssa.Value, bindings []ssaflow.CallBinding, i
 	}
 	for _, binding := range bindings {
 		if binding.Local == root {
-			return pathFrom(binding.Supplied, engine.fixedLoad)
+			return pathFromWithin(binding.Supplied, engine.fixedLoad, engine.budget)
 		}
 	}
 	return ssaflow.EmbeddedFieldPath{}, false
@@ -164,9 +178,9 @@ func (engine *Engine) bindCapturedRoot(
 			continue
 		}
 		if outer, ok := binding.Supplied.(*ssa.FreeVar); ok {
-			for _, use := range *outer.Referrers() {
+			for use := range ssaflow.ReferrersWithin(outer, engine.budget) {
 				if read, ok := use.(*ssa.UnOp); ok {
-					if canonical, ok := capturedLoad(read, outer); ok {
+					if canonical, ok := capturedLoadWithin(read, outer, engine.budget); ok {
 						return ssaflow.EmbeddedFieldPath{Root: canonical}, true
 					}
 				}
@@ -177,14 +191,18 @@ func (engine *Engine) bindCapturedRoot(
 		if !content.Proven() {
 			return ssaflow.EmbeddedFieldPath{}, false
 		}
-		return pathFrom(content.Value, engine.fixedLoad)
+		return pathFromWithin(content.Value, engine.fixedLoad, engine.budget)
 	}
 	return ssaflow.EmbeddedFieldPath{}, false
 }
 
 // callerLoad finds the caller's canonical load of the field at address path.
 func (engine *Engine) callerLoad(function *ssa.Function, address ssaflow.EmbeddedFieldPath, field *types.Var) (*ssa.UnOp, bool) {
-	for _, candidate := range ssaflow.InstructionsOf[*ssa.UnOp](function) {
+	for instruction := range ssaflow.InstructionsWithin(function, engine.budget) {
+		candidate, isLoad := instruction.(*ssa.UnOp)
+		if !isLoad {
+			continue
+		}
 		if !engine.budget.Spend() {
 			return nil, false
 		}
@@ -192,7 +210,7 @@ func (engine *Engine) callerLoad(function *ssa.Function, address ssaflow.Embedde
 		if candidate.Op != token.MUL || !ok || fieldOf(other) != field {
 			continue
 		}
-		if path, ok := pathFrom(other, engine.fixedLoad); ok && path == address {
+		if path, ok := pathFromWithin(other, engine.fixedLoad, engine.budget); ok && path == address {
 			return engine.fixedLoad(candidate)
 		}
 	}

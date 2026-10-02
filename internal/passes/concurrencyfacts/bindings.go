@@ -170,7 +170,7 @@ func (engine *Engine) referenceLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (Re
 	load, ok := value.(*ssa.UnOp)
 	if ok && load.Op == token.MUL {
 		if ssaflow.ChannelType(load) {
-			if path, exact := embeddedPath(load.X); exact && path.Depth > 0 {
+			if path, exact := embeddedPathWithin(load.X, engine.budget); exact && path.Depth > 0 {
 				return Reference{Value: load, Projection: path, Indirect: true}, true
 			}
 		}

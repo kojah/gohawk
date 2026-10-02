@@ -424,7 +424,7 @@ func (engine *Engine) instructionEffects(result *Summary, instruction ssa.Instru
 		if call, ok := instruction.Tuple.(*ssa.Call); ok && isCancelConstructor(call.Common()) {
 			return ReasonNone
 		}
-		return passiveInstruction(instruction, root)
+		return passiveInstruction(instruction, root, engine.budget)
 	case *ssa.FieldAddr:
 		// A mutex reached through a write-once field is named by its path.
 		if MutexPointer(instruction.Type()) && !synchronizationPointer(instruction.X.Type()) {
@@ -432,9 +432,9 @@ func (engine *Engine) instructionEffects(result *Summary, instruction ssa.Instru
 				return ReasonNone
 			}
 		}
-		return passiveInstruction(instruction, root)
+		return passiveInstruction(instruction, root, engine.budget)
 	default:
-		return passiveInstruction(instruction, root)
+		return passiveInstruction(instruction, root, engine.budget)
 	}
 	return ReasonNone
 }
@@ -444,7 +444,7 @@ func (engine *Engine) appendUnOp(result *Summary, instruction *ssa.UnOp) Reason 
 	case token.ARROW:
 		return engine.appendOperation(result, Receive, instruction.X, instruction.Pos())
 	case token.MUL:
-		return loadEffect(instruction)
+		return loadEffect(instruction, engine.budget)
 	case token.NOT, token.SUB, token.XOR:
 		// Scalar negation and complement cannot block, panic, or synchronize.
 		if scalarType(instruction.Type()) {
@@ -455,9 +455,9 @@ func (engine *Engine) appendUnOp(result *Summary, instruction *ssa.UnOp) Reason 
 	return ReasonLoadUnknown
 }
 
-func loadEffect(load *ssa.UnOp) Reason {
+func loadEffect(load *ssa.UnOp, budget *ssaflow.SearchBudget) Reason {
 	if ssaflow.ChannelType(load) {
-		if path, exact := embeddedPath(load.X); exact && path.Depth > 0 {
+		if path, exact := embeddedPathWithin(load.X, budget); exact && path.Depth > 0 {
 			return ReasonNone
 		}
 	}
@@ -493,7 +493,7 @@ func (engine *Engine) appendOperation(result *Summary, kind Kind, value ssa.Valu
 	return ReasonNone
 }
 
-func passiveInstruction(instruction ssa.Instruction, root bool) Reason {
+func passiveInstruction(instruction ssa.Instruction, root bool, budget *ssaflow.SearchBudget) Reason {
 	if effectFree(instruction, root) {
 		return ReasonNone
 	}
@@ -511,7 +511,7 @@ func passiveInstruction(instruction ssa.Instruction, root bool) Reason {
 	case *ssa.DebugRef, *ssa.Alloc, *ssa.MakeClosure:
 		return ReasonNone
 	case *ssa.FieldAddr:
-		if _, exact := embeddedPath(instruction); exact && !synchronizationPointer(instruction.X.Type()) {
+		if _, exact := embeddedPathWithin(instruction, budget); exact && !synchronizationPointer(instruction.X.Type()) {
 			return ReasonNone
 		}
 	case *ssa.Store:

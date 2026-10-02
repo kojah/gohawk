@@ -207,15 +207,15 @@ func capturedOutcomeWithin(binding ssa.Value, closure *ssa.MakeClosure, known Fi
 		outcome, ok := known[cell]
 		return outcome, ok
 	case *ssa.Alloc:
-		store, ok := writtenOnceStoreWithin(cell, budget)
+		stored, ok := WrittenOnceCellAtWithin(cell, closure, budget)
 		// A single store can follow an early deferred return or a synchronous
 		// invocation. Identity after that store cannot decide earlier reads.
 		// Creation is the shared boundary: later writes require a caller-fixed
 		// current value rather than guessing when this closure will execute.
-		if !ok || !InstructionDominatesWithin(store, closure, budget) {
+		if !ok {
 			return OutcomeAny, false
 		}
-		return fixedOutcome(store.Val, known)
+		return fixedOutcome(stored, known)
 	}
 	return OutcomeAny, false
 }
