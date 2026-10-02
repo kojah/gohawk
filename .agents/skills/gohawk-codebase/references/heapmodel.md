@@ -820,6 +820,18 @@ func MayAliasAny(value ssa.Value, candidates []ssa.Value) bool
 
 MayAliasAny reports whether value may alias any candidate; see MayAlias.
 
+## MayAliasAnyWithin
+
+[Source](../../../../internal/heapmodel/store_alias.go)
+
+```go
+func MayAliasAnyWithin(value ssa.Value, candidates []ssa.Value, budget *ssaflow.SearchBudget) bool
+```
+
+MayAliasAnyWithin charges candidate visits and alias dispatch to budget.
+Graph construction and alias-query internals remain independent costs.
+Cutoff supplies no alias evidence; callers must retain its availability.
+
 ## NewStorage
 
 [Source](../../../../internal/heapmodel/store_model.go)
@@ -917,15 +929,16 @@ subcommand: each tracked value with the slots it may refer to, then the
 disjointness answers the graph has given. Regions are named by kind and
 origin; a stale entry, carried around a loop's back edge, is marked.
 
-## ReturnedMayAliasAny
+## ReturnedMayAliasAnyWithin
 
 [Source](../../../../internal/heapmodel/store_alias.go)
 
 ```go
-func ReturnedMayAliasAny(returned *ssa.Return, candidates []ssa.Value) bool
+func ReturnedMayAliasAnyWithin(returned *ssa.Return, candidates []ssa.Value, budget *ssaflow.SearchBudget) bool
 ```
 
-ReturnedMayAliasAny reports whether a return may transfer any candidate value.
+ReturnedMayAliasAnyWithin shares result and candidate visits with budget.
+Exhaustion cannot establish either a transfer or absence of one.
 
 ## SelectionsOf
 

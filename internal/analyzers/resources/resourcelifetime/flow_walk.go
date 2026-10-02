@@ -3,7 +3,6 @@ package resourcelifetime
 import (
 	"strconv"
 
-	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -157,11 +156,15 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState, b
 				},
 			})
 		}
-		if ok && state.obligation.Unsettled() &&
-			!analysis.returnedResourceOwner(returned) &&
-			!heapmodel.ReturnedMayAliasAny(returned, analysis.owners) {
-			analysis.leak = returned
-			return state, true
+		if ok && state.obligation.Unsettled() {
+			proof := analysis.proveResourceReturn(returned, budget)
+			if proof.state == ssaflow.EvidenceUnknown {
+				return state, false
+			}
+			if proof.state == ssaflow.EvidenceProven {
+				analysis.leak = proof.leak
+				return state, true
+			}
 		}
 	}
 	return state, false

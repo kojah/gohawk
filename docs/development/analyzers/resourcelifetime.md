@@ -90,6 +90,31 @@ to the previous resource-flow binary. These are scoped controls, not a corpus
 replay or new verdicts. An unbounded derivation overlay fails all five positive
 allowance controls; fresh queries and sibling-pool cutoff controls pass.
 
+Return disposition has one structured decision in `flow_returns.go`.
+`proveResourceReturn` accepts the existing possible owner/alias handoff,
+preserves an uncovered return as its diagnostic witness, and discards that
+witness on child or parent cutoff. Its result census, wrapper-result census,
+possible derivation and cleanup-method visits spend the flow allowance.
+`heapmodel.ReturnedMayAliasAnyWithin` shares the result/candidate census and
+alias dispatch; it preserves the original may-alias policy. Cutoff cannot
+establish that no owner was returned. `flow_returns_test.go` covers direct,
+aggregate, derived and known-owner handoffs against unrelated and scalar
+results at every insufficient allowance. The heap census test uses two actual
+SSA results and two candidates to check dispatch cutoff and fresh recovery.
+
+Beads `gohawk-dho.44.11.5.18.1` retains the transitive cost review: recursive
+`lifecycle` aggregate/constructor ownership, wrapper decoding and view-summary
+binding still have independent costs, alongside graph and type internals.
+This change bounds the return census and derivation, not the complete query.
+
+The scoped resource controls above were repeated with immutable
+`.build/goal-return-owner-complete`, SHA-256
+`bb25d0ed5e66acc1cca3184f761876caf2ca591177f3a90b7b5f799ea54b9e39`.
+Cute again completes with exit 3 and its 980-byte reviewed-TP JSON; Ferro
+completes with exit 0 and `{}`. Pins, scopes and flags are unchanged, both
+stderr files are empty, and both outputs are identical to the presence-proof
+binary. The unbounded alias-census overlay fails the zero-allowance control.
+
 ## Detection boundaries
 
 Release owned resources on every path. Storing a resource in a partially

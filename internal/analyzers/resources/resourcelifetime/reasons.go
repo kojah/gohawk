@@ -57,6 +57,7 @@ const (
 	resourceReasonRepeatedGuardEdgeUnknown
 	resourceReasonResourceReturnPath
 	resourceReasonReturnedCleanupProjection
+	resourceReasonReturnedMayTransfer
 	resourceReasonReturnedWrapperRetains
 	resourceReasonReturnedProjectionLacksCleanup
 	resourceReasonReturnedViewCannotRelease
@@ -161,6 +162,7 @@ var resourceReasonCodes = [...]string{
 	resourceReasonRepeatedGuardEdgeUnknown:                 "repeated-guard-edge-unknown",
 	resourceReasonResourceReturnPath:                       "resource-return-path",
 	resourceReasonReturnedCleanupProjection:                "returned-cleanup-projection",
+	resourceReasonReturnedMayTransfer:                      "returned-may-transfer",
 	resourceReasonReturnedWrapperRetains:                   "returned-wrapper-retains-resource",
 	resourceReasonReturnedProjectionLacksCleanup:           "returned-projection-lacks-cleanup",
 	resourceReasonReturnedViewCannotRelease:                "returned-view-cannot-release",

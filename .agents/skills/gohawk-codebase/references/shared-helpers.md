@@ -134,7 +134,7 @@ transfer from an opaque escape.
 | `heapmodel.QueryEscape(value, scope)` | structured confinement/escape evidence for a local allocation site, with destinations, origin instructions, and uncertainty |
 | `SendsValue`, `ClosureCapturesValue`, `ValueHasTransferUse`, `ExternallyOwnedValue` | lifecycle-specific transfer uses; absence is not proof of confinement |
 | `CallTransfersValueToField`, `CallTransfersArgumentToReturnedOwner`, `CallTransfersArgumentToReceiver`, `CallTransfersArgumentToLifecycleOwner` | ownership transfer through a call |
-| `ReturnedValueOwnsValue`, `ReturnedMayAliasAny` | does a return carry the value or its owner? |
+| `ReturnedValueOwnsValue`, `ReturnedMayAliasAnyWithin` | does a return carry the value or its owner? Alias census shares the caller allowance. |
 | `ClosureBindingPairs` | the captured variables of a closure paired with the values supplied for them |
 | `CapturedBindingValue`, `CapturedBindingMatches` | inspect one captured binding |
 

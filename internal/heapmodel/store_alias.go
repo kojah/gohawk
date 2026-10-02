@@ -56,19 +56,33 @@ func DefinitelySameValue(left, right ssa.Value) bool {
 
 // MayAliasAny reports whether value may alias any candidate; see MayAlias.
 func MayAliasAny(value ssa.Value, candidates []ssa.Value) bool {
+	return MayAliasAnyWithin(value, candidates, nil)
+}
+
+// MayAliasAnyWithin charges candidate visits and alias dispatch to budget.
+// Graph construction and alias-query internals remain independent costs.
+// Cutoff supplies no alias evidence; callers must retain its availability.
+func MayAliasAnyWithin(value ssa.Value, candidates []ssa.Value, budget *ssaflow.SearchBudget) bool {
 	for _, candidate := range candidates {
+		if !budget.Spend() {
+			return false
+		}
 		if MayAlias(value, candidate) {
-			return true
+			return !budget.Exhausted() && !budget.PoolExhausted()
 		}
 	}
 	return false
 }
 
-// ReturnedMayAliasAny reports whether a return may transfer any candidate value.
-func ReturnedMayAliasAny(returned *ssa.Return, candidates []ssa.Value) bool {
+// ReturnedMayAliasAnyWithin shares result and candidate visits with budget.
+// Exhaustion cannot establish either a transfer or absence of one.
+func ReturnedMayAliasAnyWithin(returned *ssa.Return, candidates []ssa.Value, budget *ssaflow.SearchBudget) bool {
 	for _, result := range returned.Results {
-		if MayAliasAny(result, candidates) {
-			return true
+		if !budget.Spend() {
+			return false
+		}
+		if MayAliasAnyWithin(result, candidates, budget) {
+			return !budget.Exhausted() && !budget.PoolExhausted()
 		}
 	}
 	return false

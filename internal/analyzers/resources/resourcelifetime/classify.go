@@ -460,7 +460,14 @@ func (analysis *resourceAnalysis) pathWithin(aggregate ssa.Value, observation ss
 // wrapper, such as bufio.NewWriter, is not a chain step and stays reported.
 // https://github.com/datolabs-io/opsy/blob/8c588e1c17da76db92351ccaf9b1fdd5793ab5f5/internal/config/config.go#L186-L209
 func (analysis *resourceAnalysis) returnedWrapperPosition(returned *ssa.Return) int {
+	return analysis.returnedWrapperPositionWithin(returned, nil)
+}
+
+func (analysis *resourceAnalysis) returnedWrapperPositionWithin(returned *ssa.Return, budget *ssaflow.SearchBudget) int {
 	for position, result := range returned.Results {
+		if !budget.Spend() {
+			return -1
+		}
 		if analysis.provenWrapperOf(result, maxWrapperChain) {
 			return position
 		}
