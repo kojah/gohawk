@@ -389,21 +389,3 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// callee is a boundary.
 	return resourceReasonUnsummarizedCallee, !analysis.evidence.CalleeSummarized(instruction) && len(callee.Blocks) == 0
 }
-
-func (analysis *resourceAnalysis) capturesAggregateOwner(closure *ssa.MakeClosure) bool {
-	for _, owner := range analysis.owners {
-		pointer, ok := owner.Type().Underlying().(*types.Pointer)
-		if !ok || heapmodel.MayAlias(owner, analysis.resource) {
-			continue
-		}
-		if syntax.PointerStruct(pointer) == nil {
-			continue
-		}
-		for _, binding := range closure.Bindings {
-			if heapmodel.CapturedBindingMatches(binding, owner) {
-				return true
-			}
-		}
-	}
-	return false
-}

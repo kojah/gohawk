@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -32,8 +33,8 @@ func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction,
 	// closure observes its fields when called, so an unresolved cleanup of
 	// that owner is unknown rather than proof that the acquisition leaks.
 	// https://github.com/Autumn-27/ARTEX/blob/bf7f414477832b77d2152539c0723dc691086522/traffic/traffic.go#L1129-L1176
-	if analysis.capturesAggregateOwner(closure) {
-		return resourceReasonCapturedAggregateOwner, true
+	if owner := analysis.proveCapturedAggregateOwnerWithin(closure, analysis.budget(ssaflow.SummaryBudget)); owner.State != ssaflow.EvidenceDisproven {
+		return owner.Reason, true
 	}
 	if !carried {
 		capture := analysis.proveClosureCarryWithin(closure, analysis.budget(ssaflow.SummaryBudget))
@@ -68,6 +69,39 @@ func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction,
 		return resourceReasonCapturedByLiteralCallingUnreadableCallee, true
 	}
 	return resourceReasonCapturedByRetainingLiteral, analysis.evidence.ClosureRetainsValue(closure, analysis.resource)
+}
+
+// A capture can refer to a discovered aggregate owner even when the resource
+// is assigned after closure creation. Possible matching supplies uncertainty,
+// never cleanup. An interrupted owner or binding census cannot reject it.
+func (analysis *resourceAnalysis) proveCapturedAggregateOwnerWithin(closure *ssa.MakeClosure, budget *ssaflow.SearchBudget) resourceProof {
+	if !budget.Spend() {
+		return carriedValueProof(false, resourceReasonUntouched, budget)
+	}
+	for _, owner := range analysis.owners {
+		if !budget.Spend() {
+			return carriedValueProof(false, resourceReasonUntouched, budget)
+		}
+		pointer, ok := owner.Type().Underlying().(*types.Pointer)
+		if !ok {
+			continue
+		}
+		if !budget.Spend() {
+			return carriedValueProof(false, resourceReasonUntouched, budget)
+		}
+		if heapmodel.MayAlias(owner, analysis.resource) || syntax.PointerStruct(pointer) == nil {
+			continue
+		}
+		for _, binding := range closure.Bindings {
+			if heapmodel.CapturedBindingMatchesWithin(binding, owner, budget) {
+				return carriedValueProof(true, resourceReasonCapturedAggregateOwner, budget)
+			}
+			if resourceFlowExhausted(budget) {
+				return carriedValueProof(false, resourceReasonUntouched, budget)
+			}
+		}
+	}
+	return carriedValueProof(false, resourceReasonUntouched, budget)
 }
 
 // cleanupRegisteredBefore handles a retained callback registered before a

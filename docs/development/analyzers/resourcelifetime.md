@@ -356,6 +356,34 @@ fails both the independent proof and authoritative classifier controls. These
 receipts establish scoped stability, with no production FP removal credited
 and no full precision replay.
 
+Captured aggregate-owner matching now has one structured decision in
+`captured_cleanup.go:proveCapturedAggregateOwnerWithin`. Owner visits and alias
+dispatch share the caller allowance, and capture matching delegates to
+`CapturedBindingMatchesWithin`. The closure classifier preserves interrupted
+searches as unknown; possible owner identity still supplies uncertainty rather
+than cleanup. The pointer-struct restriction and resource-self exclusion are
+unchanged. Owner discovery and graph/alias/type internals retain independent
+costs; this does not bound them transitively.
+
+`captured_owner_test.go` checks captured and reassigned owners, unrelated
+captures, scalar/value owners, the resource-self exclusion and no owners.
+The late-populated local-owner control also consumes actual owner discovery:
+SSA exposes both the captured pointer cell and the holder loaded from it,
+and the proof keeps the existing type exclusions at that boundary.
+It checks insufficient allowances, child cutoff with an available parent,
+classifier cutoff and fresh recovery. An overlay removing the shared allowance
+must fail the proof and classifier controls. Beads
+`gohawk-dho.44.11.5.18.1.5.7` owns this boundary; observed access-path availability
+remains parent work.
+
+The captured-owner local gate passed; immutable
+`.build/goal-captured-owner-current`, SHA-256
+`959891bd1bcd274046585f5ed024bed13ef297170874047b21ea6396bc3d1d2d`,
+retains byte-identical JSON against the async-exposure binary in the same pinned
+Cute/Ferro scopes, with exits 3/0 and empty stderr. The unbounded overlay fails
+the allowance, child-cutoff and captured-owner classifier controls. No full
+precision replay or production FP removal is credited.
+
 The resource projection decision propagates view-binding and storage-projection
 cutoff rather than treating it as missing evidence. A known non-cleaning view
 still cannot discharge its resource merely because it has a Close method;
