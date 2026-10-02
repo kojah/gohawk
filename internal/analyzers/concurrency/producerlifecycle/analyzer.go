@@ -128,33 +128,9 @@ func abandonedProducerSend(
 	if ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: send.spawn, Owns: func(ssa.Instruction) bool { return false }}) == nil {
 		return producerProof{Reason: reasonReceiverDoesNotReturn}
 	}
-	// A loop does not establish how many sends are feasible: a map may contain
-	// zero or one matching entry, or a state flag may permit only one send.
-	// Decline the whole channel count when any contributing send is repeated;
-	// otherwise a later send could inherit the same unproven excess count.
-	// A go statement inside a loop repeats its sends in the same way, however
-	// many times the goroutine body itself sends.
-	// https://github.com/hashicorp/go-metrics/blob/5a9e5caa3d2779bca6a8ae2218b8f884194855e7/inmem_endpoint_test.go#L157-L177
-	sendCount := 0
-	var latestLaunch *ssa.Go
-	for _, candidate := range sends {
-		if !heapmodel.MayAlias(candidate.channel, send.channel) {
-			continue
-		}
-		if candidate.repeated || ssaflow.BlockInCycle(candidate.spawn.Block()) {
-			return producerProof{Reason: reasonProducerCountUnknown}
-		}
-		// Contributing launches must form one dominance chain. Otherwise
-		// alternative workers can inflate a total, even when each reaches a
-		// later common worker. Keep the latest launch as the chain frontier.
-		if latestLaunch == nil || ssaflow.InstructionDominates(latestLaunch, candidate.spawn) {
-			latestLaunch = candidate.spawn
-		} else if !ssaflow.InstructionDominates(candidate.spawn, latestLaunch) {
-			return producerProof{Reason: reasonProducerCountUnknown}
-		}
-		if producerSendMayPrecede(candidate, send) {
-			sendCount++
-		}
+	count := countProducerSends(send, sends)
+	if !count.Known() {
+		return count.producerProof
 	}
 	receives := channelReceives(function, send.channel, send.spawn, engine)
 	if receives.unknown {
@@ -163,10 +139,67 @@ func abandonedProducerSend(
 	if receives.count == 0 {
 		return producerProof{Reason: reasonReceiverObligationUnknown}
 	}
-	if sendCount > receives.count {
+	if count.count > receives.count {
 		return producerProof{State: ssaflow.EvidenceProven, Reason: reasonProducerExceedsReceives}
 	}
 	return producerProof{State: ssaflow.EvidenceDisproven, Reason: reasonProducerWithinReceiveCount}
+}
+
+type producerCountProof struct {
+	producerProof
+	count int
+}
+
+func countProducerSends(send producerSend, sends []producerSend) producerCountProof {
+	unknown := producerCountProof{producerProof: producerProof{Reason: reasonProducerCountUnknown}}
+	var latestLaunch ssa.Instruction
+	latestSend := map[*ssa.Go]ssa.Instruction{}
+	count := 0
+	// A loop does not establish how many sends are feasible: a map may contain
+	// zero or one matching entry, or a state flag may permit only one send.
+	// Decline the whole channel count when any contributing send is repeated;
+	// otherwise a later send could inherit the same unproven excess count.
+	// A go statement inside a loop repeats its sends in the same way, however
+	// many times the goroutine body itself sends.
+	// https://github.com/hashicorp/go-metrics/blob/5a9e5caa3d2779bca6a8ae2218b8f884194855e7/inmem_endpoint_test.go#L157-L177
+	for _, candidate := range sends {
+		if !heapmodel.MayAlias(candidate.channel, send.channel) {
+			continue
+		}
+		if candidate.repeated || ssaflow.BlockInCycle(candidate.spawn.Block()) {
+			return unknown
+		}
+		// Launches must coexist in one dominance chain; alternative workers
+		// cannot inflate a total before a later common launch.
+		var ordered bool
+		latestLaunch, ordered = extendProducerOrder(latestLaunch, candidate.spawn)
+		if !ordered {
+			return unknown
+		}
+		if !producerSendMayPrecede(candidate, send) {
+			continue
+		}
+		if !candidate.summarized {
+			// Direct fallback sends lack a complete protocol. Their counted
+			// instructions must coexist within each worker too; reaching a
+			// common later send does not make earlier branches simultaneous.
+			latestSend[candidate.spawn], ordered = extendProducerOrder(latestSend[candidate.spawn], candidate.instruction)
+			if !ordered {
+				return unknown
+			}
+		}
+		count++
+	}
+	return producerCountProof{producerProof: producerProof{State: ssaflow.EvidenceProven, Reason: reasonProducerCountKnown}, count: count}
+}
+
+// A frontier represents a dominance chain. Every earlier member dominates
+// it, so a new ancestor or descendant keeps the whole chain ordered.
+func extendProducerOrder(frontier, next ssa.Instruction) (ssa.Instruction, bool) {
+	if frontier == nil || ssaflow.InstructionDominates(frontier, next) {
+		return next, true
+	}
+	return frontier, ssaflow.InstructionDominates(next, frontier)
 }
 
 func producerSendMayPrecede(first, second producerSend) bool {

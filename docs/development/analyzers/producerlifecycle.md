@@ -33,6 +33,16 @@ ordered-worker diagnostics. The most recent launch is the dominance frontier;
 all earlier members are its ordered ancestors. Shared instruction dominance
 also orders launches in the same block.
 
+When a complete worker summary is unavailable, contributing direct sends must
+also form a dominance chain within that worker. Alternative sends can each
+reach a common later send without both executing. The same frontier mechanic
+orders launches and direct sends; `countProducerSends` returns a structured
+count proof consumed by the final receiver comparison. Complete summary
+operations retain their normalized sequence ordering. `helpers/fallback_choices.go`
+covers a balanced branching worker, competition with another worker, and
+straight-line/nested excess-send diagnostics. This deliberately leaves some
+real excess protocols with unordered fallback sends unknown.
+
 Loop-based send counts remain unknown: a repeated statement does not prove
 multiple sends are feasible. This deliberately misses unbounded producer loops
 until their excess production can be established without a cardinality guess.

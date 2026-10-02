@@ -22,6 +22,7 @@ const (
 	reasonReceiverHelperUnknown
 	reasonReceiverHelperComplete
 	reasonAsynchronousReceiver
+	reasonProducerCountKnown
 	producerReasonCount
 )
 
@@ -41,6 +42,7 @@ var producerReasonCodes = [...]string{
 	reasonReceiverHelperUnknown:      "receiver-helper-unknown",
 	reasonReceiverHelperComplete:     "receiver-helper-complete",
 	reasonAsynchronousReceiver:       "asynchronous-receiver",
+	reasonProducerCountKnown:         "producer-count-known",
 }
 
 func (reason producerReason) String() string {

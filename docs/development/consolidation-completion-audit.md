@@ -4928,3 +4928,23 @@ records validation and the conservative loss of coverage for unordered workers.
 This does not settle all producer protocol paths or the broader semantic and
 partial-duplication review. Seven recorded production FP sites plus Rune remain
 open; no production FP credit or full precision replay is claimed.
+
+## Direct fallback producer send ordering
+
+Beads `gohawk-dho.23.14` corrects counts within workers whose concurrency
+summary is incomplete. Mutually exclusive direct sends can each reach a later
+common send without both executing. Their total previously produced a false
+alert at the common send and could inflate the total for a separate worker.
+
+The count stage now returns a structured proof and uses one dominance-frontier
+mechanic for launches and per-worker direct sends. Unordered contributions are
+unknown at the existing count boundary; normalized complete summary operations
+retain their sequence policy. Actual SSA, balanced branch/competition controls,
+straight-line/nested diagnostic controls and parent-failing outcome assertions
+pin the correction. Full all-check fixture payloads remove exactly three false
+alerts, add none and preserve other findings. The
+[scoped audit](../../benchmarks/precision/audits/producer-fallback-order-2026-10-03.md)
+records validation and the deliberate false negatives for unordered fallback
+protocols. Seven recorded production sites plus Rune and broader semantic and
+partial-duplication completion remain open; no production FP credit or full
+precision replay is claimed.

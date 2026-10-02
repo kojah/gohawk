@@ -14,7 +14,8 @@ The core check proves the count: a local unbuffered channel, a receiver that
 stops after a known number of receives, and more sends than that. A send on
 either branch of an `if` counts once; alternative worker launches are left alone. Buffered and
 externally supplied channels, send counts that depend on a loop, and channels
-that code the analyzer cannot see may also drain are left unreported.
+that code the analyzer cannot see may also drain are left unreported. Branching
+workers with callbacks may also be left unreported.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [producerlifecycle design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/producerlifecycle.md).

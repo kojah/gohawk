@@ -116,6 +116,10 @@ func TestFoldedBranchSourcesKeepTheirDecisions(t *testing.T) {
 	assertProducerSourceDecisions(t, "branch_sources.go", "accepted")
 }
 
+func TestFallbackBranchCountIsUnknown(t *testing.T) {
+	assertProducerSourceDecisions(t, "fallback_choices.go", "accepted")
+}
+
 func TestUnorderedLaunchCountIsUnknown(t *testing.T) {
 	assertProducerSourceDecisions(t, "launch_choices.go", "unknown")
 }
@@ -135,6 +139,9 @@ func assertProducerSourceDecisions(t *testing.T, filename, nonDiagnosticOutcome 
 			continue
 		}
 		outcome := nonDiagnosticOutcome
+		if strings.Contains(text, "// count-unknown") {
+			outcome = "unknown"
+		}
 		if strings.Contains(text, "// want") {
 			outcome = "rejected"
 		}
@@ -150,6 +157,9 @@ func assertProducerSourceDecisions(t *testing.T, filename, nonDiagnosticOutcome 
 			}
 			if event.Outcome != outcome {
 				t.Errorf("%s: got %s (%s), want %s", location, event.Outcome, event.Reason, outcome)
+			}
+			if outcome == "unknown" && event.Reason != reasonProducerCountUnknown.String() {
+				t.Errorf("%s: unknown count decided by %s", location, event.Reason)
 			}
 			delete(want, location)
 		}
