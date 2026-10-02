@@ -5,7 +5,6 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
-	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -29,58 +28,12 @@ func directMutexEffect(instruction ssa.Instruction) (mutexEffect, bool) {
 	}, ok
 }
 
-func summarizedMutexEffects(pass *analysis.Pass, function *ssa.Function) map[ssa.Instruction][]mutexEffect {
-	result := make(map[ssa.Instruction][]mutexEffect)
-	engine, _ := summaryKnowledge.Provider(pass).Concurrency()
-	if engine == nil {
-		return result
-	}
-	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
-	for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
-		if _, _, _, direct := mutexAction(call); direct {
-			continue
-		}
-		// Builtins have no mutex effects. Keeping them out of this map leaves
-		// the flow's per-instruction checks, such as a delete or copy into a
-		// read-locked owner, in charge of them.
-		if _, builtin := call.Common().Value.(*ssa.Builtin); builtin {
-			continue
-		}
-		summary := engine.AtCall(call, budget)
-		if !summary.Complete() {
-			continue
-		}
-		effects, complete := bindMutexEffects(call, summary.Operations)
-		if complete {
-			result[call] = effects
-		}
-	}
-	return result
-}
-
-// No held state can arise without a direct or fully bound acquisition. Calls
-// with incomplete effects only contribute ordering when another lock is held.
-func hasMutexAcquisition(function *ssa.Function, summaries map[ssa.Instruction][]mutexEffect) bool {
-	for _, effects := range summaries {
-		for _, effect := range effects {
-			if effect.operation == mutexAcquire {
-				return true
-			}
-		}
-	}
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			if effect, known := directMutexEffect(instruction); known && effect.operation == mutexAcquire {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation) ([]mutexEffect, bool) {
+func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation, budget *ssaflow.SearchBudget) ([]mutexEffect, bool) {
 	var effects []mutexEffect
 	for _, operation := range operations {
+		if !budget.Spend() {
+			return nil, false
+		}
 		value := operation.Resource.Value
 		if operation.Resource.Indirect || (operation.Kind != concurrencyfacts.Lock && operation.Kind != concurrencyfacts.Unlock) {
 			return nil, false
@@ -93,7 +46,7 @@ func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation) (
 		class := lockComparisonKey(identity, value)
 		acquired := lockAcquisition{
 			class: class, position: operation.Source, resource: resource, instance: identity, widened: class != "" && class != identity,
-			variant: loopVariantValue(ssaflow.NewReachingWalk(ssaflow.TransparentNone), value),
+			variant: loopVariantValue(ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(budget), value),
 		}
 		if operation.Source != call.Pos() {
 			acquired = acquired.through(call)
@@ -101,6 +54,9 @@ func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation) (
 		kind := mutexAcquire
 		if operation.Kind == concurrencyfacts.Unlock {
 			kind = mutexRelease
+		}
+		if budget.Exhausted() {
+			return nil, false
 		}
 		effects = append(effects, mutexEffect{operation: kind, identity: identity, receiver: value, acquired: acquired})
 	}

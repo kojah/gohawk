@@ -169,33 +169,6 @@ func callerReleasesOnFlag(call *ssa.Call, mutex *ssa.Global, heldWhen ssaflow.Ca
 	return witness && !unowned
 }
 
-func callerOwnedLocks(function *ssa.Function, summaries map[ssa.Instruction][]mutexEffect) map[string]bool {
-	type firstAction struct {
-		operation mutexOperation
-		position  token.Pos
-	}
-	first := map[string]firstAction{}
-	for _, block := range function.Blocks {
-		for _, instruction := range block.Instrs {
-			effects := summaries[instruction]
-			if effect, ok := directMutexEffect(instruction); ok {
-				effects = []mutexEffect{effect}
-			}
-			for _, effect := range effects {
-				current, exists := first[effect.identity]
-				if instruction.Pos() != token.NoPos && (!exists || instruction.Pos() < current.position) {
-					first[effect.identity] = firstAction{operation: effect.operation, position: instruction.Pos()}
-				}
-			}
-		}
-	}
-	result := map[string]bool{}
-	for identity, action := range first {
-		result[identity] = action.operation == mutexRelease
-	}
-	return result
-}
-
 func appendUniquePosition(positions []token.Pos, candidate token.Pos) []token.Pos {
 	if !slices.Contains(positions, candidate) {
 		return append(positions, candidate)

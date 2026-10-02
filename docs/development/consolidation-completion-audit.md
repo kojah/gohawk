@@ -4222,3 +4222,20 @@ lock TPs. Beads `.44.11.5.27.1` covers this release family; parent `.27` retains
 setup, final metadata, callee ordering and alias/exclusivity boundaries. This
 stage earns no production FP correction or whole-query time claim. The wider
 consolidation requirements and remaining production findings remain unproven.
+
+## Lock-function setup consolidation, October 2
+
+One bounded setup inventory now supplies direct effects, helper effects,
+acquisition eligibility, caller-owned first actions, defers and possible writer
+witnesses. State transfer reuses its direct metadata. Helper inference retains
+its shared summary cap while drawing from the function pool; interrupted setup
+exposes no partial inventory, even after an earlier completed helper.
+
+The [lock setup follow-up](../../benchmarks/precision/audits/lock-setup-inventory-followup-2026-10-02.md)
+records actual SSA cutoff/fresh/warm and nested-summary controls, three failing
+counterfactuals and four unchanged pinned production lock TPs. Beads
+`gohawk-dho.44.11.5.27.2` covers this setup stage. Parent `.27` retains final
+return/report/held-contract metadata, callee ordering and identity/alias/
+exclusivity internals. This consolidation earns no production FP removal or
+whole-query cost guarantee. The eleven recorded unresolved production sites,
+Rune publication issue and wider completion requirements remain unproven.

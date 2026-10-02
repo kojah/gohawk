@@ -120,11 +120,14 @@ func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction) bool {
 // it must never enter order or recursive-lock proofs. Distinct wrapper receivers,
 // known empty calls, and a release already executed provide no such evidence.
 // https://github.com/rfjakob/gocryptfs/blob/842af4463989ee6808d397433e9aba8517e49c89/internal/fusefrontend/file.go#L418-L430
-func possibleDeferredWriters(function *ssa.Function, summaries map[ssa.Instruction][]mutexEffect) []*ssa.Defer {
+func (setup *lockFunctionSetup) deferredWriterWitnesses(budget *ssaflow.SearchBudget) []*ssa.Defer {
 	var writers []*ssa.Defer
-	calls := ssaflow.InstructionsOf[*ssa.Call](function)
-	for _, deferred := range ssaflow.InstructionsOf[*ssa.Defer](function) {
-		operation, _, receiver, direct := mutexAction(deferred)
+	for _, deferred := range setup.defers {
+		if !budget.Spend() {
+			return nil
+		}
+		effect, direct := setup.direct[deferred]
+		operation, receiver := effect.operation, effect.receiver
 		if !direct || operation != mutexRelease || readModeRelease(deferred) {
 			continue
 		}
@@ -132,14 +135,27 @@ func possibleDeferredWriters(function *ssa.Function, summaries map[ssa.Instructi
 		if !embedded {
 			continue
 		}
-		for _, call := range calls {
+		for _, call := range setup.calls {
+			if !budget.Spend() {
+				return nil
+			}
 			callee := call.Common().StaticCallee()
-			if callee == nil || len(callee.Blocks) != 0 || !ssaflow.InstructionDominates(call, deferred) {
+			if callee == nil || len(callee.Blocks) != 0 {
 				continue
 			}
-			if _, complete := summaries[call]; complete {
+			dominates := ssaflow.InstructionDominatesWithin(call, deferred, budget)
+			if budget.Exhausted() {
+				return nil
+			}
+			if !dominates {
 				continue
 			}
+			if _, complete := setup.summaries[call]; complete {
+				continue
+			}
+			// Only the embedded lock's exact wrapper may explain this deferred
+			// writer release. Aliasing supplies an unknown witness, never a held
+			// lock or ordering edge; interrupted setup discards all witnesses.
 			calledReceiver := ssaflow.CallReceiver(call.Common())
 			if calledReceiver != nil && heapmodel.MayAlias(calledReceiver, field.X) {
 				writers = append(writers, deferred)

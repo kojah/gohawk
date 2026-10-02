@@ -180,8 +180,17 @@ as a complete release contract. Complex lock protocols can therefore be missed.
 detaches mutable predecessor collections before transfer. `flow_budget_test.go`,
 `state_budget_test.go` and `branch_budget_test.go` cover late cutoff after buffered
 findings/order edges, child versus parent exhaustion, fresh retries, phi/cycle
-availability and nested result inference. Prewalk effect/caller/defer setup,
-heap queries, final contract metadata and order publication retain independent
+availability and nested result inference. `setup.go` builds one bounded
+instruction/call/defer inventory, memoizes direct effects for state transfer,
+and derives acquisition eligibility, caller-owned first actions and possible
+deferred writer witnesses from it. Helper summaries retain a shared 2,000-step
+setup cap while charging the same function pool; binding/census/dominance work
+also charges that allowance. An interrupted setup exposes no partial metadata,
+including completed earlier summaries. `setup_test.go` covers direct/forwarded
+acquisitions, borrowed locks, builtins, opaque wrapper writers, cold/fresh/warm
+cutoffs and independent summary-cap exhaustion.
+
+Heap queries, final contract metadata and order publication retain independent
 costs. Lock release completion now shares the traversal pool through
 `release_queries.go`: synchronous and spawned exact release, registered and
 pre-acquisition possible defer release, and synchronous may-release use one
@@ -194,7 +203,7 @@ semantics, opaque callbacks, cold and fresh evidence, independent question
 cutoff and late cutoff after buffered findings/order edges.
 
 This is a traversal/completion boundary, not a whole-query time bound. Beads
-`gohawk-dho.44.11.5.27` retains the setup and metadata review; alias, type and
+`gohawk-dho.44.11.5.27` retains the final metadata and identity review; alias, type and
 graph internals keep their separately recorded costs.
 
 For a private non-escaping helper, an exact Boolean result can also describe

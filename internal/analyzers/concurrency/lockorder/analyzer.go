@@ -107,8 +107,12 @@ func walkLockOrderWithin(
 	calleeLocks *calleeLockSearch, evidence *lifecycle.LocalEvidence,
 	callers map[*ssa.Function]conditionalCallerSet, exclusive *exclusiveCallers, budget *ssaflow.SearchBudget,
 ) bool {
-	summaries := summarizedMutexEffects(pass, function)
-	if !hasMutexAcquisition(function, summaries) {
+	proof := buildLockSetup(pass, function, budget)
+	if !proof.Proven() {
+		traceLockStateBudget(pass, function)
+		return false
+	}
+	if !proof.setup.hasAcquisition {
 		return true
 	}
 	// A partial walk cannot establish an all-return contract. Keep diagnostics
@@ -116,7 +120,7 @@ func walkLockOrderWithin(
 	buffered, commit := check.BufferReports(pass)
 	localRelations := newLockOrders()
 	localRelations.collectOnly = true
-	walk := lockStateWalk{summaries: summaries, budget: budget}
+	walk := lockStateWalk{setup: proof.setup, budget: budget}
 	if !walk.run(buffered, function, localRelations, calleeLocks, evidence, callers, exclusive) {
 		traceLockStateBudget(pass, function)
 		return false

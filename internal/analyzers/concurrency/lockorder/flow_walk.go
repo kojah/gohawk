@@ -12,13 +12,13 @@ import (
 // The lock work list owns state expansion, branch evidence and the availability
 // barrier before function reports/contracts are published. A state quota limits
 // expansions; the shared allowance also charges keys, copies, instruction visits
-// and nested branch/release queries. Prewalk setup and effect/heap queries retain
-// their separate costs until their request boundaries are migrated.
+// and nested branch/release queries. Setup shares this pool; identity/heap/type
+// query internals retain their separately recorded costs.
 const lockStateWorkBudget = 100 * ssaflow.SummaryBudget
 
 type lockStateWalk struct {
 	budget            *ssaflow.SearchBudget
-	summaries         map[ssa.Instruction][]mutexEffect
+	setup             *lockFunctionSetup
 	flow              lockFlowContext
 	unreleasedReturns map[string][]token.Pos
 	heldAtReturn      map[*ssa.Return]lockReturnState
@@ -46,9 +46,9 @@ func (walk *lockStateWalk) run(
 	heldAtReturn := map[*ssa.Return]lockReturnState{}
 	acquisitions := map[string][]ssa.Instruction{}
 	uncertainGuards := map[string]bool{}
-	possibleWriters := possibleDeferredWriters(function, walk.summaries)
-	callerOwned := callerOwnedLocks(function, walk.summaries)
-	functionDefers := ssaflow.InstructionsOf[*ssa.Defer](function)
+	possibleWriters := walk.setup.possibleWriters
+	callerOwned := walk.setup.callerOwned
+	functionDefers := walk.setup.defers
 	flow := lockFlowContext{
 		pass:         pass,
 		function:     function,
@@ -122,7 +122,7 @@ func (walk *lockStateWalk) transfer(instruction ssa.Instruction, state lockFlowS
 	recordUnreleasedLocks(instruction, state.held, state.deferred, flow.lockValues, walk.unreleasedReturns, walk.heldAtReturn)
 	// A complete sequence replaces fallback release evidence: a helper that
 	// releases and reacquires must leave the lock held.
-	if effects, complete := walk.summaries[instruction]; complete {
+	if effects, complete := walk.setup.summaries[instruction]; complete {
 		before := state.held
 		for _, effect := range effects {
 			if !walk.budget.Spend() {
@@ -155,7 +155,7 @@ func (walk *lockStateWalk) transfer(instruction ssa.Instruction, state lockFlowS
 	if walk.incomplete() {
 		return state
 	}
-	effect, ok := directMutexEffect(instruction)
+	effect, ok := walk.setup.direct[instruction]
 	if ok {
 		return flow.applyMutexAction(instruction, effect, state)
 	}
