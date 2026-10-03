@@ -5570,3 +5570,33 @@ semantics remain explicit contracts. Fact validation, immutable cached encoding
 and rendering retain their publication/codec/presentation owners. This closes
 the selected ownership/cost review, not a whole-query time guarantee or the
 broader architecture goal. Five reviewed production FP sites remain open.
+
+
+## Completion discovery nil folds and observed-discovery reconciliation
+
+Beads `gohawk-dho.44.11.9` routes the three remaining optional-handle nil folds
+through the existing constructor allowance. A cutoff remains unknown before
+any partial handle can drive reporting; fresh queries retain optional nil
+exclusion and live channel discovery. The [nil-fold review](../../benchmarks/precision/audits/discovery-nil-allowance-2026-10-03.md)
+records four actual SSA controls, a compiled parent counterfactual that fails
+all four assertions, and six successful read-only all-check scans. The 128
+fixture diagnostics and pinned stargz diagnostic are unchanged; pinned Openase
+remains silent without FP-correction credit. Scanner signatures are unchanged.
+
+The original observed-discovery requirements in `gohawk-dho.44.11` now have
+explicit owners and completed bounded reviews:
+
+| Requirement | Authoritative implementation and evidence |
+| --- | --- |
+| Observe before constructor queries | `newSpawnAnalysis` initializes check, tracing and probe before `discoverCompletion`; `queryBudget` attaches the observer when creating the candidate pool. `discovery_budget_test.go` verifies candidate attribution. |
+| Share constructor discovery allowance | `discoverCompletion` draws one child; `discoverAdapters` passes it through relay, owner and pipe queries. Binding and nil queries receive the same allowance. Stages .1, .2, .7 and .9 cover these routes. |
+| Preserve incomplete discovery as unknown | `discoveryUnavailable` stops each constructor stage; `prove` checks child exhaustion before obligations or any later proof. Partial-discovery and adapter cutoff tests in `discovery_budget_test.go`, plus nil-fold controls verify this boundary and fresh recovery. |
+| Preserve exact obligations and possible ownership polarity | `completion_bindings.go` uses lazy capture-first bindings and stable cells for exact values; aggregate ownership remains possible evidence. Notification and group coverage retain every-normal-return semantics. The exact binding and notification stages preceded this budget review. |
+| Charge selected suppression queries and attribute cutoffs | Retained-owner, caller-bound and relay-dependency stages .3-.4 retain request-local availability and observed candidate costs. Factory-origin .8 uses the same fold allowance; typed census .6 shares the instruction engine. |
+| Review transitive ownership without claiming universal time bounds | Stage .5's 31 completed subreviews distinguish shared reaching, storage, identity, result and flow costs from graph build/cache/wait, type internals, callbacks, allocation, codec and rendering owners. Its source-backed reconciliation is recorded above. |
+
+Canonical validation passes all eight targets; focused publication and the
+final architecture receipt are recorded in the linked audit. This completes
+the finite observed-discovery ownership review. The broader `.44` classifier/input
+inventory, semantic consolidation and five reviewed production FP sites remain
+open. Neither completed child issues nor scanner results prove the root goal.

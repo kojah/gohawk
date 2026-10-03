@@ -112,7 +112,7 @@ func spawnedCompletionValues(
 			// A disabled optional channel cannot establish a join obligation at
 			// this call site, even if another invocation uses the worker's send.
 			// https://github.com/paradigmxyz/iron-proxy/blob/5bd11abeb95ca734c767cfc992ea9be862700614/internal/postgres/manager.go#L64-L97
-			if signal := spawnedCompletionSignal(spawn, function, closure, instruction, budget); signal != nil && !ssaflow.DefinitelyNil(signal) {
+			if signal := spawnedCompletionSignal(spawn, function, closure, instruction, budget); signal != nil && !ssaflow.DefinitelyNilWithin(signal, budget) {
 				signals = append(signals, signal)
 			}
 		}
@@ -132,7 +132,7 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 		group := completionValueAtCall(spawn, function, closure, pair.Local, budget)
 		// A typed nil actual satisfies the parameter's static WaitGroup type,
 		// but the callee's guarded deferred Done cannot run for this launch.
-		if group == nil || ssaflow.DefinitelyNil(group) || !syntax.NamedType(group.Type(), "sync", "WaitGroup") {
+		if group == nil || ssaflow.DefinitelyNilWithin(group, budget) || !syntax.NamedType(group.Type(), "sync", "WaitGroup") {
 			continue
 		}
 		// A conditional registration promises completion only on that branch.
@@ -327,7 +327,7 @@ func waitGroupCompletionValues(
 			// nil. OpenIM's fire-and-forget branch uses the same worker as its
 			// counted branch but supplies a nil group:
 			// https://github.com/openimsdk/openim-sdk-core/blob/061ac673ffa31f4d863651fdffee7882609a5f62/internal/conversation_msg/notification.go#L441-L469
-			if group == nil || ssaflow.DefinitelyNil(group) || heapmodel.MayAliasAny(group, groups) {
+			if group == nil || ssaflow.DefinitelyNilWithin(group, budget) || heapmodel.MayAliasAny(group, groups) {
 				continue
 			}
 			if !waitGroupSettlesFunction(function, receiver, budget) {

@@ -11,7 +11,7 @@ Reports goroutines whose proven completion obligation is not honored on every re
 Constructor discovery draws a `SummaryBudget` allowance from the spawn's
 observed candidate pool. Its instruction census, exact/stable binding queries,
 nested notification and group coverage, terminal completion tails and callback
-wrapper invocation proof share that allowance. Return coverage uses the shared
+wrapper invocation proof and optional-handle nil folds share that allowance. Return coverage uses the shared
 tri-state obligation walk; the adapter charges examined instructions as well
 as expanded path states. Discovery exhaustion yields
 `completion-discovery-budget-exhausted` and unknown for the whole candidate,
@@ -21,7 +21,10 @@ whether the local allowance or candidate pool ran out. Constructor follow-up
 work stops at that cutoff. No incomplete discovery is cached.
 `discovery_budget_test.go` checks an oversized actual SSA body, attributed trace
 cutoff, partial evidence at a candidate-pool cutoff and a fresh full-budget
-missing-join proof. This can miss defects in oversized workers. Owner/lifecycle
+missing-join proof. `discovery_nil_budget_test.go` checks direct channel, direct
+group and deferred group nil folds, a live channel, small-child/live-parent
+cutoffs and fresh recovery. Optional nil handles remain excluded. This can miss
+defects in oversized workers. Owner/lifecycle
 suppression adapters after constructor discovery remain separate review scope.
 
 Retained-owner calls and selected context observations now share one allowance
