@@ -279,7 +279,8 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 		return actionNone, reasonNone
 	}
 	if ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) {
-		return analysis.testingCleanupAction(common), reasonLabelTestingCleanup
+		proof := analysis.testingCleanupAction(common)
+		return proof.action, proof.reason
 	}
 	if ssaflow.HasLibraryContract(common, ssaflow.ContractGoMockReturn) && analysis.anyArgumentConsumes(common) {
 		// gomock.Return publishes its configured results, but broad argument
@@ -295,7 +296,8 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 		}
 		return analysis.opaqueCallAction(common, reasonLabelCalleeWithoutBody)
 	}
-	return analysis.helperAction(common, callee, closure, analysis.tracked), reasonLabelHelper
+	proof := analysis.helperAction(common, callee, closure, analysis.tracked)
+	return proof.action, proof.reason
 }
 
 // Opaque and launched calls share the same handoff boundary. Positive argument
@@ -366,50 +368,11 @@ func (analysis *spawnAnalysis) unsettledGroup(receiver ssa.Value) bool {
 	return ok && syntax.NamedType(pointer.Elem(), "sync", "WaitGroup")
 }
 
-// helperAction follows every tracked value that the call site supplies to a
-// source-visible callee, whether as an argument or a captured variable.
-func (analysis *spawnAnalysis) helperAction(
-	common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure, values []trackedValue,
-) ownershipAction {
-	result := actionNone
-	for _, pair := range ssaflow.CallBindings(common, callee, closure) {
-		for _, tracked := range values {
-			carried := bindingCarries(pair.Supplied, tracked.value)
-			projected := ssaflow.ValueIsAccessPathFrom(tracked.value, pair.Supplied)
-			if !carried && !projected {
-				continue
-			}
-			search := newHelperSearch()
-			search.concurrency, _ = summaryKnowledge.Provider(analysis.pass).Concurrency()
-			action := analysis.boundHelperAction(pair.Supplied, tracked, search.use(callee, pair.Local, tracked.kind))
-			result = strongerAction(result, action)
-		}
-	}
-	return result
-}
-
-// Owner coverage establishes a lifecycle call, not observation of worker
-// completion. A completion handle also needs exact binding: containment includes
-// old stores and aggregate projections, which supply only possible shutdown.
-// https://github.com/jech/galene/blob/6d9338e909fdecdd906150e4dda34e10d9869654/rtpconn/webclient.go#L878-L894
-func (analysis *spawnAnalysis) boundHelperAction(supplied ssa.Value, tracked trackedValue, effect ownershipAction) ownershipAction {
-	if effect != actionJoin {
-		return effect
-	}
-	if tracked.kind == trackedOwner {
-		return actionUnknown
-	}
-	if !heapmodel.NewStorage(analysis.budget()).Same(supplied, tracked.value).Proven() {
-		return actionUnknown
-	}
-	return actionJoin
-}
-
 // testingCleanupAction treats a testing Cleanup callback like a deferred
 // helper: testing guarantees that it runs after the test completes, so a join
 // on every path through the callback settles the worker.
 // https://github.com/charmbracelet/crush/blob/6fa9e6905041c32ffceb1c9b1a3189b3db1eec07/internal/server/socket_test.go#L162-L177
-func (analysis *spawnAnalysis) testingCleanupAction(common *ssa.CallCommon) ownershipAction {
+func (analysis *spawnAnalysis) testingCleanupAction(common *ssa.CallCommon) helperCallProof {
 	result := actionNone
 	for _, argument := range common.Args {
 		closure, ok := argument.(*ssa.MakeClosure)
@@ -417,10 +380,14 @@ func (analysis *spawnAnalysis) testingCleanupAction(common *ssa.CallCommon) owne
 			continue
 		}
 		if callee, _ := closure.Fn.(*ssa.Function); callee != nil {
-			result = strongerAction(result, analysis.helperAction(nil, callee, closure, analysis.tracked))
+			proof := analysis.helperAction(nil, callee, closure, analysis.tracked)
+			if proof.reason == reasonHelperCallBudgetExhausted {
+				return proof
+			}
+			result = strongerAction(result, proof.action)
 		}
 	}
-	return result
+	return helperCallProof{action: result, reason: reasonLabelTestingCleanup}
 }
 
 // receivesFrom reports whether instruction receives from a channel accepted by

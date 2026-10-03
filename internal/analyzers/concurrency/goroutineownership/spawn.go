@@ -33,8 +33,8 @@ type spawnAnalysis struct {
 	// probe attributes shared-engine give-ups to this spawn; it is inert when
 	// the spawn is not being traced, so the budgets it observes stay silent.
 	probe analysisTrace.Probe
-	// pool is this spawn's total across every query its proof asks; see
-	// budget. It is created on first use so it carries the probe's observer.
+	// pool accumulates requests drawn through budget. Default flow and graph
+	// helpers retain separate costs. Lazy creation attaches the probe observer.
 	pool *ssaflow.SearchBudget
 	// discoveryBudget preserves cutoff availability even after partial evidence.
 	discoveryBudget *ssaflow.SearchBudget
@@ -44,17 +44,16 @@ type spawnAnalysis struct {
 // asks; exhaustion is unknown evidence, never a join or a leak.
 const spawnQueryBudget = ssaflow.QueryBudget
 
-// spawnPoolBudget bounds a whole spawn proof. A per-query bound does not
-// bound the proof, which asks one question per tracked value per
-// instruction; a candidate in a large function could otherwise cost without
-// limit. A hundred full queries is far beyond an ordinary proof, so the
-// pool decides only pathological candidates, and it decides them the way a
-// single exhausted query does: as unknown.
+// spawnPoolBudget bounds selected requests for one spawn. Their per-query
+// limits alone do not bound repeated questions per tracked value/instruction.
+// A hundred full queries is far beyond an ordinary candidate. Exhaustion is
+// unknown, as for one exhausted query; this does not bound every transitive
+// graph, flow, type or allocation operation.
 const spawnPoolBudget = 100 * spawnQueryBudget
 
 // budget draws one shared query's allowance from this spawn's pool so the
 // storage, summary, and completion give-ups inside it reach the trace and
-// the proof as a whole stays bounded.
+// the selected requests accumulate under one candidate allowance.
 func (analysis *spawnAnalysis) budget() *ssaflow.SearchBudget {
 	return analysis.queryBudget(spawnQueryBudget)
 }

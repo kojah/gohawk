@@ -436,6 +436,20 @@ cutoff never publishes a binding. Helper escape cutoff remains opaque; receive
 cutoff remains unknown and cannot enter the completed memo. Existing helper,
 receive and discovery tests cover fresh recovery and partial evidence.
 
+The main helper-call classifier likewise shares one candidate allowance across
+lazy binding metadata, handle selection, recursive helper effects and exact
+caller binding. One memo serves the call's bindings; its key retains the formal
+or capture and tracked kind, while caller identity is checked separately.
+An exact join can stop immediately because later opaque handles cannot weaken
+it. Owner cleanup and possible binding still supply only unknown ownership.
+Cutoff produces a structured helper-call proof with reason
+`helper-call-budget-exhausted` and evidence phase `helper-call`, including
+testing-cleanup callbacks; pipe-peer consumers retain unknown participation.
+`helper_call_budget_test.go` checks a helper too large for a tiny candidate
+allowance, fresh exact completion, attributed cutoff and distinct formal keys.
+Default standalone searches and graph/alias/type/flow internals retain separate
+cost owners; the candidate pool is not a complete wall-clock bound.
+
 Cleanup-target, local cancellation and pipe-peer queries select tuple results
 through `CallResultWithin`, charging referrer inspection and stopping at the
 exact selected result. Cleanup and cancellation stop before downstream queries

@@ -296,7 +296,7 @@ func (analysis *spawnAnalysis) pipePeerAction(instruction ssa.Instruction, commo
 	callee, closure := ssaflow.DirectCallee(common)
 	_, launched := instruction.(*ssa.Go)
 	if callee != nil && len(callee.Blocks) != 0 && !launched {
-		if analysis.helperAction(common, callee, closure, analysis.pipePeers) != actionNone {
+		if analysis.helperAction(common, callee, closure, analysis.pipePeers).action != actionNone {
 			return actionUnknown
 		}
 		return actionNone

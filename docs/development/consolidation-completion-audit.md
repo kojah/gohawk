@@ -5503,3 +5503,19 @@ inventory is 335 files and 2,205 declarations, five whole-body and 34 partial
 groups with unchanged signatures. No broader duplication absence, transitive
 cost completeness or FP correction is inferred; parent reconciliation and the
 five-site residual queue remain separate requirements.
+
+## Main helper-call classifier request ownership
+
+Current-source review at `ae00ed9` found eager binding preparation and repeated
+standalone effect searches in the main goroutine helper-call classifier. Bead
+`gohawk-dho.44.12` consolidates those into one lazy binding census, one supplied
+allowance and one memo with unchanged formal/capture/kind keys. Structured
+cutoff evidence propagates through testing cleanup and stays unknown for pipe
+participation; exact caller identity and owner-versus-worker policy remain
+separate. The [scoped record](../../benchmarks/precision/audits/helper-call-classifier-2026-10-03.md)
+records actual-SSA spill and formal-binding controls, three assertion-failing
+counterfactuals, canonical verification and six unchanged full-payload scans.
+Source inventory now covers 336 files and 2,207 declarations with unchanged
+five whole-body and 34 partial signatures. Default flow/graph/alias/type costs
+remain explicit; pool comments no longer imply a transitive wall-clock bound.
+The parent reconciliation and five-site residual queue are still open.

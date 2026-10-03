@@ -41,9 +41,11 @@ type helperKey struct {
 }
 
 func newHelperSearch() *helperSearch {
-	return &helperSearch{
-		memo: ssaflow.NewCallGraphMemo[helperKey, ownershipAction](), budget: ssaflow.NewSearchBudget(helperUseBudget),
-	}
+	return newHelperSearchWithin(ssaflow.NewSearchBudget(helperUseBudget))
+}
+
+func newHelperSearchWithin(budget *ssaflow.SearchBudget) *helperSearch {
+	return &helperSearch{memo: ssaflow.NewCallGraphMemo[helperKey, ownershipAction](), budget: budget}
 }
 
 func (search *helperSearch) use(function *ssa.Function, local ssa.Value, kind trackedKind) ownershipAction {

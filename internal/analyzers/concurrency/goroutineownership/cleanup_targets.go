@@ -97,8 +97,7 @@ func callbackClosesSibling(closure *ssa.MakeClosure, sibling ssa.Value, budget *
 		if !heapmodel.DefinitelySameValue(ssaflow.CapturedBindingValueWithin(pair.Supplied, budget), sibling) {
 			continue
 		}
-		search := newHelperSearch()
-		search.budget = budget
+		search := newHelperSearchWithin(budget)
 		if search.use(function, pair.Local, trackedOwner) == actionJoin {
 			return true
 		}
