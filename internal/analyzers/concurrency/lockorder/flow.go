@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -133,10 +134,8 @@ func (flow lockFlowContext) applyMutexAction(
 		guards := flow.exclusiveGlobalGuards(state.held, state.readHeld)
 		// An object nobody else can reach yet is locked without ordering
 		// anything; the lock is still held from here on.
-		if len(state.held) == 0 || !flow.exclusive.acquisitionExclusive(flow.function, instruction, receiver) {
-			for _, owner := range state.held {
-				flow.relations.record(flow.pass, state.origins[owner], acquired, guards...)
-			}
+		if len(state.held) != 0 && !flow.exclusive.acquisitionExclusive(flow.function, instruction, receiver) {
+			flow.recordInitialAcquisition(instruction, receiver, acquired, state, guards)
 		}
 		state.origins[identity] = acquired
 	}
@@ -265,4 +264,23 @@ func lockHandedTo(common *ssa.CallCommon, lock ssa.Value) bool {
 		}
 	}
 	return false
+}
+
+func (flow lockFlowContext) recordInitialAcquisition(
+	instruction ssa.Instruction, receiver ssa.Value, acquired lockAcquisition, state lockFlowState, guards []ssa.Value,
+) {
+	// Publication under an owner writer can be initialization rather than a
+	// contended acquisition. Without the map's reader contract it stays unknown,
+	// never exclusively owned. Other held owners retain their ordering edges.
+	// https://github.com/unstablebuild/rune/blob/3e2165f8983280542c985947378dfa740a397d03/internal/ide/idepkg/manager.go#L416-L422
+	publication := flow.initialPublicationGuard(instruction, receiver, state)
+	if publication.state == ssaflow.EvidenceUnknown {
+		traceLockDiagnostic(flow.pass, check.LockContradictoryOrder, instruction.Pos(), publication.lockDiagnosticProof)
+	}
+	for _, owner := range state.held {
+		if publication.state == ssaflow.EvidenceUnknown && publication.identity == owner {
+			continue
+		}
+		flow.relations.record(flow.pass, state.origins[owner], acquired, guards...)
+	}
 }

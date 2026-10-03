@@ -491,3 +491,31 @@ loses a real read-lock write when a field-only setter is always called under the
 same guard; that caller contract remains a known gap. It does not infer a
 field-to-lock relationship for fields without a witness. The representative
 cursor reset is [Skywalking Buffer.ResetForLoopReading and PrepareForReading](https://github.com/apache/skywalking-rover/blob/e83d5925500a7e63dd55c080a9b1542d6cedaefb/pkg/tools/buffer/buffer.go#L629-L649).
+
+
+## Initial map publication under an owner writer
+
+The first direct Lock of a same-block allocation can have an unknown ordering
+role when the allocation was just stored as a map value and exactly one held
+writer belongs to that map's owner. The acquisition decision returns
+`initial-publication-order-unknown` and omits only that writer's ordering edge.
+The new mutex stays held, and all unrelated held locks retain their edges.
+This is initialization uncertainty, not a proof of exclusive ownership or of
+the map's reader contract. `ExclusiveAt` continues rejecting exposed objects.
+
+The interval permits only field addresses, loads, debug references and one
+exact map-value publication. Calls, stores, sends, prior acquisitions, branch
+boundaries and another publication retain ordinary ordering evidence. Loaded
+gates, reader guards, a different owner, multiple matching writers and a writer
+whose release is uncertain do not qualify. Exact owner identity uses the shared
+bounded structural query; cutoff cannot supply a matching identity.
+
+The `initialpublication` fixtures retain wrong-owner and intervening-exposure
+cycles. Compiled SSA controls cover read guards, prior acquisitions, late guard
+acquisition, loaded gates, multiple writers, unrelated held locks, uncertain
+release and interrupted allowances. Tracing projects the authoritative proof.
+The former `lockorder/gate_mutex.go` diagnostic fixture is deleted: readers that
+bypass the writer can still cause a real cycle, which this boundary deliberately
+misses. Its loss of recall is recorded in the new fixture header.
+
+The motivating publication is [Rune's package iterator gate](https://github.com/unstablebuild/rune/blob/3e2165f8983280542c985947378dfa740a397d03/internal/ide/idepkg/manager.go#L416-L422).

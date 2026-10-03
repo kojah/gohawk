@@ -1,7 +1,11 @@
 package lockorder
 
 import (
+	"go/token"
+	"slices"
 	"strconv"
+
+	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
@@ -111,4 +115,105 @@ func (callers *exclusiveCallers) acquisitionExclusive(function *ssa.Function, in
 		return true
 	}
 	return false
+}
+
+// An initial publication is not unescaped ownership. It leaves the blocking
+// role of the first acquisition unknown under a uniquely matching owner writer.
+// Only that ordering edge is declined; the acquired lock stays held afterwards.
+type publicationGuardProof struct {
+	lockDiagnosticProof
+	identity string
+}
+
+func (flow lockFlowContext) initialPublicationGuard(instruction ssa.Instruction, receiver ssa.Value, state lockFlowState) publicationGuardProof {
+	proof := publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}}
+	effect, direct := flow.setup.direct[instruction]
+	allocation, fresh := receiver.(*ssa.Alloc)
+	if !direct || effect.operation != mutexAcquire || effect.acquired.read || !fresh || allocation.Block() != instruction.Block() {
+		return proof
+	}
+	owner := initialPublicationOwner(allocation, instruction, flow.budget)
+	if flow.budget.Exhausted() || flow.budget.PoolExhausted() {
+		return publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}}
+	}
+	if owner == nil {
+		return proof
+	}
+	// More than one writer on this owner supplies no unique publication guard.
+	// A reader or a possibly released writer cannot supply this boundary either.
+	matched := ""
+	for _, identity := range state.held {
+		if !flow.budget.Spend() {
+			return publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}}
+		}
+		if slices.Contains(state.readHeld, identity) || flow.unprovenRelease[identity] {
+			continue
+		}
+		if flow.writerMatchesOwner(identity, owner) {
+			if matched != "" && matched != identity {
+				return proof
+			}
+			matched = identity
+		}
+	}
+	if flow.budget.Exhausted() || flow.budget.PoolExhausted() {
+		return publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}}
+	}
+	if matched != "" {
+		return publicationGuardProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonInitialPublicationUnknown}, matched}
+	}
+	return proof
+}
+
+// writerMatchesOwner checks exact receiver identity only; it does not establish
+// that readers honor this writer. The caller checks cutoff before using it.
+func (flow lockFlowContext) writerMatchesOwner(identity string, owner ssa.Value) bool {
+	for _, value := range flow.lockValues[identity] {
+		if !flow.budget.Spend() {
+			return false
+		}
+		guardOwner, known := lockOwner(value)
+		if known && ssaflow.StructurallyIdenticalWithin(guardOwner, owner, flow.budget) {
+			return true
+		}
+	}
+	return false
+}
+
+// Address selection and loads may separate a fresh allocation from its map
+// publication and first Lock. Calls, stores, sends, branches or a second map
+// publication break that closed interval: another participant could see or lock
+// the value before the acquisition. Unsupported shapes retain ordering evidence.
+func initialPublicationOwner(allocation *ssa.Alloc, acquisition ssa.Instruction, budget *ssaflow.SearchBudget) ssa.Value {
+	first := ssaflow.InstructionIndexWithin(allocation, budget)
+	last := ssaflow.InstructionIndexWithin(acquisition, budget)
+	if first < 0 || last <= first {
+		return nil
+	}
+	var owner ssa.Value
+	for _, instruction := range acquisition.Block().Instrs[first+1 : last] {
+		if !budget.Spend() {
+			return nil
+		}
+		switch operation := instruction.(type) {
+		case *ssa.FieldAddr, *ssa.DebugRef:
+		case *ssa.UnOp:
+			if operation.Op != token.MUL {
+				return nil
+			}
+		case *ssa.MapUpdate:
+			if owner != nil || operation.Value != allocation || operation.Key == allocation {
+				return nil
+			}
+			source, known := ssaflow.IdentitySource(operation.Map)
+			field, selected := source.(*ssa.FieldAddr)
+			if !known || !selected {
+				return nil
+			}
+			owner = field.X
+		default:
+			return nil
+		}
+	}
+	return owner
 }

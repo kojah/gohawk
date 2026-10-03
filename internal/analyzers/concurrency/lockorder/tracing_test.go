@@ -43,12 +43,12 @@ func TestLockTraceBoundaries(t *testing.T) {
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "lockorder")
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "ordercycles")
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "privateread")
-	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "readlockfields")
+	runFieldAndPublicationTraceFixtures(t)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	checkDecisionTrace(t, data, "field-guard-unknown", "readlockfields.go:", "unknown")
+	checkFieldAndPublicationTrace(t, data)
 	checkDecisionTrace(t, data, "private-write-storage", "owners.go:", "accepted")
 	checkLongerCycleTrace(t, data)
 	checkConstantTrace(t, data, "predecessor-constant-branch-infeasible", "computed_guard.go:")
@@ -100,6 +100,17 @@ func TestLockTraceBoundaries(t *testing.T) {
 	if !foundUnknown {
 		t.Error("missing optional mutex uncertainty")
 	}
+}
+
+func checkFieldAndPublicationTrace(t *testing.T, data []byte) {
+	t.Helper()
+	checkDecisionTrace(t, data, "initial-publication-order-unknown", "initialpublication.go:", "unknown")
+	checkDecisionTrace(t, data, "field-guard-unknown", "readlockfields.go:", "unknown")
+}
+
+func runFieldAndPublicationTraceFixtures(t *testing.T) {
+	t.Helper()
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "readlockfields", "initialpublication")
 }
 
 func checkMutexActionTrace(t *testing.T, data []byte) {
