@@ -1,23 +1,24 @@
 # Consolidation completion audit
 
-Beads `gohawk-dho.23` tracks this audit against the original objective:
-clean architecture, no duplicated proof mechanics, and all remaining easy
-false positives addressed. The current requirement reconciliation below uses
-`707e4d97`. Earlier sections preserve their original source pins and measurements;
-they are historical receipts rather than descriptions of the current queue.
-Overall completion remains unproven until the requirement reconciliation is closed.
+Beads `gohawk-dho.23` tracks the original objective: clean architecture,
+no unnecessary duplicated mechanics, and all remaining easy false positives
+addressed. This requirement reconciliation uses `e3957de9`; earlier sections
+retain their source pins and historical measurements. Source ownership and
+candidate dispositions are reconciled below. Completion remains unproven while
+`.4.9` refreshes the complete fixed production queue after shared-engine changes.
 
 ## Requirements and evidence
 
-| Requirement | Current evidence | Status and remaining verification |
+| Requirement | Authoritative evidence and current scope | Status or remaining work |
 | --- | --- | --- |
-| Shared responsibilities and downward dependencies | The architecture guide and shared-helper references define the SSA, heap, lifecycle, resource, summary, catalog and reporting owners. Current canonical verification and final architecture tests pass. Source inventories below reconcile shared layers and all eight analyzer families; the final execution-adapter inventory includes code outside `internal/`. | Structural conformance and the named family reviews are verified. Reconcile their coverage against the original objective before closing `.23`; passing import tests alone cannot establish semantic cohesion. |
-| No duplicated proof mechanics | `.23.21` records whole-body, partial-block and semantic source reviews and their concrete consolidations. The root scan at `707e4d97` covers 359 files and 2,286 declarations, retaining five whole-body and 33 partial candidate groups with distinct-contract dispositions. The final non-internal source review is recorded below. | Identified duplicate mechanics have been consolidated. Candidate counts are review aids, not absence proof; `.23` must use the source responsibility inventories together with those dispositions. |
-| One authoritative decision for each check | The catalog contains eight analyzers and ten checks. Structured proof/classifier results drive reporting and tracing. Current source-family reconciliations cover cancellation/resource, goroutine, process, lock, deferred-loop, producer and capture contracts; execution filtering now has one shared CLI/plugin wrapper. | Named decision-owner reviews are complete. Earlier inventory rows describe questions at their original pins; their later reconciliations below supersede those open statuses. Overall requirement closure remains with `.23`. |
-| Remaining easy FPs fixed | The frozen 55-site production queue and subsequent scoped corrections leave five reviewed sites: Openase two, goiardi two, Ferro one. Skywalking and Rune have bounded uncertainty corrections. Current successful pinned scans and fresh actual SSA probes are recorded in the execution-adapter review and residual artifacts. | No further easy existing-helper correction was demonstrated in the five residual sites. Openase needs transport/reader completion evidence; goiardi needs call-aware relational preconditions and mutation stability; Ferro needs implicit-zero, scalar publication and state-conditioned result evidence. These remain unresolved model gaps. Silent cutoff/opaque cases receive no correction credit. |
-| Precision preserved by consolidation | Focused accepted/diagnostic controls, counterfactuals and pinned before/after comparisons accompany implementation changes. For `707e4d97`, six successful scopes preserve all 122 diagnostics; two traced scopes preserve all 3,847 records and 232 final decisions. Canonical `make verify` and final architecture pass. | Verified for the recorded affected scopes. This is not a latest-source census of every historical finding; frozen labels remain unchanged. No new production FP correction is credited to adapter consolidation. |
-| Tight development cycle | Focused tests precede stable canonical gates. The latest gate passes generation, modules, vet, formatting, dead-code, lint, local dogfood and ordinary tests. | Maintained. No full precision-regression audit per iteration and no local race run. Unaffected passing receipts are reused for documentation reconciliation. |
-| Work tracked and own changes published | Beads records finite reviews, corrections and residual model assessments. Implementation commits use owned paths; `707e4d97` is pushed and upstream synchronization was verified. Unrelated staged deletion and working-tree artifacts remain separate. | Verify the documentation reconciliation commit and push before closing its child. The original epic and completion audit remain active until requirement closure. |
+| Shared responsibilities and downward dependencies | The current source-owner table maps every one of the 359 authored production paths to its concern and maintained review. SSA, storage, completion, domain facts, summary selection, reporting and adapters retain distinct owners. Current architecture tests enforce the specified import and API boundaries. | Ownership coverage is reconciled. Structural gates complement the source contracts; they do not replace that review. |
+| No unnecessary duplicated mechanics | Whole-body candidates of every size and the 33 partial-block groups have source-backed dispositions. Semantic family reviews reconcile differently written traversals, classifiers, storage and summary consumers. Concrete copies now delegate to shared owners or standard operations. | Identified copies are consolidated. Retained typed adapters and different observation/polarity contracts are deliberate; candidate counts alone supply no semantic absence proof. |
+| One authoritative decision for every check | The eight-analyzer/ten-check inventory maps each reporter to its proof. Resource/cancel, goroutine, process, lock, defer-loop, producer and capture reconciliations cover their input, classification and final-result families. Public reporting and CLI/plugin filtering consume these results. | Named decision owners and source-family coverage are reconciled. Reporting filters and trace projections do not independently decide lifecycle policy. |
+| Numeric closed classification domains | Numeric kind, reason, phase and action migrations are recorded with syntax/type controls. The owner review found raw graph modes; `.23.40.1` keeps `lockorder.LockMode` numeric through the graph and CLI and extends raw parameter guards. | The identified string discriminator is fixed. Guards cover declared roles; source review distinguishes serialized labels and open identifiers from closed modes. |
+| Remaining easy FPs addressed | The original 55-site queue, focused corrections, separate Rune controls and source/SSA assessments remain authoritative. Five assessed sites need transport completion, relational caller/mutation evidence or receiver-conditioned result models. | `.4.9` performs one final successful-package refresh of the fixed queue. Older absence receipts are not relabeled as current verification after shared-engine changes. Unknown/cutoff silence receives no correction credit. |
+| Precision preserved | Focused accepted/diagnostic controls and counterfactuals accompany implementation changes. The final mode binary preserves the two lock scopes' complete diagnostics, 86,727 records and 121 decisions. Earlier scoped control receipts retain their original pins and binary hashes. | Affected implementation checks pass. The fixed-queue refresh will reconcile the older production receipts; it is not a new audit of every historical batch. |
+| Tight development cycle | Focused tests precede canonical validation. At `e3957de9`, seven canonical gates and the separate successful lint rerun cover generation, modules, vet, formatting, dead-code, dogfood and ordinary tests. Final architecture checks pass. | Maintained. No full precision-regression per iteration and no local race run. Documentation reconciliation reuses unaffected passing code receipts. |
+| Work tracked and own changes published | Beads records corrections and bounded reviews. `84ebdd2d` and `e3957de9` are pushed; upstream synchronization was verified. The staged blog-plan deletion and untracked artifacts remain untouched. | Publish this reconciliation after documentation checks. Keep the original epic active until the fixed-queue assessment and full requirement closure are verified. |
 
 ## Broader duplicate-candidate scan
 
@@ -6202,3 +6203,75 @@ receipts. Both scopes remain silent without new FP-correction credit.
 Pinned inputs, per-command receipts and complete comparisons are in
 `.build/goal-lock-modes-pinned/`. Existing nonempty order-cycle fixtures and
 the new CLI controls pass; no full precision corpus or local race run is used.
+
+## Current source-owner coverage reconciliation
+
+Beads `.23.40` reconciles the maintained reviews with the actual authored
+production source at `e3957de9`. The current AST inventory records all 359
+paths and 2,289 declarations in `.build/goal-completion-owner-e395.json`.
+Its exclusions match the architecture inventory: tests, generated Go,
+fixture/testdata/vendor and hidden/underscore trees. Illustrative Go programs
+are included and identified below. Graph tools are unavailable; the evidence
+is exact source and the retained family reviews, not an index-completeness claim.
+
+The table accounts for every production directory in that inventory. File
+counts establish scope, while the listed contracts and review sections supply
+the responsibility evidence. Counts, names and passing imports cannot establish
+semantic ownership by themselves.
+
+| Source owner | Files | Concern and source-backed review |
+| --- | ---: | --- |
+| `internal/analyzers/concurrency/concurrentcapture` | 4 | Source candidate collection, mutation proof and serialization uncertainty. The deferred-loop/producer/capture reconciliation covers all four files, including the sole reporting proof and numeric reasons. |
+| `internal/analyzers/concurrency/goroutineownership` | 23 | Obligation discovery, exact bindings, one cached instruction classifier, guarded/count witnesses and final lifecycle proof. The worker-output and finite goroutine reconciliation maps every input/proof family; the observed-discovery review maps its transitive queries. |
+| `internal/analyzers/concurrency/lockorder` | 27 | Lock state, release/write proofs, caller/class identity and order graph. Lock setup, return-contract/retention, caller/writer, exact release and slot-query reviews cover those responsibilities. The graph mode boundary now keeps presentation consumers typed. |
+| `internal/analyzers/concurrency/producerlifecycle` | 3 | Positive send obligation, exact normalized counts and receiver uncertainty. The three-family reconciliation covers attribution, coexistence/order and cutoff polarity; no guessed loop count or second completion solver. |
+| `internal/analyzers/resources/cancellationownership` | 8 | Cancellation labels, parent/returned cleanup and one release obligation. Return-classification, cached action, guard and deferred-capture reviews distinguish exact releases from parent/owner uncertainty. |
+| `internal/analyzers/resources/deferinloop` | 4 | Repeating acquisition/defer relation and live-backedge proof. The three-family reconciliation distinguishes exact settlement, monotone uncertainty and iterator cutoff from all-return lifecycle coverage. |
+| `internal/analyzers/resources/processownership` | 12 | Startup obligation, observed command/handle ownership, cached instruction actions and one post-Start proof. The process startup/guard/handle reconciliation covers all twelve files and preserves capture-time versus evaluated-argument identities. |
+| `internal/analyzers/resources/resourcelifetime` | 36 | Acquisition/API contracts, cached cleanup/transfer classifications, owner/collection/capture evidence and path resource state. Resource/cancellation, pre-flow, result-guard, SQL, HTTP and captured-body reviews map these families to one final resource proof. |
+| `internal/syntax` | 6 | AST source/assignment/range queries, canonical production selection, exact symbol declarations and type shapes. All six current files were read during owner reconciliation. Symbol receiver matching resolves aliases; the raw named-type query keeps its declared shape policy. Neither supplies ownership or cleanup evidence. |
+| `internal/ssaflow` | 56 | Selected reaching/identity/call mechanics, result/guard feasibility, instruction censuses, counted regions, budgets and state/obligation walks. The 31-stage transitive review, summary/call-cycle and short-body reconciliations assign these to shared mechanics while preserving caller-selected forms and leaves. |
+| `internal/heapmodel` | 43 | Read-time storage, graph build/replay/cache, heap projection, alias/type and containment queries. Graph core/containment, deferred-cell, backing-path, by-value, structural-identity and selected-slot reviews distinguish current identity from historical possible containment and reject shortened publication. |
+| `internal/lifecycle` | 28 | Completion binding/target/coverage search, local/summary evidence, returned-owner and transfer contracts. Completion coverage, callee resolution, binding/metadata, named-result and storage-owner reviews assign these families without forwarding heap/SSA APIs or adding another analyzer policy. |
+| `internal/resourcemodel` | 3 | Exact external owner/resource relations, conditional transitions and comparable resource state. The resource-flow and summary-transition reviews retain per-path state beside its relation contract; this is richer than a generic join lattice. |
+| `internal/passes/concurrencyfacts` | 22 | Declaration concurrency effects, field/capture binding, path/case materialization, completion and inertness. Binding/field census, spill, deferred-contract and selected-slot reviews retain complete summary publication and caller-bound instantiation as separate stages. |
+| `internal/passes/lifecyclefacts` | 22 | Cleanup/retention/returned-owner inference, heap projection and defining-package fact publication. Returned-result, fixed/captured outcome, once-cell and fact-consumer reviews preserve exact versus possible masks and complete publication. |
+| `internal/passes/resultfacts` | 6 | Scalar/result guarantees and correlated cases over storage evidence, plus domain-owned fact rendering. Conditional result, result census and shared success-branch reviews retain literal and bound-call guarantees without inferring mutable-global caller preconditions. |
+| `internal/passes/testvariant` | 1 | Execution prerequisite marks the driver's canonical augmented variant. Current full source read confirms it only copies Requires and supplies the syntax-owned marker; it does not infer analyzer behavior. |
+| `internal/summaries` | 2 | Setup-time component selection and typed declaration/call evidence. The 71-reference consumer inventory and transitive reconciliation preserve separate inference passes; the broker neither schedules packages nor duplicates their proofs. |
+| `internal/catalog` | 2 | Validated registry, identity/withdrawal and numeric trust/kind policy. Current declaration and classification source plus withdrawn-identity and execution-adapter reviews preserve one registry and one tier fold. Open catalog IDs are identities, not a closed enum. |
+| `internal/check` | 7 | Diagnostic identity/ranges, suppression/test-file reporting backstop, buffered publication and execution filtering. Current source and the final reporting/adapter reviews preserve one filter, one emission boundary and one evidence formatter; display witnesses do not decide the analyzer proof. |
+| `internal/cli` | 16 | Invocation/selection, dump execution and output views. Execution-adapter, ordering, parser/input and graph-mode reviews assign these concerns. Dump views consume reported cycles and traced decisions rather than reconstructing policy. |
+| `internal/trace` | 3 | Candidate-attributed events, numeric phase/outcome and serialized labels. Phase/reportability reviews and current source preserve proof ownership in the caller; diagnostic-polarity projection is presentation only. |
+| `internal/enumtext` | 1 | Shared numeric label naming/encoding/decoding. Current full source read confirms invalid values remain visible, invalid encodings fail and invalid labels preserve the previous receiver; domain label sets stay with their owners. |
+| `internal/factcodec` | 2 | Immutable cached versioned envelopes and deterministic bounded encoding. Current full source read and transitive codec review retain atomic fresh decode, shared cache indirection and domain-owned validation; the codec grants no proven/unknown semantics. |
+| `internal/docexamples` | 2 | Fixture-region collection, analyzer execution and timing/extraction. Collector preparation and nil-input correction reviews retain one acquisition pipeline and error propagation before selection. |
+| `internal/analyzertest` | 1 | Behavioral fixture harness verifies diagnostic identity/ranges and honors explicit suppression. Current full source read confirms it restores the reporter and returns existing results rather than rerunning evidence. |
+| `internal/ssaflow/ssaflowtest` | 1 | Shared source-to-SSA test construction. Current full source read confirms it parses/type-checks/builds one package and reports failures through the supplied test handle. |
+| `analyzers` | 4 | Compiled catalog, public metadata and analyzer/report wrappers. The non-internal inventory and shared filtering/tier review cover all four; public registration is a policy boundary above the evidence engines. |
+| Repository root | 2 | Executable exit boundary and generation declaration. The non-internal inventory verifies delegation to CLI and command-level failure handling. |
+| `plugin/golangci` | 1 | External settings and canonical variant/execution adaptation. The non-internal inventory verifies shared report filtering and local validation/precedence. |
+| `tools/gendocs` | 8 | Catalog/example transport, generated region/rendering synchronization and metrics. The non-internal inventory distinguishes section insertion, marked replacement and escaping contexts; it consumes source/catalog evidence without inferring policy. |
+| `tools/measure` | 1 | External command wall-time/RSS/exit measurement. The non-internal inventory separates those observations from generator/analyzer timing and proof outcomes. |
+| `tools/gendocs/ssaexample` and `site/examples/lock-analysis` | 2 | Explicit illustrative inputs. Intentional acquire/release syntax illustrates analyzer behavior rather than implementing an additional evidence engine. |
+
+The accounting is 117 analyzer files, 136 shared semantic files, 53 prerequisite
+and broker files, 35 internal support files and 18 non-internal files: 359 total.
+The current partial scanner retains 33 groups, with no added group relative to
+the widened pre-adapter inventory; the removed overlapping windows are the
+consolidated CLI/plugin filter. The zero-threshold whole-body scanner retains
+55 groups after the short-body and numeric-mode changes. New label adapters
+join the already reviewed domain-to-enumtext projections. The current artifacts
+are `.build/goal-completion-root-blocks-e395.json` and the owner inventory above.
+Every remaining candidate is paired with a retained distinct-contract
+classification; differently written mechanics are covered by the source-family
+reviews, rather than declared absent because a token scanner missed them.
+
+This reconciliation accounts for the repository's authored production Go
+source, including execution adapters outside internal. It does not certify
+unvisited external dependencies or every possible runtime/build configuration.
+The current architecture gates provide their stated syntax/type/build evidence,
+with those boundaries retained. Test fixtures remain behavioral controls, not
+additional production proof owners. No new analyzer behavior or FP correction
+is credited to this documentation reconciliation. The one-time fixed-queue
+refresh in `.4.9` remains required before overall goal closure.
