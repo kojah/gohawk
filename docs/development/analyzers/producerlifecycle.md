@@ -117,3 +117,20 @@ proof rejects excess production while accepting the balanced form.
 Ordering, repeated-send, local unbuffered-channel and receiver-uncertainty rules
 are unchanged. This change follows a source consolidation review rather than a
 production FP; it earns no FP correction credit.
+
+
+## Non-receiving participant binding allowance
+
+`nonReceivingUses` yields `CallBindingsWithin` under the same allowance as its
+channel/cell effect proof. Interrupted metadata retains unknown at the existing
+final availability fence; it cannot prove a participant has no receive. Exact
+captured-channel matching, possible containing-owner policy and read-only cell
+validation retain their existing independent query costs. Completed channel
+mutation effects establish this narrow absence claim, not invocation or joining.
+
+`binding_budget_test.go` compiles a worker with 66 supplied arguments, an opaque
+unrelated callback and one channel send. A 32-visit child cuts metadata and
+returns unknown while its pool stays usable; a fresh child completes. The parent
+instead returned complete non-receiving evidence at that cutoff. Existing
+`receiver_budget_test.go` controls retain cold/warm summary admission and exact
+receive counts for ordinary helpers and incomplete sending workers.

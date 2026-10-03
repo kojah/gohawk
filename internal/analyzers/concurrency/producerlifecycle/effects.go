@@ -62,7 +62,7 @@ func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *ssafl
 	}
 	query := ssaflow.NewCallEffects(budget)
 	matched := false
-	for _, binding := range ssaflow.CallBindings(call.Common(), function, closure) {
+	for binding := range ssaflow.CallBindingsWithin(call.Common(), function, closure, budget) {
 		if !heapmodel.CapturedBindingMatches(binding.Supplied, channel) && !lifecycle.MayContainValue(binding.Supplied, channel) {
 			continue
 		}

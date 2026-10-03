@@ -5840,3 +5840,34 @@ canonical gates and scoped comparisons. This closes the finite lock inventory
 after publication; broader `.23.21` deferred-loop/producer/capture reconciliation
 and the five reviewed production FP sites remain open. Heap/type/class queries
 retain independent costs; no whole-candidate elapsed-time guarantee is claimed.
+
+
+## Deferred-loop, producer and capture family reconciliation
+
+Beads `gohawk-dho.23.21.15` reviews all eleven production files in these three
+families on `3d278524`, including numeric reason projections. Source fallback
+was necessary because graph tools remain unavailable. `.15.1` replaces the
+producer's eager default participant-binding query with its shared lazy
+live-budget iterator and retains the existing unknown fence.
+
+| Family | Authoritative proof and deliberately separate contracts |
+| --- | --- |
+| Deferred obligation | `deferredObligation` requires a repeating acquire/defer relationship, exact standard lock contract or owned resource result. Acquisition-time load resolution and response Body replacement checks prevent historical writes from becoming current identity. |
+| Deferred live backedge | `proveDeferLifetime` has one monotone live/settled/unknown state walk. Classification owns exact cleanup/transfer and opaque storage/wrapper use. Iterator exhaustion is unknown; a separate definitely live path still wins. Result feasibility removes only proven impossible successors. These are iteration-lifetime contracts, distinct from all-function-return cleanup. |
+| Producer candidate and count | Complete normalized send protocols take precedence over direct source-body fallback. Alternate source sites are attribution for one operation. `countProducerSends` requires coexisting launch/send dominance chains, rejects repeated contributions and compares finite production only after a positive receiver obligation. It does not guess loop counts or participant protocols. |
+| Producer receive/absence | Exact summary channel identity supplies synchronous receive counts; asynchronous/opaque possible receivers and interrupted queries remain unknown. `nonReceivingUses` is a narrow complete channel-effect absence proof under lazy binding admission, not a completion or invocation guarantee. |
+| Capture candidate and mutation | Outer local storage, iteration-local range semantics and repeated literal launch selection precede `proveMutation`. Guard decisions belong to each mutation; only reported objects enter deduplication, so an earlier guarded write cannot suppress a later unguarded one. |
+| Capture serialization uncertainty | A complete ordered worker prefix folds exact lock effects in `lockRegion`; indirect identities, unmatched release, read locks and condition waits are unknown. Unsupported shapes retain conservative syntax fallback. Worker-argument and channel-region guards suppress without proving disjointness or happens-before. |
+
+The flow drivers, point-in-time storage, call bindings, summaries and symbol
+identity already belong to shared layers. Count ordering, live-backedge and
+mutation-guard rules have different witness and polarity requirements; this
+review does not merge them into a generic lifecycle proof. Existing independent
+query costs do not acquire a whole-candidate time guarantee.
+
+The [producer binding review](../../benchmarks/precision/audits/producer-participant-bindings-2026-10-03.md)
+records the actual SSA cutoff/fresh controls, assertion-failing parent overlay,
+three-family tests, canonical validation and scoped payloads. After publication,
+this closes the finite named-family inventory. The broader `.23` completion
+requirements and five-site easy-FP disposition still need reconciliation against
+current authoritative state; this inventory alone does not close the root goal.
