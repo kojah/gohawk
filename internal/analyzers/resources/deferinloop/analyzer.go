@@ -41,10 +41,12 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 				continue
 			}
 			probe := analysisTrace.For(pass, "deferinloop", string(check.DeferCleanupInLoop), deferred.Pos())
-			probe.Candidate(analysisTrace.Step{
-				Reason: reasonDeferredCleanup.String(), Outcome: analysisTrace.OutcomeObserved, Pos: deferred.Pos(), Function: function.String(),
-				Details: map[string]string{"target": obligation.target.String()},
-			})
+			if probe.Enabled() {
+				probe.Candidate(analysisTrace.Step{
+					Reason: reasonDeferredCleanup.String(), Outcome: analysisTrace.OutcomeObserved, Pos: deferred.Pos(), Function: function.String(),
+					Details: map[string]string{"target": obligation.target.String()},
+				})
+			}
 			proof := proveDeferLifetime(evidence, knowledge, probe, deferred, obligation)
 			emitDeferLifetimeDecision(probe, proof)
 			if proof.state == ssaflow.EvidenceProven {

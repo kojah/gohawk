@@ -86,7 +86,7 @@ func proveDeferLifetime(
 					return nil, false
 				}
 				unknownAtBackedge = unknownAtBackedge || status == resourceUnknown
-				if status != state.status {
+				if status != state.status && probe.Enabled() {
 					probe.Evidence(analysisTrace.Step{
 						Reason: reasonIteratorExhausted.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: deferred.Pos(),
 						Details: map[string]string{"block": strconv.Itoa(state.block.Index)},
@@ -160,14 +160,16 @@ func advanceDeferState(
 			continue
 		}
 		state.status = status
-		outcome := analysisTrace.OutcomeAccepted
-		if status == resourceUnknown {
-			outcome = analysisTrace.OutcomeUnknown
+		if probe.Enabled() {
+			outcome := analysisTrace.OutcomeAccepted
+			if status == resourceUnknown {
+				outcome = analysisTrace.OutcomeUnknown
+			}
+			probe.Evidence(analysisTrace.Step{
+				Reason: reason.String(), Outcome: outcome, Pos: instruction.Pos(),
+				Details: map[string]string{"instruction": instruction.String()},
+			})
 		}
-		probe.Evidence(analysisTrace.Step{
-			Reason: reason.String(), Outcome: outcome, Pos: instruction.Pos(),
-			Details: map[string]string{"instruction": instruction.String()},
-		})
 	}
 	return state
 }
@@ -257,13 +259,15 @@ func resourceUseStatus(
 	for index, argument := range common.Args {
 		alias := heapmodel.ProveMayAlias(argument, target)
 		contains := !alias.Aliases && lifecycle.MayContainValue(argument, target)
-		probe.Evidence(analysisTrace.Step{
-			Reason: reasonArgumentCarriesResource.String(), Outcome: analysisTrace.OutcomeObserved, Pos: instruction.Pos(),
-			Details: map[string]string{
-				"argument": argument.Name(), "alias": strconv.FormatBool(alias.Aliases), "alias-reason": alias.Reason.String(),
-				"contains": strconv.FormatBool(contains),
-			},
-		})
+		if probe.Enabled() {
+			probe.Evidence(analysisTrace.Step{
+				Reason: reasonArgumentCarriesResource.String(), Outcome: analysisTrace.OutcomeObserved, Pos: instruction.Pos(),
+				Details: map[string]string{
+					"argument": argument.Name(), "alias": strconv.FormatBool(alias.Aliases), "alias-reason": alias.Reason.String(),
+					"contains": strconv.FormatBool(contains),
+				},
+			})
+		}
 		if contains {
 			// The callee received a wrapper holding the resource, not the
 			// resource itself. Its summary describes the argument, so it can

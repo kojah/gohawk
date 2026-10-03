@@ -46,3 +46,11 @@ Final reasons now distinguish `no-live-backedge` from
 `lifetime-unknown-at-backedge`; they replace the former combined accepted
 `settled-or-unknown-before-backedge` reason. Evidence events remain beside the
 classifier, while one final proof decision is emitted by the entry point.
+
+## Trace presentation cost
+
+Candidate and instruction evidence build detail maps and format SSA values only
+when the candidate probe is enabled. Required alias, containment and lifetime
+queries remain outside those guards. Final presentation was already guarded;
+tracing preserves the authoritative proof and all enabled event contents.
+The existing trace fixtures cover accepted, unknown and reported backedges.

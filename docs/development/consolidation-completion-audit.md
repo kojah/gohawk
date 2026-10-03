@@ -5290,3 +5290,14 @@ The [scoped audit](../../benchmarks/precision/audits/process-prestart-decision-2
 records actual SSA controls, parent-overlay missing-trace failures and preserved
 complete diagnostic payloads. Other semantic review families and the five-site
 production queue remain unresolved; this does not establish overall completion.
+
+## Defer-loop presentation and proof review
+
+Bead `gohawk-dho.23.29` guards four trace-only construction sites while leaving
+required proof queries outside the guards. The [scoped record](../../benchmarks/precision/audits/defer-trace-construction-2026-10-03.md)
+checks enabled event contents and complete diagnostic payload compatibility.
+Loop-backedge lifetime, response-owner use and iterator uncertainty retain their
+local policy; generic return obligations answer a different flow question.
+This finite review covers the defer analyzer's four production files and selected
+adapter boundaries, not their transitive implementations. Other semantic review
+families and five production sites remain open.
