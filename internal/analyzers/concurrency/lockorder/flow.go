@@ -130,13 +130,20 @@ func (flow lockFlowContext) applyMutexAction(
 		state.deferred = appendUniqueString(state.deferred, identity)
 	}
 	acquired := effect.acquired
-	if !slices.Contains(state.held, identity) {
+	newAcquisition := !slices.Contains(state.held, identity)
+	if newAcquisition && len(state.held) != 0 {
 		guards := flow.exclusiveGlobalGuards(state.held, state.readHeld)
 		// An object nobody else can reach yet is locked without ordering
 		// anything; the lock is still held from here on.
-		if len(state.held) != 0 && !flow.exclusive.acquisitionExclusive(flow.function, instruction, receiver) {
+		proof := flow.exclusive.acquisitionExclusive(flow.function, instruction, receiver, flow.budget)
+		if proof.reason == lockReasonLockStateBudgetExhausted {
+			return state
+		}
+		if proof.state != ssaflow.EvidenceProven {
 			flow.recordInitialAcquisition(instruction, receiver, acquired, state, guards)
 		}
+	}
+	if newAcquisition {
 		state.origins[identity] = acquired
 	}
 	if acquired.read {

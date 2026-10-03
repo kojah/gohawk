@@ -5401,3 +5401,23 @@ controls and unchanged complete fixture/pinned diagnostic payloads.
 All-caller exclusivity remains the next named request-cost question. Its caller
 list and cached answers must be distinguished from heap graph query ownership.
 The broader parent and five-site production queue remain open.
+
+
+## Caller exclusivity selection and completed cache
+
+Bead `gohawk-dho.44.11.5.27.28` connects the last named lock consumer from the
+recent reconciliation to its request allowance. One structured proof charges
+admission and caller visits, caches only completed answers, and preserves
+unknown rather than letting cutoff become a negative cached answer. Acquisition
+tracing consumes that proof and builds parameter details only when enabled.
+The [scoped record](../../benchmarks/precision/audits/caller-exclusivity-allowance-2026-10-03.md)
+records actual-SSA cache/cutoff/recovery controls and preserved census and
+publication policy. Heap graph construction, observation, object selection and
+publication reachability retain their distinct cost owner; caller charging
+supplies no transitive wall-clock claim.
+
+The parent now needs a finite requirement/evidence reconciliation against its
+original result-storage, identity, path, heap/type/alias and caller inventory
+scope. Broader semantic duplication review and the five-site production queue
+remain active; this child is not a reason to invent further speculative budget
+work or to claim architecture completion.

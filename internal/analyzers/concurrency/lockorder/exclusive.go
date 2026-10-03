@@ -44,8 +44,14 @@ import (
 type exclusiveCallers struct {
 	pass  *analysis.Pass
 	sites map[*ssa.Function]conditionalCallerSet
-	// exclusive caches the answer per function and parameter.
-	exclusive map[exclusiveKey]bool
+	// Only completed caller proofs are cached; interrupted requests can retry.
+	exclusive map[exclusiveKey]exclusiveProof
+}
+
+type exclusiveProof struct {
+	state     ssaflow.EvidenceState
+	reason    lockReason
+	parameter int
 }
 
 type exclusiveKey struct {
@@ -54,7 +60,7 @@ type exclusiveKey struct {
 }
 
 func newExclusiveCallers(pass *analysis.Pass, sites map[*ssa.Function]conditionalCallerSet) *exclusiveCallers {
-	return &exclusiveCallers{pass: pass, sites: sites, exclusive: map[exclusiveKey]bool{}}
+	return &exclusiveCallers{pass: pass, sites: sites, exclusive: map[exclusiveKey]exclusiveProof{}}
 }
 
 // parameterExclusive reports whether every call of the function in the
@@ -62,59 +68,89 @@ func newExclusiveCallers(pass *analysis.Pass, sites map[*ssa.Function]conditiona
 // not escaped at the call. Exported functions, methods, functions with escaped
 // uses, and incomplete or empty caller sets remain unknown. A fresh direct
 // caller cannot establish what a callback or asynchronous caller hands in.
-func (callers *exclusiveCallers) parameterExclusive(function *ssa.Function, index int) bool {
+func (callers *exclusiveCallers) parameterExclusive(function *ssa.Function, index int, budget *ssaflow.SearchBudget) exclusiveProof {
+	unknown := exclusiveProof{reason: lockReasonExclusiveOwnershipUnknown}
+	cutoff := exclusiveProof{reason: lockReasonLockStateBudgetExhausted}
+	// Admission also applies to cached answers: an interrupted flow cannot use
+	// a prior request's positive witness to continue recording order evidence.
+	if !budget.Spend() {
+		return cutoff
+	}
 	key := exclusiveKey{function: function, index: index}
 	if answer, ok := callers.exclusive[key]; ok {
 		return answer
 	}
-	callers.exclusive[key] = false
 	object := function.Object()
 	entry := callers.sites[function]
-	sites := entry.Calls
-	if object == nil || object.Exported() || entry.Escaped || len(sites) == 0 {
-		return false
+	if object == nil || object.Exported() || entry.Escaped || len(entry.Calls) == 0 {
+		callers.exclusive[key] = unknown
+		return unknown
 	}
-	for _, call := range sites {
-		if index >= len(call.Common().Args) {
-			return false
+	for _, call := range entry.Calls {
+		if !budget.Spend() {
+			return cutoff
 		}
+		if index < 0 || index >= len(call.Common().Args) {
+			callers.exclusive[key] = unknown
+			return unknown
+		}
+		// Graph construction and observation are owned by heapmodel. This request
+		// charges selection of each completed caller, not graph-internal work.
 		exclusive, ok := heapmodel.ExclusiveAt(call.Common().Args[index], call)
 		if !ok || !exclusive.Local {
-			return false
+			callers.exclusive[key] = unknown
+			return unknown
 		}
 	}
-	callers.exclusive[key] = true
-	return true
+	proof := exclusiveProof{state: ssaflow.EvidenceProven, reason: lockReasonExclusiveParameterFromFreshCallers, parameter: index}
+	callers.exclusive[key] = proof
+	return proof
 }
 
 // acquisitionExclusive decides whether an acquisition orders nothing
 // because its object is exclusively owned at the instruction, and traces
 // the half of the proof that decided it.
-func (callers *exclusiveCallers) acquisitionExclusive(function *ssa.Function, instruction ssa.Instruction, receiver ssa.Value) bool {
+func (callers *exclusiveCallers) acquisitionExclusive(
+	function *ssa.Function, instruction ssa.Instruction, receiver ssa.Value, budget *ssaflow.SearchBudget,
+) exclusiveProof {
+	proof := callers.proveAcquisitionExclusive(function, instruction, receiver, budget)
+	if proof.state != ssaflow.EvidenceProven {
+		return proof
+	}
+	probe := analysisTrace.For(callers.pass, "lockorder", string(check.LockContradictoryOrder), instruction.Pos())
+	if probe.Enabled() {
+		step := analysisTrace.Step{Reason: proof.reason.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos()}
+		if proof.reason == lockReasonExclusiveParameterFromFreshCallers {
+			// The proof selected this parameter; metadata is read only when tracing.
+			step.Details = map[string]string{"parameter": strconv.Itoa(proof.parameter), "callers": strconv.Itoa(len(callers.sites[function].Calls))}
+		}
+		probe.Decision(step)
+	}
+	return proof
+}
+
+func (callers *exclusiveCallers) proveAcquisitionExclusive(
+	function *ssa.Function, instruction ssa.Instruction, receiver ssa.Value, budget *ssaflow.SearchBudget,
+) exclusiveProof {
+	unknown := exclusiveProof{reason: lockReasonExclusiveOwnershipUnknown}
+	if !budget.Spend() {
+		return exclusiveProof{reason: lockReasonLockStateBudgetExhausted}
+	}
 	if receiver == nil {
-		return false
+		return unknown
 	}
 	exclusive, ok := heapmodel.ExclusiveAt(receiver, instruction)
 	if !ok {
-		return false
+		return unknown
 	}
-	probe := analysisTrace.For(callers.pass, "lockorder", string(check.LockContradictoryOrder), instruction.Pos())
 	switch {
 	case exclusive.Local && exclusive.Published:
-		probe.Decision(analysisTrace.Step{
-			Reason: lockReasonExclusiveObjectBeforePublication.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
-		})
-		return true
+		return exclusiveProof{state: ssaflow.EvidenceProven, reason: lockReasonExclusiveObjectBeforePublication}
 	case exclusive.Local:
-		return false
-	case callers.parameterExclusive(function, exclusive.Parameter):
-		probe.Decision(analysisTrace.Step{
-			Reason: lockReasonExclusiveParameterFromFreshCallers.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
-			Details: map[string]string{"parameter": strconv.Itoa(exclusive.Parameter), "callers": strconv.Itoa(len(callers.sites[function].Calls))},
-		})
-		return true
+		return unknown
+	default:
+		return callers.parameterExclusive(function, exclusive.Parameter, budget)
 	}
-	return false
 }
 
 // An initial publication is not unescaped ownership. It leaves the blocking

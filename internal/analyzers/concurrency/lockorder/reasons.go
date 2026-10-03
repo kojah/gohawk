@@ -37,10 +37,12 @@ const (
 	lockReasonPrivateWriteStorage
 	lockReasonFieldGuardUnknown
 	lockReasonInitialPublicationUnknown
+	lockReasonExclusiveOwnershipUnknown
 	lockReasonCount
 )
 
 var lockReasonCodes = [...]string{
+	lockReasonExclusiveOwnershipUnknown:           "exclusive-ownership-unknown",
 	lockReasonInitialPublicationUnknown:           "initial-publication-order-unknown",
 	lockReasonFieldGuardUnknown:                   "field-guard-unknown",
 	lockReasonPrivateWriteStorage:                 "private-write-storage",

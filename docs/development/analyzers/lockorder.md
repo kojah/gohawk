@@ -587,4 +587,30 @@ checks recovery with fresh children. Declaration-class widening, fresh field
 uncertainty and global class comparison now live in `classes.go`; those policies
 and their separately owned type/heap/alias costs are unchanged. Release-attempt
 presentation also retains its default identity query rather than joining the
-proof allowance. All-caller exclusivity remains a separate review scope.
+proof allowance. All-caller exclusivity has its own request proof described below.
+
+
+## Caller exclusivity request proofs
+
+Caller exclusivity consumes the shared complete private caller census. Its
+parameter proof now charges request admission and each caller selection,
+returning a structured state and stable reason. Only completed answers enter
+the cache; a cutoff neither establishes exclusivity nor caches a negative
+answer that would hide a successful retry. Cached proofs still require live
+request admission. Acquisition selection shares the same allowance and stops
+held-state order recording when that proof is interrupted.
+
+Complete policy is unchanged: every known caller must supply a fresh local;
+shared callers, escaped callbacks, asynchronous callers, exported functions,
+methods and incomplete or empty inventories cannot establish exclusivity.
+Local acquisitions before later publication retain their existing acceptance;
+never-published local acquisitions retain the existing order policy. Positive
+trace reasons and details are unchanged; tracing consumes the returned proof
+and builds parameter details only when enabled. `exclusive_budget_test.go` logs real
+SSA for fresh, shared and callback cases, sweeps caller and acquisition cutoffs,
+checks cache admission and fresh-child recovery. Existing census fixtures pin
+initialization, method, asynchronous and caller-count boundaries.
+
+`heapmodel.ExclusiveAt` remains responsible for cached graph construction,
+observation replay, object selection and publication reachability. Charging a
+caller visit is not a transitive bound on those separate graph queries.
