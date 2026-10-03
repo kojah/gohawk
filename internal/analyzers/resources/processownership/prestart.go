@@ -111,7 +111,11 @@ func successfulStartCannotReturn(start *ssa.Call, budget *ssaflow.SearchBudget) 
 		if !budget.Spend() {
 			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
 		}
-		if success, known := ssaflow.SuccessBranch(block, successor, start); known && success {
+		success, known := ssaflow.SuccessBranchWithin(block, successor, start, budget)
+		if budget.Exhausted() || budget.PoolExhausted() {
+			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+		}
+		if known && success {
 			result := ssaflow.ProveNormalReturnWithin(successor, nil, budget).Proof
 			switch result.State {
 			case ssaflow.EvidenceProven:

@@ -89,7 +89,7 @@ func (query lockReturnQueries) successfulReturn(function *ssa.Function, returned
 		return false
 	}
 	if types.Identical(last, types.Universe.Lookup("error").Type()) {
-		return ssaflow.DefinitelyNil(result) || query.nilGuardDominatesReturn(result, returned)
+		return ssaflow.DefinitelyNilWithin(result, query.budget) || query.nilGuardDominatesReturn(result, returned)
 	}
 	if basic, ok := last.Underlying().(*types.Basic); ok && basic.Kind() == types.Bool {
 		return !constantFalse(result)
@@ -237,7 +237,7 @@ func (query lockReturnQueries) nilGuardDominatesReturn(value ssa.Value, returned
 			if !query.budget.Spend() {
 				return false
 			}
-			success, known := ssaflow.SuccessBranch(branch.Block(), successor, value)
+			success, known := ssaflow.SuccessBranchWithin(branch.Block(), successor, value, query.budget)
 			if known && success && len(successor.Preds) == 1 && successor.Dominates(returned.Block()) {
 				return true
 			}

@@ -5539,3 +5539,34 @@ production FP correction is credited. The scanner retains five full-body and
 33 partial groups; current guard and domain dispositions are recorded rather
 than treating the scan as proof of global absence. Five production FP sites
 and the broader architecture completion audit remain open.
+
+
+## Shared success-branch consumers and transitive review reconciliation
+
+Beads `gohawk-dho.44.11.5.31` routes the existing lock return, process Start and
+paired-result path allowances through shared branch and metadata queries.
+Lock nil folds retain request availability; a shortened Start guard returns an
+unknown proof. Paired-result case, result-referrer and dominating guard visits
+cannot prune successors after cutoff. Direct result-source decoding remains
+constant work and gains no unnecessary traversal facade.
+
+The [consumer review](../../benchmarks/precision/audits/success-branch-consumers-2026-10-03.md)
+records actual SSA allowance sweeps, small-child/live-parent controls, three
+assertion-failing counterfactuals and successful canonical validation. All 653
+scoped diagnostics remain unchanged across 14 successful all-check scans. The
+five full-body and 33 partial scanner candidate signatures are unchanged; their
+finite semantic dispositions remain distinct from a global absence claim.
+No production FP correction is credited.
+
+The transitive review's original requirements are now mapped to concrete
+source owners and completed stages: shared reaching/identity/storage/result
+queries (.1-.14), resource flow and evidence ownership (.15-.25), lock flow,
+completion, graph/type mechanics and broker consumer census (.26-.27), shared
+final proof/result feasibility (.28-.29), and the remaining acquisition and
+bounded success-branch consumers (.30-.31). Graph build/cache/wait and replay
+remain heapmodel-owned costs; type internals and allocations remain separate.
+State-walk hooks charge visits and retain callback availability, while library
+semantics remain explicit contracts. Fact validation, immutable cached encoding
+and rendering retain their publication/codec/presentation owners. This closes
+the selected ownership/cost review, not a whole-query time guarantee or the
+broader architecture goal. Five reviewed production FP sites remain open.

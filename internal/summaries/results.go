@@ -117,12 +117,16 @@ func (provider *Provider) pairedNilness(value ssa.Value, block *ssa.BasicBlock, 
 		return false, false
 	}
 	for _, proven := range summary.Cases() {
+		if !budget.Spend() {
+			return false, false
+		}
 		condition := proven.Condition
 		if proven.Result != index || condition.Arguments.Bound != 0 || condition.Nilness.Bound != 0 ||
 			condition.Outcome != ssaflow.OutcomeNil && condition.Outcome != ssaflow.OutcomeNonNil {
 			continue
 		}
-		errorNil, decided := errorNilnessOnPath(block, ssaflow.CallResult(call, condition.Result))
+		errorValue := ssaflow.CallResultWithin(call, condition.Result, budget)
+		errorNil, decided := errorNilnessOnPath(block, errorValue, budget)
 		if !decided || errorNil != (condition.Outcome == ssaflow.OutcomeNil) {
 			continue
 		}
@@ -139,16 +143,22 @@ func (provider *Provider) pairedNilness(value ssa.Value, block *ssa.BasicBlock, 
 
 // errorNilnessOnPath reports the nilness a dominating nil comparison of
 // errorValue established for every path into block.
-func errorNilnessOnPath(block *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {
+func errorNilnessOnPath(block *ssa.BasicBlock, errorValue ssa.Value, budget *ssaflow.SearchBudget) (bool, bool) {
 	if errorValue == nil || block.Parent() == nil {
 		return false, false
 	}
 	for _, candidate := range block.Parent().Blocks {
+		if !budget.Spend() {
+			return false, false
+		}
 		if candidate == block || len(candidate.Succs) != 2 {
 			continue
 		}
 		for _, successor := range candidate.Succs {
-			if success, decided := ssaflow.SuccessBranch(candidate, successor, errorValue); decided && successor.Dominates(block) {
+			if !budget.Spend() {
+				return false, false
+			}
+			if success, decided := ssaflow.SuccessBranchWithin(candidate, successor, errorValue, budget); decided && successor.Dominates(block) {
 				return success, true
 			}
 		}

@@ -23,6 +23,14 @@ func TestSuccessfulStartReturnAllowance(t *testing.T) {
 		{"returning", ssaflow.EvidenceDisproven}, {"looping", ssaflow.EvidenceProven}, {"panicking", ssaflow.EvidenceProven},
 	} {
 		start := startupTestCall(t, pkg.Func(test.name))
+		if test.name == "looping" {
+			pool := ssaflow.NewSearchBudget(processPoolBudget)
+			child := pool.Within(8)
+			got := successfulStartCannotReturn(start, child)
+			if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
+				t.Fatalf("successful branch bypassed its allowance: %+v", got)
+			}
+		}
 		checkProcessQuery(t, test.name, test.want, func(budget *ssaflow.SearchBudget) ssaflow.Proof { return successfulStartCannotReturn(start, budget) })
 	}
 }

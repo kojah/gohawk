@@ -290,3 +290,15 @@ pre-Start decision. Existing rule order, query allowances and diagnostics remain
 `prestart_decision_test.go` covers each outcome and exhausted/unavailable inputs;
 the analyzer trace test requires one candidate-associated final decision for
 caller ownership, deferred registration and a nonreturning success path.
+
+
+## Successful Start branch allowance
+
+`successfulStartCannotReturn` shares its existing allowance with the exact
+success-branch query before asking normal-return reachability. A shortened
+error comparison returns an unknown proof with the budget reason; it cannot
+become either no successful branch or a proven nonreturning success path.
+`startup_queries_test.go` isolates the branch selection cutoff with a live
+outer pool and retains the returning, looping and panicking SSA controls plus
+intermediate/fresh queries. The pre-Start decision continues to consume that
+single returned proof.

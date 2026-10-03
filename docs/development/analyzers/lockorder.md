@@ -626,3 +626,16 @@ class-only query still uses `localMutexPathIdentity` when no prior instance
 proof exists. `binding_identity_test.go` checks actual SSA for an ordinary fresh
 helper argument and an allocation repeated inside a loop; existing constructor,
 publication and pointer-field fixtures preserve their policy boundaries.
+
+
+## Checked-error return guard allowance
+
+A held-on-success contract's error result uses `DefinitelyNilWithin` and
+`SuccessBranchWithin` under the existing return-query allowance. The latter
+charges derivation and nil folds as well as branch selection. A cutoff supplies
+no nil guard; the enclosing contract and function publication barriers retain
+its unavailable evidence. Exact checked-result matching, single-predecessor
+success coverage and caller-owned lock policy remain unchanged.
+`return_guard_budget_test.go` covers actual checked/unrelated SSA returns,
+a selection-only child cutoff with a live parent, intermediate cutoffs and
+fresh completed evidence. Existing return-contract fixtures still pin reports.

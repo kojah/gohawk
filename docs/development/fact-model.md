@@ -1203,3 +1203,17 @@ matching the graph context chosen by `ProveMayAlias`; the query stops after the
 first match, as the prior Boolean short circuit did. Containment is not alias
 consumption, and positive consumption is not cleanup or ownership proof. The
 field-store and result/defer searches remain their own structural contracts.
+
+
+### Paired-result consumer allowance
+
+The summaries broker's paired-nilness consumer charges case visits, exact
+error-result referrers, the dominating branch census and `SuccessBranchWithin`
+to the existing query allowance. Direct `CallResultSource` decoding remains
+constant dispatch with no wrapper or alias traversal. Cutoff cannot establish
+the paired error's nilness or prune a successor; a fresh query can reuse the
+completed callee summary and finish its caller evidence independently.
+`paired_nilness_budget_test.go` uses an actual 64-call error provenance chain,
+a warmed complete result summary, a child cutoff with a live parent, allowance
+sweeps and final feasible-edge recovery. Existing wrong/unguarded result pairs
+remain unknown. Fact schemas and declaration guarantees are unchanged.
