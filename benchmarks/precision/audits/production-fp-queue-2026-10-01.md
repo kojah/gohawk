@@ -1,5 +1,10 @@
 # Production false-positive queue refresh
 
+The later [consolidated-source refresh](consolidated-production-fp-refresh-2026-10-03.md)
+successfully replays all 55 fixed sites. It records 51 current absences, the
+retained Promu true positive, two goiardi FPs and a reappeared urunc logger FP.
+The counts below remain this earlier snapshot; they are not current totals.
+
 The subsequent [22-site scoped replay](pending-production-fp-replay-2026-10-01.md)
 has completed: every pending location remains reported in a successful package
 scan. The counts below preserve this earlier refresh's evidence snapshot.

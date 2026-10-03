@@ -4,8 +4,8 @@ Beads `gohawk-dho.23` tracks the original objective: clean architecture,
 no unnecessary duplicated mechanics, and all remaining easy false positives
 addressed. This requirement reconciliation uses `e3957de9`; earlier sections
 retain their source pins and historical measurements. Source ownership and
-candidate dispositions are reconciled below. Completion remains unproven while
-`.4.9` refreshes the complete fixed production queue after shared-engine changes.
+candidate dispositions are reconciled below. Completion remains unproven: the fixed production queue refresh found a
+reappeared returned-logger FP, now tracked in `.4.9.1`.
 
 ## Requirements and evidence
 
@@ -15,10 +15,10 @@ candidate dispositions are reconciled below. Completion remains unproven while
 | No unnecessary duplicated mechanics | Whole-body candidates of every size and the 33 partial-block groups have source-backed dispositions. Semantic family reviews reconcile differently written traversals, classifiers, storage and summary consumers. Concrete copies now delegate to shared owners or standard operations. | Identified copies are consolidated. Retained typed adapters and different observation/polarity contracts are deliberate; candidate counts alone supply no semantic absence proof. |
 | One authoritative decision for every check | The eight-analyzer/ten-check inventory maps each reporter to its proof. Resource/cancel, goroutine, process, lock, defer-loop, producer and capture reconciliations cover their input, classification and final-result families. Public reporting and CLI/plugin filtering consume these results. | Named decision owners and source-family coverage are reconciled. Reporting filters and trace projections do not independently decide lifecycle policy. |
 | Numeric closed classification domains | Numeric kind, reason, phase and action migrations are recorded with syntax/type controls. The owner review found raw graph modes; `.23.40.1` keeps `lockorder.LockMode` numeric through the graph and CLI and extends raw parameter guards. | The identified string discriminator is fixed. Guards cover declared roles; source review distinguishes serialized labels and open identifiers from closed modes. |
-| Remaining easy FPs addressed | The original 55-site queue, focused corrections, separate Rune controls and source/SSA assessments remain authoritative. Five assessed sites need transport completion, relational caller/mutation evidence or receiver-conditioned result models. | `.4.9` performs one final successful-package refresh of the fixed queue. Older absence receipts are not relabeled as current verification after shared-engine changes. Unknown/cutoff silence receives no correction credit. |
-| Precision preserved | Focused accepted/diagnostic controls and counterfactuals accompany implementation changes. The final mode binary preserves the two lock scopes' complete diagnostics, 86,727 records and 121 decisions. Earlier scoped control receipts retain their original pins and binary hashes. | Affected implementation checks pass. The fixed-queue refresh will reconcile the older production receipts; it is not a new audit of every historical batch. |
+| Remaining easy FPs addressed | The original 55-site queue, focused corrections, separate Rune controls and source/SSA assessments remain authoritative. Five assessed sites need transport completion, relational caller/mutation evidence or receiver-conditioned result models. | The completed 55-site refresh records 51 absences, the two known goiardi FPs, the retained Promu true positive and one reappeared urunc FP. `.4.9.1` must resolve that regression. Unknown/cutoff silence receives no correction credit. |
+| Precision preserved | Focused accepted/diagnostic controls and counterfactuals accompany implementation changes. The final mode binary preserves the two lock scopes' complete diagnostics, 86,727 records and 121 decisions. Earlier scoped control receipts retain their original pins and binary hashes. | Affected implementation checks pass. The fixed-queue refresh contradicts the older urunc absence receipt; its regression is now required work. This is not a new audit of every historical batch. |
 | Tight development cycle | Focused tests precede canonical validation. At `e3957de9`, seven canonical gates and the separate successful lint rerun cover generation, modules, vet, formatting, dead-code, dogfood and ordinary tests. Final architecture checks pass. | Maintained. No full precision-regression per iteration and no local race run. Documentation reconciliation reuses unaffected passing code receipts. |
-| Work tracked and own changes published | Beads records corrections and bounded reviews. `84ebdd2d` and `e3957de9` are pushed; upstream synchronization was verified. The staged blog-plan deletion and untracked artifacts remain untouched. | Publish this reconciliation after documentation checks. Keep the original epic active until the fixed-queue assessment and full requirement closure are verified. |
+| Work tracked and own changes published | Beads records corrections and bounded reviews. `84ebdd2d` and `e3957de9` are pushed; upstream synchronization was verified. The staged blog-plan deletion and untracked artifacts remain untouched. | Publish this reconciliation after documentation checks. Keep the original epic active until the urunc regression and full requirement closure are verified. |
 
 ## Broader duplicate-candidate scan
 
@@ -6275,3 +6275,30 @@ with those boundaries retained. Test fixtures remain behavioral controls, not
 additional production proof owners. No new analyzer behavior or FP correction
 is credited to this documentation reconciliation. The one-time fixed-queue
 refresh in `.4.9` remains required before overall goal closure.
+
+
+## Current production queue contradiction
+
+The [55-site refresh](../../benchmarks/precision/audits/consolidated-production-fp-refresh-2026-10-03.md)
+completes all twenty-nine fixed package scopes at `e3957de9`, with exit zero
+and empty stderr. Fifty-one sites are absent; goiardi's two FPs remain reported,
+Promu's source-backed true-positive correction remains reported, and urunc's
+returned-logger FP reappears. The old round 69 receipt can no longer verify the
+urunc behavior. No new FP correction is credited to current silence, including
+three existing hard-model sites and twelve targets with cutoff events.
+
+Beads `.4.9.1` owns the urunc correction. Actual SSA/facts locate the lost
+relationship after the constructor: scalar-copy and nested extraction edges
+are present, while the intervening timestamp method publishes unknown reference
+fields. The final resource path is active, unreleased and not unknown, ending
+in `unowned-return` without a target cutoff. The next review must distinguish
+the shared heap effect from its classifier interpretation. No introducing
+commit, repair or general completion guarantee is claimed yet.
+
+The separate Rune retry uses verified idepkg/workspace scopes and succeeds.
+Both original target keys remain absent; workspace records
+`pre-start-ownership-unknown`. This is current bounded silence rather than a
+new wait guarantee. The wrong initial Rune package path remains a recorded
+load error and receives no validation credit. Source ownership reconciliation
+is published; the overall goal remains active for the new regression and
+original requirement closure.
