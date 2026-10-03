@@ -62,7 +62,7 @@ func resourceLifecycleMethod(name string) bool {
 // https://github.com/Contextualist/acp/blob/579b477d0281df41ab8753a7cbcb8f7807e52e2c/pkg/pnet/p2p.go#L79-L91
 func (analysis *resourceAnalysis) responseBodyAggregateHandoff(value ssa.Value, at ssa.Instruction) resourceProof {
 	missing := resourceProof{State: ssaflow.EvidenceDisproven}
-	if analysis.contract.family != "http" || !heapmodel.CanHoldReference(value.Type()) {
+	if analysis.contract.family != resourceFamilyHTTP || !heapmodel.CanHoldReference(value.Type()) {
 		return missing
 	}
 	budget := analysis.budget(ssaflow.QueryBudget)

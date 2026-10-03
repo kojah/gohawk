@@ -263,11 +263,12 @@ Unknown labels and invalid numeric wire values are rejected. Go callers use
 the named constants or parsing methods;
 string literals and string casts no longer construct these enums.
 
-Classification guards cover authored production and test files: raw `kind`
-declarations and named Kind, Tier, Outcome, Provenance, Reason, State, Mode,
-and Action domains must use numeric types. The syntax checks cover inactive
+Classification guards cover authored production and test files: raw `kind` and
+`family` declarations, `phase` and `mode` parameters, and named Kind, Tier,
+Outcome, Provenance, Reason, State, Mode, Action, Phase and Family domains must
+use numeric types. The syntax checks cover inactive
 build files too. A supplemental type check resolves indirect local and imported
-string aliases and inferred `kind` assignments, including tuple and range
+string aliases and inferred discriminator assignments, including tuple and range
 declarations, in the root module's current build and test variants. Other build
 configurations and nested modules retain syntax coverage only; these checks do
 not infer classification roles from arbitrary names. Textual IDs remain valid.
@@ -316,9 +317,8 @@ transitive heap construction or all query costs.
 ### Kind discriminators in tests and documentation tools
 
 `TestNoRawKindEnums` also reads authored test files through the shared inventory.
-It guards raw `kind` fields, parameters, named results and literal assignments.
+It guards raw `kind` and `family` fields, parameters, named results and literal assignments.
 Fixtures and generated files keep their shared exclusions. Text used for a CLI
 noun or an expected output prefix names that role explicitly. This syntax gate
-does not infer string types through aliases or arbitrary expressions; remaining
-named string-backed domains are tracked in `gohawk-dho.23.32` for numeric migration
-with preserved published text encoding.
+does not infer string types through aliases or arbitrary expressions; the
+supplemental type check above supplies that evidence in the current build.

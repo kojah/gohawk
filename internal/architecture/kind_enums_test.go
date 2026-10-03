@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// Kind is an internal discriminator. Text at an output boundary should name
+// Kind and family are internal discriminators. Text at an output boundary should name
 // its role (a noun, label, or prefix), rather than masquerading as an enum.
-// This syntax gate covers raw fields, parameters, results and literal kind
+// This syntax gate covers raw fields, parameters, results and literal discriminator
 // assignments, including tests, and raw phase/mode parameters. Serialized phase fields
 // remain text at the output boundary. Named string domains are checked below.
 func TestNoRawKindEnums(t *testing.T) {
@@ -18,7 +18,7 @@ func TestNoRawKindEnums(t *testing.T) {
 }
 
 func rawKindEnum(node ast.Node) bool {
-	isKind := func(name *ast.Ident) bool { return strings.EqualFold(name.Name, "kind") }
+	isDiscriminator := func(name *ast.Ident) bool { return classificationDiscriminatorName(name.Name) }
 	switch node := node.(type) {
 	case *ast.FuncType:
 		return classificationParameter(node, func(expression ast.Expr) bool {
@@ -30,11 +30,11 @@ func rawKindEnum(node ast.Node) bool {
 		if !ok || underlying.Name != "string" {
 			return false
 		}
-		return slices.ContainsFunc(node.Names, isKind)
+		return slices.ContainsFunc(node.Names, isDiscriminator)
 	case *ast.ValueSpec:
 		underlying, explicit := node.Type.(*ast.Ident)
 		for index, name := range node.Names {
-			if !isKind(name) {
+			if !isDiscriminator(name) {
 				continue
 			}
 			if explicit && underlying.Name == "string" {
@@ -50,7 +50,7 @@ func rawKindEnum(node ast.Node) bool {
 		}
 		for index, left := range node.Lhs {
 			name, ok := left.(*ast.Ident)
-			if ok && isKind(name) && reasonStringLiteral(node.Rhs[index]) {
+			if ok && isDiscriminator(name) && reasonStringLiteral(node.Rhs[index]) {
 				return true
 			}
 		}
@@ -66,6 +66,9 @@ func TestRawKindEnumMatcher(t *testing.T) {
 		{`func f(kind string){}`, true},
 		{`func f(phase string){}`, true},
 		{`func f(mode string){}`, true},
+		{`func f(family string){}`, true},
+		{`type contract struct{family string}`, true},
+		{`type resourceFamily uint8;func f(family resourceFamily){}`, false},
 		{`type record struct{Mode string}`, false},
 		{`type lockMode uint8;func f(mode lockMode){}`, false},
 		{`type record struct{Phase string}`, false},
@@ -105,29 +108,28 @@ func namedStringEnum(node ast.Node) bool {
 }
 
 func classificationDomainName(name string) bool {
-	return slices.ContainsFunc([]string{"Kind", "Tier", "Outcome", "Provenance", "Reason", "State", "Mode", "Action", "Phase"}, func(suffix string) bool {
+	suffixes := []string{"Kind", "Tier", "Outcome", "Provenance", "Reason", "State", "Mode", "Action", "Phase", "Family"}
+	return slices.ContainsFunc(suffixes, func(suffix string) bool {
 		return strings.HasSuffix(name, suffix) || strings.EqualFold(name, suffix)
 	})
 }
 
 func TestNamedStringEnumMatcher(t *testing.T) {
-	for _, test := range []struct {
-		source string
-		want   bool
-	}{
+	cases := []classificationFixture{
 		{`type CheckKind string`, true},
 		{`type CheckTier = string`, true},
 		{`type Outcome string`, true},
 		{`type Phase string`, true},
+		{`type resourceFamily string`, true},
+		{`type resourceFamily uint8`, false},
 		{`type EvidenceProvenance string`, true},
 		{`type reason string`, true},
 		{`type CheckKind uint8`, false},
 		{`type CheckKind = catalog.CheckKind`, false},
 		{`type AnalyzerID string`, false},
 		{`const fixture="type Outcome string"`, false},
-	} {
-		assertReasonMatcher(t, test.source, test.want, namedStringEnum)
 	}
+	assertClassificationFixtures(t, cases, namedStringEnum)
 }
 
 func assertNoStringEnums(t *testing.T, matches func(ast.Node) bool) {
@@ -142,7 +144,7 @@ func assertNoStringEnums(t *testing.T, matches func(ast.Node) bool) {
 	}
 }
 
-// classificationParameter shares phase/mode parameter selection between syntax and type evidence.
+// classificationParameter shares phase/mode/family parameter selection between syntax and type evidence.
 // Serialized fields are not parameters and retain their wire vocabulary.
 func classificationParameter(function *ast.FuncType, isString func(ast.Expr) bool) bool {
 	if function.Params == nil {
@@ -150,7 +152,13 @@ func classificationParameter(function *ast.FuncType, isString func(ast.Expr) boo
 	}
 	return slices.ContainsFunc(function.Params.List, func(field *ast.Field) bool {
 		return isString(field.Type) && slices.ContainsFunc(field.Names, func(name *ast.Ident) bool {
-			return strings.EqualFold(name.Name, "phase") || strings.EqualFold(name.Name, "mode")
+			return classificationDiscriminatorName(name.Name) || strings.EqualFold(name.Name, "phase") || strings.EqualFold(name.Name, "mode")
 		})
 	})
+}
+
+// classificationDiscriminatorName selects closed fields and local declarations.
+// Phase and mode have textual wire fields, so only their parameters use this gate.
+func classificationDiscriminatorName(name string) bool {
+	return strings.EqualFold(name, "kind") || strings.EqualFold(name, "family")
 }

@@ -50,7 +50,7 @@ func TestResponseBodyAggregateHandoff(t *testing.T) {
 			if resource == nil || len(sends) != 1 {
 				t.Fatal("missing acquisition or handoff")
 			}
-			analysis := resourceAnalysis{function: function, resource: resource, contract: resourceContract{family: "http"}}
+			analysis := resourceAnalysis{function: function, resource: resource, contract: resourceContract{family: resourceFamilyHTTP}}
 			proof := analysis.responseBodyAggregateHandoff(sends[0].X, sends[0])
 			want := ssaflow.EvidenceDisproven
 			if test.unknown {

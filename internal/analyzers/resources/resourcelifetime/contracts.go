@@ -17,9 +17,22 @@ import (
 // vocabulary for this analyzer. Exact symbols are required so similarly named
 // application methods do not imply ownership.
 
+// resourceFamily selects the lifecycle policy for a proven API contract.
+// Unknown and inferred owners cannot borrow a standard-library cleanup policy.
+type resourceFamily uint8
+
+const (
+	resourceFamilyUnknown resourceFamily = iota
+	resourceFamilyOS
+	resourceFamilySQL
+	resourceFamilyHTTP
+	resourceFamilyCompression
+	resourceFamilyOwned
+)
+
 type resourceContract struct {
 	symbol      syntax.Symbol
-	family      string
+	family      resourceFamily
 	packagePath string
 	name        string
 	cleanup     []string
@@ -34,57 +47,57 @@ type resourceContract struct {
 
 func resourceContracts() []resourceContract {
 	return []resourceContract{
-		resourceFunction("os", "os", "Create", 0, "Close"),
-		resourceFunction("os", "os", "CreateTemp", 0, "Close"),
-		resourceFunction("os", "os", "Open", 0, "Close"),
-		resourceFunction("os", "os", "OpenFile", 0, "Close"),
+		resourceFunction(resourceFamilyOS, "os", "Create", 0, "Close"),
+		resourceFunction(resourceFamilyOS, "os", "CreateTemp", 0, "Close"),
+		resourceFunction(resourceFamilyOS, "os", "Open", 0, "Close"),
+		resourceFunction(resourceFamilyOS, "os", "OpenFile", 0, "Close"),
 		// Each end of a pipe is its own descriptor: closing one releases
 		// nothing of the other.
-		resourceFunction("os", "os", "Pipe", 0, "Close").withRole("read end"),
-		resourceFunction("os", "os", "Pipe", 1, "Close").withRole("write end"),
+		resourceFunction(resourceFamilyOS, "os", "Pipe", 0, "Close").withRole("read end"),
+		resourceFunction(resourceFamilyOS, "os", "Pipe", 1, "Close").withRole("write end"),
 		// Channel timers are GC-managed since Go 1.23. Missing Stop alone
 		// proves no leak. Main-module/runtime overrides are not established by
 		// this package-local pass, so legacy timer behavior is not inferred.
 		// This says nothing about AfterFunc callbacks or retained workers.
 		// https://github.com/okteto/okteto/blob/ad42c0823762a2255d4b4ad2e53fb4ec190010e7/cmd/deploy/wait.go#L70-L71
 
-		resourceMethod("sql", "database/sql", "DB", "Begin", "Commit", "Rollback"),
-		resourceMethod("sql", "database/sql", "DB", "BeginTx", "Commit", "Rollback"),
-		resourceMethod("sql", "database/sql", "Conn", "BeginTx", "Commit", "Rollback"),
-		resourceMethod("sql", "database/sql", "DB", "Query", "Close"),
-		resourceMethod("sql", "database/sql", "DB", "QueryContext", "Close"),
-		resourceMethod("sql", "database/sql", "Conn", "QueryContext", "Close"),
-		resourceMethod("sql", "database/sql", "Tx", "Query", "Close"),
-		resourceMethod("sql", "database/sql", "Tx", "QueryContext", "Close"),
-		resourceMethod("sql", "database/sql", "Stmt", "Query", "Close"),
-		resourceMethod("sql", "database/sql", "Stmt", "QueryContext", "Close"),
+		resourceMethod(resourceFamilySQL, "database/sql", "DB", "Begin", "Commit", "Rollback"),
+		resourceMethod(resourceFamilySQL, "database/sql", "DB", "BeginTx", "Commit", "Rollback"),
+		resourceMethod(resourceFamilySQL, "database/sql", "Conn", "BeginTx", "Commit", "Rollback"),
+		resourceMethod(resourceFamilySQL, "database/sql", "DB", "Query", "Close"),
+		resourceMethod(resourceFamilySQL, "database/sql", "DB", "QueryContext", "Close"),
+		resourceMethod(resourceFamilySQL, "database/sql", "Conn", "QueryContext", "Close"),
+		resourceMethod(resourceFamilySQL, "database/sql", "Tx", "Query", "Close"),
+		resourceMethod(resourceFamilySQL, "database/sql", "Tx", "QueryContext", "Close"),
+		resourceMethod(resourceFamilySQL, "database/sql", "Stmt", "Query", "Close"),
+		resourceMethod(resourceFamilySQL, "database/sql", "Stmt", "QueryContext", "Close"),
 		// Statements prepared on a transaction are closed automatically when that
 		// transaction commits or rolls back, so Tx.Prepare* is deliberately absent.
-		resourceMethod("sql", "database/sql", "DB", "Prepare", "Close"),
-		resourceMethod("sql", "database/sql", "DB", "PrepareContext", "Close"),
-		resourceMethod("sql", "database/sql", "Conn", "PrepareContext", "Close"),
+		resourceMethod(resourceFamilySQL, "database/sql", "DB", "Prepare", "Close"),
+		resourceMethod(resourceFamilySQL, "database/sql", "DB", "PrepareContext", "Close"),
+		resourceMethod(resourceFamilySQL, "database/sql", "Conn", "PrepareContext", "Close"),
 
-		resourceFunction("http", "net/http", "Get", 0, "Close"),
-		resourceFunction("http", "net/http", "Post", 0, "Close"),
-		resourceFunction("http", "net/http", "PostForm", 0, "Close"),
-		resourceMethod("http", "net/http", "Client", "Do", "Close"),
+		resourceFunction(resourceFamilyHTTP, "net/http", "Get", 0, "Close"),
+		resourceFunction(resourceFamilyHTTP, "net/http", "Post", 0, "Close"),
+		resourceFunction(resourceFamilyHTTP, "net/http", "PostForm", 0, "Close"),
+		resourceMethod(resourceFamilyHTTP, "net/http", "Client", "Do", "Close"),
 		// net/http documents the same obligation for these Client methods as
 		// for the package functions above: "Caller should close resp.Body when
 		// done reading from it." Head carries no such sentence, and a HEAD
 		// response usually has http.NoBody, so neither Head form is listed.
-		resourceMethod("http", "net/http", "Client", "Get", "Close"),
-		resourceMethod("http", "net/http", "Client", "Post", "Close"),
-		resourceMethod("http", "net/http", "Client", "PostForm", "Close"),
+		resourceMethod(resourceFamilyHTTP, "net/http", "Client", "Get", "Close"),
+		resourceMethod(resourceFamilyHTTP, "net/http", "Client", "Post", "Close"),
+		resourceMethod(resourceFamilyHTTP, "net/http", "Client", "PostForm", "Close"),
 
 		// Compression readers do not own their inputs or require finalization.
 		// Close neither closes the underlying reader nor validates a checksum;
 		// missing it is not a resource-lifetime violation.
 		// https://github.com/flux-iac/tofu-controller/blob/8fc67730e8b5d48092060f22b89bd2e88fc0ce86/api/plan/gzip.go#L28
-		resourceFunction("compress", "compress/gzip", "NewWriterLevel", 0, "Close"),
-		resourceFunction("compress", "compress/gzip", "NewWriter", -1, "Close"),
-		resourceFunction("compress", "compress/zlib", "NewWriterLevel", 0, "Close"),
-		resourceFunction("compress", "compress/zlib", "NewWriterLevelDict", 0, "Close"),
-		resourceFunction("compress", "compress/zlib", "NewWriter", -1, "Close"),
+		resourceFunction(resourceFamilyCompression, "compress/gzip", "NewWriterLevel", 0, "Close"),
+		resourceFunction(resourceFamilyCompression, "compress/gzip", "NewWriter", -1, "Close"),
+		resourceFunction(resourceFamilyCompression, "compress/zlib", "NewWriterLevel", 0, "Close"),
+		resourceFunction(resourceFamilyCompression, "compress/zlib", "NewWriterLevelDict", 0, "Close"),
+		resourceFunction(resourceFamilyCompression, "compress/zlib", "NewWriter", -1, "Close"),
 	}
 }
 
@@ -111,7 +124,7 @@ func proveSQLRowsExhaustionEdge(block, successor *ssa.BasicBlock, resource ssa.V
 	return carriedValueProof(exhausted, resourceReasonRowsExhaustedEdgeUnknown, budget)
 }
 
-func resourceFunction(family, packagePath, name string, result int, cleanup ...string) resourceContract {
+func resourceFunction(family resourceFamily, packagePath, name string, result int, cleanup ...string) resourceContract {
 	return resourceContract{
 		symbol: syntax.PackageFunction(packagePath, name), family: family, packagePath: packagePath, name: name, cleanup: cleanup, result: result,
 	}
@@ -122,7 +135,7 @@ func (contract resourceContract) withRole(role string) resourceContract {
 	return contract
 }
 
-func resourceMethod(family, packagePath, receiver, name string, cleanup ...string) resourceContract {
+func resourceMethod(family resourceFamily, packagePath, receiver, name string, cleanup ...string) resourceContract {
 	return resourceContract{
 		symbol:      syntax.PackageMethod(syntax.MethodSymbol{PackagePath: packagePath, Receiver: receiver, Name: name}),
 		family:      family,
@@ -512,7 +525,7 @@ func ownedResultContract(evidence *lifecyclefacts.LifecycleEvidence, call *ssa.C
 	// The package name only labels the diagnostic; identity was decided by
 	// the imported summaries above.
 	return resourceContract{
-		family:      "owned",
+		family:      resourceFamilyOwned,
 		packagePath: callee.Pkg.Pkg.Name(),
 		name:        callee.Name(),
 		cleanup:     cleanup,
@@ -542,7 +555,7 @@ func catalogCoversPackage(settings resourceLifetimeSettings, callee *ssa.Functio
 // read produces truncated output, which is a data defect rather than a leak
 // and is not this check's claim.
 func memoryWriterExempt(call *ssa.Call, contract resourceContract) bool {
-	if contract.family != "compress" || len(call.Common().Args) == 0 {
+	if contract.family != resourceFamilyCompression || len(call.Common().Args) == 0 {
 		return false
 	}
 	writerMethods := contract.cleanup

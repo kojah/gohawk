@@ -167,7 +167,7 @@ func releaseLabel(proof lifecyclefacts.Proof) (resourceAction, resourceLifetimeR
 // decide the caller's policy. Successful returns still owe finalization.
 // https://github.com/goreleaser/nfpm/blob/3627b6a6466c0ae3bbe17fe7b98710c36e750907/rpm/srpm.go#L123
 func (analysis *resourceAnalysis) compressionOutputAbandoned(instruction ssa.Instruction) bool {
-	if analysis.contract.family != "compress" {
+	if analysis.contract.family != resourceFamilyCompression {
 		return false
 	}
 	if returned, ok := instruction.(*ssa.Return); ok {

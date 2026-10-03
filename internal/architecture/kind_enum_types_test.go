@@ -64,25 +64,25 @@ func typedStringEnum(node ast.Node, info *types.Info) bool {
 		return classificationDomainName(node.Name.Name) && stringUnderlying(info.TypeOf(node.Name))
 	case *ast.Field:
 		for _, name := range node.Names {
-			if strings.EqualFold(name.Name, "kind") && stringUnderlying(info.TypeOf(node.Type)) {
+			if classificationDiscriminatorName(name.Name) && stringUnderlying(info.TypeOf(node.Type)) {
 				return true
 			}
 		}
 	case *ast.ValueSpec:
 		for _, name := range node.Names {
-			if rawTypedKind(name, info) {
+			if rawTypedDiscriminator(name, info) {
 				return true
 			}
 		}
 	case *ast.AssignStmt:
 		for _, left := range node.Lhs {
-			if name, ok := left.(*ast.Ident); ok && rawTypedKind(name, info) {
+			if name, ok := left.(*ast.Ident); ok && rawTypedDiscriminator(name, info) {
 				return true
 			}
 		}
 	case *ast.RangeStmt:
 		for _, expression := range []ast.Expr{node.Key, node.Value} {
-			if name, ok := expression.(*ast.Ident); ok && rawTypedKind(name, info) {
+			if name, ok := expression.(*ast.Ident); ok && rawTypedDiscriminator(name, info) {
 				return true
 			}
 		}
@@ -90,8 +90,8 @@ func typedStringEnum(node ast.Node, info *types.Info) bool {
 	return false
 }
 
-func rawTypedKind(name *ast.Ident, info *types.Info) bool {
-	return strings.EqualFold(name.Name, "kind") && stringUnderlying(info.TypeOf(name))
+func rawTypedDiscriminator(name *ast.Ident, info *types.Info) bool {
+	return classificationDiscriminatorName(name.Name) && stringUnderlying(info.TypeOf(name))
 }
 
 func stringUnderlying(value types.Type) bool {
@@ -113,6 +113,10 @@ func TestTypedStringEnumMatcher(t *testing.T) {
 		{"aliased field", `type item struct{ Kind wire.Text }`, true},
 		{"aliased phase parameter", `func f(phase wire.Text){}`, true},
 		{"aliased mode parameter", `func f(mode wire.Text){}`, true},
+		{"aliased family parameter", `func f(family wire.Text){}`, true},
+		{"aliased family field", `type contract struct{family wire.Text}`, true},
+		{"indirect family domain", `type resourceFamily wire.Text`, true},
+		{"numeric family parameter", `func f(family wire.Number){}`, false},
 		{"serialized mode field", `type record struct{Mode wire.Text}`, false},
 		{"numeric mode parameter", `func f(mode wire.Number){}`, false},
 		{"serialized phase field", `type record struct{Phase wire.Text}`, false},

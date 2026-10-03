@@ -26,7 +26,7 @@ func (analysis *resourceAnalysis) proveGuardedCapturedBodyWithin(
 	instruction ssa.Instruction, closure *ssa.MakeClosure, budget *ssaflow.SearchBudget,
 ) resourceProof {
 	missing := resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonEvidenceNotFound}
-	if _, called := instruction.(*ssa.Call); !called || analysis.contract.family != "http" {
+	if _, called := instruction.(*ssa.Call); !called || analysis.contract.family != resourceFamilyHTTP {
 		return missing
 	}
 	function, _ := closure.Fn.(*ssa.Function)

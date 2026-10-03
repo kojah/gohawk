@@ -49,7 +49,7 @@ func TestGuardedBodyChildAndFresh(t *testing.T) {
 	if fresh.State != ssaflow.EvidenceUnknown || fresh.Reason != resourceReasonCapturedBodyGuardedCleanup {
 		t.Fatalf("fresh=%+v", fresh)
 	}
-	query.contract.family = "file"
+	query.contract.family = resourceFamilyUnknown
 	if got := query.proveGuardedCapturedBodyWithin(call, closure, ssaflow.NewSearchBudget(0)); got.State != ssaflow.EvidenceDisproven {
 		t.Fatalf("nonHTTP=%+v", got)
 	}

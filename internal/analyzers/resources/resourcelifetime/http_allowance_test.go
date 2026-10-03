@@ -29,7 +29,9 @@ func assertHTTPChildCutoffFlow(t *testing.T, call *ssa.Call, prove func(*ssaflow
 	if resource == nil {
 		t.Fatal("missing HTTP response result")
 	}
-	got := evaluateResourceFlow(nil, evidence, call, resource, resourceContract{family: "http", packagePath: "net/http", cleanup: []string{"Close"}})
+	got := evaluateResourceFlow(nil, evidence, call, resource, resourceContract{
+		family: resourceFamilyHTTP, packagePath: "net/http", cleanup: []string{"Close"},
+	})
 	if got.state != ssaflow.EvidenceUnknown || got.reason != resourceReasonBudgetExhausted || got.leak != nil {
 		t.Fatalf("HTTP cutoff fell through to leak=%+v", got)
 	}

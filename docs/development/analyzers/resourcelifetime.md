@@ -631,6 +631,15 @@ adding a logging contract. The conditional cases in `returned_value_copies.go`
 keep discarded and replaced writers reported; the heap projection tests also
 check caller identity after summary substitution.
 
+Acquisition contracts select their policy with the numeric `resourceFamily`
+domain: OS descriptors, SQL, HTTP, compression or inferred ownership. Unknown
+and inferred-owner families cannot borrow process-exit reclamation or another
+standard-library policy. Package paths, API names and diagnostic role labels
+remain textual identities; they do not select a resource family. Architecture
+checks reject string-backed family declarations and parameters, including
+indirect aliases. This representation change preserves the existing policy
+branches and reporting labels.
+
 For `DB.BeginTx` and `Conn.BeginTx`, cancellation of the exact acquisition
 context triggers database/sql's rollback watcher. A direct or deferred call
 of its paired cancel is therefore unknown cleanup, not synchronous rollback

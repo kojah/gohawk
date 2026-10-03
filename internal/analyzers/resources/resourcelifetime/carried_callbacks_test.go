@@ -48,33 +48,41 @@ func TestClosureBindingAllowance(t *testing.T) {
 
 func TestCarriedCallArgumentsAllowance(t *testing.T) {
 	pkg, provider := carriedCallbackFixture(t)
+	type callbackFamily uint8
+	const (
+		retention callbackFamily = iota
+		aggregate
+		loop
+	)
+	labels := [...]string{retention: "retention", aggregate: "aggregate", loop: "loop"}
 	for _, test := range []struct {
-		family, name string
-		want         bool
+		family callbackFamily
+		name   string
+		want   bool
 	}{
-		{"retention", "registered", true},
-		{"retention", "observed", false},
-		{"retention", "borrowed", false},
-		{"retention", "otherCallback", false},
-		{"retention", "directCall", false},
-		{"aggregate", "mixed", true},
-		{"aggregate", "aggregate", true},
-		{"aggregate", "callbackArg", false},
-		{"aggregate", "otherAggregate", false},
-		{"aggregate", "directCall", false},
-		{"loop", "loopDirect", true},
-		{"loop", "loopAggregate", true},
-		{"loop", "loopOther", false},
+		{retention, "registered", true},
+		{retention, "observed", false},
+		{retention, "borrowed", false},
+		{retention, "otherCallback", false},
+		{retention, "directCall", false},
+		{aggregate, "mixed", true},
+		{aggregate, "aggregate", true},
+		{aggregate, "callbackArg", false},
+		{aggregate, "otherAggregate", false},
+		{aggregate, "directCall", false},
+		{loop, "loopDirect", true},
+		{loop, "loopAggregate", true},
+		{loop, "loopOther", false},
 	} {
-		t.Run(test.family+"/"+test.name, func(t *testing.T) {
+		t.Run(labels[test.family]+"/"+test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
 			query := callbackAnalysis(fn, provider)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
 				switch test.family {
-				case "retention":
+				case retention:
 					return query.provePossiblyRetainedCallbackWithin(call, call.Common(), budget)
-				case "aggregate":
+				case aggregate:
 					return query.proveCarriedAggregateArgumentsWithin(call.Common(), budget)
 				default:
 					return query.proveImportedLoopReleaseWithin(call, call.Common(), budget)

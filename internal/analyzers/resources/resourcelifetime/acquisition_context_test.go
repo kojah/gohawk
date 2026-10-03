@@ -73,7 +73,9 @@ func TestAcquisitionContextCancellationFlow(t *testing.T) {
 			if result == nil {
 				t.Fatal("missing resource result")
 			}
-			got := evaluateResourceFlow(nil, evidence, call, result, resourceContract{family: "sql", packagePath: "database/sql", cleanup: []string{"Close"}})
+			got := evaluateResourceFlow(nil, evidence, call, result, resourceContract{
+				family: resourceFamilySQL, packagePath: "database/sql", cleanup: []string{"Close"},
+			})
 			if name == "exact" {
 				if got.state != ssaflow.EvidenceDisproven || got.reason != resourceReasonCanceledAcquisition || got.leak != nil {
 					t.Fatalf("canceled acquisition reported = %+v", got)

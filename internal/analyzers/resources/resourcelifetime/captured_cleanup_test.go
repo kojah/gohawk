@@ -99,6 +99,6 @@ func guardedBodyInputs(t *testing.T, function *ssa.Function) (*resourceAnalysis,
 	evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
 	return &resourceAnalysis{
 		function: function, acquisition: acquisition, resource: acquisition, evidence: evidence, summaries: provider,
-		contract: resourceContract{family: "http", cleanup: []string{"Close"}},
+		contract: resourceContract{family: resourceFamilyHTTP, cleanup: []string{"Close"}},
 	}, invocation, closure
 }

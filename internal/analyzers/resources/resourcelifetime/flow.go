@@ -194,8 +194,8 @@ func (analysis *resourceAnalysis) traceUncertainEdge(block, successor *ssa.Basic
 // effects, so all of those are still reported.
 func processExitReclaims(call *ssa.Call, contract resourceContract, budget *ssaflow.SearchBudget) bool {
 	switch contract.family {
-	case "os", "http":
-	case "sql":
+	case resourceFamilyOS, resourceFamilyHTTP:
+	case resourceFamilySQL:
 		if slices.Contains(contract.cleanup, "Commit") {
 			return false
 		}

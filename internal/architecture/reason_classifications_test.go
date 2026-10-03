@@ -88,10 +88,7 @@ func reasonStringLiteral(expression ast.Expr) bool {
 }
 
 func TestRawReasonClassificationMatcher(t *testing.T) {
-	for _, test := range []struct {
-		source string
-		want   bool
-	}{
+	cases := []classificationFixture{
 		{"type Proof struct { Reason string }", true},
 		{"type Reason string", true},
 		{"func f(reason string) {}", true},
@@ -104,7 +101,18 @@ func TestRawReasonClassificationMatcher(t *testing.T) {
 		{"type QueryReason uint8; type Proof struct { Reason QueryReason }", false},
 		{"func f() { proof.Reason = UnknownReason }", false},
 		{"func f() string { return \"display text\" }", false},
-	} {
-		assertReasonMatcher(t, test.source, test.want, rawReasonClassification)
+	}
+	assertClassificationFixtures(t, cases, rawReasonClassification)
+}
+
+type classificationFixture struct {
+	source string
+	want   bool
+}
+
+func assertClassificationFixtures(t *testing.T, cases []classificationFixture, matches func(ast.Node) bool) {
+	t.Helper()
+	for _, test := range cases {
+		assertReasonMatcher(t, test.source, test.want, matches)
 	}
 }
