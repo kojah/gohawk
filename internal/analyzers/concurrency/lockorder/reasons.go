@@ -35,10 +35,12 @@ const (
 	lockReasonReadLockWrite
 	lockReasonExclusiveWriterUnknown
 	lockReasonPrivateWriteStorage
+	lockReasonFieldGuardUnknown
 	lockReasonCount
 )
 
 var lockReasonCodes = [...]string{
+	lockReasonFieldGuardUnknown:                   "field-guard-unknown",
 	lockReasonPrivateWriteStorage:                 "private-write-storage",
 	lockReasonPrivateMutexOnly:                    "private-mutex-only",
 	lockReasonReleaseOwnershipUnknown:             "release-ownership-unknown",

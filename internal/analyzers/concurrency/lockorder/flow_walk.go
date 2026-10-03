@@ -18,6 +18,7 @@ const lockStateWorkBudget = 100 * ssaflow.SummaryBudget
 
 type lockStateWalk struct {
 	budget            *ssaflow.SearchBudget
+	fieldEvidence     readLockFieldEvidence
 	setup             *lockFunctionSetup
 	flow              lockFlowContext
 	unreleasedReturns map[string][]token.Pos
@@ -50,18 +51,19 @@ func (walk *lockStateWalk) run(
 	callerOwned := walk.setup.callerOwned
 	functionDefers := walk.setup.defers
 	flow := lockFlowContext{
-		pass:         pass,
-		function:     function,
-		setup:        walk.setup,
-		budget:       walk.budget,
-		exclusive:    exclusive,
-		releases:     newLockReleaseQueries(evidence, walk.budget),
-		relations:    relations,
-		calleeLocks:  calleeLocks,
-		lockValues:   lockValues,
-		acquiredAt:   acquiredAt,
-		released:     released,
-		acquisitions: acquisitions, uncertainGuards: uncertainGuards,
+		pass:          pass,
+		fieldEvidence: walk.fieldEvidence,
+		function:      function,
+		setup:         walk.setup,
+		budget:        walk.budget,
+		exclusive:     exclusive,
+		releases:      newLockReleaseQueries(evidence, walk.budget),
+		relations:     relations,
+		calleeLocks:   calleeLocks,
+		lockValues:    lockValues,
+		acquiredAt:    acquiredAt,
+		released:      released,
+		acquisitions:  acquisitions, uncertainGuards: uncertainGuards,
 		unprovenRelease: map[string]bool{},
 		callerOwned:     callerOwned,
 		defers:          functionDefers,

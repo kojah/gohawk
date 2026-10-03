@@ -27,7 +27,9 @@ import (
 // construction. What is provable without that inference is narrower: the
 // receiver whose read lock is held is the receiver being mutated.
 //
-// Two exclusions follow from the same rule and keep the claim honest. A value
+// A field also written in a call-free receiver method has an opaque caller
+// synchronization contract and stays unknown; see readLockFieldEvidence.
+// Other exclusions follow from the same rule and keep the claim honest. A value
 // LOADED out of the owner is a different cell, so mutating it is not a write to
 // the owner -- the distinction ssaflow.IdentitySource states for identity
 // resolution. And an atomic update is a call rather than a store, so it never
@@ -40,7 +42,7 @@ func reportReadLockWrites(
 	flow lockFlowContext, instruction ssa.Instruction, held, readHeld []string,
 	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer,
 ) {
-	proof := proveReadLockWrite(instruction, held, readHeld, lockValues, possibleWriters, flow.setup.calls)
+	proof := proveReadLockWrite(instruction, held, readHeld, lockValues, possibleWriters, flow.setup.calls, flow.fieldEvidence)
 	traceLockDiagnostic(flow.pass, check.LockReadLockWrite, instruction.Pos(), proof.lockDiagnosticProof)
 	if proof.state != ssaflow.EvidenceProven {
 		return
@@ -78,7 +80,7 @@ type readLockWriteProof struct {
 // full owner-query order, while a reportable candidate ends the search.
 func proveReadLockWrite(
 	instruction ssa.Instruction, held, readHeld []string,
-	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer, calls []*ssa.Call,
+	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer, calls []*ssa.Call, fields readLockFieldEvidence,
 ) readLockWriteProof {
 	proof := readLockWriteProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}}
 	for _, identity := range readHeld {
@@ -90,6 +92,14 @@ func proveReadLockWrite(
 		for _, value := range lockValues[identity] {
 			owner, ok := lockOwner(value)
 			if !ok || !writeTargetsOwner(instruction, owner) {
+				continue
+			}
+			// A field-only method exposes caller-supplied synchronization or separate
+			// ownership that same-owner matching cannot resolve. This is uncertainty,
+			// not proof that the setter is safe or that it uses a different mutex.
+			// https://github.com/apache/skywalking-rover/blob/e83d5925500a7e63dd55c080a9b1542d6cedaefb/pkg/tools/buffer/buffer.go#L629-L649
+			if guard := fields.guard(instruction); guard.state == ssaflow.EvidenceUnknown {
+				proof = readLockWriteProof{guard, identity}
 				continue
 			}
 			// A fresh wrapper can carry a borrowed map or slice. Exclusivity must
@@ -283,4 +293,82 @@ func addressWithinOwner(address, owner ssa.Value) bool {
 		}
 	}
 	return false
+}
+
+// Receiver-field writes in a call-free method have no in-frame acquisition.
+// Whether callers provide a guard or own the field is opaque. Declaration
+// identity keeps this uncertainty on that field, not on its siblings or names.
+// Interrupted collection supplies no negative field-guard evidence.
+type readLockFieldEvidence struct {
+	unscoped    map[*types.Var]bool
+	unavailable bool
+}
+
+func collectReadLockFieldEvidence(functions []*ssa.Function, budget *ssaflow.SearchBudget) readLockFieldEvidence {
+	result := readLockFieldEvidence{unscoped: map[*types.Var]bool{}}
+	for _, function := range functions {
+		if !budget.Spend() {
+			return readLockFieldEvidence{unavailable: true}
+		}
+		if function.Signature.Recv() == nil || len(function.Params) == 0 || len(function.Blocks) == 0 {
+			continue
+		}
+		// Stage witnesses until the entire method is known call-free. A later
+		// call can provide synchronization that a preceding store does not show.
+		var fields []*types.Var
+		closed := true
+		for instruction := range ssaflow.InstructionsWithin(function, budget) {
+			if _, call := instruction.(ssa.CallInstruction); call {
+				closed = false
+				break
+			}
+			store, ok := instruction.(*ssa.Store)
+			if !ok {
+				continue
+			}
+			// A field of a loaded peer is a different object. Only the exact
+			// receiver and its embedded addresses supply this declaration witness.
+			path, known := ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(budget),
+				store.Addr, func(root ssa.Value) bool { return root == function.Params[0] })
+			if known && path.Depth > 0 {
+				if field := storedField(store); field != nil {
+					fields = append(fields, field)
+				}
+			}
+		}
+		if budget.Exhausted() || budget.PoolExhausted() {
+			return readLockFieldEvidence{unavailable: true}
+		}
+		if closed {
+			for _, field := range fields {
+				if !budget.Spend() {
+					return readLockFieldEvidence{unavailable: true}
+				}
+				result.unscoped[field] = true
+			}
+		}
+	}
+	return result
+}
+
+func (fields readLockFieldEvidence) guard(instruction ssa.Instruction) lockDiagnosticProof {
+	if fields.unavailable {
+		return lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}
+	}
+	if store, ok := instruction.(*ssa.Store); ok && fields.unscoped[storedField(store)] {
+		return lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonFieldGuardUnknown}
+	}
+	return lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}
+}
+
+func storedField(store *ssa.Store) *types.Var {
+	address, ok := store.Addr.(*ssa.FieldAddr)
+	if !ok {
+		return nil
+	}
+	structure := syntax.PointerStruct(address.X.Type())
+	if structure == nil || address.Field < 0 || address.Field >= structure.NumFields() {
+		return nil
+	}
+	return structure.Field(address.Field)
 }

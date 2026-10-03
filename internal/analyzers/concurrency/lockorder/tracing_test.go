@@ -43,10 +43,12 @@ func TestLockTraceBoundaries(t *testing.T) {
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "lockorder")
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "ordercycles")
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "privateread")
+	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "readlockfields")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
+	checkDecisionTrace(t, data, "field-guard-unknown", "readlockfields.go:", "unknown")
 	checkDecisionTrace(t, data, "private-write-storage", "owners.go:", "accepted")
 	checkLongerCycleTrace(t, data)
 	checkConstantTrace(t, data, "predecessor-constant-branch-infeasible", "computed_guard.go:")

@@ -14,6 +14,7 @@ import (
 
 type lockFlowContext struct {
 	pass            *analysis.Pass
+	fieldEvidence   readLockFieldEvidence
 	function        *ssa.Function
 	setup           *lockFunctionSetup
 	budget          *ssaflow.SearchBudget

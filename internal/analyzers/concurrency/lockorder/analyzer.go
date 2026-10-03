@@ -82,9 +82,10 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	inventory := collectLockCallers(ssaResult.Pkg.Func("init"), packageFunctions, ssaflow.NewSearchBudget(callerSetBudget))
 	callers := inventory
 	exclusive := newExclusiveCallers(pass, inventory)
+	fields := collectReadLockFieldEvidence(functions, ssaflow.NewSearchBudget(lockStateWorkBudget))
 	for _, function := range functions {
 		var evidence lifecycle.LocalEvidence
-		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers, exclusive)
+		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers, exclusive, fields)
 	}
 	return relations.graph(pass), nil
 }
@@ -96,19 +97,19 @@ func walkLockOrder(
 	calleeLocks *calleeLockSearch,
 	evidence *lifecycle.LocalEvidence,
 	callers map[*ssa.Function]conditionalCallerSet,
-	exclusive *exclusiveCallers,
+	exclusive *exclusiveCallers, fields readLockFieldEvidence,
 ) {
 	probe := analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), function.Pos())
-	walkLockOrderWithin(pass, function, relations, calleeLocks, evidence, callers, exclusive,
-		ssaflow.NewSearchBudget(lockStateWorkBudget).Observed(probe.Observer()))
+	walk := lockStateWalk{budget: ssaflow.NewSearchBudget(lockStateWorkBudget).Observed(probe.Observer()), fieldEvidence: fields}
+	walk.analyze(pass, function, relations, calleeLocks, evidence, callers, exclusive)
 }
 
-func walkLockOrderWithin(
+func (walk *lockStateWalk) analyze(
 	pass *analysis.Pass, function *ssa.Function, relations *lockOrders,
 	calleeLocks *calleeLockSearch, evidence *lifecycle.LocalEvidence,
-	callers map[*ssa.Function]conditionalCallerSet, exclusive *exclusiveCallers, budget *ssaflow.SearchBudget,
+	callers map[*ssa.Function]conditionalCallerSet, exclusive *exclusiveCallers,
 ) bool {
-	proof := buildLockSetup(pass, function, budget)
+	proof := buildLockSetup(pass, function, walk.budget)
 	if !proof.Proven() {
 		traceLockStateBudget(pass, function)
 		return false
@@ -121,7 +122,7 @@ func walkLockOrderWithin(
 	buffered, commit := check.BufferReports(pass)
 	localRelations := newLockOrders()
 	localRelations.collectOnly = true
-	walk := lockStateWalk{setup: proof.setup, budget: budget}
+	walk.setup = proof.setup
 	if !walk.run(buffered, function, localRelations, calleeLocks, evidence, callers, exclusive) {
 		traceLockStateBudget(pass, function)
 		return false

@@ -307,7 +307,8 @@ existing report buffer still discards all findings if analysis is interrupted.
 `readlockpaths` pins converging paths, two distinct writes, an uncertain writer
 guard beside a reportable path, and two lock identities. This removes duplicate
 output from [Skywalking's cursor initialization](https://github.com/apache/skywalking-rover/blob/e83d5925500a7e63dd55c080a9b1542d6cedaefb/pkg/tools/buffer/buffer.go#L644-L649);
-the underlying two field-association FPs remain unresolved.
+the underlying field-association reports are handled separately by the
+receiver-field uncertainty boundary described below.
 
 A read lock is shared: any number of readers may hold it at once. Writing to
 the object it protects while holding only the read lock therefore races with
@@ -460,3 +461,33 @@ async/adapter/lookalike calls, published owners, fresh/borrowed/opaque/mixed
 collections, selected-element exposure and loop allocation. This does not
 infer which field a mutex guards or who can participate in its read protocol;
 the two recorded Skywalking cursor sites remain unresolved.
+
+
+## Receiver fields with caller-supplied synchronization
+
+A bounded package census identifies exact receiver fields written in methods
+whose complete SSA body contains no call, defer or goroutine launch. Such a
+method carries no acquisition in its own frame. Its callers may supply a guard
+or exclusively own the field, but the read-lock proof does not establish that
+contract. A store to that declared field therefore returns `field-guard-unknown`
+at the existing decision point. This is positive uncertainty, not a claim that
+the setter is safe or independent of the read lock.
+
+The census resolves only embedded field-address paths rooted in the exact
+receiver parameter. Loaded pointers and other parameters do not qualify.
+Declaration identity keeps sibling fields and same-named fields of different
+types separate. Any call disqualifies the whole method, including one after a
+store; a write-locked setter supplies no witness. The index is constructed once
+per package, rather than rediscovering methods for each mutation. Cutoff
+invalidates the index and suppresses read-lock reports as budget-unknown;
+partial negative evidence must not authorize a report. Order and release checks
+retain their existing evidence.
+
+The `readlockfields` fixtures reproduce pointer cursor replacement and a scalar
+cursor update, retaining unrelated-field and guarded-setter diagnostics.
+Actual SSA controls pin loaded-pointer exclusion, late-call exclusion,
+declaration identity and cutoff/fresh-allowance recovery. This deliberately
+loses a real read-lock write when a field-only setter is always called under the
+same guard; that caller contract remains a known gap. It does not infer a
+field-to-lock relationship for fields without a witness. The representative
+cursor reset is [Skywalking Buffer.ResetForLoopReading and PrepareForReading](https://github.com/apache/skywalking-rover/blob/e83d5925500a7e63dd55c080a9b1542d6cedaefb/pkg/tools/buffer/buffer.go#L629-L649).
