@@ -147,6 +147,9 @@ func (search *calleeLockSearch) locksUnder(
 			}
 		}
 	}
+	if context.budget.Exhausted() || context.budget.PoolExhausted() {
+		return calleeLocks{}, false
+	}
 	return result, true
 }
 
@@ -160,18 +163,21 @@ func (search *calleeLockSearch) searchLocks(function *ssa.Function, budget *ssaf
 				return calleeLocks{}
 			}
 			result.observe(search, instruction, budget)
+			if budget.Exhausted() || budget.PoolExhausted() {
+				return calleeLocks{}
+			}
 		}
 	}
 	return result
 }
 
 func (locks *calleeLocks) observe(search *calleeLockSearch, instruction ssa.Instruction, budget *ssaflow.SearchBudget) {
-	if operation, _, receiver, ok := mutexAction(instruction); ok {
+	if operation, _, receiver, ok := mutexActionWithin(instruction, budget); ok {
 		// A mutex selected by a map or slice index may be a different lock on
 		// every iteration, which is why the acquisition walk declines it. The
 		// same uncertainty applies when the acquisition is a callee's.
 		if class := lockClassOf(receiver); operation == mutexAcquire && class != "" && !dynamicIndexedMutex(receiver) {
-			locks.add(acquisitionAt(instruction, class))
+			locks.add(acquisitionAtWithin(instruction, class, budget))
 		}
 		return
 	}

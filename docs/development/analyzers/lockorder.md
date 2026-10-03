@@ -560,3 +560,31 @@ release, later defer and branched write shapes, and checks fresh-child recovery.
 Existing `opaque_writer.go` accepted and diagnostic forms pin the complete
 imported-writer policy. Alias, type and graph internals retain their separately
 reviewed ownership; no writer-to-field contract or callback inference is added.
+
+
+## Request-owned instance identity
+
+Instance identity reaching and observation-time storage now share the supplied
+allowance through `lockIdentityWithin`. A cutoff returns no identity before any
+slot-name fallback. Concrete receiver selection carries its SSA receiver and
+identity together through the shared reaching fold; its leaf, phi agreement key
+and final action do not independently resolve the same storage.
+
+Setup, bound summary effects, callee acquisition census, acquisition instance
+metadata, mutable guards, held-value merging, private-mutex queries, opaque
+handoff exclusions, caller releases and possible writer checks pass their
+existing allowances. Interrupted direct effects and callee/constant summaries
+publish no partial witnesses. Default complete identity strings, wrapper forms,
+phi agreement and storage observation time are preserved. Acquisition metadata
+still names the original receiver expression rather than substituting the
+selected concrete receiver; this preserves its separate attribution contract.
+
+`identity_budget_test.go` reproduces a parent bound-operation allowance bypass
+and checks real SSA for direct/field/copy/snapshot/getter/index identities,
+agreed interface choices and mixed choices. It sweeps local cutoffs through
+first completion, preserves complete default actions and exact receivers, and
+checks recovery with fresh children. Declaration-class widening, fresh field
+uncertainty and global class comparison now live in `classes.go`; those policies
+and their separately owned type/heap/alias costs are unchanged. Release-attempt
+presentation also retains its default identity query rather than joining the
+proof allowance. All-caller exclusivity remains a separate review scope.

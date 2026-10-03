@@ -46,7 +46,7 @@ func buildLockSetup(pass *analysis.Pass, function *ssa.Function, budget *ssaflow
 		if branch, ok := instruction.(*ssa.If); ok {
 			setup.branches = append(setup.branches, branch)
 		}
-		if effect, known := directMutexEffect(instruction); known {
+		if effect, known := directMutexEffectWithin(instruction, budget); known {
 			setup.direct[instruction] = effect
 		}
 	}

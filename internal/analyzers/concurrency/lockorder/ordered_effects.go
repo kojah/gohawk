@@ -17,15 +17,19 @@ type mutexEffect struct {
 	acquired  lockAcquisition
 }
 
-func directMutexEffect(instruction ssa.Instruction) (mutexEffect, bool) {
-	operation, identity, receiver, ok := mutexAction(instruction)
+func directMutexEffectWithin(instruction ssa.Instruction, budget *ssaflow.SearchBudget) (mutexEffect, bool) {
+	operation, identity, receiver, ok := mutexActionWithin(instruction, budget)
 	if !ok {
 		return mutexEffect{}, false
 	}
-	return mutexEffect{
+	effect := mutexEffect{
 		operation: operation, identity: identity, receiver: receiver,
-		acquired: acquisitionAt(instruction, lockComparisonKey(identity, receiver)),
-	}, ok
+		acquired: acquisitionAtWithin(instruction, lockComparisonKey(identity, receiver), budget),
+	}
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return mutexEffect{}, false
+	}
+	return effect, true
 }
 
 func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation, budget *ssaflow.SearchBudget) ([]mutexEffect, bool) {
@@ -38,7 +42,7 @@ func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation, b
 		if operation.Resource.Indirect || (operation.Kind != concurrencyfacts.Lock && operation.Kind != concurrencyfacts.Unlock) {
 			return nil, false
 		}
-		identity := lockIdentityOf(value)
+		identity := lockIdentityWithin(value, budget)
 		if identity == "" || dynamicIndexedMutex(value) {
 			return nil, false
 		}

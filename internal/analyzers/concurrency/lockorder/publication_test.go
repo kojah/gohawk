@@ -45,7 +45,7 @@ func TestInitialPublicationGuardBoundaries(t *testing.T) {
 		}
 		state := lockFlowState{}
 		for _, call := range calls {
-			effect, known := directMutexEffect(call)
+			effect, known := directMutexEffectWithin(call, nil)
 			if !known {
 				continue
 			}
@@ -54,7 +54,7 @@ func TestInitialPublicationGuardBoundaries(t *testing.T) {
 				continue
 			}
 			state.held = appendUniqueString(state.held, effect.identity)
-			flow.lockValues[effect.identity] = appendLockValue(flow.lockValues[effect.identity], effect.receiver)
+			flow.lockValues[effect.identity] = appendLockValue(flow.lockValues[effect.identity], effect.receiver, nil)
 			flow.unprovenRelease[effect.identity] = uncertain
 			if effect.acquired.read {
 				state.readHeld = appendUniqueString(state.readHeld, effect.identity)

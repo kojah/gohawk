@@ -39,12 +39,13 @@ type lockAcquisition struct {
 	widened  bool
 }
 
-func acquisitionAt(instruction ssa.Instruction, class string) lockAcquisition {
+func acquisitionAtWithin(instruction ssa.Instruction, class string, budget *ssaflow.SearchBudget) lockAcquisition {
 	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
 	resource, _ := lockResourcePath(receiver)
-	instance := lockIdentityOf(receiver)
+	instance := lockIdentityWithin(receiver, budget)
 	return lockAcquisition{
-		class: class, position: instruction.Pos(), read: readModeAcquisition(instruction), variant: loopVariantLock(instruction), resource: resource,
+		class: class, position: instruction.Pos(), read: readModeAcquisition(instruction), resource: resource,
+		variant:  loopVariantValue(ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(budget), receiver),
 		instance: instance, widened: class != "" && class != instance,
 	}
 }

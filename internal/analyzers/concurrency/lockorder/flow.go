@@ -102,8 +102,8 @@ func (flow lockFlowContext) applyMutexAction(
 	// acquire-for-caller contract and loaded-condition uncertainty boundary.
 	traceFreshMutexIdentity(flow.pass, instruction, receiver)
 	flow.acquisitions[identity] = appendUniqueInstruction(flow.acquisitions[identity], instruction)
-	flow.uncertainGuards[identity] = flow.uncertainGuards[identity] || optionalLoadedGuard(instruction, identity)
-	flow.lockValues[identity] = appendLockValue(flow.lockValues[identity], receiver)
+	flow.uncertainGuards[identity] = flow.uncertainGuards[identity] || optionalLoadedGuard(instruction, identity, flow.budget)
+	flow.lockValues[identity] = appendLockValue(flow.lockValues[identity], receiver, flow.budget)
 	// A mutex selected from a map, slice, or loop-carried value may represent a
 	// different runtime lock on every iteration. Collapsing those values into one
 	// SSA identity creates missing-release and ordering false positives:
@@ -181,7 +181,7 @@ func transferOpaqueUnlocks(
 	budget *ssaflow.SearchBudget,
 ) []string {
 	common := ssaflow.InstructionCall(instruction)
-	if _, _, _, direct := mutexAction(instruction); direct {
+	if _, _, _, direct := mutexActionWithin(instruction, budget); direct {
 		return held
 	}
 	for _, identity := range slices.Clone(held) {

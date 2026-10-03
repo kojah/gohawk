@@ -195,7 +195,7 @@ func (query lockReturnQueries) callerReleasesOnFlag(call *ssa.Call, mutex *ssa.G
 		if instruction.Block() == unheld {
 			return true
 		}
-		operation, _, receiver, direct := mutexAction(instruction)
+		operation, _, receiver, direct := mutexActionWithin(instruction, query.budget)
 		if direct && operation == mutexRelease && receiver == mutex && !readModeRelease(instruction) {
 			witness = true
 			return true

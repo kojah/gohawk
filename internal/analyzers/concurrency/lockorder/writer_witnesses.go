@@ -41,12 +41,18 @@ func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction, calls []
 	if !dominates {
 		return absent
 	}
-	_, _, writer, _ := mutexAction(deferred)
+	_, _, writer, _ := mutexActionWithin(deferred, budget)
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return unknown
+	}
 	for _, call := range calls {
 		if !budget.Spend() {
 			return unknown
 		}
-		operation, _, receiver, direct := mutexAction(call)
+		operation, _, receiver, direct := mutexActionWithin(call, budget)
+		if budget.Exhausted() || budget.PoolExhausted() {
+			return unknown
+		}
 		if !direct || operation != mutexRelease || readModeRelease(call) || !heapmodel.MayAlias(receiver, writer) {
 			continue
 		}

@@ -5384,3 +5384,20 @@ full diagnostic comparisons and the existing opaque-writer trace sequences.
 Remaining named questions are lock identity storage and all-caller exclusivity,
 including their heap/type/graph ownership boundaries. This closes one confirmed
 writer concern without closing the parent, five-site queue or original goal.
+
+
+## Mutex instance request ownership
+
+Bead `gohawk-dho.44.11.5.27.27` resolves the instance identity allowance gap
+and repeated receiver identity selection. Reaching and observation-time storage
+share the request allowance; the receiver fold carries the same identity into
+its agreement key and action. Interrupted effects and summaries publish no
+partial witnesses. Acquisition attribution retains its original raw receiver.
+Declaration-class policy moved intact into its own cohesive implementation.
+The [scoped record](../../benchmarks/precision/audits/mutex-identity-allowance-2026-10-03.md)
+records the parent-failing consumer, eight actual-SSA shapes, cutoff/fresh
+controls and unchanged complete fixture/pinned diagnostic payloads.
+
+All-caller exclusivity remains the next named request-cost question. Its caller
+list and cached answers must be distinguished from heap graph query ownership.
+The broader parent and five-site production queue remain open.

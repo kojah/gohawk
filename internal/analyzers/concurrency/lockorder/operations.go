@@ -30,7 +30,7 @@ func appendUniqueString(values []string, candidate string) []string {
 // missing-release, including changed guards, rather than assume either stable
 // contents or a leak; direct mutex parameters and Boolean guards stay precise.
 // https://github.com/devld/go-drive/blob/91c3ac7253642bf58629d6a87cf7ab718f2d3827/common/utils/path_tree.go#L133-L141
-func optionalLoadedGuard(instruction ssa.Instruction, identity string) bool {
+func optionalLoadedGuard(instruction ssa.Instruction, identity string, budget *ssaflow.SearchBudget) bool {
 	block := instruction.Block()
 	if len(block.Preds) != 1 {
 		return false
@@ -65,7 +65,7 @@ func optionalLoadedGuard(instruction ssa.Instruction, identity string) bool {
 	}
 	for _, pair := range [][2]ssa.Value{{comparison.X, comparison.Y}, {comparison.Y, comparison.X}} {
 		loaded, ok := pair[0].(*ssa.UnOp)
-		if ok && loaded.Op == token.MUL && ssaflow.DefinitelyNil(pair[1]) && lockIdentityOf(loaded) == identity {
+		if ok && loaded.Op == token.MUL && ssaflow.DefinitelyNil(pair[1]) && lockIdentityWithin(loaded, budget) == identity {
 			return true
 		}
 	}
@@ -141,6 +141,10 @@ func releaseLock(held []string, identity string) []string {
 }
 
 func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value, bool) {
+	return mutexActionWithin(instruction, nil)
+}
+
+func mutexActionWithin(instruction ssa.Instruction, budget *ssaflow.SearchBudget) (mutexOperation, string, ssa.Value, bool) {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return 0, "", nil, false
@@ -155,55 +159,55 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value
 	default:
 		return 0, "", nil, false
 	}
-	receiver := ssaflow.CallReceiver(common)
-	receiver = concreteMutexReceiver(receiver)
-	if receiver == nil {
+	receiver, known := concreteMutexIdentityWithin(ssaflow.CallReceiver(common), budget)
+	if !known {
 		return 0, "", nil, false
 	}
-	identity := lockIdentityOf(receiver)
-	return operation, identity, receiver, identity != ""
+	return operation, receiver.identity, receiver.value, true
 }
 
-// concreteMutexReceiver unwraps interface values only when every possible SSA
-// origin proves the same concrete sync mutex identity.
-func concreteMutexReceiver(value ssa.Value) ssa.Value { //nolint:ireturn // SSA values have several concrete forms.
-	walk := ssaflow.NewReachingWalk(ssaflow.TransparentChangeInterface | ssaflow.TransparentMakeInterface)
-	receiver, ok := ssaflow.ResolveReachingValue(walk, value, concreteMutexLeaf, lockIdentityOf)
-	if !ok {
-		return nil
+type mutexReceiverIdentity struct {
+	value    ssa.Value
+	identity string
+}
+
+// Concrete receiver selection computes identity once per reaching leaf. The
+// agreement key and final action carry that same proof; neither redoes storage.
+func concreteMutexIdentityWithin(value ssa.Value, budget *ssaflow.SearchBudget) (mutexReceiverIdentity, bool) {
+	walk := ssaflow.NewReachingWalk(ssaflow.TransparentChangeInterface | ssaflow.TransparentMakeInterface).Within(budget)
+	leaf := func(_ ssaflow.ReachingWalk, candidate ssa.Value) (mutexReceiverIdentity, bool) {
+		if !syntax.NamedType(candidate.Type(), "sync", "Mutex") && !syntax.NamedType(candidate.Type(), "sync", "RWMutex") {
+			return mutexReceiverIdentity{}, false
+		}
+		identity := lockIdentityWithin(candidate, budget)
+		return mutexReceiverIdentity{value: candidate, identity: identity}, identity != ""
 	}
-	return receiver
+	return ssaflow.ResolveReachingValue(walk, value, leaf, func(receiver mutexReceiverIdentity) string { return receiver.identity })
 }
 
-func concreteMutexLeaf(_ ssaflow.ReachingWalk, value ssa.Value) (ssa.Value, bool) { //nolint:ireturn // SSA values have several concrete forms.
-	if !syntax.NamedType(value.Type(), "sync", "Mutex") && !syntax.NamedType(value.Type(), "sync", "RWMutex") {
-		return nil, false
-	}
-	return value, lockIdentityOf(value) != ""
-}
-
-func appendLockValue(values []ssa.Value, candidate ssa.Value) []ssa.Value {
-	candidateIdentity := lockIdentityOf(candidate)
+func appendLockValue(values []ssa.Value, candidate ssa.Value, budget *ssaflow.SearchBudget) []ssa.Value {
+	candidateIdentity := lockIdentityWithin(candidate, budget)
 	for _, value := range values {
-		if heapmodel.MayAlias(value, candidate) || candidateIdentity != "" && lockIdentityOf(value) == candidateIdentity {
+		if !budget.Spend() {
 			return values
 		}
+		if heapmodel.MayAlias(value, candidate) || candidateIdentity != "" && lockIdentityWithin(value, budget) == candidateIdentity {
+			return values
+		}
+	}
+	if budget.Exhausted() || budget.PoolExhausted() {
+		return values
 	}
 	return append(values, candidate)
 }
 
-// loopVariantLock reports whether the acquisition's receiver is selected by a
+// loopVariantValue reports whether the acquisition's receiver is selected by a
 // loop iteration: it is defined inside a cycle and derives from a phi or map
 // iterator or channel receive in that cycle, as a range element does. This
 // is uncertainty, not freshness: a sender could send the same pointer again.
 // A field of a receiver or
 // a package variable locked inside a loop is the same mutex every time and
 // stays reportable.
-func loopVariantLock(instruction ssa.Instruction) bool {
-	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
-	return receiver != nil && loopVariantValue(ssaflow.NewReachingWalk(ssaflow.TransparentNone), receiver)
-}
-
 func loopVariantValue(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	if value == nil || !walk.Mark(value) {
 		return false
