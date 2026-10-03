@@ -5519,3 +5519,23 @@ Source inventory now covers 336 files and 2,207 declarations with unchanged
 five whole-body and 34 partial signatures. Default flow/graph/alias/type costs
 remain explicit; pool comments no longer imply a transitive wall-clock bound.
 The parent reconciliation and five-site residual queue are still open.
+
+
+## Resource branch allowance and successor publication
+
+Beads `gohawk-dho.44.11.5.30` closes the concrete acquisition-branch gap found
+while reconciling the transitive cost parent. Generic nil/error derivation,
+filesystem and assertion evidence, captured result predicates and SQL Rows
+storage share the resource flow allowance. Existing captured-query and result
+summary caps remain; their structured cutoffs cannot disappear into fallback.
+Successor discovery discards its entire list at a child cutoff, and the final
+flow preserves that unknown even while the outer pool remains live.
+
+The [branch review](../../benchmarks/precision/audits/resource-branch-allowance-2026-10-03.md)
+records actual SSA allowance sweeps and fresh recovery, three assertion-failing
+counterfactuals and 14 successful read-only scans. All 653 diagnostics in the
+five fixture scopes and pinned goiardi/stargz scopes remain unchanged. No
+production FP correction is credited. The scanner retains five full-body and
+33 partial groups; current guard and domain dispositions are recorded rather
+than treating the scan as proof of global absence. Five production FP sites
+and the broader architecture completion audit remain open.

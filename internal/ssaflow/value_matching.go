@@ -44,10 +44,18 @@ func CapturedBindingValueWithin(
 // regard to order. Derivation still asks this question, because its
 // polarity ends the walk at anything unknown.
 func StructurallySame(value, target ssa.Value) bool {
+	return StructurallySameWithin(value, target, nil)
+}
+
+// StructurallySameWithin charges reaching values, address selections and store
+// referrers to budget. Cutoff supplies no possible identity evidence.
+func StructurallySameWithin(value, target ssa.Value, budget *SearchBudget) bool {
 	// SSA removes ordinary assignments, but captured locals, embedded fields,
 	// and interface conversions still need explicit identity recovery.
 	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
-	return sameStructuralValue(NewReachingWalk(forms), value, target) || sameStructuralValue(NewReachingWalk(forms), target, value)
+	matched := sameStructuralValue(NewReachingWalk(forms).Within(budget), value, target) ||
+		sameStructuralValue(NewReachingWalk(forms).Within(budget), target, value)
+	return matched && !budget.Exhausted() && !budget.PoolExhausted()
 }
 
 // DefinitelyNil reports whether every represented SSA value is nil.
@@ -76,6 +84,9 @@ func sameStructuralValue(walk ReachingWalk, value, target ssa.Value) bool {
 	// https://github.com/Consensys/ask-o11y-plugin/blob/b74147d834cfd415caa96f087972a546238168c0/pkg/agent/loop_test.go#L111-L141
 	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
 	if inner, wrapped := UnwrapTransparentValue(target, forms); wrapped {
+		if !walk.budget.Spend() {
+			return false
+		}
 		target = inner
 	}
 	return walk.AnyIncludingOrigin(value, func(value ssa.Value) bool { return value == target }, func(walk ReachingWalk, value ssa.Value) bool {
@@ -90,7 +101,7 @@ func structuralLeafMatches(walk ReachingWalk, value, target ssa.Value) bool {
 		return ok && typed.Field == other.Field && sameStructuralValue(walk, typed.X, other.X)
 	case *ssa.IndexAddr:
 		other, ok := target.(*ssa.IndexAddr)
-		return ok && sameStructuralValue(walk, typed.X, other.X) && StructurallySame(typed.Index, other.Index)
+		return ok && sameStructuralValue(walk, typed.X, other.X) && StructurallySameWithin(typed.Index, other.Index, walk.budget)
 	case *ssa.UnOp:
 		if typed.Op != token.MUL {
 			return false
@@ -115,6 +126,9 @@ func storedValueMatches(walk ReachingWalk, address, target ssa.Value) bool {
 		return false
 	}
 	for _, reference := range *address.Referrers() {
+		if !walk.budget.Spend() {
+			return false
+		}
 		if store, ok := reference.(*ssa.Store); ok && store.Addr == address && sameStructuralValue(walk, store.Val, target) {
 			return true
 		}

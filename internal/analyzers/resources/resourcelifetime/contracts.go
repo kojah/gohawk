@@ -93,18 +93,22 @@ func resourceContracts() []resourceContract {
 // Only the false edge of the exact SQL receiver qualifies; breaks and Scan
 // errors still leave a live obligation.
 // https://github.com/nkanaev/yarr/blob/bb427710efec1ba2c9b9b4cacde67874a347499b/src/storage/sqlite/item.go#L284
-func sqlRowsExhaustionEdge(block, successor *ssa.BasicBlock, resource ssa.Value) bool {
+func proveSQLRowsExhaustionEdge(block, successor *ssa.BasicBlock, resource ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
+	if !budget.Spend() {
+		return carriedValueProof(false, resourceReasonNone, budget)
+	}
 	if len(block.Instrs) == 0 || len(block.Succs) != 2 || successor != block.Succs[1] {
-		return false
+		return carriedValueProof(false, resourceReasonNone, budget)
 	}
 	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)
 	if !ok {
-		return false
+		return carriedValueProof(false, resourceReasonNone, budget)
 	}
 	next, ok := branch.Cond.(*ssa.Call)
-	return ok && ssaflow.CallMatchesSymbol(next.Common(), syntax.PackageMethod(syntax.MethodSymbol{
+	exhausted := ok && ssaflow.CallMatchesSymbol(next.Common(), syntax.PackageMethod(syntax.MethodSymbol{
 		PackagePath: "database/sql", Receiver: "Rows", Name: "Next",
-	})) && heapmodel.NewStorage(nil).Same(ssaflow.CallReceiver(next.Common()), resource).Proven()
+	})) && heapmodel.NewStorage(budget).Same(ssaflow.CallReceiver(next.Common()), resource).Proven()
+	return carriedValueProof(exhausted, resourceReasonRowsExhaustedEdgeUnknown, budget)
 }
 
 func resourceFunction(family, packagePath, name string, result int, cleanup ...string) resourceContract {

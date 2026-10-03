@@ -11,13 +11,6 @@ import (
 // step accepts. It is a may-answer for suppressing a claim, not an identity
 // proof.
 
-// DerivesFrom is the walk behind ValueDerivesFrom, with the identity step
-// chosen by the caller: the points-to graph's may-alias for the store
-// family, the structural walk for a family beneath it.
-func DerivesFrom(value, source ssa.Value, same func(ssa.Value, ssa.Value) bool) bool {
-	return DerivesFromWithin(value, source, same, nil)
-}
-
 // DerivesFromWithin shares queued values, operands, aggregate address uses and
 // store referrers with budget. The identity callback may share it too; its
 // internals and operand allocation retain independent costs. Cutoff contributes
@@ -84,12 +77,6 @@ func appendStoredDerivationSourcesWithin(sources []ssa.Value, address ssa.Value,
 		}
 	}
 	return sources
-}
-
-// derivesStructurally is ValueDerivesFrom with the structural identity step,
-// for the value family, which sits beneath the points-to graph.
-func derivesStructurally(value, source ssa.Value) bool {
-	return DerivesFrom(value, source, StructurallySame)
 }
 
 // enclosingAggregateAddress returns the aggregate address a field or element

@@ -51,9 +51,9 @@ func unrelatedCycle(p *int, n int) *int {
 			if len(returns) != 1 || len(returns[0].Results) != 1 {
 				t.Fatal("expected one return with one result")
 			}
-			got := ssaflow.DerivesFrom(returns[0].Results[0], function.Params[0], ssaflow.StructurallySame)
+			got := ssaflow.DerivesFromWithin(returns[0].Results[0], function.Params[0], ssaflow.StructurallySame, nil)
 			if got != test.want {
-				t.Errorf("DerivesFrom() = %t, want %t", got, test.want)
+				t.Errorf("DerivesFromWithin() = %t, want %t", got, test.want)
 			}
 		})
 	}
@@ -81,8 +81,8 @@ func TestDerivationIdentityBeforeOperands(t *testing.T) {
 		{"missing source", source, nil, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := ssaflow.DerivesFrom(test.value, test.source, same); got != test.want {
-				t.Errorf("DerivesFrom() = %t, want %t", got, test.want)
+			if got := ssaflow.DerivesFromWithin(test.value, test.source, same, nil); got != test.want {
+				t.Errorf("DerivesFromWithin() = %t, want %t", got, test.want)
 			}
 		})
 	}

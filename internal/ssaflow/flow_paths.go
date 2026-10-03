@@ -266,6 +266,15 @@ func ReachableBlocksAssumingWithin(function *ssa.Function, constants FixedValues
 // SuccessBranch reports whether successor is the branch where errorValue is
 // nil, when block ends in a recognizable nil comparison.
 func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool, bool) {
+	return SuccessBranchWithin(block, successor, errorValue, nil)
+}
+
+// SuccessBranchWithin shares derivation and nil-value folds with budget.
+// An interrupted comparison is undecided; it cannot remove an acquisition edge.
+func SuccessBranchWithin(block, successor *ssa.BasicBlock, errorValue ssa.Value, budget *SearchBudget) (bool, bool) {
+	if !budget.Spend() {
+		return false, false
+	}
 	if errorValue == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 {
 		return false, false
 	}
@@ -277,9 +286,14 @@ func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool
 	if !ok || comparison.Op != token.EQL && comparison.Op != token.NEQ {
 		return false, false
 	}
-	comparesErrorToNil := derivesStructurally(comparison.X, errorValue) && DefinitelyNil(comparison.Y) ||
-		derivesStructurally(comparison.Y, errorValue) && DefinitelyNil(comparison.X)
-	if !comparesErrorToNil {
+	derives := func(value ssa.Value) bool {
+		return DerivesFromWithin(value, errorValue, func(left, right ssa.Value) bool {
+			return StructurallySameWithin(left, right, budget)
+		}, budget)
+	}
+	comparesErrorToNil := derives(comparison.X) && DefinitelyNilWithin(comparison.Y, budget) ||
+		derives(comparison.Y) && DefinitelyNilWithin(comparison.X, budget)
+	if !comparesErrorToNil || budget.Exhausted() || budget.PoolExhausted() {
 		return false, false
 	}
 	trueBranch := successor == block.Succs[0]

@@ -1355,3 +1355,28 @@ fresh-query recovery. This implements the process-local boundary needed by
 and [file acquisition](https://github.com/boxesandglue/boxesandglue/blob/79509f4b6b0e2e7a1d0562139ab4d9946d4be080/helper/pattern.go#L71-L113).
 It establishes no unconditional cleanup fact for the helper. Descriptor
 reclamation remains distinct from cleanup that flushes data or commits a change.
+
+
+### Acquisition branch request allowance
+
+`proveResourceSuccessBranch` returns one structured branch proof. Generic nil
+comparisons share `SuccessBranchWithin` and possible structural identity with
+filesystem derivation, exact-error predicate summaries and immutable captured
+predicate discovery under the resource flow allowance. Captured dispatch and
+callee summaries retain their named query caps while charging the enclosing
+branch request. A cutoff cannot establish either success or failed acquisition.
+
+The SQL Rows false edge resolves the exact receiver through storage under a
+query drawn from the same flow allowance. It remains uncertain final-result-set
+cleanup, never exact release. `resourceSuccessorStates` returns a complete list
+or an unknown proof; a child cutoff discards every accumulated edge even when
+the outer pool remains live. The final flow declines both leak and release
+claims from that unknown list.
+
+`branch_budget_test.go` covers direct/reversed error comparisons, unrelated
+errors, type assertions, filesystem sentinels, wrapped legacy predicates,
+joined errors, visible and captured result predicates, long provenance chains,
+and matching/wrong SQL receivers. It checks zero and intermediate cutoffs,
+fresh completion and child cutoff propagation through the final flow.
+Graph construction/alias internals, type work and rendering retain their own
+cost boundaries; this request allowance does not bound elapsed time.

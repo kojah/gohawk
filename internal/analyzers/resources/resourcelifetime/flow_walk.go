@@ -62,7 +62,7 @@ func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resour
 	// error edges from paths that still owe cleanup.
 	guards := ssaflow.GuardsDominatingWithin(analysis.acquisition, budget)
 	initial := []resourceFlowState{{block: analysis.acquisition.Block(), index: index + 1, obligation: resourcemodel.Acquired(), guards: guards}}
-	opaque, leaks := false, false
+	opaque, leaks, incomplete := false, false, false
 	ssaflow.WalkStatesWithin(initial, func(state resourceFlowState) resourceFlowKey { return resourceStateKey(state, budget) },
 		func(state resourceFlowState) ([]resourceFlowState, bool) {
 			state, leaks = advanceResourceState(analysis, state, budget)
@@ -70,11 +70,13 @@ func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resour
 				return nil, false
 			}
 			opaque = opaque || state.obligation.Unknown()
-			return resourceSuccessorStates(analysis, state, errorValue, budget), true
+			edges := resourceSuccessorStates(analysis, state, errorValue, budget)
+			incomplete = edges.State == ssaflow.EvidenceUnknown
+			return edges.states, !incomplete
 		}, budget)
 	// Cutoff cannot retain a leak witness or an exact release claim, even when
 	// a nested classifier or edge callback exhausted the candidate pool.
-	if resourceFlowExhausted(budget) {
+	if resourceFlowExhausted(budget) || incomplete {
 		analysis.leak = nil
 		return unknownResourceLifetime(resourceReasonBudgetExhausted)
 	}
@@ -160,7 +162,14 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState, b
 	return state, false
 }
 
-func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState, errorValue ssa.Value, budget *ssaflow.SearchBudget) []resourceFlowState {
+type resourceSuccessorsProof struct {
+	resourceProof
+	states []resourceFlowState
+}
+
+func resourceSuccessorStates(
+	analysis *resourceAnalysis, state resourceFlowState, errorValue ssa.Value, budget *ssaflow.SearchBudget,
+) resourceSuccessorsProof {
 	pass, resource, optionalAcquisition, candidate := analysis.pass, analysis.resource, analysis.optional, analysis.candidate
 	edges := analysis.successorPolicy().EdgesWithin(state.block, state.predecessor, state.guards, budget)
 	if optionalAcquisition.Proven() && state.block == optionalAcquisition.merge && state.predecessor == optionalAcquisition.acquisitionBlock {
@@ -170,17 +179,22 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 		traceOptionalAcquisition(pass, optionalAcquisition, candidate)
 	}
 	if resourceFlowExhausted(budget) {
-		return nil
+		return unavailableResourceSuccessors()
 	}
 	result := make([]resourceFlowState, 0, len(edges))
 	for _, edge := range edges {
 		if !budget.Spend() {
-			return nil
+			return unavailableResourceSuccessors()
 		}
 		successor := edge.To
 		obligation := state.obligation
-		if success, known := resourceSuccessBranch(pass, analysis.summaries, state.block, successor, errorValue, candidate); known {
-			if !success {
+		branch := proveResourceSuccessBranch(pass, analysis.summaries, state.block, successor, errorValue, candidate,
+			budget.Within(ssaflow.SummaryBudget))
+		if branch.State == ssaflow.EvidenceUnknown {
+			return unavailableResourceSuccessors()
+		}
+		if branch.Proven() {
+			if !branch.success {
 				obligation = obligation.Absent()
 			}
 		}
@@ -196,7 +210,11 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 			obligation = obligation.Uncertain()
 			analysis.traceUncertainEdge(state.block, successor, resourceReasonRepeatedGuardEdgeUnknown)
 		}
-		if sqlRowsExhaustionEdge(state.block, successor, resource) {
+		rows := proveSQLRowsExhaustionEdge(state.block, successor, resource, budget.Within(ssaflow.QueryBudget))
+		if rows.State == ssaflow.EvidenceUnknown {
+			return unavailableResourceSuccessors()
+		}
+		if rows.Proven() {
 			obligation = obligation.Uncertain()
 			analysis.traceUncertainEdge(state.block, successor, resourceReasonRowsExhaustedEdgeUnknown)
 		}
@@ -214,11 +232,15 @@ func resourceSuccessorStates(analysis *resourceAnalysis, state resourceFlowState
 			}
 		}
 		if resourceFlowExhausted(budget) {
-			return nil
+			return unavailableResourceSuccessors()
 		}
 		result = append(result, resourceFlowState{
 			block: successor, predecessor: state.block, obligation: obligation, guards: guards,
 		})
 	}
-	return result
+	return resourceSuccessorsProof{resourceProof: resourceProof{State: ssaflow.EvidenceProven}, states: result}
+}
+
+func unavailableResourceSuccessors() resourceSuccessorsProof {
+	return resourceSuccessorsProof{resourceProof: resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
 }

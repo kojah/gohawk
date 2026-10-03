@@ -925,18 +925,6 @@ func DefinitelyNilWithin(value ssa.Value, budget *SearchBudget) bool
 DefinitelyNilWithin shares the allowance through every represented value.
 False at cutoff is unavailable, not nonnil; interface boxing stays opaque.
 
-## DerivesFrom
-
-[Source](../../../../internal/ssaflow/value_derivation.go)
-
-```go
-func DerivesFrom(value, source ssa.Value, same func(ssa.Value, ssa.Value) bool) bool
-```
-
-DerivesFrom is the walk behind ValueDerivesFrom, with the identity step
-chosen by the caller: the points-to graph's may-alias for the store
-family, the structural walk for a family beneath it.
-
 ## DerivesFromWithin
 
 [Source](../../../../internal/ssaflow/value_derivation.go)
@@ -3073,6 +3061,17 @@ conversions, any phi edge, and every store into a local cell, without
 regard to order. Derivation still asks this question, because its
 polarity ends the walk at anything unknown.
 
+## StructurallySameWithin
+
+[Source](../../../../internal/ssaflow/value_matching.go)
+
+```go
+func StructurallySameWithin(value, target ssa.Value, budget *SearchBudget) bool
+```
+
+StructurallySameWithin charges reaching values, address selections and store
+referrers to budget. Cutoff supplies no possible identity evidence.
+
 ## SuccessBranch
 
 [Source](../../../../internal/ssaflow/flow_paths.go)
@@ -3083,6 +3082,17 @@ func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool
 
 SuccessBranch reports whether successor is the branch where errorValue is
 nil, when block ends in a recognizable nil comparison.
+
+## SuccessBranchWithin
+
+[Source](../../../../internal/ssaflow/flow_paths.go)
+
+```go
+func SuccessBranchWithin(block, successor *ssa.BasicBlock, errorValue ssa.Value, budget *SearchBudget) (bool, bool)
+```
+
+SuccessBranchWithin shares derivation and nil-value folds with budget.
+An interrupted comparison is undecided; it cannot remove an acquisition edge.
 
 ## SuccessorEdge
 
