@@ -5368,3 +5368,19 @@ The reconciliation identifies concrete remaining request-cost questions in
 receipts as parent completion. Package caller census, request evidence and
 heap/type/graph costs have distinct owners and must retain that distinction.
 The five-site production queue and broader semantic consolidation remain open.
+
+
+## Possible writer request ownership
+
+Bead `gohawk-dho.44.11.5.27.26` resolves the writer-witness request gap
+identified in the prior parent reconciliation. Selection and temporal checks
+share the function allowance through one structured proof; completed absent
+witnesses remain distinct from interrupted evidence. The cohesive uncertainty
+engine is separated from read-lock mutation/field policy, with existing rationale
+comments retained. The [scoped record](../../benchmarks/precision/audits/writer-witness-allowance-2026-10-03.md)
+records parent-failing SSA, cutoff/fresh controls, all canonical gates, unchanged
+full diagnostic comparisons and the existing opaque-writer trace sequences.
+
+Remaining named questions are lock identity storage and all-caller exclusivity,
+including their heap/type/graph ownership boundaries. This closes one confirmed
+writer concern without closing the parent, five-site queue or original goal.

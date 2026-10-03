@@ -42,7 +42,7 @@ func reportReadLockWrites(
 	flow lockFlowContext, instruction ssa.Instruction, held, readHeld []string,
 	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer,
 ) {
-	proof := proveReadLockWrite(instruction, held, readHeld, lockValues, possibleWriters, flow.setup.calls, flow.fieldEvidence)
+	proof := proveReadLockWrite(instruction, held, readHeld, lockValues, possibleWriters, flow.setup.calls, flow.fieldEvidence, flow.budget)
 	traceLockDiagnostic(flow.pass, check.LockReadLockWrite, instruction.Pos(), proof.lockDiagnosticProof)
 	if proof.state != ssaflow.EvidenceProven {
 		return
@@ -80,7 +80,7 @@ type readLockWriteProof struct {
 // full owner-query order, while a reportable candidate ends the search.
 func proveReadLockWrite(
 	instruction ssa.Instruction, held, readHeld []string,
-	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer, calls []*ssa.Call, fields readLockFieldEvidence,
+	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer, calls []*ssa.Call, fields readLockFieldEvidence, budget *ssaflow.SearchBudget,
 ) readLockWriteProof {
 	proof := readLockWriteProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}}
 	for _, identity := range readHeld {
@@ -116,7 +116,11 @@ func proveReadLockWrite(
 				proof = readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonExclusiveWriterUnknown}, identity}
 				continue
 			}
-			if slices.ContainsFunc(possibleWriters, func(deferred *ssa.Defer) bool { return possibleWriterAt(deferred, instruction, calls) }) {
+			writer := provePossibleWriterAt(possibleWriters, instruction, calls, budget)
+			if !writer.Known() {
+				return readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}, identity}
+			}
+			if writer.Proven() {
 				proof = readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonImportedWriterGuardUnknown}, identity}
 				continue
 			}
@@ -124,78 +128,6 @@ func proveReadLockWrite(
 		}
 	}
 	return proof
-}
-
-// The caller supplies the completed setup census. Rechecking temporal and alias
-// evidence here must not rediscover the same function body for every write.
-func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction, calls []*ssa.Call) bool {
-	if !ssaflow.InstructionDominates(deferred, instruction) {
-		return false
-	}
-	_, _, writer, _ := mutexAction(deferred)
-	for _, call := range calls {
-		operation, _, receiver, direct := mutexAction(call)
-		if direct && operation == mutexRelease && !readModeRelease(call) && heapmodel.MayAlias(receiver, writer) &&
-			ssaflow.InstructionMayFollow(deferred, call) && ssaflow.InstructionMayFollow(call, instruction) {
-			// An explicit intervening release defeats the possible-held guard;
-			// the still-registered defer must not hide an unprotected write.
-			return false
-		}
-	}
-	return true
-}
-
-// An imported wrapper can acquire its embedded mutex while doing bookkeeping
-// that the complete-effect summary cannot model. A deferred standard exclusive
-// Unlock of that same wrapper is positive evidence of a possibly held writer.
-// This is uncertainty, not guard-to-field inference or an acquisition effect;
-// it must never enter order or recursive-lock proofs. Distinct wrapper receivers,
-// known empty calls, and a release already executed provide no such evidence.
-// https://github.com/rfjakob/gocryptfs/blob/842af4463989ee6808d397433e9aba8517e49c89/internal/fusefrontend/file.go#L418-L430
-func (setup *lockFunctionSetup) deferredWriterWitnesses(budget *ssaflow.SearchBudget) []*ssa.Defer {
-	var writers []*ssa.Defer
-	for _, deferred := range setup.defers {
-		if !budget.Spend() {
-			return nil
-		}
-		effect, direct := setup.direct[deferred]
-		operation, receiver := effect.operation, effect.receiver
-		if !direct || operation != mutexRelease || readModeRelease(deferred) {
-			continue
-		}
-		field, embedded := receiver.(*ssa.FieldAddr)
-		if !embedded {
-			continue
-		}
-		for _, call := range setup.calls {
-			if !budget.Spend() {
-				return nil
-			}
-			callee := call.Common().StaticCallee()
-			if callee == nil || len(callee.Blocks) != 0 {
-				continue
-			}
-			dominates := ssaflow.InstructionDominatesWithin(call, deferred, budget)
-			if budget.Exhausted() {
-				return nil
-			}
-			if !dominates {
-				continue
-			}
-			if _, complete := setup.summaries[call]; complete {
-				continue
-			}
-			// Only the embedded lock's exact wrapper may explain this deferred
-			// writer release. Aliasing supplies an unknown witness, never a held
-			// lock or ordering edge; interrupted setup discards all witnesses.
-			calledReceiver := ssaflow.CallReceiver(call.Common())
-			if calledReceiver != nil && heapmodel.MayAlias(calledReceiver, field.X) {
-				writers = append(writers, deferred)
-				break
-			}
-		}
-	}
-	return writers
 }
 
 // writeLockHeld reports whether this path also holds an exclusive lock.

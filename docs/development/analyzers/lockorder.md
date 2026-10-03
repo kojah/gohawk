@@ -539,3 +539,24 @@ storage preserves the original load; cutoff supplies no value. This consolidates
 result observation mechanics without changing held-result polarity, nil-guard
 policy, caller completeness or mutex exclusivity. Package inventories and
 heap/type/alias internals retain their separately documented costs.
+
+
+## Possible writer witness allowance
+
+`writer_witnesses.go` owns setup selection and temporal checks for possible
+imported writer guards. Read-lock mutation proofs select a witness once through
+`provePossibleWriterAt`. Its structured result distinguishes a completed absent
+witness from interrupted selection. Each deferred candidate, each completed
+call-list entry, and the dominance/reachability questions share the current
+function walk allowance. A cutoff leaves the final mutation proof unknown with
+`lock-state-budget-exhausted`; it cannot become a missing writer guard.
+
+A deferred writer after the write remains absent, as does a matching release
+between registration and mutation. A dominating writer defer without an
+intervening release remains possible and suppresses the read-lock diagnostic.
+`writer_budget_test.go` checks the actual SSA consumer's zero allowance,
+sweeps all allowances through first completion for same-block, intervening
+release, later defer and branched write shapes, and checks fresh-child recovery.
+Existing `opaque_writer.go` accepted and diagnostic forms pin the complete
+imported-writer policy. Alias, type and graph internals retain their separately
+reviewed ownership; no writer-to-field contract or callback inference is added.
