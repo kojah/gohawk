@@ -2,6 +2,7 @@ package ssaflow
 
 import (
 	"go/types"
+	"slices"
 
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -41,12 +42,7 @@ func CallMatchesSymbol(common *ssa.CallCommon, symbol syntax.Symbol) bool {
 
 // CallMatchesAnySymbol reports whether common statically resolves to one of symbols.
 func CallMatchesAnySymbol(common *ssa.CallCommon, symbols ...syntax.Symbol) bool {
-	for _, symbol := range symbols {
-		if CallMatchesSymbol(common, symbol) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(symbols, func(symbol syntax.Symbol) bool { return CallMatchesSymbol(common, symbol) })
 }
 
 // ValueMatchesSymbol reports whether value is the exact package declaration
@@ -58,10 +54,5 @@ func ValueMatchesSymbol(value ssa.Value, symbol syntax.Symbol) bool {
 
 // ValueMatchesAnySymbol reports whether value is one of the exact package declarations.
 func ValueMatchesAnySymbol(value ssa.Value, symbols ...syntax.Symbol) bool {
-	for _, symbol := range symbols {
-		if ValueMatchesSymbol(value, symbol) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(symbols, func(symbol syntax.Symbol) bool { return ValueMatchesSymbol(value, symbol) })
 }

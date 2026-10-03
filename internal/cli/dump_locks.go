@@ -129,8 +129,6 @@ func writeLockDot(buffer *bytes.Buffer, action *checker.Action, orders *lockorde
 }
 
 func shortFile(filename string) string {
-	if at := strings.LastIndex(filename, "/"); at >= 0 {
-		return filename[at+1:]
-	}
-	return filename
+	// A missing slash gives -1, so the slice starts at zero and keeps the whole value.
+	return filename[strings.LastIndexByte(filename, '/')+1:]
 }

@@ -6034,3 +6034,118 @@ payloads are identical, with all commands exiting zero
 (`.build/goal-catalog-withdrawal-metadata.json`). The unaffected pinned analyzer
 proof receipts remain applicable;
 no production FP removal, full precision replay or local race run is credited.
+
+
+## Short-body source reconciliation
+
+Beads `gohawk-dho.23.39` closes the explicit short-body gap in the whole-body
+candidate review at `a8af2b35`. The expanded root scanner covers the same 359
+production files and 2,286 function declarations with bodies. An eight-token
+threshold finds 50 additional normalized groups below the previous 35-token
+threshold. A zero-token threshold finds no additional groups below eight.
+Every entry in those fifty groups was read as an exact current AST declaration;
+no graph/index/coverage tools were callable.
+
+Artifacts are `.build/goal-completion-small-functions.json`,
+`.build/goal-completion-small-source.txt` and
+`.build/goal-completion-all-functions.json`. Group indices below refer to the
+short-body subset in descending token-count order at the source pin. Identifier
+normalization conflates types, method names, constants, true, false and nil.
+The table records the actual operations and evidence contracts rather than
+calling normalized matches equivalent. Small defaults and typed projections
+are retained when they already delegate to one owner.
+
+| Group | Source-backed disposition |
+| --- | --- |
+| 0 | Goroutine join/transfer and cancel release/transfer are separate typed classifier projections into the shared obligation lattice. |
+| 1 | File display names and heap selection tails now use the standard byte-index operation directly. Removing the copied branch preserves absent/trailing/empty slash semantics without creating a text utility layer. |
+| 2 | Tracked heap types exclude basic/tuple values; aggregate types include struct/array values. Normalization hides both type and Boolean polarity. |
+| 3 | Returned process handles and test-file membership have different inputs and leaf predicates. |
+| 4 | Call and package-value symbol matching keep distinct leaves; the repeated symbol-list iteration now delegates to slices.ContainsFunc. |
+| 5 | Retained versus stored heap claims share heapClaim but select different claim predicates. |
+| 6 | Instruction deduplication and definite SSA identity have different operations and evidence. |
+| 7 | External ownership and aggregate element origin share ReachingWalk; their independent leaf policies select explicit transparent forms. |
+| 8 | Address and root projection escape checks already share projectionUsesPreserveStorage with separate use policies. |
+| 9 | Coverage and fact-argument defaults delegate to their authoritative bounded proofs. |
+| 10 | Region site/external/opaque/snapshot/closure constructors select different numeric kinds for the shared interner. |
+| 11 | Default callback, returned-parameter and returned-owner queries delegate to their own structured proofs, including the summary override. |
+| 12 | Opaque fact envelopes forward domain-owned fact/heap descriptions after retrieving their immutable payload. |
+| 13 | Package function and variable constructors preserve distinct symbol kinds. |
+| 14 | Dynamic indexed mutex and helper-returned command predicates share a reaching fold while retaining separate forms/leaves. |
+| 15 | Typed enum decoders already delegate to enumtext.Decode with domain-specific labels. |
+| 16 | Observed graph value and stored target path queries delegate to different graph APIs. |
+| 17 | Unconditional and conditional graph writes share storeValue with different strong-update permissions. |
+| 18 | Concurrency instantiation applies a cutoff fence; supplied conditions derive call-bound scalar evidence. |
+| 19 | Accepted/unknown/reported resource policy constructors preserve different evidence states. |
+| 20 | CLI executor injection and default spawned binding are unrelated default adapters. |
+| 21 | Possible containment and normal-return reachability delegate to distinct bounded proofs. |
+| 22 | Enum names permit visible invalid values; encoding rejects them. Both already use their shared enumtext owner. |
+| 23 | HEAD and local-server acquisition proofs fence their separate finders with request availability. |
+| 24 | Public/internal analyzer tier adapters share Tier/Within policy; result-fact description is an unrelated payload adapter. |
+| 25 | Callback target selection and obligation evaluation discard different witnesses from their authoritative query. |
+| 26 | Cancellation label, summary function view and builtin symbol are unrelated typed constructors. |
+| 27 | Exact argument/slice/block membership, derived argument matching and path equality use distinct standard slice contracts. |
+| 28 | Default evidence/guard/query wrappers and selected policy adapters delegate to their existing owners; origin-inclusive reaching remains explicit. |
+| 29 | Captured-target use census and success-branch lookup are default adapters for different bounded queries. |
+| 30 | Returned-view facts and cycle reachability are different query domains. |
+| 31 | Helper-search construction allocates a budget; cancellation projection consumes its cached classifier action. |
+| 32 | Tier selection delegates to Within; a process query budget delegates to its candidate pool. |
+| 33 | Default receiving/channel/path/alias/binding/order/termination/identity APIs forward to their matching bounded queries. No second search is implemented. |
+| 34 | Documentation URL construction and fixed scalar holds are unrelated adapters. |
+| 35 | Parameter/field/result mask membership uses domain-specific masks; the shift/range mechanic is already owned by parameterMaskFor. |
+| 36 | Proven state checks differ from budget-abandonment reason checks; normalization hides that distinction. |
+| 37 | Role configuration, resource obligation transitions and reaching-walk options update different fields and Boolean values. |
+| 38 | Graph lookup and mask conversion are unrelated adapters; field/result masks already reuse parameterMaskFor. |
+| 39 | Observed exact completion paths and available nonreturning result summaries require different evidence conjunctions. |
+| 40 | Probe event methods dispatch distinct numeric phases to one emit function. |
+| 41 | Default tier, parsing, budget, invocation-claim, termination and generated-file adapters delegate to the existing policy/mechanics owners. |
+| 42 | Default aggregate/lock/store/capture/result/flow/loop/return/slice/cell queries select their own authoritative bounded or shared engine. |
+| 43 | Catalog defensive copying and phi edge counts are unrelated small operations. |
+| 44 | Returned-cleanup evidence, acquired obligation and summary selection are unrelated typed constructors. |
+| 45 | Heap description, timing activation and an illustrative file close are unrelated boundary operations. |
+| 46 | Exact counted loops, concrete interface dispatch and generic proven evidence have different reason/state contracts. |
+| 47 | Registered heap lookup and transfer-use queries are thin domain adapters. |
+| 48 | Field inventory assignment and memo cutoff update different state owners. |
+| 49 | Payload/budget/case/range/probe/obligation getters and external plugin load mode expose distinct stored or constant values. |
+
+The symbol iteration change uses the standard slice search while retaining
+`ssaflow.CallMatchesSymbol` and `ssaflow.ValueMatchesSymbol` as separate leaves.
+The current toolchain implements ContainsFunc through IndexFunc: it checks
+entries in order, stops at the first true result, and rejects an empty list.
+There is no new budget, target resolution, reporting policy or fallback.
+The normalized wrapper group remains after this change because its identifier
+names are erased; unchanged candidate counts are not a consolidation metric.
+
+The copied last-slash branch also becomes a direct LastIndexByte/slice expression
+in each domain adapter. The no-slash index is -1, so adding one preserves the
+whole string; a present slash selects exactly the suffix, including an empty
+suffix after a trailing slash. Empty strings remain empty. No filesystem
+normalization or heap-path interpretation is introduced.
+
+The focused SSA tests pass. Final canonical validation covers the importing
+analyzers and summary passes, formatting, lint, generation and repository
+self-analysis. This closes all whole-body candidate sizes for the current
+inventory, but does not turn normalization into a proof of semantic absence:
+the partial-block and source-family dispositions remain separate evidence for
+the original completion audit. No production FP correction, full precision
+corpus or local race run is credited to this mechanical change.
+
+Final validation for all three production edits passes every canonical gate
+in `.build/goal-short-body-final-verify.log`: generation, module verification,
+vet, formatting, dead-code, lint, local dogfood and ordinary tests (85 seconds).
+Focused heap and CLI tests also pass in
+`.build/goal-short-body-adapters-focused.log`.
+
+The immutable symbol-change binary
+`.build/goal-short-body-reviewed` (SHA-256
+`5a56d760f8910fbf2e4a156ec9b9694ae49906d161bfb0e7e4d293b8291351a6`)
+successfully repeats five pinned package scopes: Skywalking buffer, Openase
+hook, goiardi shovey, Ferro mcp and Rune idepkg. All commands terminate with
+exit zero and empty stderr. Complete diagnostic payloads, trace-record
+multisets and final decisions match the earlier recorded scopes: ten total
+diagnostics, 126,323 records and 432 decisions. Receipts and repository pins
+are in `.build/goal-completion-final-symbol/`; the comparison is
+`comparison.json`. This binary precedes the two slash-tail expression edits.
+Those edits retain the exact string suffix operation described above, and
+their integration is covered by the final focused and canonical checks;
+the immutable scan receipt is not relabeled as a scan of the later binary.

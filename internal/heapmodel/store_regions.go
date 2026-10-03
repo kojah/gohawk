@@ -481,10 +481,8 @@ func slotBeneath(path, prefix string) bool {
 
 // lastStep returns the final step of a path.
 func lastStep(path string) string {
-	if index := strings.LastIndex(path, "/"); index >= 0 {
-		return path[index+1:]
-	}
-	return path
+	// A missing slash gives -1, so the slice starts at zero and keeps the whole value.
+	return path[strings.LastIndexByte(path, '/')+1:]
 }
 
 func isIndexStep(step string) bool {
