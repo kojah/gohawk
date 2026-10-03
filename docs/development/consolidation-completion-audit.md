@@ -5671,3 +5671,50 @@ traced scans. All 653 diagnostics and 3,359 complete trace records agree with
 the parent; traced JSON diagnostics equal untraced results. Numeric internal
 representations preserve output labels. The scanner retains the same five
 full-body and 33 partial candidate signatures, without an absence claim.
+
+
+## Worker output guard and finite goroutine review reconciliation
+
+The remaining exact-source caller-bound review at `587ba336` found a default
+nil fold in `workerHandsOffOutputChannelWithin`. Beads `.44.15` passes its live
+allowance into the shared nil fold and checks availability before using the
+negative result. The final caller-lifetime proof preserves unknown at cutoff.
+Actual bodyless publishing-call SSA proves the parent completed nil/live cases
+at limits 3/2; the final queries cut there with live outer pools and recover
+original publication outcomes on fresh queries. A compiled parent overlay fails
+both assertions. This is budget ownership evidence, without production FP credit.
+
+The finite `.44` requirements are reconciled against current source and the
+maintained input inventories, rather than inferred from child closure:
+
+| Original requirement | Evidence and boundary |
+| --- | --- |
+| Obligation and launch mapping | `spawn.go`, `obligation.go` and `completion_bindings.go` discover terminal notification/group promises and stable exact actual/captured values. Stages .9-.11 pin every-return notification and exact bindings; interrupted constructor discovery is unknown before reporting. |
+| Instruction classification ownership | `action` caches `classify` and the trace label. Return, store, call, helper and summary routes consume that one action vocabulary; stages .1-.3 and .12-.13 remove independent return decisions and preserve exact versus possible handoffs. |
+| Participant and completion polarity | Asynchronous observers, historical containment, internal receive derivation, lifecycle methods and caller stop/context bounds remain unknown rather than exact worker joins. Stages .4-.8 pin these distinctions with actual proof/trace controls. |
+| Selected adapter budgets | Constructor, retained owner, caller lifetime, recursive helper, summary and output nil queries preserve request availability under observed candidate costs. Stage .11's transitive ownership reconciliation and stages .12-.15 record their exact limits and separate cost owners. |
+| Guard and count contracts | Stable non-nil channels rerun the shared obligation walk with cached instruction labels, deliberately excluding edge-local joins. Flag/counter correlation supplies unknown only. Counted drain requires exact counted-region evidence and a complete single-send channel census; it supplies edge-local exact evidence only under that separate structural contract. |
+| Final suppression and reporting | `prove` checks constructor availability, requires an obligation, consumes lifetime/dominating proofs, runs the shared flow and applies conservative uncertainty boundaries. Reporting consumes only its final violated outcome and witness. Tracing projects the same reasons/actions. |
+| Transitive scope and distinct mechanics | Graph build/cache/wait, types and method-set internals, allocations, callbacks and codecs retain their own owners. Historical carries, flag provenance and sender census are different evidence policies. Their default traversals are not claimed to share a whole-candidate elapsed-time bound. |
+
+Current exact source fallback additionally read `lifecycle.go`,
+`caller_bounds.go`, `cleanup_targets.go` and `worker_publication.go` in full.
+They retain exact parameter/context provenance, receiver-field mutation checks,
+all-return local cancellation and exact/legacy-possible returned cleanup as
+separate contracts. Their owning lifecycle proof rejects request cutoffs before
+naming a witness. Type construction and possible graph containment remain
+separate costs. Graph MCP tools remain unavailable; this inventory does not
+claim complete graph coverage or all semantic duplication absent.
+
+The broader `.23.21` architecture consolidation, other analyzer families and
+five reviewed production FP sites remain open. The finite input/proof inventory
+can close `.44` after its final focused publication; it cannot close the root
+objective by itself.
+
+
+The [worker-output review](../../benchmarks/precision/audits/worker-output-nil-allowance-2026-10-03.md)
+records the parent SSA minima, cutoff/fresh controls, assertion-failing overlay,
+canonical validation and six unchanged scoped payloads. The scanner retains
+unchanged candidate signatures. This closes selected worker-output budget
+ownership and supports the finite input/proof reconciliation above; it supplies
+no production FP correction or whole-repository architecture completion claim.

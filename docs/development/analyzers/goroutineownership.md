@@ -706,3 +706,17 @@ unchanged. This separates the closed internal request vocabulary from output
 records. The trace package likewise accepts numeric event phases and converts
 them to serialized labels at record publication. Phase parameter and named
 Phase-domain guards supplement the existing kind/decision enum checks.
+
+
+## Worker output nil evidence
+
+The output-channel guard shares its supplied caller-lifetime allowance with
+`DefinitelyNilWithin`. It checks availability immediately after the nil fold,
+before using a negative result as possible publication. The caller's lifecycle
+proof still consumes cutoff as unknown; an incomplete guard cannot establish
+that the worker has no blocking output. Fresh nil arguments remain disabled,
+and fresh live channels retain possible publication.
+`publication_nil_budget_test.go` builds bodyless publishing calls for both
+forms, checks small-child/live-parent cutoffs and fresh recovery. Parent SSA
+controls measured completed queries at limits 3 and 2 respectively; restoring
+the old standalone nil fold fails both cutoff assertions.

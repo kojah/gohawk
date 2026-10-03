@@ -36,7 +36,14 @@ func workerHandsOffOutputChannelWithin(function *ssa.Function, budget *ssaflow.S
 				return false
 			}
 			channel, ok := argument.Type().Underlying().(*types.Chan)
-			if ok && channel.Dir() != types.RecvOnly && !ssaflow.DefinitelyNil(argument) {
+			if !ok || channel.Dir() == types.RecvOnly {
+				continue
+			}
+			disabled := ssaflow.DefinitelyNilWithin(argument, budget)
+			if budget.Exhausted() {
+				return false
+			}
+			if !disabled {
 				return true
 			}
 		}
