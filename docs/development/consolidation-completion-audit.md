@@ -5968,3 +5968,39 @@ gate covers the named semantic layers and analyzer packages; reporting gates
 resolve `analysis.Pass` members by type. Those gates enforce structural rules,
 not all semantic contracts. Their actual scopes are evidence for requirement
 reconciliation rather than a substitute for the source-family reviews.
+
+
+## CLI selection validation and budget input boundary
+
+The remaining support-code review on `d8e0bb8f` found a reusable list-validation
+copy inside the group selector. Beads `gohawk-dho.23.36` routes it through
+`addSelectedNames`, which already owns check/analyzer split, trim, empty-entry,
+known-name and duplicate validation. `selectedNameWords` supplies the group's
+shorter empty-entry noun and ordered choice hint. Group overlap rejection and
+argv parsing stay local, as do check enable/disable precedence and the CLI's
+selection base. This supersedes the earlier retention of group list validation;
+it does not introduce a universal parser dispatcher or erase domain policies.
+The missing-tier error and selection comment now name only supported tiers.
+
+Sixteen parent/current command-boundary comparisons are recorded in
+`.build/goal-cli-support-comparison/receipts.json`. Fourteen preserve complete
+exit/stdout/stderr payloads, including ordered group choices, duplicates,
+empty lists, conflicts and the removed-tier rejection. The two intentional
+changes are the corrected missing-tier message and negative budget limit error.
+Every invocation exits 2 with empty stdout; none executes analyzed application
+code. Existing focused selection/profile tests remain passing.
+
+Beads `gohawk-dho.23.37` addresses a distinct usage boundary: the budget dump
+previously forwarded a negative `-top` to a slice limit in `writeRunTimes`.
+It now rejects negative limits before package loading. Zero remains valid and
+can omit individual runs while retaining aggregate information. The
+[argument regression](../../internal/cli/dump_budget_arguments_test.go)
+fails its negative case on the parent, and passes both negative rejection and
+zero admission on the correction without loading packages.
+
+These changes consolidate command input mechanics and prevent invalid input
+from reaching analysis. No analyzer proof, fact schema, reason enum, trace
+payload or production FP decision changes. Final canonical validation is shared
+by the two CLI children. All eight gates pass in
+`.build/goal-cli-support-verify.log` (ordinary tests 50 seconds); no full
+precision replay or local race run is needed.

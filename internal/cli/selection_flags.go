@@ -83,8 +83,7 @@ func checkOwners(checks map[string]bool, metadata map[string]gohawk.AnalyzerInfo
 
 // effectiveDisabledChecks decides which checks of the selected analyzers
 // stay silent. A check runs when it was named, when every tier is enabled,
-// when its tier is within the ceiling, or when its analyzer was asked for by
-// name and the check is no more than extended.
+// or when its analyzer was selected and its tier is within the ceiling.
 func effectiveDisabledChecks(
 	metadata map[string]gohawk.AnalyzerInfo,
 	selection analyzerCheckSelection,
@@ -132,7 +131,7 @@ func requestedTier(arguments []string) (gohawk.CheckTier, []string, error) {
 		if !hasValue {
 			index++
 			if index >= len(arguments) {
-				return 0, nil, errors.New("-tier requires a value: core, extended, or experimental")
+				return 0, nil, errors.New("-tier requires a value: core or experimental")
 			}
 			raw = arguments[index]
 		}
@@ -236,18 +235,10 @@ func requestedAnalyzerGroups(arguments []string, groups []gohawk.AnalyzerGroup) 
 		if raw == "" {
 			return analyzerGroupSelection{}, nil, fmt.Errorf("-%s requires at least one group", name)
 		}
-		for candidate := range strings.SplitSeq(raw, ",") {
-			candidate = strings.TrimSpace(candidate)
-			if candidate == "" {
-				return analyzerGroupSelection{}, nil, fmt.Errorf("invalid empty group in %q", raw)
-			}
-			if !available[candidate] {
-				return analyzerGroupSelection{}, nil, fmt.Errorf("unknown analyzer group %q (choose from %s)", candidate, strings.Join(choices, ", "))
-			}
-			if target[candidate] {
-				return analyzerGroupSelection{}, nil, fmt.Errorf("analyzer group %q is %s more than once", candidate, action)
-			}
-			target[candidate] = true
+		if err := addSelectedNames(raw, available, target, selectedNameWords{
+			noun: "analyzer group", emptyNoun: "group", action: action, hint: "choose from " + strings.Join(choices, ", "),
+		}); err != nil {
+			return analyzerGroupSelection{}, nil, err
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(requested.enabled)) {
@@ -261,18 +252,23 @@ func requestedAnalyzerGroups(arguments []string, groups []gohawk.AnalyzerGroup) 
 // selectedNameWords supplies error wording for a comma-separated
 // selection list.
 type selectedNameWords struct {
-	noun   string
-	action string
-	hint   string
+	noun      string
+	emptyNoun string // defaults to noun; groups retain their shorter empty-entry wording
+	action    string
+	hint      string
 }
 
 // addSelectedNames adds the comma-separated names in raw to target, rejecting
 // an empty, unknown, or repeated entry.
 func addSelectedNames(raw string, available, target map[string]bool, words selectedNameWords) error {
+	emptyNoun := words.emptyNoun
+	if emptyNoun == "" {
+		emptyNoun = words.noun
+	}
 	for candidate := range strings.SplitSeq(raw, ",") {
 		candidate = strings.TrimSpace(candidate)
 		if candidate == "" {
-			return fmt.Errorf("invalid empty %s in %q", words.noun, raw)
+			return fmt.Errorf("invalid empty %s in %q", emptyNoun, raw)
 		}
 		if !available[candidate] {
 			return fmt.Errorf("unknown %s %q (%s)", words.noun, candidate, words.hint)

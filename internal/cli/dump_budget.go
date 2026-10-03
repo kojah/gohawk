@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"cmp"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -35,6 +36,9 @@ func printBudget(arguments []string, output, errorsOutput io.Writer) error {
 	}
 	if err := flags.Parse(arguments); err != nil {
 		return err
+	}
+	if *top < 0 {
+		return errors.New("-top must be nonnegative")
 	}
 	analyzers, err := catalogAnalyzers(*analyzerList)
 	if err != nil {
