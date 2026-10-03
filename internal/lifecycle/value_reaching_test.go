@@ -211,7 +211,7 @@ func open(closed bool, cleanup func()) (int, error) {
 			// no store on that path is the right answer.
 			continue
 		}
-		result := ReturnedResult(returned, 1)
+		result := ReturnedResultWithin(returned, 1, nil)
 		load, isLoad := result.(*ssa.UnOp)
 		switch {
 		case ssaflow.DefinitelyNil(result):

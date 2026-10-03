@@ -154,7 +154,7 @@ func freshOwnerResult(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 			if !ok {
 				continue
 			}
-			allocation, fresh := lifecycle.ReturnedResult(result, 0).(*ssa.Alloc)
+			allocation, fresh := lifecycle.ReturnedResultWithin(result, 0, budget).(*ssa.Alloc)
 			if !fresh || allocation.Parent() != callee {
 				return false
 			}

@@ -664,19 +664,19 @@ type ReturnedCleanupRelation struct {
 ReturnedCleanupRelation ties a callback result to a parameter or result of
 the same factory invocation. TargetIsResult selects the target's namespace.
 
-## ReturnedResult
+## ReturnedResultWithin
 
 [Source](../../../../internal/lifecycle/store_returns.go)
 
 ```go
-func ReturnedResult(returned *ssa.Return, index int) ssa.Value
+func ReturnedResultWithin(returned *ssa.Return, index int, budget *ssaflow.SearchBudget) ssa.Value
 ```
 
-ReturnedResult returns the value a return statement hands back at index.
-A function with a defer keeps its results in cells so deferred calls can
-observe them: each return stores into the cell, runs the defers, and
-returns a load. The load names the cell, not the value, so this resolves
-it through the shared observation-time storage model.
+ReturnedResultWithin resolves the value handed back at index under budget.
+Deferred results are loaded from cells; observation-time storage determines
+the value at that load. A nil budget preserves the default query policy.
+Unavailable storage retains the original load; cutoff returns nil and leaves
+exhaustion visible on budget, so it cannot impersonate a nil error or success.
 
 ## ReturnedValueOwnsValue
 

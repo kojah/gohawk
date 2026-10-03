@@ -621,3 +621,16 @@ returns unknown with `pre-spawn-census-budget-exhausted` and cannot reach a
 violation proof. `dominating_census_test.go` pins cutoff and fresh recovery.
 The very large signal-census fixture now cuts off at this earlier stage; its
 direct signal-census cutoff/trace assertions still cover that separate query.
+
+
+## Cleanup factory returned-result allowance
+
+The legacy possible-cleanup branch in `factoryCleanupTargets` resolves callback
+and sibling result cells with `lifecycle.ReturnedResultWithin` under its existing
+candidate allowance. The helper preserves observation time and raw-load fallback
+when storage is unavailable, while a cutoff supplies no value and leaves the
+candidate budget exhausted. Existing exact returned-cleanup evidence remains a
+separate proof; possible cleanup still supplies ownership uncertainty rather
+than worker completion. The returned-result storage cutoff and fresh-query
+controls live beside the shared lifecycle helper, and retained-owner budget
+fixtures continue covering the consumer's availability boundary.

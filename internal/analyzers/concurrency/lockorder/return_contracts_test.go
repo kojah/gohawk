@@ -139,7 +139,7 @@ func TestLockCallerCoverageChargesAllowance(t *testing.T) {
 func lockReturnStates(setup *lockFunctionSetup, identity string, heldWhen bool) map[*ssa.Return]lockReturnState {
 	held := map[*ssa.Return]lockReturnState{}
 	for _, returned := range setup.returns {
-		literal := lifecycle.ReturnedResult(returned, 0).(*ssa.Const)
+		literal := lifecycle.ReturnedResultWithin(returned, 0, nil).(*ssa.Const)
 		state := lockReturnState{}
 		if constant.BoolVal(literal.Value) == heldWhen {
 			state = lockReturnState{possible: []string{identity}, definite: []string{identity}}

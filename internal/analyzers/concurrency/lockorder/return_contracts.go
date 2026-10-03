@@ -12,8 +12,8 @@ import (
 
 // Return contracts consume the completed function inventory and held-state
 // witnesses. All contract queries share the walk allowance; a cutoff cannot
-// establish either caller transfer or a missing release. Named-result storage
-// and mutex identity internals retain their separate costs.
+// establish either caller transfer or a missing release. Returned-result storage
+// and call metadata share that allowance; mutex identity retains separate costs.
 type lockReturnQueries struct {
 	setup  *lockFunctionSetup
 	budget *ssaflow.SearchBudget
@@ -84,7 +84,10 @@ func (query lockReturnQueries) successfulReturn(function *ssa.Function, returned
 	// libocr's transaction constructor holds a serialization lock for its
 	// caller while deferring another unlock:
 	// https://github.com/smartcontractkit/libocr/blob/618b5bf7f342075a81ca1273a04abce15529a101/offchainreporting2plus/ocrintegrationtesthelpers/in_memory_key_value_database.go#L196-L215
-	result := lifecycle.ReturnedResult(returned, len(returned.Results)-1)
+	result := lifecycle.ReturnedResultWithin(returned, len(returned.Results)-1, query.budget)
+	if query.budget.Exhausted() || query.budget.PoolExhausted() {
+		return false
+	}
 	if types.Identical(last, types.Universe.Lookup("error").Type()) {
 		return ssaflow.DefinitelyNil(result) || query.nilGuardDominatesReturn(result, returned)
 	}
@@ -133,7 +136,7 @@ func (query lockReturnQueries) heldResultPolarity(heldAt map[*ssa.Return]lockRet
 		if !query.budget.Spend() {
 			return ssaflow.CallCondition{}, false
 		}
-		truth, known := lockBooleanValue(lifecycle.ReturnedResult(returned, index), nil)
+		truth, known := lockBooleanValue(lifecycle.ReturnedResultWithin(returned, index, query.budget), nil)
 		if !known {
 			return ssaflow.CallCondition{}, false
 		}
@@ -177,7 +180,7 @@ func (query lockReturnQueries) callerReleasesOnFlag(call *ssa.Call, mutex *ssa.G
 	if call.Common().Signature().Results().Len() == 1 {
 		index = -1
 	}
-	if !ok || branch.Cond != ssaflow.CallResult(call, index) {
+	if !ok || branch.Cond != ssaflow.CallResultWithin(call, index, query.budget) {
 		return false
 	}
 	unheld := block.Succs[0]

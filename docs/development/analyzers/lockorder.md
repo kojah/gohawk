@@ -519,3 +519,23 @@ bypass the writer can still cause a real cycle, which this boundary deliberately
 misses. Its loss of recall is recorded in the new fixture header.
 
 The motivating publication is [Rune's package iterator gate](https://github.com/unstablebuild/rune/blob/3e2165f8983280542c985947378dfa740a397d03/internal/ide/idepkg/manager.go#L416-L422).
+
+
+## Returned-result allowance
+
+Successful-return and Boolean caller-release contracts resolve deferred result
+cells with `lifecycle.ReturnedResultWithin` under their walk allowance. Fresh
+constructor-result evidence uses the same helper under its existing query
+allowance. Caller result extraction uses `ssaflow.CallResultWithin`. An
+interrupted result read cannot become a successful Boolean return, caller
+release contract or fresh constructor; the enclosing walk retains its cutoff
+and discards staged reports and order edges.
+
+`return_storage_test.go` checks deferred true/false and direct true returns at
+zero, tiny and complete allowances using actual SSA. The shared lifecycle
+controls sweep through first completion for deferred, direct and opaque loaded
+results, and verify recovery with a fresh child after a local cutoff. Unavailable
+storage preserves the original load; cutoff supplies no value. This consolidates
+result observation mechanics without changing held-result polarity, nil-guard
+policy, caller completeness or mutex exclusivity. Package inventories and
+heap/type/alias internals retain their separately documented costs.

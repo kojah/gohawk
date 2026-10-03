@@ -5349,3 +5349,22 @@ accounts for exactly one new fixture diagnostic and its proof/report events,
 while preserving all existing affected payloads and candidate sequences.
 This removes a demonstrated local mechanical duplicate; broader semantic
 reconciliation and the five-site production queue remain open.
+
+
+## Returned-result request ownership reconciliation
+
+Bead `gohawk-dho.44.11.5.27.25` resolves a remaining result-storage gap
+identified while reconciling open parent requirements at `079848a`. Lock
+successful-return, Boolean caller-release and constructor evidence, plus
+goroutine cleanup callback/sibling reads, now share one allowance-aware
+returned-result implementation. Caller result metadata also uses the request.
+The [scoped audit](../../benchmarks/precision/audits/returned-result-allowance-2026-10-03.md)
+records parent-failing zero-allowance SSA, cutoff/default/fresh-child controls,
+canonical verification and unchanged full fixture/pinned JSON comparisons.
+
+The reconciliation identifies concrete remaining request-cost questions in
+`copiedFieldLockIdentity`, `possibleWriterAt` and
+`exclusiveCallers.parameterExclusive`, rather than treating green child
+receipts as parent completion. Package caller census, request evidence and
+heap/type/graph costs have distinct owners and must retain that distinction.
+The five-site production queue and broader semantic consolidation remain open.

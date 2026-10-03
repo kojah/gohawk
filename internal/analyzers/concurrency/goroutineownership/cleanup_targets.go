@@ -67,7 +67,7 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int, budget *ssaflow
 			if !ok {
 				continue
 			}
-			closure, ok := lifecycle.ReturnedResult(returned, callbackIndex).(*ssa.MakeClosure)
+			closure, ok := lifecycle.ReturnedResultWithin(returned, callbackIndex, budget).(*ssa.MakeClosure)
 			if !ok {
 				continue
 			}
@@ -79,7 +79,7 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int, budget *ssaflow
 				if budget.Exhausted() {
 					return targets
 				}
-				if lifecycleOwnerWithin(target, budget) && callbackClosesSibling(closure, lifecycle.ReturnedResult(returned, index), budget) {
+				if lifecycleOwnerWithin(target, budget) && callbackClosesSibling(closure, lifecycle.ReturnedResultWithin(returned, index, budget), budget) {
 					targets = append(targets, target)
 				}
 			}
