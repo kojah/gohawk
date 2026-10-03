@@ -82,32 +82,27 @@ func possibleFreshBoundMutex(path ssaflow.EmbeddedFieldPath) freshMutexFieldProo
 	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
 	storage := heapmodel.NewStorage(budget)
 	fresh := false
-	for _, block := range load.Parent().Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
+	for instruction := range ssaflow.InstructionsWithin(load.Parent(), budget) {
+		if !ssaflow.InstructionMayFollow(instruction, load) {
+			continue
+		}
+		// Only an initializer of this observed slot is positive evidence.
+		// A whole-owner assignment or any visible shared value defeats it;
+		// a branch-local constructor cannot cover an observation it does
+		// not dominate. Storage compares receiver snapshots, not cells.
+		if store, ok := instruction.(*ssa.Store); ok {
+			if storage.Same(store.Addr, field.X).Proven() {
 				return unknown
 			}
-			if !ssaflow.InstructionMayFollow(instruction, load) {
-				continue
-			}
-			// Only an initializer of this observed slot is positive evidence.
-			// A whole-owner assignment or any visible shared value defeats it;
-			// a branch-local constructor cannot cover an observation it does
-			// not dominate. Storage compares receiver snapshots, not cells.
-			if store, ok := instruction.(*ssa.Store); ok {
-				if storage.Same(store.Addr, field.X).Proven() {
+			if sameBoundSlot(store.Addr, field, storage) {
+				if !freshOwnerResult(store.Val, budget) {
 					return unknown
 				}
-				if sameBoundSlot(store.Addr, field, storage) {
-					if !freshOwnerResult(store.Val, budget) {
-						return unknown
-					}
-					fresh = fresh || ssaflow.InstructionDominates(store, load)
-				}
+				fresh = fresh || ssaflow.InstructionDominates(store, load)
 			}
-			if boundSlotMutation(instruction, field, storage, budget) {
-				return unknown
-			}
+		}
+		if boundSlotMutation(instruction, field, storage, budget) {
+			return unknown
 		}
 	}
 	if fresh && !budget.Exhausted() {
@@ -147,23 +142,18 @@ func freshOwnerResult(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 		return false
 	}
 	returned := false
-	for _, block := range callee.Blocks {
-		for _, instruction := range block.Instrs {
-			if !budget.Spend() {
-				return false
-			}
-			result, ok := instruction.(*ssa.Return)
-			if !ok {
-				continue
-			}
-			allocation, fresh := lifecycle.ReturnedResultWithin(result, 0, budget).(*ssa.Alloc)
-			if !fresh || allocation.Parent() != callee {
-				return false
-			}
-			returned = true
+	for instruction := range ssaflow.InstructionsWithin(callee, budget) {
+		result, ok := instruction.(*ssa.Return)
+		if !ok {
+			continue
 		}
+		allocation, fresh := lifecycle.ReturnedResultWithin(result, 0, budget).(*ssa.Alloc)
+		if !fresh || allocation.Parent() != callee {
+			return false
+		}
+		returned = true
 	}
-	return returned
+	return returned && !budget.Exhausted()
 }
 
 func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storage *heapmodel.Storage, budget *ssaflow.SearchBudget) bool {
@@ -172,7 +162,7 @@ func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storag
 		return false
 	}
 	callee, closure := ssaflow.DirectCallee(call.Common())
-	for _, binding := range ssaflow.CallBindings(call.Common(), callee, closure) {
+	for binding := range ssaflow.CallBindingsWithin(call.Common(), callee, closure, budget) {
 		if storage.Same(binding.Supplied, field.X).Proven() &&
 			visibleMutexSlotReplacement(ssaflow.NewReachingWalk(ssaflow.TransparentNone), binding.Local, field.Field, call, budget) {
 			return true
@@ -182,7 +172,8 @@ func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storag
 			return true
 		}
 	}
-	return false
+	// Interrupted binding discovery vetoes freshness; it proves no shared write.
+	return budget.Exhausted()
 }
 
 func sameBoundSlot(value ssa.Value, field *ssa.FieldAddr, storage *heapmodel.Storage) bool {

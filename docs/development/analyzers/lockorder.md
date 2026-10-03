@@ -663,3 +663,28 @@ and workers, opaque callbacks and deferred calls. It checks held/released/guard
 state and the call-only uncertainty boundary against both parent and consolidated
 implementations. Existing query cutoff and late-cut publication tests retain
 fresh recovery and discarded partial reports/orders.
+
+
+## Slot mutation query mechanics
+
+`possibleFreshBoundMutex` and `freshOwnerResult` enumerate instructions through
+`InstructionsWithin`, retaining their existing visit cost and order. Constructor
+results still require an allocation owned by that callee at every discovered
+return; an interrupted census cannot supply freshness. Direct allocations remain
+small mechanical witnesses rather than constructor searches.
+
+`boundSlotMutation` and `visibleMutexSlotReplacement` use `CallBindingsWithin`
+under their live slot-query allowance. Interrupted binding metadata leaves
+replacement possible and vetoes a freshness conclusion. The Boolean veto does
+not prove an actual shared write. The enclosing fresh-bound query retains its
+final availability check; this does not establish private ownership, publication
+safety or an exact release. `bindLockAcquisition` separately composes caller
+paths without a live request budget; it retains its existing default binding
+policy and independently owned identity/class queries.
+
+`slot_binding_budget_test.go` uses compiled SSA for an observer and a helper
+that replaces the slot with a shared mutex, checking cutoff veto and fresh-query
+recovery. Constructor controls distinguish fresh, borrowed and mixed returns.
+Existing `constructor_slot_bindings.go` and `escaped_fresh_field.go` fixtures
+retain value/pointer fields, exact slot/whole-owner/helper replacements and
+publication uncertainty.

@@ -133,10 +133,14 @@ func visibleMutexSlotReplacement(
 			}
 		case ssa.CallInstruction:
 			callee, closure := ssaflow.DirectCallee(use.Common())
-			for _, binding := range ssaflow.CallBindings(use.Common(), callee, closure) {
+			for binding := range ssaflow.CallBindingsWithin(use.Common(), callee, closure, budget) {
 				if binding.Supplied == owner && visibleMutexSlotReplacement(walk, binding.Local, field, observation, budget) {
 					return true
 				}
+			}
+			// Cutoff leaves replacement possible, never establishes its absence.
+			if budget.Exhausted() {
+				return true
 			}
 		case *ssa.ChangeType, *ssa.Convert, *ssa.MakeInterface, *ssa.Phi:
 			// This boundary binds an exact owner, not possible aliases of it.

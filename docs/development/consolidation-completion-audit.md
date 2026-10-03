@@ -5815,3 +5815,28 @@ this change does not claim a whole-candidate budget or global duplicate absence.
 The [lock transition review](../../benchmarks/precision/audits/lock-release-transition-2026-10-03.md)
 records validation and scoped comparisons. Five reviewed production FP sites
 remain unresolved; this refactor supplies no correction credit.
+
+
+## Lock completion and call-site identity reconciliation
+
+Beads `gohawk-dho.23.21.14` bounds this review to release queries, call-site lock
+bindings and declaration classes after `56af059e`. `.14.1` consolidates exact
+called/spawned transitions; `.14.2` replaces duplicate budgeted instruction
+enumeration and unbounded eager binding preparation in slot mutation queries.
+Graph tools remain unavailable; the following is current exact-source fallback,
+not whole-repository semantic duplicate absence.
+
+| Family | Authoritative decision and distinct contract |
+| --- | --- |
+| Exact release | `lockReleaseQueries.query` owns admission, coverage and function cutoff invalidation. `transferCompletedUnlocks` requires the instruction's typed Called/Started reason and every-return target completion. Complete summarized release/reacquire sequences take precedence. |
+| Possible release | Synchronous `recordPossibleCalledRelease` weakens definite-held evidence while keeping possible held obligations. Deferred registration and pre-acquisition possible deferred release use their own coverage/disposition. None is an exact worker release. |
+| Caller path composition | `bindLockAcquisition` maps formal/captured roots, appends embedded field paths and resolves the caller instance once. A local non-loop allocation supplies its instance class; constructor-backed uncertainty clears declaration class without proving publication safety. The binder has no live request allowance, so its default metadata query is not silently given a new cap. |
+| Current observed slot | `possibleFreshBoundMutex` requires an exact observed value-field path and a dominating fresh initializer; visible shared or whole-owner replacement defeats it. Slot mutation and constructor census use shared bounded mechanics. Cutoff cannot establish fresh result or absence of replacement. |
+| Fresh field versus declaration class | `possibleFreshMutexField` requires a fresh local field initializer and vetoes visible replacements, including exact helper bindings. It supplies uncertain identity, never local exclusivity. `lockClassOf` widens only declaration ordering; globals retain instance identity and loop allocations do not connect iterations. |
+
+The [slot query review](../../benchmarks/precision/audits/lock-slot-queries-2026-10-03.md)
+records actual SSA controls, a compiled assertion-failing parent overlay,
+canonical gates and scoped comparisons. This closes the finite lock inventory
+after publication; broader `.23.21` deferred-loop/producer/capture reconciliation
+and the five reviewed production FP sites remain open. Heap/type/class queries
+retain independent costs; no whole-candidate elapsed-time guarantee is claimed.
