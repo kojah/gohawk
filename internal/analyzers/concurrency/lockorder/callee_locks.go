@@ -18,7 +18,7 @@ import (
 // rather than an assumption; the missing orders are stable false negatives.
 //
 // Release is deliberately not modelled here. A callee that unlocks the
-// caller's lock is already proven at the exact value by transferCalledUnlocks,
+// caller's lock is already proven at the exact value by transferCompletedUnlocks,
 // which drops the lock from the held set before this search is consulted. A
 // class-level release set would add nothing where that proof holds, and would
 // wrongly suppress an order where the callee releases a different object of

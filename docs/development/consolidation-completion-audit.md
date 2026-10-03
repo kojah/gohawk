@@ -5791,3 +5791,27 @@ This finite process review does not close broader `.23.21`: deferred-loop,
 producer, capture and lock family reconciliation remains, together with five
 reviewed production FP sites. Ferro receiver-state feasibility remains a model
 gap; cutoff silence supplies no correction credit.
+
+
+## Shared exact lock release transition
+
+Beads `gohawk-dho.23.21.14.1` consolidates the duplicated held-identity/value
+loops in called and spawned completion. `transferCompletedUnlocks` dispatches
+on instruction form, consumes the existing exact query and owns one released,
+held and guard update. `recordPossibleCalledRelease` retains the synchronous
+may-release witness and definite-held weakening. Numeric completion reasons
+preserve the launch contract; no string enum or new guarantee is introduced.
+
+Actual SSA controls pass before and after consolidation for exact calls/workers,
+conditional calls/workers, opaque callbacks and defers. The summarized-sequence
+precedence and function cutoff publication barrier remain in `lockStateWalk`.
+Source rationale links for gRPC, NATS and vekil move with the owning policies.
+
+The parent lock family inventory remains open for acquisition path composition,
+constructor-backed declaration uncertainty and current slot replacement queries.
+Those contracts differ from exact release coverage and from local exclusivity.
+The default binding APIs in class/path queries need a separate disposition;
+this change does not claim a whole-candidate budget or global duplicate absence.
+The [lock transition review](../../benchmarks/precision/audits/lock-release-transition-2026-10-03.md)
+records validation and scoped comparisons. Five reviewed production FP sites
+remain unresolved; this refactor supplies no correction credit.

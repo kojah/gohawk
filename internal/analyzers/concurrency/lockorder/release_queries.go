@@ -107,10 +107,18 @@ func (flow lockFlowContext) possiblyDeferredUnlock(acquisition ssa.Instruction, 
 	return false
 }
 
-func (flow lockFlowContext) transferCalledUnlocks(instruction ssa.Instruction, state lockFlowState) []string {
-	// Only synchronous calls can supply this launch-form proof. Go and defer
-	// instructions have their own coverage policies; scalar work cannot release.
-	if _, call := instruction.(*ssa.Call); !call {
+// Called and spawned completion share one exact held-lock transition. The
+// launch form selects the proof reason; only synchronous calls retain a
+// possible-release witness when exact completion fails. Defers register future
+// cleanup through recordDeferredUnlocks rather than consuming held locks here.
+func (flow lockFlowContext) transferCompletedUnlocks(instruction ssa.Instruction, state lockFlowState) []string {
+	var reason ssaflow.EvidenceReason
+	switch instruction.(type) {
+	case *ssa.Call:
+		reason = ssaflow.EvidenceCalledCompletion
+	case *ssa.Go:
+		reason = ssaflow.EvidenceStartedCompletion
+	default:
 		return state.held
 	}
 	held, guards := state.held, state.guards
@@ -123,34 +131,20 @@ func (flow lockFlowContext) transferCalledUnlocks(instruction ssa.Instruction, s
 			if flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted {
 				return held
 			}
-			if !releaseSettled(proof, ssaflow.EvidenceCalledCompletion) {
-				possible := flow.mayRelease(instruction, value)
-				if flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted {
-					return held
-				}
-				flow.releaseAttempts.record(identity, instruction, value, proof, possible)
-				// A callee that releases the lock on some paths and not others
-				// leaves it held but no longer proven held. A return that still
-				// holds it stays reportable, deliberately, so a conditional
-				// handoff cannot hide a leak. A later acquisition of it must
-				// not be called recursive, because that claim needs positive
-				// evidence the lock IS held. vekil wraps its mutex in a type
-				// whose Unlock returns early on a nil receiver, which left a
-				// Lock and Unlock paired inside a loop body reported as a
-				// recursive acquisition on the next iteration:
-				// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/proxy/route_executor.go#L697
-				if possible {
-					flow.unprovenRelease[identity] = true
+			if !releaseSettled(proof, reason) {
+				if reason == ssaflow.EvidenceCalledCompletion {
+					flow.recordPossibleCalledRelease(instruction, identity, value, proof)
+					if flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted {
+						return held
+					}
 				}
 				continue
 			}
-			// A synchronous helper or immediately invoked closure that releases the
-			// exact lock unconditionally consumes the caller's held-lock obligation.
-			// gRPC funnels an exit-idle failure through updateResolverStateAndUnlock:
+			// Exact helper completion consumes the held obligation. Spawned completion
+			// transfers it to the worker only when every normal worker return releases.
 			// https://github.com/grpc/grpc-go/blob/9f8027448a64b6446d0c7256a1efe907b1cb6b1b/clientconn.go#L416-L419
-			// NATS funnels publish failures through a local closure that may notify
-			// an error callback first but still unlocks on every normal return:
 			// https://github.com/nats-io/nats.go/blob/850f889cf3d63bfd1a549ab9af59f0145146fb41/js.go#L906-L976
+			// https://github.com/grpc/grpc-go/blob/9f8027448a64b6446d0c7256a1efe907b1cb6b1b/clientconn.go#L1071
 			flow.released[identity] = true
 			held = releaseLock(held, identity)
 			delete(guards, identity)
@@ -160,33 +154,27 @@ func (flow lockFlowContext) transferCalledUnlocks(instruction ssa.Instruction, s
 	return held
 }
 
-func (flow lockFlowContext) transferSpawnedUnlocks(instruction ssa.Instruction, state lockFlowState) []string {
-	held, guards := state.held, state.guards
-	if _, ok := instruction.(*ssa.Go); !ok {
-		return held
+func (flow lockFlowContext) recordPossibleCalledRelease(
+	instruction ssa.Instruction, identity string, value ssa.Value, proof ssaflow.CompletionProof,
+) {
+	possible := flow.mayRelease(instruction, value)
+	if flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted {
+		return
 	}
-	for _, identity := range flow.releases.identities(held) {
-		if !flow.releases.budget.Spend() {
-			return held
-		}
-		for _, value := range flow.lockValues[identity] {
-			proof := flow.releases.query(instruction, value, lifecycle.CoverageEveryReturn, nil)
-			if flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted {
-				return held
-			}
-			if releaseSettled(proof, ssaflow.EvidenceStartedCompletion) {
-				// A spawned helper may branch before releasing the caller's lock as
-				// long as every normal return performs the release. gRPC transfers
-				// addrConn.mu to its reconnect worker this way:
-				// https://github.com/grpc/grpc-go/blob/9f8027448a64b6446d0c7256a1efe907b1cb6b1b/clientconn.go#L1071
-				flow.released[identity] = true
-				held = releaseLock(held, identity)
-				delete(guards, identity)
-				break
-			}
-		}
+	flow.releaseAttempts.record(identity, instruction, value, proof, possible)
+	// A callee that releases the lock on some paths and not others
+	// leaves it held but no longer proven held. A return that still
+	// holds it stays reportable, deliberately, so a conditional
+	// handoff cannot hide a leak. A later acquisition of it must
+	// not be called recursive, because that claim needs positive
+	// evidence the lock IS held. vekil wraps its mutex in a type
+	// whose Unlock returns early on a nil receiver, which left a
+	// Lock and Unlock paired inside a loop body reported as a
+	// recursive acquisition on the next iteration:
+	// https://github.com/sozercan/vekil/blob/842f12f7875143274378fcbb80d411295edf3d28/proxy/route_executor.go#L697
+	if possible {
+		flow.unprovenRelease[identity] = true
 	}
-	return held
 }
 
 func (flow lockFlowContext) recordDeferredUnlocks(
@@ -226,7 +214,7 @@ func (flow lockFlowContext) recordDeferredUnlocks(
 }
 
 // mayRelease reports whether the call releases the lock on at least one path.
-// It is the weaker companion to the proof transferCalledUnlocks requires, and
+// It is the weaker companion to the proof transferCompletedUnlocks requires, and
 // answers only whether the caller may still claim the lock is held.
 func (flow lockFlowContext) mayRelease(instruction ssa.Instruction, value ssa.Value) bool {
 	proof := flow.releases.query(instruction, value, lifecycle.CoverageAnywhere, nil)

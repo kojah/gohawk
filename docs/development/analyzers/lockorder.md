@@ -639,3 +639,27 @@ success coverage and caller-owned lock policy remain unchanged.
 `return_guard_budget_test.go` covers actual checked/unrelated SSA returns,
 a selection-only child cutoff with a live parent, intermediate cutoffs and
 fresh completed evidence. Existing return-contract fixtures still pin reports.
+
+
+## Exact completion transitions
+
+`transferCompletedUnlocks` owns held-lock traversal and updates for both
+synchronous calls and goroutine launches. Instruction form selects the typed
+`EvidenceCalledCompletion` or `EvidenceStartedCompletion` reason; both require
+exact-target coverage of every normal callee return. A proven transition marks
+the lock released, removes it from held locks and deletes its guard. Deferred
+cleanup remains a registration policy and does not enter this transition.
+
+When exact completion fails, only a synchronous call records a possible release
+and weakens the definite-held claim. It keeps the possible held obligation, so
+an uncovered return can still report missing release. A conditional worker
+release cannot discharge that obligation or reuse this synchronous uncertainty.
+The one completion query owner retains function-wide cutoff invalidation.
+Complete summarized release/reacquire sequences still take precedence over
+fallback completion and leave the lock held when reacquired.
+
+`release_transition_test.go` compiles actual SSA for exact and conditional calls
+and workers, opaque callbacks and deferred calls. It checks held/released/guard
+state and the call-only uncertainty boundary against both parent and consolidated
+implementations. Existing query cutoff and late-cut publication tests retain
+fresh recovery and discarded partial reports/orders.

@@ -148,13 +148,7 @@ func (walk *lockStateWalk) transfer(instruction ssa.Instruction, state lockFlowS
 		flow.releaseAttempts.recordSummarized(instruction, effects, before, state.held)
 		return state
 	}
-	state.held = flow.transferCalledUnlocks(instruction, state)
-	if walk.incomplete() {
-		return state
-	}
-	// A release covering every normal return transfers to the spawned worker;
-	// a conditional release cannot hide an uncovered return.
-	state.held = flow.transferSpawnedUnlocks(instruction, state)
+	state.held = flow.transferCompletedUnlocks(instruction, state)
 	if walk.incomplete() {
 		return state
 	}
