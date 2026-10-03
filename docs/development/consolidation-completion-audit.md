@@ -6149,3 +6149,56 @@ are in `.build/goal-completion-final-symbol/`; the comparison is
 Those edits retain the exact string suffix operation described above, and
 their integration is covered by the final focused and canonical checks;
 the immutable scan receipt is not relabeled as a scan of the later binary.
+
+## Lock graph mode boundary
+
+The current owner inventory at `84ebdd2d` still covers 359 authored production
+files and 2,286 declarations; exact paths are in
+`.build/goal-completion-owner-inventory.json`. Beads `.23.40` reconciles those
+paths with maintained source-family responsibilities. This review found a
+concrete closed string domain missed by the declared-role guards:
+`GraphEdge.HeldMode`/`AcquiredMode` carried `Lock`/`RLock` labels, which the CLI
+compared when choosing read annotations and dashed DOT edges. This contradicts
+completion of the numeric-domain requirement despite passing earlier guards.
+
+Beads `.23.40.1` keeps those modes numeric through graph projection and CLI
+rendering. `lockAcquisition.mode` returns the graph-owned `LockMode`; only
+trace details and text serialization call its label adapter. Both read-edge
+directions and an exclusive control retain their text/DOT appearance. Graph
+JSON retains the existing acquisition labels and rejects an unknown label
+without replacing the previous mode. No lock evidence, reporting decision,
+cycle key, cutoff rule or diagnostic changes.
+
+The syntax and typed architecture guards now reject phase and mode string
+parameters, including imported string aliases. Serialized fields remain
+output vocabulary; named Mode domains already require numeric representation.
+These checks cover declared roles, not every possible discriminator inferred
+from arbitrary names. The discovery illustrates why the source-owner review
+remains necessary alongside the structural gates and candidate scanner.
+
+Focused lock, CLI and architecture checks pass. Removing the mode arm from
+the shared parameter matcher reproduces both failed assertions (raw syntax
+and imported string alias) in
+`.build/goal-lock-mode-guard-counterfactual.log`; this is a guard
+counterfactual, not an analyzer behavioral change. The current inventory
+retains exactly the same 359 source paths and adds three label-adapter
+declarations, for 2,289 total; the current artifact is
+`.build/goal-completion-owner-inventory-current.json`.
+
+The final canonical run passes generation, module verification, vet,
+formatting, dead-code, local dogfood and ordinary tests (22 seconds) in
+`.build/goal-lock-modes-final-verify.log`. Its lint invocation encountered a
+parallel-process lock rejection. After that process exited, the sole affected
+gate was rerun with `make lint`; it passes with zero issues in
+`.build/goal-lock-modes-final-lint.log`. No unrelated source changed between
+these receipts.
+
+The immutable `.build/goal-lock-modes-reviewed` binary (SHA-256
+`b85da01e465b36ea308902db0d91ba22226e62eec1b8ccfee92f83b845f8122a`)
+successfully scans the pinned Skywalking buffer and Rune idepkg scopes, both
+with zero exit and empty stderr. Full diagnostic payloads, all 86,727 trace
+records and all 121 final decisions match the preceding symbol-change
+receipts. Both scopes remain silent without new FP-correction credit.
+Pinned inputs, per-command receipts and complete comparisons are in
+`.build/goal-lock-modes-pinned/`. Existing nonempty order-cycle fixtures and
+the new CLI controls pass; no full precision corpus or local race run is used.

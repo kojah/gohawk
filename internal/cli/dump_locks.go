@@ -99,8 +99,8 @@ func writeLockOrders(buffer *bytes.Buffer, action *checker.Action, orders *locko
 	}
 }
 
-func modeName(class, mode string) string {
-	if mode == "RLock" {
+func modeName(class string, mode lockorder.LockMode) string {
+	if mode == lockorder.ModeRead {
 		return class + " (read)"
 	}
 	return class
@@ -120,7 +120,7 @@ func writeLockDot(buffer *bytes.Buffer, action *checker.Action, orders *lockorde
 		if onCycle[index] {
 			attributes += ", color=red"
 		}
-		if edge.HeldMode == "RLock" || edge.AcquiredMode == "RLock" {
+		if edge.HeldMode == lockorder.ModeRead || edge.AcquiredMode == lockorder.ModeRead {
 			attributes += ", style=dashed"
 		}
 		fmt.Fprintf(buffer, "  %s -> %s [%s];\n", strconv.Quote(edge.Held), strconv.Quote(edge.Acquired), attributes)

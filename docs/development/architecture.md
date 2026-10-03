@@ -209,11 +209,11 @@ the code cannot drift apart silently.
 | `TestSummaryBoundaryMatcher` | summary API checks resolve type identity, including import aliases, generic types, promoted methods, and method expressions; unrelated lookalike names remain allowed |
 | `TestReasonEnumBoundaryMatcher` | reason checks reject string aliases and raw reason fields while allowing textual observer/output boundaries |
 | `TestNoRawReasonClassifications` | all production Go reason domains use numeric enums; raw reason fields, parameters, declarations, assignments, and literal classifications are rejected outside the two textual output-boundary files |
-| `TestNoRawKindEnums` | authored production and test code use numeric kind discriminators; raw kind fields, parameters, named results and literal assignments, plus raw phase parameters, are rejected |
+| `TestNoRawKindEnums` | authored production and test code use numeric kind discriminators; raw kind fields, parameters, named results and literal assignments, plus raw phase/mode parameters, are rejected |
 | `TestRawKindEnumMatcher` | kind checks distinguish typed enum values and output wording from raw discriminator strings, without inspecting embedded fixture source |
 | `TestNoNamedStringEnums` | authored classification types named Kind, Tier, Outcome, Provenance, Reason, State, Mode, Action or Phase use numeric representations; direct string definitions and aliases are rejected |
 | `TestNamedStringEnumMatcher` | named enum checks accept numeric definitions, aliases to owning domains and textual IDs; embedded fixture source remains opaque |
-| `TestNoTypedStringEnums` | current root-module build and test variants resolve string aliases, inferred kind declarations and phase parameters through Go types; syntax coverage remains for other configurations |
+| `TestNoTypedStringEnums` | current root-module build and test variants resolve string aliases, inferred kind declarations and phase/mode parameters through Go types; syntax coverage remains for other configurations |
 | `TestTypedStringEnumMatcher` | typed enum checks reject local/imported string domains and inferred assignments, tuples and ranges while allowing numeric aliases and textual IDs |
 | `TestRawReasonClassificationMatcher` | migration accounting recognizes raw reason fields, parameters, assignments, and composite literals without treating ordinary display text as classification |
 | `TestAnalyzersUseSymbolIdentity` | well-known functions matched through `syntax.Symbol`, not reconstructed from package paths and names |

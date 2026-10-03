@@ -10,7 +10,7 @@ import (
 // Kind is an internal discriminator. Text at an output boundary should name
 // its role (a noun, label, or prefix), rather than masquerading as an enum.
 // This syntax gate covers raw fields, parameters, results and literal kind
-// assignments, including tests, and raw phase parameters. Serialized phase fields
+// assignments, including tests, and raw phase/mode parameters. Serialized phase fields
 // remain text at the output boundary. Named string domains are checked below.
 func TestNoRawKindEnums(t *testing.T) {
 	t.Parallel()
@@ -21,7 +21,7 @@ func rawKindEnum(node ast.Node) bool {
 	isKind := func(name *ast.Ident) bool { return strings.EqualFold(name.Name, "kind") }
 	switch node := node.(type) {
 	case *ast.FuncType:
-		return phaseParameter(node, func(expression ast.Expr) bool {
+		return classificationParameter(node, func(expression ast.Expr) bool {
 			underlying, ok := expression.(*ast.Ident)
 			return ok && underlying.Name == "string"
 		})
@@ -65,6 +65,9 @@ func TestRawKindEnumMatcher(t *testing.T) {
 	}{
 		{`func f(kind string){}`, true},
 		{`func f(phase string){}`, true},
+		{`func f(mode string){}`, true},
+		{`type record struct{Mode string}`, false},
+		{`type lockMode uint8;func f(mode lockMode){}`, false},
 		{`type record struct{Phase string}`, false},
 		{`type queryPhase uint8;func f(phase queryPhase){}`, false},
 		{`func f()(kind,title string){return "",""}`, true},
@@ -139,15 +142,15 @@ func assertNoStringEnums(t *testing.T, matches func(ast.Node) bool) {
 	}
 }
 
-// phaseParameter shares parameter selection between syntax and type evidence.
+// classificationParameter shares phase/mode parameter selection between syntax and type evidence.
 // Serialized fields are not parameters and retain their wire vocabulary.
-func phaseParameter(function *ast.FuncType, isString func(ast.Expr) bool) bool {
+func classificationParameter(function *ast.FuncType, isString func(ast.Expr) bool) bool {
 	if function.Params == nil {
 		return false
 	}
 	return slices.ContainsFunc(function.Params.List, func(field *ast.Field) bool {
 		return isString(field.Type) && slices.ContainsFunc(field.Names, func(name *ast.Ident) bool {
-			return strings.EqualFold(name.Name, "phase")
+			return strings.EqualFold(name.Name, "phase") || strings.EqualFold(name.Name, "mode")
 		})
 	})
 }

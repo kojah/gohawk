@@ -6,6 +6,8 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/kojah/gohawk/internal/enumtext"
+
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -13,6 +15,31 @@ import (
 // it, for gohawk dump locks. It is a read-only copy: nothing downstream
 // decides anything from it, and the cycles it reports are the analyzer's own
 // diagnostics, not a second search over these edges.
+
+// LockMode identifies how a recorded lock was acquired. Labels belong to
+// rendering and serialization; graph consumers use the numeric mode.
+type LockMode uint8
+
+const (
+	_ LockMode = iota
+	// ModeExclusive is an exclusive Lock acquisition.
+	ModeExclusive
+	// ModeRead is a shared RLock acquisition.
+	ModeRead
+)
+
+var lockModeLabels = [...]string{0: "", ModeExclusive: "Lock", ModeRead: "RLock"}
+
+// String returns the acquisition's stable display label.
+func (mode LockMode) String() string { return enumtext.Name(mode, lockModeLabels[:]) }
+
+// MarshalText preserves acquisition labels when graph edges are serialized.
+func (mode LockMode) MarshalText() ([]byte, error) { return enumtext.Encode(mode, lockModeLabels[:]) }
+
+// UnmarshalText accepts acquisition labels without replacing mode on error.
+func (mode *LockMode) UnmarshalText(text []byte) error {
+	return enumtext.Decode(mode, text, lockModeLabels[:])
+}
 
 // Graph lists the order edges recorded for a package: each pair of lock
 // classes held together, with one witness of the order.
@@ -31,8 +58,8 @@ type GraphEdge struct {
 	// Held and Acquired name the lock classes, with this package's path
 	// dropped.
 	Held, Acquired string
-	// HeldMode and AcquiredMode are Lock or RLock.
-	HeldMode, AcquiredMode string
+	// HeldMode and AcquiredMode retain the acquisitions' numeric modes.
+	HeldMode, AcquiredMode LockMode
 	// HeldAt and AcquiredAt are the Lock calls, or the first helper call
 	// on the route to one in another function.
 	HeldAt, AcquiredAt token.Pos

@@ -55,11 +55,11 @@ func (acquired lockAcquisition) through(call *ssa.Call) lockAcquisition {
 	return bindLockAcquisition(acquired, call)
 }
 
-func (acquired lockAcquisition) mode() string {
+func (acquired lockAcquisition) mode() LockMode {
 	if acquired.read {
-		return "RLock"
+		return ModeRead
 	}
-	return "Lock"
+	return ModeExclusive
 }
 
 func (acquired lockAcquisition) site() token.Pos {
@@ -239,7 +239,7 @@ func reportOrderCycle(pass *analysis.Pass, cycle []orderEdge) {
 				Reason: reason.String(), Outcome: analysisTrace.OutcomeRejected, Pos: edge.acquired.site(),
 				Details: map[string]string{
 					"held": edge.held.class, "acquired": edge.acquired.class,
-					"held-mode": edge.held.mode(), "acquired-mode": edge.acquired.mode(),
+					"held-mode": edge.held.mode().String(), "acquired-mode": edge.acquired.mode().String(),
 				},
 			})
 		}

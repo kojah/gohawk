@@ -387,6 +387,15 @@ cycle as the edges its diagnostic names. The result is a copy made after the
 walk; nothing decides from it, and it lists only cycles the analyzer
 reported, so it cannot drift from the diagnostics.
 
+`GraphEdge` retains numeric `LockMode` values through the CLI renderer. Read
+edges are compared with `ModeRead`, never with a formatted method name. Trace
+details and serialized graph edges retain `Lock`/`RLock` labels at their output
+boundaries. `graph_modes_test.go` covers label round trips and rejects an
+invalid acquisition label without replacing the mode; the CLI's
+`dump_lock_modes_test.go` covers both read-edge directions and an exclusive
+control in text and DOT views. This changes representation only, not lock
+classification, order keys, cycle selection or diagnostics.
+
 ## Final release and write decisions
 
 The completed bounded function walk supplies held-return witnesses to
