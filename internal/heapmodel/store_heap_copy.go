@@ -2,7 +2,45 @@ package heapmodel
 
 import (
 	"go/types"
+
+	"golang.org/x/tools/go/ssa"
 )
+
+// A by-value result is a new aggregate even when different exits return the
+// entry value or a modified copy. Join its bounded reference fields per exit,
+// rather than discarding them because the snapshots have different identities.
+// Pointer results keep their original identity policy in projectResults.
+// https://github.com/rs/zerolog/blob/116c8060e034e8d46855354d22db2acbc8df9e1e/log.go#L328-L337
+func (projection *heapProjection) projectConditionalCopy(
+	state *regionState, result ssa.Value, root HeapRoot, set pointees, record func(HeapSlot, pointees),
+) bool {
+	if !isAggregate(result.Type()) || len(projection.results[root.Index]) <= 1 {
+		return false
+	}
+	if projection.copies == nil {
+		projection.copies = map[int]*region{}
+	}
+	object := projection.copies[root.Index]
+	if object == nil {
+		object = &region{kind: regionOpaque}
+		projection.copies[root.Index] = object
+	}
+	record(HeapSlot{Root: root}, pointees{{region: object}: false})
+	walkStructReferences(result.Type(), func(path string) {
+		contents := pointees{}
+		for source, stale := range set {
+			target := slot{region: source.region, path: joinSlotPath(source.path, path)}
+			for pointee, old := range projection.copyContent(state, target) {
+				contents.add(pointee, stale || old)
+			}
+		}
+		if len(contents) == 0 {
+			contents.add(slot{region: projection.graph.unkR}, false)
+		}
+		record(HeapSlot{Root: root, Path: path}, contents)
+	}, func(path string) { projection.truncate(HeapSlot{Root: root, Path: path}) })
+	return true
+}
 
 // Aggregate results can preserve fields that the callee never reads. Their
 // snapshots resolve those fields lazily, so exporting only materialized slots

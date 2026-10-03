@@ -619,6 +619,18 @@ unknown evidence. The wrapper-chain bound remains four, and the analyzer adds
 no copy traversal or logging contract. `returned_value_copies.go` pins the
 returned handoff beside discarded and replaced-writer diagnostics.
 
+Conditional value copies need the same field evidence on every exit. In
+[zerolog's Hook](https://github.com/rs/zerolog/blob/116c8060e034e8d46855354d22db2acbc8df9e1e/log.go#L328-L337),
+one exit returns the unchanged logger and another returns a copy with a new
+hook slice. Both preserve its writer. Heap projection names one by-value result
+and joins bounded reference-field contents across the exit snapshots. Agreement
+produces a must field edge; replacement or an opaque write cannot. Pointer
+results retain their separate object-identity policy. This repairs the returned
+metrics wrapper at the original urunc pin without increasing wrapper depth or
+adding a logging contract. The conditional cases in `returned_value_copies.go`
+keep discarded and replaced writers reported; the heap projection tests also
+check caller identity after summary substitution.
+
 For `DB.BeginTx` and `Conn.BeginTx`, cancellation of the exact acquisition
 context triggers database/sql's rollback watcher. A direct or deferred call
 of its paired cancel is therefore unknown cleanup, not synchronous rollback

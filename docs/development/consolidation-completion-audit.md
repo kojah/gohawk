@@ -4,8 +4,9 @@ Beads `gohawk-dho.23` tracks the original objective: clean architecture,
 no unnecessary duplicated mechanics, and all remaining easy false positives
 addressed. This requirement reconciliation uses `e3957de9`; earlier sections
 retain their source pins and historical measurements. Source ownership and
-candidate dispositions are reconciled below. Completion remains unproven: the fixed production queue refresh found a
-reappeared returned-logger FP, now tracked in `.4.9.1`.
+candidate dispositions are reconciled below. The fixed production queue refresh found a
+reappeared returned-logger FP. The [conditional-copy follow-up](../../benchmarks/precision/audits/conditional-return-copy-2026-10-03.md)
+records its repair and affected controls; overall requirement closure remains pending.
 
 ## Requirements and evidence
 
@@ -15,8 +16,8 @@ reappeared returned-logger FP, now tracked in `.4.9.1`.
 | No unnecessary duplicated mechanics | Whole-body candidates of every size and the 33 partial-block groups have source-backed dispositions. Semantic family reviews reconcile differently written traversals, classifiers, storage and summary consumers. Concrete copies now delegate to shared owners or standard operations. | Identified copies are consolidated. Retained typed adapters and different observation/polarity contracts are deliberate; candidate counts alone supply no semantic absence proof. |
 | One authoritative decision for every check | The eight-analyzer/ten-check inventory maps each reporter to its proof. Resource/cancel, goroutine, process, lock, defer-loop, producer and capture reconciliations cover their input, classification and final-result families. Public reporting and CLI/plugin filtering consume these results. | Named decision owners and source-family coverage are reconciled. Reporting filters and trace projections do not independently decide lifecycle policy. |
 | Numeric closed classification domains | Numeric kind, reason, phase and action migrations are recorded with syntax/type controls. The owner review found raw graph modes; `.23.40.1` keeps `lockorder.LockMode` numeric through the graph and CLI and extends raw parameter guards. | The identified string discriminator is fixed. Guards cover declared roles; source review distinguishes serialized labels and open identifiers from closed modes. |
-| Remaining easy FPs addressed | The original 55-site queue, focused corrections, separate Rune controls and source/SSA assessments remain authoritative. Five assessed sites need transport completion, relational caller/mutation evidence or receiver-conditioned result models. | The completed 55-site refresh records 51 absences, the two known goiardi FPs, the retained Promu true positive and one reappeared urunc FP. `.4.9.1` must resolve that regression. Unknown/cutoff silence receives no correction credit. |
-| Precision preserved | Focused accepted/diagnostic controls and counterfactuals accompany implementation changes. The final mode binary preserves the two lock scopes' complete diagnostics, 86,727 records and 121 decisions. Earlier scoped control receipts retain their original pins and binary hashes. | Affected implementation checks pass. The fixed-queue refresh contradicts the older urunc absence receipt; its regression is now required work. This is not a new audit of every historical batch. |
+| Remaining easy FPs addressed | The original 55-site queue, focused corrections, separate Rune controls and source/SSA assessments remain authoritative. Five assessed sites need transport completion, relational caller/mutation evidence or receiver-conditioned result models. | The completed 55-site refresh records 51 absences, the two known goiardi FPs, the retained Promu true positive and one reappeared urunc FP. The conditional-copy follow-up restores the urunc absence at its original pin. The other fifty-three sites retain the e395 observations; those are not a fresh replay of the changed heap projection. Unknown/cutoff silence receives no correction credit. |
+| Precision preserved | Focused accepted/diagnostic controls and counterfactuals accompany implementation changes. The final mode binary preserves the two lock scopes' complete diagnostics, 86,727 records and 121 decisions. Earlier scoped control receipts retain their original pins and binary hashes. | Affected implementation checks pass. The fixed-queue refresh contradicts the older urunc absence receipt; the conditional-copy follow-up verifies the repaired site and retained Promu diagnostic. Final closure must keep those receipt scopes distinct. This is not a new audit of every historical batch. |
 | Tight development cycle | Focused tests precede canonical validation. At `e3957de9`, seven canonical gates and the separate successful lint rerun cover generation, modules, vet, formatting, dead-code, dogfood and ordinary tests. Final architecture checks pass. | Maintained. No full precision-regression per iteration and no local race run. Documentation reconciliation reuses unaffected passing code receipts. |
 | Work tracked and own changes published | Beads records corrections and bounded reviews. `84ebdd2d` and `e3957de9` are pushed; upstream synchronization was verified. The staged blog-plan deletion and untracked artifacts remain untouched. | Publish this reconciliation after documentation checks. Keep the original epic active until the urunc regression and full requirement closure are verified. |
 
@@ -6302,3 +6303,24 @@ new wait guarantee. The wrong initial Rune package path remains a recorded
 load error and receives no validation credit. Source ownership reconciliation
 is published; the overall goal remains active for the new regression and
 original requirement closure.
+
+
+## Conditional aggregate return correction
+
+Beads `.4.9.1` repairs the regression identified above at the existing heap
+projection boundary. Actual `Logger.Hook` SSA has an unchanged aggregate exit
+and a modified-copy exit. The old projection omitted all result fields when
+those exits named different aggregate identities. The new bounded projection
+names one by-value result and joins its reference fields per exit. The writer
+agrees on both exits; replaced and opaque fields cannot acquire a must edge.
+Pointer results retain their previous identity policy. The existing copy
+projection remains the owner; no analyzer traversal or API exception is added.
+
+The [follow-up receipt](../../benchmarks/precision/audits/conditional-return-copy-2026-10-03.md)
+records the two original package scopes, binary hash, restored `Timestamp`
+writer relation, zero urunc findings and the retained Promu true positive.
+The unchanged 55-site refresh remains evidence for its recorded e395 revision;
+it is not rewritten as a new 55-site receipt for this implementation. The
+source-owner inventory still covers the same production paths, with one new
+private field-joining function inside the previously reviewed heap-copy concern.
+The earlier function and scanner counts remain historical measurements.

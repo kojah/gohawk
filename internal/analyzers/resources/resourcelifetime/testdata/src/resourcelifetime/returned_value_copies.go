@@ -33,3 +33,30 @@ func returnedReplacementCopy(path string) (any, error) {
 	writer := resourcedep.NewValueWriter(file).WithOutput(os.Stderr).Context().Extract()
 	return &struct{ Writer *resourcedep.ValueWriter }{Writer: &writer}, nil
 }
+
+func returnedConditionalValueCopy(path string, hook func()) (any, error) {
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, err
+	}
+	writer := resourcedep.NewValueWriter(file).WithLevel(1).Context().WithHook(hook).Extract()
+	return &struct{ Writer *resourcedep.ValueWriter }{Writer: &writer}, nil
+}
+
+func discardedConditionalValueCopy(path string, hook func()) error {
+	file, err := os.Create(path) // want "owned resource from os.Create is not released"
+	if err != nil {
+		return err
+	}
+	_ = resourcedep.NewValueWriter(file).WithLevel(1).Context().WithHook(hook).Extract()
+	return nil
+}
+
+func returnedConditionalReplacementCopy(path string, hook func()) (any, error) {
+	file, err := os.Create(path) // want "owned resource from os.Create is not released"
+	if err != nil {
+		return nil, err
+	}
+	writer := resourcedep.NewValueWriter(file).WithOutput(os.Stderr).Context().WithHook(hook).Extract()
+	return &struct{ Writer *resourcedep.ValueWriter }{Writer: &writer}, nil
+}

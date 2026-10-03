@@ -80,3 +80,33 @@ func array(v Array) Array { v.Level = 1; return v }
 		})
 	}
 }
+
+func TestProjectHeapConditionalAggregateCopies(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "conditionalcopies", `package conditionalcopies
+type File struct{ fd int }
+type View struct { Out *File; Level int }
+func conditional(v View, change bool) View { if !change { return v }; v.Level = 1; return v }
+func replacement(v View, f *File, change bool) View { if !change { return v }; v.Out = f; return v }
+func observe(a, b *File) {}
+func preserved(f *File, change bool) { v := conditional(View{Out: f}, change); observe(v.Out, f) }
+func replaced(f, other *File, change bool) { v := replacement(View{Out: f}, other, change); observe(v.Out, f) }
+`)
+	for _, name := range []string{"conditional", "replacement"} {
+		summary, ok := ProjectHeap(pkg.Func(name))
+		if !ok {
+			t.Fatalf("%s projection unavailable", name)
+		}
+		RegisterHeapSummary(pkg.Func(name), summary)
+		preserved := strings.Contains(summary.String(), "edge R0/field:0 -> P0/field:0 must")
+		if preserved != (name == "conditional") {
+			t.Fatalf("%s preserved writer = %t:\n%s", name, preserved, summary.String())
+		}
+	}
+	for name, want := range map[string]bool{"preserved": true, "replaced": false} {
+		call := heapObservation(t, pkg.Func(name))
+		graph := regionsOfFunction(call.Parent())
+		if got := graph.mustSame(call.Common().Args[0], call.Common().Args[1]); got != want {
+			t.Errorf("%s writer identity = %t, want %t:\n%s", name, got, want, RenderRegions(call.Parent()))
+		}
+	}
+}

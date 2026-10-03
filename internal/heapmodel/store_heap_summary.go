@@ -152,7 +152,9 @@ type heapProjection struct {
 	// as its targets rather than as an object with slots.
 	roots   map[*region]HeapRoot
 	results map[int]map[*region]bool
-	cuts    map[HeapSlot]bool
+	// copies names one by-value result even when its exit snapshots differ.
+	copies map[int]*region
+	cuts   map[HeapSlot]bool
 	// objects numbers the fresh objects the summary names.
 	objects map[*region]int
 }
@@ -484,6 +486,9 @@ func (projection *heapProjection) projectResults(state *regionState, returned *s
 		}
 		root := HeapRoot{Kind: HeapResult, Index: index}
 		set := projection.graph.pointees(result)
+		if projection.projectConditionalCopy(state, result, root, set, record) {
+			continue
+		}
 		record(HeapSlot{Root: root}, set)
 		object, ok := singleSlot(set)
 		if !ok || len(projection.results[index]) != 1 {
