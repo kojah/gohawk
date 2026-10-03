@@ -8,7 +8,8 @@ import CheckIdentity from '../../../site/src/components/CheckIdentity.astro';
 
 ## What it detects
 
-Reports producer goroutines that can block after their receiver stops waiting.
+Reports producer goroutines that can block after their receiver stops waiting,
+including generic producer functions.
 
 The core check proves the count: a local unbuffered channel, a receiver that
 stops after a known number of receives, and more sends than that. A send on

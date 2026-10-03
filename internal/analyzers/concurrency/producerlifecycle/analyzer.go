@@ -87,11 +87,10 @@ func producerSends(function *ssa.Function, engine *concurrencyfacts.Engine) []pr
 				sends = append(sends, summarized...)
 				continue
 			}
-			spawned := spawn.Common().StaticCallee()
-			closure, closureOK := spawn.Common().Value.(*ssa.MakeClosure)
-			if closureOK {
-				spawned, _ = closure.Fn.(*ssa.Function)
-			}
+			// Resolve the source body before matching its parameters or captures.
+			// Generic wrappers contain a forwarding call, not the origin's sends;
+			// dynamic dispatch remains opaque under the shared direct-call policy.
+			spawned, closure := ssaflow.DirectCallee(spawn.Common())
 			if spawned == nil {
 				continue
 			}

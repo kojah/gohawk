@@ -97,3 +97,23 @@ Final reportability evidence is presented through `trace.DiagnosticOutcome`.
 Proof rules and report gates remain local; shared presentation neither supplies
 missing evidence nor turns uncertainty into a diagnostic. Existing trace fixtures
 pin the supported outcomes and source attribution.
+
+
+## Direct fallback callee resolution
+
+Incomplete protocol summaries use `ssaflow.DirectCallee` to select only a
+statically named function or literal closure. Generic instances are resolved to
+the source origin before sends are collected; parameter positions and closure
+captures then map back through the existing `SpawnedValueAtCall` query. The
+instantiation wrapper may contain only a forwarding call and therefore cannot
+stand in for the source body's send instructions. Dynamic function parameters
+and phi-selected closures remain opaque; this adds no callback-choice inference.
+
+`callee_test.go` checks actual SSA for direct, captured, generic and balanced
+generic workers, plus unresolved dynamic and selected workers. The origin's
+send instructions must bind to the caller's channel, and the existing count
+proof rejects excess production while accepting the balanced form.
+`helpers/generic_fallback.go` pairs accepted and diagnostic source fixtures.
+Ordering, repeated-send, local unbuffered-channel and receiver-uncertainty rules
+are unchanged. This change follows a source consolidation review rather than a
+production FP; it earns no FP correction credit.

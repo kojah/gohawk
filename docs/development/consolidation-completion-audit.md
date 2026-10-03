@@ -5336,3 +5336,16 @@ Direct declaration coverage is bounded: indirect aliases and arbitrary string
 roles still require review. Public Go clients use constants/parsing rather than
 string construction. The five-site queue and transitive semantic review remain
 open; this task earns no FP credit or overall goal completion.
+
+
+## Producer fallback callee selection
+
+Bead `gohawk-dho.23.21.8` consolidates the producer fallback's static/literal
+selection onto `ssaflow.DirectCallee`. Actual SSA demonstrates the generic
+wrapper/source-origin distinction and preserves caller channel binding.
+Accepted balanced and opaque controls accompany the excess-send fixture.
+The [scoped record](../../benchmarks/precision/audits/producer-callee-consolidation-2026-10-03.md)
+accounts for exactly one new fixture diagnostic and its proof/report events,
+while preserving all existing affected payloads and candidate sequences.
+This removes a demonstrated local mechanical duplicate; broader semantic
+reconciliation and the five-site production queue remain open.
