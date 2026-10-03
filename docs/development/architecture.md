@@ -51,6 +51,11 @@ for each; these times include each check's prerequisite passes.
   target set; an early dispatch cutoff has no body-evidence provenance.
   Completion local mapping uses `CallBindingsWithin` and discards its entire
   local map when metadata or a mapping query exhausts the request allowance.
+  Callback environments use the same lazy metadata driver: cutoff discards
+  the entire environment and invalidates the current completion memo answer.
+  Argument and capture environments keep their distinct observation contexts.
+  Enclosing read-only helper traversal also charges binding metadata and
+  rejects an incomplete census instead of crediting an inspected prefix.
   Captured-value selection, binding matching, derivation, static paths and
   aggregate containment reuse their bounded owning-layer queries. Original
   capture identity is evaluated once and kept separate from deferred stable-

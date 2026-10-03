@@ -52,15 +52,19 @@ func (search *completionSearch) invokesTargetLocal(value, local ssa.Value) bool 
 
 func (search *completionSearch) bindCallbackArguments(callee completionCallee) *callbackBindings {
 	bindings := &callbackBindings{values: make(map[ssa.Value]callbackValue)}
-	for _, binding := range ssaflow.CallBindings(callee.common, callee.function, callee.closure) {
-		if !search.budget.Spend() {
-			break
-		}
+	for binding := range ssaflow.CallBindingsWithin(callee.common, callee.function, callee.closure, search.budget) {
 		environment := search.bindings
 		if binding.Captured {
 			environment = callee.environment
 		}
 		bindings.values[binding.Local] = callbackValue{binding.Supplied, environment, callee.invocation}
+	}
+	// A prefix cannot describe the callee's callback environment. Metadata
+	// cutoff must also keep an incomplete answer out of the completion memo.
+	if search.budget.Exhausted() || search.budget.PoolExhausted() {
+		search.memo.Incomplete()
+		*search.incomplete = true
+		return nil
 	}
 	return bindings
 }

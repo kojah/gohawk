@@ -5229,3 +5229,29 @@ and Ferro one. Openase and Ferro silence still includes budget uncertainty and
 receives no correction credit. Broader semantic/partial-duplication review and
 the original completion requirements remain active. No full precision replay or
 local race run was performed.
+
+
+## Remaining completion binding metadata
+
+Bead `gohawk-dho.23.21.6` extends the shared lazy binding driver to callback
+environment construction and enclosing read-only helper analysis. Both had
+retained eager metadata enumeration after local target mapping was consolidated.
+Callback cutoff now discards the entire staged environment and invalidates its
+completion memo answer; read-only cutoff rejects the partial census. Argument
+and capture environments retain their distinct binding and observation contexts.
+
+The [metadata audit](../../benchmarks/precision/audits/completion-binding-metadata-2026-10-03.md)
+records current passing actual-SSA controls and parent assertion failures for
+both incomplete-prefix decisions. Fresh allowances recover evidence without
+cache poisoning. Fourteen terminal all-check receipts preserve complete merged
+payloads in five affected fixture scopes and two pinned production scopes.
+Openase and Ferro silence receives no correction credit; the five-site queue
+and broader semantic consolidation remain active. This is a bounded review of
+two explicit-budget consumers, not proof of repository-wide budget completeness
+or absence of differently structured duplication. No full precision replay or
+local race run was performed.
+
+Canonical verification passes all eight gates, and its binary matches the
+frozen reviewed binary. Final architecture tests after documentation updates
+pass. These receipts establish the scoped change, not the original goal's
+completion.

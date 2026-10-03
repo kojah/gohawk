@@ -356,12 +356,18 @@ func (search *enclosingSearch) readOnly(value ssa.Value) bool {
 			callee := use.Common().StaticCallee()
 			ok := true
 			visited := search.memo.WithFunction(callee, func() {
-				for _, binding := range ssaflow.CallBindings(use.Common(), callee, nil) {
+				for binding := range ssaflow.CallBindingsWithin(use.Common(), callee, nil, search.request.Budget) {
 					if binding.Supplied == value {
 						ok = ok && search.readOnly(binding.Local)
 					}
 				}
 			})
+			// Unvisited bindings may pass the aggregate to a mutating local.
+			// A completed prefix cannot prove this call preserves the value.
+			if search.request.Budget.Exhausted() || search.request.Budget.PoolExhausted() {
+				search.memo.Incomplete()
+				return false
+			}
 			if !visited || !ok {
 				return false
 			}
