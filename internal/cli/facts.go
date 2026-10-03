@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
+	"github.com/kojah/gohawk/internal/enumtext"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
@@ -43,37 +44,42 @@ type heapDescriber interface {
 
 // Fact kinds select what the dump prints: each fact family by name, and the
 // heap projection lifecycle summaries carry, on its own.
+type factKind uint8
+
 const (
-	kindLifecycle   = "lifecycle"
-	kindHeap        = "heap"
-	kindResult      = "result"
-	kindConcurrency = "concurrency"
+	kindUnset factKind = iota
+	kindLifecycle
+	kindHeap
+	kindResult
+	kindConcurrency
 )
 
-var factKinds = []string{kindLifecycle, kindHeap, kindResult, kindConcurrency}
+var factKindLabels = [...]string{kindUnset: "", kindLifecycle: "lifecycle", kindHeap: "heap", kindResult: "result", kindConcurrency: "concurrency"}
 
 // parseFactKinds reads a comma-separated list of fact kinds; empty selects
 // every kind.
-func parseFactKinds(list string) (map[string]bool, error) {
-	selected := map[string]bool{}
+func parseFactKinds(list string) (map[factKind]bool, error) {
+	selected := map[factKind]bool{}
 	if strings.TrimSpace(list) == "" {
-		for _, kind := range factKinds {
+		for kind := kindLifecycle; kind <= kindConcurrency; kind++ {
 			selected[kind] = true
 		}
 		return selected, nil
 	}
-	for kind := range strings.SplitSeq(list, ",") {
-		kind = strings.TrimSpace(kind)
-		if !slices.Contains(factKinds, kind) {
-			return nil, fmt.Errorf("unknown fact kind %q; choose from %s", kind, strings.Join(factKinds, ", "))
+	for label := range strings.SplitSeq(list, ",") {
+		label = strings.TrimSpace(label)
+		var kind factKind
+		if err := enumtext.Decode(&kind, []byte(label), factKindLabels[:]); err != nil || kind == kindUnset {
+			return nil, fmt.Errorf("unknown fact kind %q; choose from %s", label, strings.Join(factKindLabels[1:], ", "))
 		}
 		selected[kind] = true
 	}
 	return selected, nil
 }
 
-// actionKind names the fact kind an analyzer publishes.
-func actionKind(analyzer *analysis.Analyzer) string {
+// actionKind identifies a selectable fact family. Other publishers remain
+// unfiltered and use kindUnset; their analyzer names are display identities.
+func actionKind(analyzer *analysis.Analyzer) factKind {
 	switch analyzer {
 	case lifecyclefacts.Analyzer:
 		return kindLifecycle
@@ -82,14 +88,14 @@ func actionKind(analyzer *analysis.Analyzer) string {
 	case concurrencyfacts.Analyzer:
 		return kindConcurrency
 	}
-	return analyzer.Name
+	return kindUnset
 }
 
 func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 	flags := flag.NewFlagSet("facts", flag.ContinueOnError)
 	flags.SetOutput(errorsOutput)
 	nameFilter := flags.String("func", "", "print only facts attached to the function with this name")
-	kindList := flags.String("kind", "", "comma-separated fact kinds to print: "+strings.Join(factKinds, ", ")+" (default all)")
+	kindList := flags.String("kind", "", "comma-separated fact kinds to print: "+strings.Join(factKindLabels[1:], ", ")+" (default all)")
 	flags.Usage = func() {
 		writeLine(errorsOutput, "usage: gohawk dump facts [-func NAME] [-kind KINDS] package...")
 		flags.PrintDefaults()
@@ -130,7 +136,7 @@ func printFacts(arguments []string, output, errorsOutput io.Writer) error {
 // factAnalyzers returns the passes the selected kinds need, and every catalog
 // analyzer that exports facts of its own. The lifecycle pass always runs: it
 // resolves the callees every family lists.
-func factAnalyzers(kinds map[string]bool) []*analysis.Analyzer {
+func factAnalyzers(kinds map[factKind]bool) []*analysis.Analyzer {
 	analyzers := []*analysis.Analyzer{lifecyclefacts.Analyzer}
 	if kinds[kindResult] {
 		analyzers = append(analyzers, resultfacts.Analyzer)
@@ -146,7 +152,7 @@ func factAnalyzers(kinds map[string]bool) []*analysis.Analyzer {
 	return analyzers
 }
 
-func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter string, referenced map[types.Object]bool, kinds map[string]bool) {
+func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter string, referenced map[types.Object]bool, kinds map[factKind]bool) {
 	facts := action.AllObjectFacts()
 	// Positions are compared by file and offset, not by token.Pos: the
 	// fileset's bases depend on the order files were parsed in, which is
@@ -194,10 +200,10 @@ func writeObjectFacts(buffer *bytes.Buffer, action *checker.Action, filter strin
 
 // writeFact prints the selected kinds of one fact under a header naming the
 // publishing pass and the object; a fact with nothing selected prints nothing.
-func writeFact(buffer *bytes.Buffer, action *checker.Action, object types.Object, origin string, fact any, kinds map[string]bool) {
+func writeFact(buffer *bytes.Buffer, action *checker.Action, object types.Object, origin string, fact any, kinds map[factKind]bool) {
 	kind := actionKind(action.Analyzer)
 	var lines []string
-	if kinds[kind] || kind != kindLifecycle && kind != kindResult && kind != kindConcurrency {
+	if kinds[kind] || kind == kindUnset {
 		lines = []string{fmt.Sprint(fact)}
 		if describer, ok := fact.(factDescriber); ok {
 			lines = describer.DescribeFact(object)

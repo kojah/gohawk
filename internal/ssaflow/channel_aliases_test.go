@@ -61,10 +61,10 @@ func escapes() {
 			t.Errorf("%s: uses = %v, want %v", name, got, want)
 			continue
 		}
-		for _, kind := range want {
+		for _, label := range want {
 			found := false
 			for _, use := range got {
-				found = found || use == kind
+				found = found || use == label
 			}
 			if !found {
 				t.Errorf("%s: uses = %v, want %v", name, got, want)

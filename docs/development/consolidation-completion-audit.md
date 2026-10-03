@@ -5461,3 +5461,17 @@ five full-body and 34 partial groups. The duplicate callback agreement group
 is removed; the remaining indexed groups retain the prior distinct-contract
 dispositions. Finite parent requirement/evidence reconciliation and assessment
 of the five production sites remain necessary before overall completion.
+
+## Typed enum guard and CLI fact selection
+
+Bead `gohawk-dho.23.33` closes the indirect-alias and inferred-kind gap found
+at `2fc512f`. A type-aware gate supplements the authored-source syntax gates
+for root-module current-build production and test variants. Local/imported
+string domains and inferred assignments, tuples and ranges are rejected;
+numeric imported aliases and textual IDs remain valid. Inactive builds and
+nested modules retain syntax coverage only; arbitrary semantic names are not
+inferred. The gate found CLI fact selection using strings, now represented by
+one numeric domain and parsed with the shared text codec. Nine exact
+parent/current CLI comparisons preserve exit status, stdout and stderr for
+default, each family, mixed selection, invalid labels and help. This changes
+no analyzer proof and claims no correction in the five-site FP queue.

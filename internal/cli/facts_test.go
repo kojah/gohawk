@@ -2,11 +2,34 @@ package cli
 
 import (
 	"bytes"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestParseFactKinds(t *testing.T) {
+	for _, test := range []struct {
+		list string
+		want map[factKind]bool
+	}{
+		{"", map[factKind]bool{kindLifecycle: true, kindHeap: true, kindResult: true, kindConcurrency: true}},
+		{"  ", map[factKind]bool{kindLifecycle: true, kindHeap: true, kindResult: true, kindConcurrency: true}},
+		{" result , heap,result ", map[factKind]bool{kindResult: true, kindHeap: true}},
+		{"concurrency", map[factKind]bool{kindConcurrency: true}},
+	} {
+		got, err := parseFactKinds(test.list)
+		if err != nil || !maps.Equal(got, test.want) {
+			t.Errorf("parseFactKinds(%q) = %v, %v; want %v", test.list, got, err, test.want)
+		}
+	}
+	for _, list := range []string{"bogus", ",", "result,", "Lifecycle"} {
+		if selected, err := parseFactKinds(list); err == nil || selected != nil {
+			t.Errorf("parseFactKinds(%q) = %v, %v; want nil selection and error", list, selected, err)
+		}
+	}
+}
 
 func TestPrintFacts(t *testing.T) {
 	directory := t.TempDir()

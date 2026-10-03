@@ -208,6 +208,8 @@ the code cannot drift apart silently.
 | `TestRawKindEnumMatcher` | kind checks distinguish typed enum values and output wording from raw discriminator strings, without inspecting embedded fixture source |
 | `TestNoNamedStringEnums` | authored classification types named Kind, Tier, Outcome, Provenance, Reason, State, Mode or Action use numeric representations; direct string definitions and aliases are rejected |
 | `TestNamedStringEnumMatcher` | named enum checks accept numeric definitions, aliases to owning domains and textual IDs; embedded fixture source remains opaque |
+| `TestNoTypedStringEnums` | current root-module build and test variants resolve string aliases and inferred kind declarations through Go types; syntax coverage remains for other configurations |
+| `TestTypedStringEnumMatcher` | typed enum checks reject local/imported string domains and inferred assignments, tuples and ranges while allowing numeric aliases and textual IDs |
 | `TestRawReasonClassificationMatcher` | migration accounting recognizes raw reason fields, parameters, assignments, and composite literals without treating ordinary display text as classification |
 | `TestAnalyzersUseSymbolIdentity` | well-known functions matched through `syntax.Symbol`, not reconstructed from package paths and names |
 | `TestProductionCodeReturnsTerminationDecisions` | no `panic`, `log.Fatal`, or `os.Exit` in analyzer or library code |
@@ -255,6 +257,17 @@ receiver only on success, so domain adapters do not repeat that state rule.
 Unknown labels and invalid numeric wire values are rejected. Go callers use
 the named constants or parsing methods;
 string literals and string casts no longer construct these enums.
+
+Classification guards cover authored production and test files: raw `kind`
+declarations and named Kind, Tier, Outcome, Provenance, Reason, State, Mode,
+and Action domains must use numeric types. The syntax checks cover inactive
+build files too. A supplemental type check resolves indirect local and imported
+string aliases and inferred `kind` assignments, including tuple and range
+declarations, in the root module's current build and test variants. Other build
+configurations and nested modules retain syntax coverage only; these checks do
+not infer classification roles from arbitrary names. Textual IDs remain valid.
+The CLI fact dump uses a numeric selection domain, converting its existing
+`-kind` labels when parsing input; other fact publishers remain unfiltered.
 
 Synchronization queries preserve a typed graph failure or upstream concurrency
 summary cause. Consumers must retain that cause rather than convert it to text

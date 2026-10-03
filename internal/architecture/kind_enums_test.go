@@ -73,8 +73,8 @@ func TestRawKindEnumMatcher(t *testing.T) {
 }
 
 // Classification suffixes name closed decision domains, whose strings belong
-// only at output boundaries. This syntax check does not resolve indirect aliases
-// or infer semantic roles from arbitrary names; IDs remain textual identities.
+// only at output boundaries. The typed gate supplements this syntax check for
+// indirect aliases; neither infers semantic roles from arbitrary names.
 func TestNoNamedStringEnums(t *testing.T) {
 	t.Parallel()
 	assertNoStringEnums(t, namedStringEnum)
@@ -89,8 +89,12 @@ func namedStringEnum(node ast.Node) bool {
 	if !ok || underlying.Name != "string" {
 		return false
 	}
+	return classificationDomainName(declaration.Name.Name)
+}
+
+func classificationDomainName(name string) bool {
 	return slices.ContainsFunc([]string{"Kind", "Tier", "Outcome", "Provenance", "Reason", "State", "Mode", "Action"}, func(suffix string) bool {
-		return strings.HasSuffix(declaration.Name.Name, suffix) || strings.EqualFold(declaration.Name.Name, suffix)
+		return strings.HasSuffix(name, suffix) || strings.EqualFold(name, suffix)
 	})
 }
 
