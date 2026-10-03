@@ -92,10 +92,14 @@ type region struct {
 
 // Collect loads and analyzes an analyzer's fixture package from an analysistest
 // GOPATH root. Diagnostics outside marked documentation regions are ordinary
-// regression findings and ignored.
+// regression findings and ignored. Invalid targets and collection failures return
+// an error without publishing examples.
 func Collect(testRoot string, analyzer *analysis.Analyzer) (Set, error) {
 	sets, err := CollectAll([]Target{{TestRoot: testRoot, Analyzer: analyzer}}, nil)
-	return sets[analyzer.Name], err
+	if err != nil {
+		return Set{}, err
+	}
+	return sets[analyzer.Name], nil
 }
 
 // CollectAll loads every fixture package in one go/packages invocation, then

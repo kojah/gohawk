@@ -9,6 +9,16 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+func TestCollectRejectsNilAnalyzer(t *testing.T) {
+	result, err := Collect("", nil)
+	if err == nil || err.Error() != "nil analyzer target" {
+		t.Fatalf("Collect(nil) error = %v, want nil analyzer target", err)
+	}
+	if len(result.Flagged) != 0 || result.OK.Code != "" || len(result.OK.Diagnostics) != 0 {
+		t.Fatalf("Collect(nil) returned examples: %+v", result)
+	}
+}
+
 func TestParseRegions(t *testing.T) {
 	source := []byte("package p\n\n//gohawk:example flagged Direct failure\nfunc bad() {} // want \"problem\"\n//gohawk:example end\n")
 	regions, err := parseRegions("example.go", source)

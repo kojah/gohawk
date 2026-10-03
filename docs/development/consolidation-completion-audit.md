@@ -5941,3 +5941,30 @@ from normalized-token matching or change any analyzer behavior. The passing
 `707e4d97` canonical and scoped receipts remain applicable because this update
 changes only this development ledger. Final architecture validation checks the
 maintained documentation after editing.
+
+
+## Documentation collector error propagation
+
+The final coverage review at `55115425` inspected the source-inventory and
+architecture gate scopes, then the remaining reporting, serialization and
+collection boundaries. A concrete command-support defect is tracked in
+`gohawk-dho.23.35`: `docexamples.CollectAll` rejected a nil analyzer target, but
+`Collect` dereferenced that rejected target to index the result before returning
+the error. The wrapper now returns the authoritative collection error first;
+target validation remains solely in `CollectAll`.
+
+The [nil-target regression](../../internal/docexamples/examples_test.go)
+reproduces a nil dereference on the parent and requires an error and no published examples on the correction. The owning
+package and generator tests pass. This correction changes invalid-target
+handling, not analyzer decisions, facts, traces or generated example contents.
+No production FP removal is credited. Final canonical `make verify` passes every gate
+(`.build/goal-doc-collector-final-verify.log`); a full precision corpus and
+local race run remain unnecessary. The initial gate caught an unqualified
+non-architecture test citation in this note; its source link is now explicit.
+
+The inventory tests prove their explicit authored-source exclusions, deduplicate
+overlapping roots and check test-inclusive views separately. The dependency
+gate covers the named semantic layers and analyzer packages; reporting gates
+resolve `analysis.Pass` members by type. Those gates enforce structural rules,
+not all semantic contracts. Their actual scopes are evidence for requirement
+reconciliation rather than a substitute for the source-family reviews.
