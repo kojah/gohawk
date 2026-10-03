@@ -168,9 +168,12 @@ func (search *helperSearch) instructionJoins(instruction ssa.Instruction, kind t
 	if callee == nil {
 		return false
 	}
-	return slices.ContainsFunc(ssaflow.CallBindings(common, callee, closure), func(pair ssaflow.CallBinding) bool {
-		return search.budget.Spend() && derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionJoin
-	})
+	for pair := range ssaflow.CallBindingsWithin(common, callee, closure, search.budget) {
+		if derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionJoin {
+			return true
+		}
+	}
+	return false
 }
 
 // receiverJoins recognizes the requested receiver effect: Wait on a group or
@@ -253,9 +256,13 @@ func (search *helperSearch) callEscapes(instruction ssa.Instruction, kind tracke
 	if callee == nil || len(callee.Blocks) == 0 {
 		return helperCallCarries(common, closure, derives)
 	}
-	return slices.ContainsFunc(ssaflow.CallBindings(common, callee, closure), func(pair ssaflow.CallBinding) bool {
-		return !search.budget.Spend() || derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionUnknown
-	})
+	for pair := range ssaflow.CallBindingsWithin(common, callee, closure, search.budget) {
+		if derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionUnknown {
+			return true
+		}
+	}
+	// Unvisited bindings may retain the target; cutoff cannot prove no escape.
+	return search.budget.Exhausted()
 }
 
 // Opaque and launched calls expose the same possible handoff through their

@@ -413,6 +413,16 @@ the same enumeration policy. Arguments precede captures; possible spawned-value
 selection still makes its capture-first pass before its argument pass.
 The shared lifecycle callback query uses the same capture iterator.
 
+Exact completion mapping, deferred group discovery, helper join/escape searches
+and the worker receive search also use lazy binding metadata under their supplied
+allowance. Exact mapping visits captures first without preparing unrelated
+formal arguments. It retains the existing mutable-capture and aggregate-owner
+boundaries. `completion_metadata_test.go` proves that a captured aggregate can
+be selected within a fixed allowance despite 64 unrelated arguments, and that
+cutoff never publishes a binding. Helper escape cutoff remains opaque; receive
+cutoff remains unknown and cannot enter the completed memo. Existing helper,
+receive and discovery tests cover fresh recovery and partial evidence.
+
 Cleanup-target, local cancellation and pipe-peer queries select tuple results
 through `CallResultWithin`, charging referrer inspection and stopping at the
 exact selected result. Cleanup and cancellation stop before downstream queries

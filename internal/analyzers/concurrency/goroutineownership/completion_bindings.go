@@ -43,15 +43,14 @@ func completionValueAtCall(
 	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *ssaflow.SearchBudget,
 ) ssa.Value { //nolint:ireturn // Completion handles retain their concrete SSA value types.
 	storage := heapmodel.NewStorage(budget)
-	bindings := ssaflow.CallBindings(spawn.Common(), function, closure)
 	for _, captured := range []bool{true, false} {
-		for _, binding := range bindings {
-			if !budget.Spend() {
-				return nil
-			}
-			if binding.Captured != captured {
-				continue
-			}
+		// Captures retain precedence over parameters. Prepare only the selected
+		// family lazily, so irrelevant arguments cannot consume its allowance.
+		bindings := ssaflow.CallBindingsWithin(spawn.Common(), function, nil, budget)
+		if captured {
+			bindings = ssaflow.CallBindingsWithin(nil, function, closure, budget)
+		}
+		for binding := range bindings {
 			local := value
 			if captured {
 				if source, ok := ssaflow.IdentitySource(value); ok {
@@ -70,6 +69,9 @@ func completionValueAtCall(
 			if stored := storage.StableContent(binding.Supplied, spawn); stored.Proven() {
 				return stored.Value
 			}
+			return nil
+		}
+		if budget.Exhausted() {
 			return nil
 		}
 	}

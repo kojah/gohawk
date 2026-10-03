@@ -5475,3 +5475,17 @@ one numeric domain and parsed with the shared text codec. Nine exact
 parent/current CLI comparisons preserve exit status, stdout and stderr for
 default, each family, mixed selection, invalid labels and help. This changes
 no analyzer proof and claims no correction in the five-site FP queue.
+
+## Remaining goroutine binding preparation
+
+Current-source reconciliation at `99f68c5` found eager call-binding metadata
+beneath explicit goroutine query allowances. Bead `gohawk-dho.44.11.7` moves
+exact completion mapping, deferred groups, helper join/escape and worker receive
+searches to the shared lazy iterator, preserving capture-first exact mapping
+and cutoff polarity. The [scoped record](../../benchmarks/precision/audits/goroutine-binding-metadata-2026-10-03.md)
+records a parent-failing actual-SSA capture control, fresh/cutoff controls,
+canonical validation and six unchanged full-payload scans. Candidate signatures
+remain unchanged at 334 files, 2,202 declarations, five whole-body and 34 partial
+groups. This finding demonstrates why parent reconciliation cannot be replaced
+by child closure or scan counts. Standalone policy and graph/type/alias costs,
+parent reconciliation and the five-site FP queue remain outside this receipt.

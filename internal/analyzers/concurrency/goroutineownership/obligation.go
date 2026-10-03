@@ -128,10 +128,7 @@ func spawnedCompletionValues(
 // https://github.com/vbauerster/mpb/blob/ddeb4bb7bcb86e114648760018b10700841a081a/heap_manager.go#L46-L61
 func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, budget *ssaflow.SearchBudget) []ssa.Value {
 	var groups []ssa.Value
-	for _, pair := range ssaflow.CallBindings(spawn.Common(), function, closure) {
-		if !budget.Spend() {
-			return groups
-		}
+	for pair := range ssaflow.CallBindingsWithin(spawn.Common(), function, closure, budget) {
 		group := completionValueAtCall(spawn, function, closure, pair.Local, budget)
 		// A typed nil actual satisfies the parameter's static WaitGroup type,
 		// but the callee's guarded deferred Done cannot run for this launch.

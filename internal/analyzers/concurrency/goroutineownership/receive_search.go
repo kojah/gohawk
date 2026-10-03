@@ -78,10 +78,7 @@ func (search *workerReceiveSearch) throughCall(common *ssa.CallCommon, local ssa
 	result := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
 	derives := func(value ssa.Value) bool { return heapmodel.ValueDerivesFrom(value, local) }
 	callee, closure := ssaflow.DirectCallee(common)
-	for _, binding := range ssaflow.CallBindings(common, callee, closure) {
-		if !search.budget.Spend() {
-			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
-		}
+	for binding := range ssaflow.CallBindingsWithin(common, callee, closure, search.budget) {
 		if !derives(binding.Supplied) {
 			continue
 		}
@@ -92,6 +89,9 @@ func (search *workerReceiveSearch) throughCall(common *ssa.CallCommon, local ssa
 		if proof.State == ssaflow.EvidenceUnknown {
 			result = proof
 		}
+	}
+	if search.budget.Exhausted() {
+		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
 	}
 	if callee == nil {
 		carried := slices.ContainsFunc(common.Args, func(argument ssa.Value) bool {
