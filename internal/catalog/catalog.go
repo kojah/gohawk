@@ -175,7 +175,9 @@ func (catalog *Catalog) addAnalyzer(groupID GroupID, spec *AnalyzerSpec) (bool, 
 		return false, fmt.Errorf("catalog group %q contains an analyzer without an identity", groupID)
 	}
 	id := AnalyzerID(spec.Analyzer.Name)
-	if _, exists := catalog.byAnalyzer[id]; exists {
+	// Withdrawal changes selection, not declaration identity. A wholly delisted
+	// analyzer is absent from byAnalyzer but still reserves its catalog name.
+	if _, exists := catalog.byAnalyzer[id]; exists || catalog.withdrawn[id] {
 		return false, fmt.Errorf("analyzer %q is declared more than once", id)
 	}
 	if len(spec.Checks) == 0 {

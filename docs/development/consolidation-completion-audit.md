@@ -6004,3 +6004,33 @@ payload or production FP decision changes. Final canonical validation is shared
 by the two CLI children. All eight gates pass in
 `.build/goal-cli-support-verify.log` (ordinary tests 50 seconds); no full
 precision replay or local race run is needed.
+
+
+## Withdrawn catalog declaration identity
+
+The catalog responsibility review at `03daa305` found a missing declaration
+boundary, tracked in `gohawk-dho.23.38`. `addAnalyzer` checked duplicates in
+`byAnalyzer`, but wholly delisted analyzers occupy only `withdrawn`. Two
+identical withdrawn declarations were accepted; a withdrawn declaration followed
+by an active one instead reached an unrelated execution-order error.
+
+Declaration validation now checks both stores at that same decision point.
+Withdrawal still removes an analyzer from selection and an empty group from
+presentation; it does not release the declared name for reuse. No new registry,
+validation path or analyzer policy is introduced. The
+[withdrawal controls](../../internal/catalog/withdrawal_test.go) require single
+active and withdrawn declarations to remain valid, and duplicate declarations
+to be rejected for all four active/withdrawn combinations. The two previously
+missed cases fail on the parent.
+
+Focused catalog, public analyzer and generator tests validate the change.
+The compiled eight-analyzer/ten-check catalog has no wholly withdrawn
+analyzer, so this correction affects malformed declarations rather than any
+current diagnostic. Final canonical validation verifies integration and catalog
+publication. All eight gates pass in
+`.build/goal-catalog-withdrawal-verify.log` (ordinary tests 48 seconds). Five
+complete parent/current list, check, experimental, documentation and help
+payloads are identical, with all commands exiting zero
+(`.build/goal-catalog-withdrawal-metadata.json`). The unaffected pinned analyzer
+proof receipts remain applicable;
+no production FP removal, full precision replay or local race run is credited.
