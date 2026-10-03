@@ -674,3 +674,25 @@ separate proof; possible cleanup still supplies ownership uncertainty rather
 than worker completion. The returned-result storage cutoff and fresh-query
 controls live beside the shared lifecycle helper, and retained-owner budget
 fixtures continue covering the consumer's availability boundary.
+
+
+## Summary join request availability
+
+Ordered concurrency effects and returned group waiters share the candidate's
+observed pool while retaining the existing `helperUseBudget` child limit.
+Tracked-handle selection, summary inference/binding and exact storage identity
+consume that request. `summarizedJoin` returns a structured instruction action;
+cutoff yields `summary-join-budget-exhausted` and opaque ownership at that call.
+It cannot become absent completion or an exact join, including from a cached
+summary. The classifier consumes that result before later helper fallback.
+An unrelated return that bypasses the instruction receives no unknown credit.
+
+`summary_budget_test.go` builds actual synchronous receive helpers. Small outer
+allowances cut before completion; a larger fresh request recovers an exact
+join. An oversized helper exhausts the child while the candidate pool stays
+live. A completed independent engine query then permits fresh cached recovery,
+showing that the cutoff did not publish an incomplete summary. Trace assertions
+require the candidate position and summary-join phase. Existing summary fixtures
+retain imported Wait/receive, returned waiters, different handles, conditional
+receives, launched observers and missing-return paths. Cancellation effects and
+lifecycle owners do not become joins.

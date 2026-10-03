@@ -5600,3 +5600,36 @@ final architecture receipt are recorded in the linked audit. This completes
 the finite observed-discovery ownership review. The broader `.44` classifier/input
 inventory, semantic consolidation and five reviewed production FP sites remain
 open. Neither completed child issues nor scanner results prove the root goal.
+
+
+## Selected goroutine classifier input inventory
+
+At `760649d`, the next source review follows constructor handles through
+`classify.go`, `helper_call.go`, `concurrency.go` and `carries.go`. Graph tools
+remain unavailable. This is exact source fallback for these selected routes,
+not a review of every transitive alias, graph or guarded-count implementation.
+
+| Input/effect family | Authoritative owner and polarity |
+| --- | --- |
+| Instruction result and return ownership | `action` memoizes `classify` and its trace label. `returnAction` accepts an exact returned handle even beside possible containment; possible projections alone remain unknown. Rewalks reuse the instruction result. |
+| Direct receives and selected arms | Exact storage identity in `isSignalWithin` permits a join. `possibleSignal` and aggregate carry matches remain unknown. `edgeObligation` credits only the selected arm; a mixed select cannot credit every exit. Selected entry matching and whole-select guarantees remain distinct contracts. |
+| Stores, sends, maps and append | Only an exact tracked value stored into external ownership may transfer. Possible containment is unknown; a local store alone does nothing. Sends/maps/append indicate possible consumption rather than exact joins. |
+| Wait and lifecycle receivers | `directJoinAction` requires the exact settling WaitGroup; may-alias or interrupted storage is unknown. Lifecycle calls on owners are possible shutdown participation. Bookkeeping on known groups does not observe completion. |
+| Source-visible helper bindings | `helperAction` maps lazy actual/formal or captured bindings, shares one recursive memo and checks caller identity for exact completion. Owner coverage remains unknown. Cutoffs return an authoritative opaque action before reporting. |
+| Dynamic, launched and bodyless calls | `opaqueCallAction` uses possible argument or closure consumption. A launched observer never becomes a synchronous join. `closureConsumes` preserves unknown on interrupted capture selection. |
+| Summary effects and returned waiters | Beads `.44.13` fixes standalone request ownership and Boolean loss of availability. `summarizedJoin` now shares the candidate pool with the original child cap; its structured cutoff labels only that instruction unknown. Ordered exact receives/Wait operations retain synchronous and exact resource requirements. |
+| Historical containment versus current identity | `carries` deliberately includes previous stores, sibling field/index possibilities, closure captures and wrapping arguments. `transferAction` and `boundHelperAction` require separate exact storage proof. Combining these as one Boolean identity engine would erase observation-time and may/must boundaries. |
+
+The selected summary fix introduces no new completion contract or published
+fact. The broader `.44` inventory still needs reconciliation of guarded joins,
+counted drains, caller/lifecycle suppressions and final proof ownership against
+these instruction labels. Existing child closure does not establish that wider
+review or global absence of semantic duplication.
+
+
+The [summary request review](../../benchmarks/precision/audits/summary-join-availability-2026-10-03.md)
+records the actual SSA cutoff/recovery and cached-admission controls, the
+assertion-failing standalone counterfactual, and six unchanged full-payload
+comparisons. The maintained source inventory is scoped evidence; the normalized
+scanner's unchanged five full-body and 33 partial candidates do not settle
+global semantic duplication. No reviewed production FP correction is credited.

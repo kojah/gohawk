@@ -21,14 +21,20 @@ type summaryJoinProof struct {
 	summaryCause concurrencyfacts.Reason
 }
 
-func (analysis *spawnAnalysis) summarizedJoin(instruction ssa.Instruction) bool {
+func (analysis *spawnAnalysis) summarizedJoin(instruction ssa.Instruction) helperCallProof {
 	engine, _ := summaryKnowledge.Provider(analysis.pass).Concurrency()
-	budget := ssaflow.NewSearchBudget(helperUseBudget)
+	budget := analysis.queryBudget(helperUseBudget)
 	for _, tracked := range analysis.tracked {
-		if tracked.kind == trackedGroup && analysis.returnedGroupJoin(instruction, tracked.value, budget) {
-			return true
+		if !budget.Spend() {
+			break
+		}
+		if tracked.kind == trackedGroup && analysis.returnedGroupJoin(instruction, tracked.value, budget) && !budget.Exhausted() {
+			return helperCallProof{action: actionJoin, reason: reasonLabelSummaryJoin}
 		}
 		proof := proveSummaryJoin(engine, instruction, tracked.value, tracked.kind, budget)
+		if budget.Exhausted() {
+			break
+		}
 		if proof.joined {
 			probe := analysisTrace.For(analysis.pass, "goroutineownership", string(analysis.checkID), analysis.spawn.Pos())
 			if probe.Enabled() {
@@ -37,10 +43,18 @@ func (analysis *spawnAnalysis) summarizedJoin(instruction ssa.Instruction) bool 
 					Function: analysis.function.String(),
 				})
 			}
-			return true
+			return helperCallProof{action: actionJoin, reason: reasonLabelSummaryJoin}
 		}
 	}
-	return false
+	// An interrupted summary cannot establish absent completion. Keep the
+	// uncertainty on this instruction so unrelated return paths remain open.
+	if budget.Exhausted() {
+		budget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
+			return map[string]string{"phase": "summary-join"}
+		})
+		return helperCallProof{action: actionUnknown, reason: reasonSummaryJoinBudgetExhausted}
+	}
+	return helperCallProof{action: actionNone, reason: reasonNone}
 }
 
 // A returned waiter can honor an already-established group obligation. A

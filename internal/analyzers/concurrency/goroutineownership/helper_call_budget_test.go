@@ -48,10 +48,12 @@ func TestHelperCallSharesCandidateAllowance(t *testing.T) {
 	if fresh := query(spawnPoolBudget); fresh.action != actionJoin || fresh.reason != reasonLabelHelper {
 		t.Fatalf("fresh helper query = %+v; want exact join", fresh)
 	}
-	assertHelperCallCutoffTrace(t, tracePath, pass.Fset.Position(spawn.Pos()).String())
+	assertCandidateCutoffTrace(t, tracePath, pass.Fset.Position(spawn.Pos()).String(), func(event followupTraceEvent) bool {
+		return event.Details["phase"] == "helper-call"
+	})
 }
 
-func assertHelperCallCutoffTrace(t *testing.T, path, candidate string) {
+func assertCandidateCutoffTrace(t *testing.T, path, candidate string, matches func(followupTraceEvent) bool) {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -63,11 +65,11 @@ func assertHelperCallCutoffTrace(t *testing.T, path, candidate string) {
 			t.Fatal(err)
 		}
 		if event.Phase == "evidence" && event.Reason == "budget-exhausted" && event.Candidate == candidate &&
-			event.Details["phase"] == "helper-call" {
+			matches(event) {
 			return
 		}
 	}
-	t.Fatal("missing attributed helper-call cutoff")
+	t.Fatal("missing attributed candidate cutoff")
 }
 
 func TestHelperCallMemoKeepsFormalBinding(t *testing.T) {

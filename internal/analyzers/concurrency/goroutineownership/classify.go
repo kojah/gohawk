@@ -272,8 +272,8 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	if action := analysis.pipePeerAction(instruction, common); action != actionNone {
 		return action, reasonLabelPipePeer
 	}
-	if analysis.summarizedJoin(instruction) {
-		return actionJoin, reasonLabelSummaryJoin
+	if proof := analysis.summarizedJoin(instruction); proof.action != actionNone {
+		return proof.action, proof.reason
 	}
 	if analysis.waitGroupBookkeeping(common) {
 		return actionNone, reasonNone
