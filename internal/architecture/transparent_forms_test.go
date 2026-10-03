@@ -55,7 +55,7 @@ func TestTransparentFormsAreNamedAtTheCallSite(t *testing.T) {
 
 func checkTransparentFormArguments(
 	t *testing.T,
-	source productionGoSource,
+	source repositoryGoSource,
 	function *ast.FuncDecl,
 	named map[string]bool,
 ) {

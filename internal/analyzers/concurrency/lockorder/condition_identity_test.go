@@ -28,8 +28,8 @@ func ordered(a,b int) bool { return a < b }
 func TestConditionIdentityStableBooleanSources(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "state", conditionIdentityFixture)
 	for _, test := range []struct {
-		name string
-		kind string
+		name   string
+		prefix string
 	}{
 		{"direct", "boolean:"},
 		{"named", "boolean:"},
@@ -45,10 +45,10 @@ func TestConditionIdentityStableBooleanSources(t *testing.T) {
 		fn := pkg.Func(test.name)
 		value := ssaflow.InstructionsOf[*ssa.Return](fn)[0].Results[0]
 		identity, known := conditionIdentity(value, nil)
-		if known != (test.kind != "") || !strings.HasPrefix(identity, test.kind) {
+		if known != (test.prefix != "") || !strings.HasPrefix(identity, test.prefix) {
 			t.Errorf("%s: identity %q, known=%t", test.name, identity, known)
 		}
-		if test.kind == "boolean:" && identity != "boolean:"+conditionOperandIdentity(value) {
+		if test.prefix == "boolean:" && identity != "boolean:"+conditionOperandIdentity(value) {
 			t.Errorf("%s: did not preserve exact SSA identity", test.name)
 		}
 	}

@@ -59,8 +59,29 @@ type Target struct {
 	Analyzer *analysis.Analyzer
 }
 
+// exampleKind records marker semantics internally; source markers and error
+// wording keep their textual representation at parsing/presentation boundaries.
+type exampleKind uint8
+
+const (
+	exampleUnknown exampleKind = iota
+	exampleFlagged
+	exampleOK
+)
+
+func (kind exampleKind) String() string {
+	switch kind {
+	case exampleFlagged:
+		return "flagged"
+	case exampleOK:
+		return "ok"
+	default:
+		return ""
+	}
+}
+
 type region struct {
-	kind     string
+	kind     exampleKind
 	title    string
 	filename string
 	start    int
@@ -190,9 +211,11 @@ func collectDiagnostics(analyzerName string, regions []region, roots []*checker.
 		example := Example{Title: item.title, Code: item.code}
 		example.Diagnostics = append(example.Diagnostics, attachedDiagnostics[itemKey(item)]...)
 		switch item.kind {
-		case "flagged":
+		case exampleUnknown:
+			continue
+		case exampleFlagged:
 			result.Flagged = append(result.Flagged, example)
-		case "ok":
+		case exampleOK:
 			result.OK = example
 		}
 	}
@@ -240,12 +263,12 @@ func readRegions(directory string) ([]region, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	counts := map[string]int{}
+	counts := map[exampleKind]int{}
 	for _, item := range result {
 		counts[item.kind]++
 	}
-	if counts["flagged"] < 1 || counts["ok"] != 1 {
-		return nil, false, fmt.Errorf("need at least one flagged and exactly one OK region; found %d and %d", counts["flagged"], counts["ok"])
+	if counts[exampleFlagged] < 1 || counts[exampleOK] != 1 {
+		return nil, false, fmt.Errorf("need at least one flagged and exactly one OK region; found %d and %d", counts[exampleFlagged], counts[exampleOK])
 	}
 	return result, hasTests, nil
 }
@@ -288,13 +311,13 @@ func parseRegions(filename string, contents []byte) ([]region, error) {
 	return result, nil
 }
 
-func exampleMarker(text string) (kind, title string, ok bool) {
+func exampleMarker(text string) (kind exampleKind, title string, ok bool) {
 	for _, marker := range []struct {
 		prefix string
-		kind   string
+		kind   exampleKind
 	}{
-		{prefix: flaggedMarker, kind: "flagged"},
-		{prefix: okMarker, kind: "ok"},
+		{prefix: flaggedMarker, kind: exampleFlagged},
+		{prefix: okMarker, kind: exampleOK},
 	} {
 		if text == marker.prefix {
 			return marker.kind, "", true
@@ -303,7 +326,7 @@ func exampleMarker(text string) (kind, title string, ok bool) {
 			return marker.kind, strings.TrimSpace(strings.TrimPrefix(text, marker.prefix)), true
 		}
 	}
-	return "", "", false
+	return exampleUnknown, "", false
 }
 
 func displayCode(source []byte) string {

@@ -189,6 +189,7 @@ the code cannot drift apart silently.
 | test | rule it enforces |
 |---|---|
 | `TestSourceInventoryExcludesNonProductionTrees` | source inventories exclude fixtures, generated files, tests, and dot/underscore-prefixed trees such as cached audit checkouts |
+| `TestSourceInventoryIncludesAuthoredTests` | test-inclusive invariants share the source inventory, retaining fixture/generated exclusions and deduplicating overlapping roots |
 | `TestInternalPackagesRespectDependencyDirection` | analyzers may use shared tools; shared tools never depend on analyzers or the catalog |
 | `TestAnalyzerPackageLayout` | one package per analyzer under `internal/analyzers/<group>/<name>` |
 | `TestAnalyzersUseSharedReporting` | diagnostics only through `check.Report` or `check.Reportf`, never `analysis.Pass.Report` directly |
@@ -203,6 +204,8 @@ the code cannot drift apart silently.
 | `TestSummaryBoundaryMatcher` | summary API checks resolve type identity, including import aliases, generic types, promoted methods, and method expressions; unrelated lookalike names remain allowed |
 | `TestReasonEnumBoundaryMatcher` | reason checks reject string aliases and raw reason fields while allowing textual observer/output boundaries |
 | `TestNoRawReasonClassifications` | all production Go reason domains use numeric enums; raw reason fields, parameters, declarations, assignments, and literal classifications are rejected outside the two textual output-boundary files |
+| `TestNoRawKindEnums` | authored production and test code use numeric kind discriminators; raw kind fields, parameters, named results and literal assignments are rejected |
+| `TestRawKindEnumMatcher` | kind checks distinguish typed enum values and output wording from raw discriminator strings, without inspecting embedded fixture source |
 | `TestRawReasonClassificationMatcher` | migration accounting recognizes raw reason fields, parameters, assignments, and composite literals without treating ordinary display text as classification |
 | `TestAnalyzersUseSymbolIdentity` | well-known functions matched through `syntax.Symbol`, not reconstructed from package paths and names |
 | `TestProductionCodeReturnsTerminationDecisions` | no `panic`, `log.Fatal`, or `os.Exit` in analyzer or library code |
@@ -279,3 +282,13 @@ selection, loaded-pointee separation and asynchronous-use policy remain local to
 the corresponding query. Fresh allowances can recover complete evidence without
 retaining a partial purity answer. This bounds binding metadata, not arbitrary
 transitive heap construction or all query costs.
+
+### Kind discriminators in tests and documentation tools
+
+`TestNoRawKindEnums` also reads authored test files through the shared inventory.
+It guards raw `kind` fields, parameters, named results and literal assignments.
+Fixtures and generated files keep their shared exclusions. Text used for a CLI
+noun or an expected output prefix names that role explicitly. This syntax gate
+does not infer string types through aliases or arbitrary expressions; remaining
+named string-backed domains are tracked in `gohawk-dho.23.32` for numeric migration
+with preserved published text encoding.

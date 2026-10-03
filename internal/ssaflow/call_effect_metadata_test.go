@@ -9,6 +9,30 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+type metadataEffectKind uint8
+
+const (
+	metadataEffectUnknown metadataEffectKind = iota
+	metadataEffectValue
+	metadataEffectField
+	metadataEffectClosure
+)
+
+func (kind metadataEffectKind) String() string {
+	switch kind {
+	case metadataEffectUnknown:
+		return "unknown"
+	case metadataEffectValue:
+		return "value"
+	case metadataEffectField:
+		return "field"
+	case metadataEffectClosure:
+		return "closure"
+	default:
+		return "unknown"
+	}
+}
+
 func TestCallEffectMetadataAllowance(t *testing.T) {
 	var parameters, arguments, captures, reads strings.Builder
 	for index := range 40 {
@@ -28,8 +52,8 @@ func TestCallEffectMetadataAllowance(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "metadata", source)
 	call := InstructionsOf[*ssa.Call](pkg.Func("called"))[0]
 	closure := InstructionsOf[*ssa.MakeClosure](pkg.Func("captured"))[0]
-	for _, kind := range []string{"value", "field", "closure"} {
-		t.Run(kind, func(t *testing.T) {
+	for _, kind := range []metadataEffectKind{metadataEffectValue, metadataEffectField, metadataEffectClosure} {
+		t.Run(kind.String(), func(t *testing.T) {
 			query := NewCallEffects(NewSearchBudget(10))
 			proof := metadataEffectProof(query, kind, call, closure)
 			if proof.Proven() || proof.Reason != EvidenceBudgetExhausted || proof.PreservesStorage() || proof.PreservesField() {
@@ -40,7 +64,7 @@ func TestCallEffectMetadataAllowance(t *testing.T) {
 			if !fresh.Proven() || !fresh.PreservesStorage() || !fresh.PreservesField() {
 				t.Fatalf("fresh allowance did not recover purity: %+v", fresh)
 			}
-			if kind == "closure" && (fresh.Effects != EffectRead || proof.Effects != EffectRead) {
+			if kind == metadataEffectClosure && (fresh.Effects != EffectRead || proof.Effects != EffectRead) {
 				t.Fatalf("capture read changed: %+v", fresh)
 			}
 		})
@@ -49,13 +73,15 @@ func TestCallEffectMetadataAllowance(t *testing.T) {
 	checkLateMetadataMutation(t, mutation)
 }
 
-func metadataEffectProof(query *CallEffects, kind string, call *ssa.Call, closure *ssa.MakeClosure) CallEffectProof {
+func metadataEffectProof(query *CallEffects, kind metadataEffectKind, call *ssa.Call, closure *ssa.MakeClosure) CallEffectProof {
 	switch kind {
-	case "value":
+	case metadataEffectUnknown:
+		return CallEffectProof{}
+	case metadataEffectValue:
 		return query.Call(call, call.Common().Args[0])
-	case "field":
+	case metadataEffectField:
 		return query.FieldCall(call, EmbeddedFieldPath{Root: call.Common().Args[0], Depth: 1})
-	case "closure":
+	case metadataEffectClosure:
 		return query.proof(query.closure(closure, closure.Bindings[0]))
 	}
 	return CallEffectProof{}
@@ -63,7 +89,7 @@ func metadataEffectProof(query *CallEffects, kind string, call *ssa.Call, closur
 
 func checkLateMetadataMutation(t *testing.T, call *ssa.Call) {
 	t.Helper()
-	for _, kind := range []string{"value", "field"} {
+	for _, kind := range []metadataEffectKind{metadataEffectValue, metadataEffectField} {
 		query := NewCallEffects(NewSearchBudget(10))
 		cut := metadataEffectProof(query, kind, call, nil)
 		if cut.Proven() || cut.Reason != EvidenceBudgetExhausted {

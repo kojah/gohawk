@@ -14,13 +14,13 @@ import (
 )
 
 // repositorySourceInventory gives architecture tests one stable view of
-// production Go source. Test fixtures, generated files, and tests are excluded
-// here so individual invariants do not grow subtly different walkers.
+// authored Go source. Production-only and test-inclusive views share the same
+// fixture and generated-file exclusions so invariants do not grow private walkers.
 type repositorySourceInventory struct {
 	root string
 }
 
-type productionGoSource struct {
+type repositoryGoSource struct {
 	absolutePath   string
 	repositoryPath string
 	source         []byte
@@ -63,9 +63,21 @@ func findRepositoryRoot(start string) (string, error) {
 	}
 }
 
-func (inventory repositorySourceInventory) productionGoFiles(t *testing.T, roots ...string) []productionGoSource {
+func (inventory repositorySourceInventory) productionGoFiles(t *testing.T, roots ...string) []repositoryGoSource {
 	t.Helper()
-	files := make(map[string]productionGoSource)
+	return inventory.goFiles(t, false, roots...)
+}
+
+// authoredGoFiles includes tests for invariants that apply to all maintained Go
+// code. Fixture, generated and external trees retain the shared exclusions.
+func (inventory repositorySourceInventory) authoredGoFiles(t *testing.T, roots ...string) []repositoryGoSource {
+	t.Helper()
+	return inventory.goFiles(t, true, roots...)
+}
+
+func (inventory repositorySourceInventory) goFiles(t *testing.T, includeTests bool, roots ...string) []repositoryGoSource {
+	t.Helper()
+	files := make(map[string]repositoryGoSource)
 	for _, root := range roots {
 		scope := inventory.scopedRoot(t, root)
 		err := filepath.WalkDir(scope, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -78,7 +90,7 @@ func (inventory repositorySourceInventory) productionGoFiles(t *testing.T, roots
 				}
 				return nil
 			}
-			if filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+			if filepath.Ext(path) != ".go" || !includeTests && strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
 			source, readErr := os.ReadFile(path)
@@ -98,7 +110,7 @@ func (inventory repositorySourceInventory) productionGoFiles(t *testing.T, roots
 				return relativeErr
 			}
 			repositoryPath = filepath.ToSlash(repositoryPath)
-			files[repositoryPath] = productionGoSource{
+			files[repositoryPath] = repositoryGoSource{
 				absolutePath:   stableAbsolutePath(path),
 				repositoryPath: repositoryPath,
 				source:         source,
@@ -116,7 +128,7 @@ func (inventory repositorySourceInventory) productionGoFiles(t *testing.T, roots
 		paths = append(paths, path)
 	}
 	slices.Sort(paths)
-	result := make([]productionGoSource, 0, len(paths))
+	result := make([]repositoryGoSource, 0, len(paths))
 	for _, path := range paths {
 		result = append(result, files[path])
 	}

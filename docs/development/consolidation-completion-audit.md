@@ -5311,3 +5311,14 @@ Domain outcome enums and action-label polarity remain distinct adapters.
 The [scoped audit](../../benchmarks/precision/audits/final-evidence-projection-2026-10-03.md)
 records preserved full diagnostics and enabled candidate event sequences.
 This census does not close transitive semantic review or the five-site queue.
+
+## Raw kind discriminator guard
+
+Bead `gohawk-dho.23.31` replaces the metadata test's string dispatcher and the
+documentation region kind with numeric domains. The shared source inventory now
+supports an authored-test view; the new kind guard reproduced six existing raw
+locations before correction. CLI nouns and expected identity prefixes retain
+text with names describing their output role. The [boundary record](../../benchmarks/precision/audits/kind-enum-boundaries-2026-10-03.md)
+records gate, inventory, marker and CLI compatibility controls. Named string
+domains remain explicitly tracked by `gohawk-dho.23.32`; no full enum or goal
+completion is claimed.

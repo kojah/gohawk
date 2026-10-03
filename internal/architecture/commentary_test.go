@@ -44,7 +44,7 @@ func TestAnalyzerCommentaryCoverage(t *testing.T) {
 	}
 }
 
-func inspectCommentaryFile(path string, source productionGoSource, findings map[string]commentaryStats) {
+func inspectCommentaryFile(path string, source repositoryGoSource, findings map[string]commentaryStats) {
 	fset := source.fileSet
 	file := source.file
 	lines := sourceLines(source.source)

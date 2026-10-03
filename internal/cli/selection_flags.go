@@ -56,8 +56,8 @@ func requestedChecks(arguments []string, metadata map[string]gohawk.AnalyzerInfo
 		if name == "disable-checks" {
 			target, action = requested.disabled, "disabled"
 		}
-		if err := addSelectedNames(raw, available, target, selectedNameKind{
-			kind: "check", action: action, hint: "run 'gohawk list -checks' to see stable check IDs",
+		if err := addSelectedNames(raw, available, target, selectedNameWords{
+			noun: "check", action: action, hint: "run 'gohawk list -checks' to see stable check IDs",
 		}); err != nil {
 			return checkSelection{}, nil, err
 		}
@@ -211,8 +211,8 @@ func requestedAnalyzers(arguments []string, available map[string]bool) (analyzer
 		if raw == "" {
 			return analyzerNameSelection{}, nil, fmt.Errorf("-%s requires at least one analyzer", name)
 		}
-		if err := addSelectedNames(raw, available, target, selectedNameKind{
-			kind: "analyzer", action: action, hint: "run 'gohawk list' to see available analyzers",
+		if err := addSelectedNames(raw, available, target, selectedNameWords{
+			noun: "analyzer", action: action, hint: "run 'gohawk list' to see available analyzers",
 		}); err != nil {
 			return analyzerNameSelection{}, nil, err
 		}
@@ -284,27 +284,27 @@ func requestedAnalyzerGroups(arguments []string, groups []gohawk.AnalyzerGroup) 
 	return requested, remaining, nil
 }
 
-// selectedNameKind words the errors for one kind of comma-separated
+// selectedNameWords supplies error wording for a comma-separated
 // selection list.
-type selectedNameKind struct {
-	kind   string
+type selectedNameWords struct {
+	noun   string
 	action string
 	hint   string
 }
 
 // addSelectedNames adds the comma-separated names in raw to target, rejecting
 // an empty, unknown, or repeated entry.
-func addSelectedNames(raw string, available, target map[string]bool, words selectedNameKind) error {
+func addSelectedNames(raw string, available, target map[string]bool, words selectedNameWords) error {
 	for candidate := range strings.SplitSeq(raw, ",") {
 		candidate = strings.TrimSpace(candidate)
 		if candidate == "" {
-			return fmt.Errorf("invalid empty %s in %q", words.kind, raw)
+			return fmt.Errorf("invalid empty %s in %q", words.noun, raw)
 		}
 		if !available[candidate] {
-			return fmt.Errorf("unknown %s %q (%s)", words.kind, candidate, words.hint)
+			return fmt.Errorf("unknown %s %q (%s)", words.noun, candidate, words.hint)
 		}
 		if target[candidate] {
-			return fmt.Errorf("%s %q is %s more than once", words.kind, candidate, words.action)
+			return fmt.Errorf("%s %q is %s more than once", words.noun, candidate, words.action)
 		}
 		target[candidate] = true
 	}

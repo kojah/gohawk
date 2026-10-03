@@ -3,7 +3,6 @@ package docexamples
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +20,9 @@ func TestParseRegions(t *testing.T) {
 	}
 	if got, want := regions[0].code, "func bad() {}"; got != want {
 		t.Fatalf("display code = %q, want %q", got, want)
+	}
+	if regions[0].kind != exampleFlagged {
+		t.Fatalf("marker kind = %v, want flagged", regions[0].kind)
 	}
 	if got, want := regions[0].title, "Direct failure"; got != want {
 		t.Fatalf("title = %q, want %q", got, want)
@@ -49,8 +51,8 @@ func TestReadRegionsAllowsMultipleFlagged(t *testing.T) {
 
 func TestParseRegionsRejectsUnclosedMarker(t *testing.T) {
 	_, err := parseRegions("example.go", []byte("//gohawk:example ok\nfunc ok() {}\n"))
-	if err == nil || !strings.Contains(err.Error(), "unclosed") {
-		t.Fatalf("error = %v, want unclosed marker error", err)
+	if err == nil || err.Error() != "example.go: unclosed ok example" {
+		t.Fatalf("error = %v, want unchanged unclosed OK marker wording", err)
 	}
 }
 
