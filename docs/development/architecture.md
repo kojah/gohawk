@@ -266,3 +266,16 @@ and completion and transfer proofs under `internal/lifecycle`; they are implemen
 details rather than an external integration API. Cross-cutting
 diagnostic, catalog, flag, and trace infrastructure lives in its own focused
 internal package instead of being folded into analysis utilities.
+
+
+## Call-effect binding metadata
+
+Shared value, field and closure call-effect queries consume the existing lazy
+`CallBindingsWithin` iterator under their request allowance. One metadata
+completion fence invalidates active value/field memo answers on cutoff.
+Discovered effects remain possible-use evidence, but an unvisited binding cannot
+supply absence of mutation or retention. Exact address matching, embedded-field
+selection, loaded-pointee separation and asynchronous-use policy remain local to
+the corresponding query. Fresh allowances can recover complete evidence without
+retaining a partial purity answer. This bounds binding metadata, not arbitrary
+transitive heap construction or all query costs.

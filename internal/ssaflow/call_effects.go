@@ -72,7 +72,7 @@ func (query *CallEffects) proof(effects CallEffect) CallEffectProof {
 	if effects&effectUnknown != 0 {
 		proof.State, proof.Reason = EvidenceUnknown, EvidenceUnavailable
 	}
-	if query.budget == nil || query.budget.Exhausted() {
+	if query.budget == nil || query.budget.Exhausted() || query.budget.PoolExhausted() {
 		proof.State, proof.Reason = EvidenceUnknown, EvidenceBudgetExhausted
 	}
 	return CallEffectProof{Proof: proof, Effects: effects & ^effectUnknown}
@@ -116,11 +116,14 @@ func (query *CallEffects) call(instruction ssa.Instruction, value ssa.Value) Cal
 		return effects | effectUnknown
 	}
 	found := false
-	for _, binding := range CallBindings(common, function, closure) {
+	for binding := range CallBindingsWithin(common, function, closure, query.budget) {
 		if binding.Supplied == value {
 			found = true
 			effects |= query.value(binding.Local)
 		}
+	}
+	if !query.bindingMetadataComplete() {
+		return effects | effectUnknown
 	}
 	if !found {
 		effects |= effectUnknown
@@ -139,4 +142,18 @@ func builtinEffects(name string) CallEffect {
 	default:
 		return effectUnknown
 	}
+}
+
+// bindingMetadataComplete fences the shared lazy census for value, field and
+// closure queries. Discovered effects survive cutoff, but missing bindings must
+// not become purity evidence or a memoized complete answer.
+func (query *CallEffects) bindingMetadataComplete() bool {
+	if !query.budget.Exhausted() && !query.budget.PoolExhausted() {
+		return true
+	}
+	query.memo.Incomplete()
+	if query.fields != nil {
+		query.fields.Incomplete()
+	}
+	return false
 }

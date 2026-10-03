@@ -82,10 +82,13 @@ func (query *CallEffects) closure(closure *ssa.MakeClosure, value ssa.Value) Cal
 		return effectUnknown
 	}
 	var effects CallEffect
-	for _, binding := range CallBindings(nil, function, closure) {
+	for binding := range CallBindingsWithin(nil, function, closure, query.budget) {
 		if binding.Supplied == value {
 			effects |= query.value(binding.Local)
 		}
+	}
+	if !query.bindingMetadataComplete() {
+		return effects | effectUnknown
 	}
 	for _, use := range *closure.Referrers() {
 		if !query.budget.Spend() {

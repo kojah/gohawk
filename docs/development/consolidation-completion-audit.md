@@ -5255,3 +5255,26 @@ Canonical verification passes all eight gates, and its binary matches the
 frozen reviewed binary. Final architecture tests after documentation updates
 pass. These receipts establish the scoped change, not the original goal's
 completion.
+
+
+## Shared call-effect binding metadata
+
+Bead `gohawk-dho.23.21.7` replaces eager binding collection in value, embedded-
+field and closure call-effect queries with the shared lazy metadata driver.
+A single completion fence owns memo invalidation for local and shared-pool
+cutoffs. Discovered effects survive, but an incomplete census cannot establish
+purity. Exact address/path and asynchronous-use policies retain their distinct
+query contracts. This bounds metadata without claiming every transitive cost
+is accounted for.
+
+The [call-effect audit](../../benchmarks/precision/audits/call-effect-binding-metadata-2026-10-03.md)
+records three parent assertion failures, current cutoff/fresh-allowance controls,
+preserved capture reads and a later matching mutation recovered after cutoff.
+Fourteen terminal all-check receipts preserve complete merged payloads in five
+fixture and two pinned production scopes. No FP correction is credited; the
+five-site queue and broader semantic reconciliation remain active. No full
+precision replay or local race test is part of this iteration.
+
+Final canonical verification passes all eight gates and its binary matches the
+frozen reviewed binary. Architecture tests after documentation updates pass.
+The receipts establish this scoped cleanup; broader completion remains unproven.

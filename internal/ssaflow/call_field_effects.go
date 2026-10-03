@@ -43,13 +43,16 @@ func (query *CallEffects) fieldCall(instruction ssa.Instruction, path EmbeddedFi
 		effects |= EffectAsync
 	}
 	found := false
-	for _, binding := range CallBindings(common, function, closure) {
+	for binding := range CallBindingsWithin(common, function, closure, query.budget) {
 		if binding.Supplied == path.Root {
 			found = true
 			bound := path
 			bound.Root = binding.Local
 			effects |= query.fieldValue(bound)
 		}
+	}
+	if !query.bindingMetadataComplete() {
+		return effects | effectUnknown
 	}
 	if !found {
 		return effects | effectUnknown
