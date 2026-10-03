@@ -29,7 +29,7 @@ func TestCatalogValidatesDeclarations(t *testing.T) {
 			return groups, []AnalyzerID{"sample"}
 		}, want: "invalid check identity"},
 		{name: "missing check kind", mutate: func(groups []GroupSpec) ([]GroupSpec, []AnalyzerID) {
-			groups[0].Analyzers[0].Checks[0].Kind = ""
+			groups[0].Analyzers[0].Checks[0].Kind = 0
 			return groups, []AnalyzerID{"sample"}
 		}, want: "invalid kind"},
 		{name: "missing execution entry", mutate: func(groups []GroupSpec) ([]GroupSpec, []AnalyzerID) {

@@ -206,6 +206,8 @@ the code cannot drift apart silently.
 | `TestNoRawReasonClassifications` | all production Go reason domains use numeric enums; raw reason fields, parameters, declarations, assignments, and literal classifications are rejected outside the two textual output-boundary files |
 | `TestNoRawKindEnums` | authored production and test code use numeric kind discriminators; raw kind fields, parameters, named results and literal assignments are rejected |
 | `TestRawKindEnumMatcher` | kind checks distinguish typed enum values and output wording from raw discriminator strings, without inspecting embedded fixture source |
+| `TestNoNamedStringEnums` | authored classification types named Kind, Tier, Outcome, Provenance, Reason, State, Mode or Action use numeric representations; direct string definitions and aliases are rejected |
+| `TestNamedStringEnumMatcher` | named enum checks accept numeric definitions, aliases to owning domains and textual IDs; embedded fixture source remains opaque |
 | `TestRawReasonClassificationMatcher` | migration accounting recognizes raw reason fields, parameters, assignments, and composite literals without treating ordinary display text as classification |
 | `TestAnalyzersUseSymbolIdentity` | well-known functions matched through `syntax.Symbol`, not reconstructed from package paths and names |
 | `TestProductionCodeReturnsTerminationDecisions` | no `panic`, `log.Fatal`, or `os.Exit` in analyzer or library code |
@@ -243,6 +245,14 @@ Internal classifications use domain-owned numeric enums, with explicit unset
 and invalid values. Convert to stable textual codes at tracing, serialization,
 or display boundaries; keep free-form explanations separate. Do not place
 analyzer-specific vocabulary in a single global reason catalog.
+
+Check kinds and tiers have one owning numeric implementation in
+`internal/catalog/classification.go`; the public analyzer API aliases these
+same domains. Proof provenance and trace outcomes likewise use numeric domains.
+`internal/enumtext` supplies their text codec, preserving existing JSON labels
+and empty labels for unset zero values. Unknown labels and invalid numeric wire
+values are rejected. Go callers use the named constants or parsing methods;
+string literals and string casts no longer construct these enums.
 
 Synchronization queries preserve a typed graph failure or upstream concurrency
 summary cause. Consumers must retain that cause rather than convert it to text

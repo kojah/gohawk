@@ -516,8 +516,8 @@ func (evidence *LifecycleEvidence) emit(request EvidenceRequest, proof Proof) {
 	if proof.Method != "" {
 		details["method"] = proof.Method
 	}
-	if proof.Provenance != "" {
-		details["provenance"] = string(proof.Provenance)
+	if proof.Provenance != 0 {
+		details["provenance"] = proof.Provenance.String()
 	}
 	position := token.NoPos
 	if request.Instruction != nil {

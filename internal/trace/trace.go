@@ -17,16 +17,6 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// Outcome is the result of an evidence decision.
-type Outcome string
-
-const (
-	OutcomeObserved Outcome = "observed"
-	OutcomeAccepted Outcome = "accepted"
-	OutcomeRejected Outcome = "rejected"
-	OutcomeUnknown  Outcome = "unknown"
-)
-
 // event is one stable analyzer evidence decision. Details should contain only
 // compact identifiers and counts; tracing is diagnostic metadata, not an SSA
 // serialization format.

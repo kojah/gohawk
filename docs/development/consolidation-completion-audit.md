@@ -5322,3 +5322,17 @@ text with names describing their output role. The [boundary record](../../benchm
 records gate, inventory, marker and CLI compatibility controls. Named string
 domains remain explicitly tracked by `gohawk-dho.23.32`; no full enum or goal
 completion is claimed.
+
+
+## Numeric classification domains
+
+Bead `gohawk-dho.23.32` migrates the catalog kind/tier owners and public
+aliases, proof provenance and trace outcomes to numeric enums. The shared text
+codec preserves supported wire labels and unset zero values. The authored-source
+architecture gate now catches direct named string classification declarations
+as well as raw kind discriminators. The [scoped record](../../benchmarks/precision/audits/numeric-enum-domains-2026-10-03.md)
+records codec, manifest, CLI, full diagnostic and candidate trace comparisons.
+Direct declaration coverage is bounded: indirect aliases and arbitrary string
+roles still require review. Public Go clients use constants/parsing rather than
+string construction. The five-site queue and transitive semantic review remain
+open; this task earns no FP credit or overall goal completion.

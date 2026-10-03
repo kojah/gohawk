@@ -87,14 +87,6 @@ const (
 	EvidenceProven
 )
 
-// EvidenceProvenance identifies the analysis boundary that supplied a proof.
-type EvidenceProvenance string
-
-const (
-	EvidenceFromLocalSSA     EvidenceProvenance = "local-ssa"
-	EvidenceFromImportedFact EvidenceProvenance = "imported-fact"
-)
-
 // Proof records whether an SSA policy was established and why. Its zero value
 // represents an unproven relationship.
 type Proof struct {

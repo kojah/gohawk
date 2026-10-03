@@ -57,7 +57,7 @@ func TestCompletionUnknownReasonPriority(t *testing.T) {
 			}
 		})
 		proof := ProveCompletion(CompletionRequest{Instruction: instruction, Target: fn.Params[0], Methods: []string{"Close"}, Budget: budget})
-		provenance := ssaflow.EvidenceProvenance("")
+		provenance := ssaflow.EvidenceProvenance(0)
 		if test.local {
 			provenance = ssaflow.EvidenceFromLocalSSA
 		}

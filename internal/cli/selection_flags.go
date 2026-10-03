@@ -133,13 +133,13 @@ func requestedTier(arguments []string) (gohawk.CheckTier, []string, error) {
 		if !hasValue {
 			index++
 			if index >= len(arguments) {
-				return "", nil, errors.New("-tier requires a value: core, extended, or experimental")
+				return 0, nil, errors.New("-tier requires a value: core, extended, or experimental")
 			}
 			raw = arguments[index]
 		}
 		parsed, err := gohawk.ParseCheckTier(raw)
 		if err != nil {
-			return "", nil, err
+			return 0, nil, err
 		}
 		ceiling = parsed
 	}

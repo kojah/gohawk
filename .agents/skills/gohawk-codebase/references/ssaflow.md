@@ -1124,12 +1124,12 @@ it. That return is the proof's witness, which a diagnostic can cite.
 
 ## EvidenceFromLocalSSA, EvidenceFromImportedFact
 
-[Source](../../../../internal/ssaflow/proof_types.go)
+[Source](../../../../internal/ssaflow/proof_provenance.go)
 
 ```go
 const (
-	EvidenceFromLocalSSA		EvidenceProvenance	= "local-ssa"
-	EvidenceFromImportedFact	EvidenceProvenance	= "imported-fact"
+	EvidenceFromLocalSSA	EvidenceProvenance
+	EvidenceFromImportedFact
 )
 ```
 
@@ -1213,13 +1213,44 @@ const (
 
 ## EvidenceProvenance
 
-[Source](../../../../internal/ssaflow/proof_types.go)
+[Source](../../../../internal/ssaflow/proof_provenance.go)
 
 ```go
-type EvidenceProvenance string
+type EvidenceProvenance uint8
 ```
 
 EvidenceProvenance identifies the analysis boundary that supplied a proof.
+Zero means no boundary supplied evidence; it retains the empty wire label.
+
+## EvidenceProvenance.MarshalText
+
+[Source](../../../../internal/ssaflow/proof_provenance.go)
+
+```go
+func (value EvidenceProvenance) MarshalText() ([]byte, error)
+```
+
+MarshalText preserves string labels in text and JSON output.
+
+## EvidenceProvenance.String
+
+[Source](../../../../internal/ssaflow/proof_provenance.go)
+
+```go
+func (value EvidenceProvenance) String() string
+```
+
+String returns the stable presentation label.
+
+## EvidenceProvenance.UnmarshalText
+
+[Source](../../../../internal/ssaflow/proof_provenance.go)
+
+```go
+func (value *EvidenceProvenance) UnmarshalText(text []byte) error
+```
+
+UnmarshalText accepts only domain labels and leaves value unchanged on error.
 
 ## EvidenceReason
 

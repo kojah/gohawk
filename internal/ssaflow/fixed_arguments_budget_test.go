@@ -147,7 +147,7 @@ func TestFixedArgumentPartialCensusDiscarded(t *testing.T) {
 func TestFixedArgumentMetadataCensus(t *testing.T) {
 	budget := ssaflow.NewSearchBudget(0)
 	proof := ssaflow.ProveFixedArgumentsWithin(nil, nil, nil, nil, budget)
-	if !proof.Proven() || proof.Values != nil || budget.Exhausted() || proof.Provenance != "" {
+	if !proof.Proven() || proof.Values != nil || budget.Exhausted() || proof.Provenance != 0 {
 		t.Fatalf("metadata=%+v", proof)
 	}
 }

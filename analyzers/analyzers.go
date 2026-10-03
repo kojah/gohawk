@@ -257,7 +257,7 @@ func publicAnalyzerInfo(spec catalog.AnalyzerSpec) AnalyzerInfo {
 	checks := make([]AnalyzerCheckInfo, len(spec.Checks))
 	for index, check := range spec.Checks {
 		checks[index] = AnalyzerCheckInfo{
-			ID: AnalyzerCheck(check.ID), Doc: check.Doc, Help: check.Help, Kind: CheckKind(check.Kind), Tier: CheckTier(check.Tier),
+			ID: AnalyzerCheck(check.ID), Doc: check.Doc, Help: check.Help, Kind: check.Kind, Tier: check.Tier,
 		}
 	}
 	return AnalyzerInfo{Checks: checks}

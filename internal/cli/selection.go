@@ -61,7 +61,7 @@ func buildExecutionPlan(
 
 func registerSelectionFlags() {
 	flag.Bool("enable-all", false, "enable every analyzer and check at every tier")
-	flag.String("tier", string(gohawk.CheckTierCore), "most permissive tier to run without naming a check: core or experimental")
+	flag.String("tier", gohawk.CheckTierCore.String(), "most permissive tier to run without naming a check: core or experimental")
 	flag.String("enable", "", "enable comma-separated analyzers")
 	flag.String("disable", "", "disable comma-separated analyzers")
 	flag.String("enable-checks", "", "enable comma-separated checks by stable ID")

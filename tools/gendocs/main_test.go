@@ -45,7 +45,7 @@ func TestGeneratedManifestMatchesCatalog(t *testing.T) {
 				t.Errorf("analyzer %q check metadata was not copied", analyzer.Name)
 			}
 			for checkIndex, check := range analyzer.Checks {
-				if check.ID == "" || check.Summary == "" || check.Kind == "" {
+				if check.ID == "" || check.Summary == "" || check.Kind == 0 {
 					t.Errorf("analyzer %q generated incomplete check metadata: %+v", analyzer.Name, check)
 				}
 				if check.Kind != info.Checks[checkIndex].Kind {
@@ -134,7 +134,7 @@ func TestGroupCardsUsesAnalyzerSummaryAndOmitsActivationMetadata(t *testing.T) {
 		Analyzers: []analyzer{{
 			Name:    "example",
 			Summary: "Checks the complete example problem.",
-			Checks:  []check{{ID: "example/problem", Kind: "defect"}},
+			Checks:  []check{{ID: "example/problem", Kind: gohawk.CheckKindDefect}},
 		}},
 	})
 	if !strings.Contains(cards, "Checks the complete example problem.") {
@@ -247,7 +247,7 @@ func TestChecksBlockIncludesIDsDescriptionsAndTier(t *testing.T) {
 	block, err := checksBlock("example", []check{{
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
-		Kind:    "hazard",
+		Kind:    gohawk.CheckKindHazard,
 		Tier:    gohawk.CheckTierExperimental,
 	}})
 	if err != nil {
@@ -271,7 +271,7 @@ func TestChecksBlockOmitsDefaultActivation(t *testing.T) {
 	block, err := checksBlock("example", []check{{
 		ID:      "example/problem",
 		Summary: "Reports the example problem.",
-		Kind:    "policy",
+		Kind:    gohawk.CheckKindPolicy,
 		Tier:    gohawk.CheckTierCore,
 	}})
 	if err != nil {

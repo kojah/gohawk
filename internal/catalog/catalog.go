@@ -2,7 +2,6 @@
 package catalog
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -17,62 +16,6 @@ type AnalyzerID string
 
 // GroupID identifies a related set of analyzers.
 type GroupID string
-
-// CheckKind describes the semantic claim made by a diagnostic rule.
-type CheckKind string
-
-const (
-	// KindDefect identifies behavior that the available evidence establishes as broken or ineffective.
-	KindDefect CheckKind = "defect"
-	// KindHazard identifies risky behavior whose harm depends on a wider runtime contract.
-	KindHazard CheckKind = "hazard"
-	// KindPolicy identifies valid Go that violates an intentionally selected engineering convention.
-	KindPolicy CheckKind = "policy"
-)
-
-// CheckTier records how much trust a check has earned and therefore whether
-// it runs without being asked for. Tiers are ordered: core is enabled by
-// default, and experimental must be selected under an explicit experimental
-// ceiling or by check ID.
-type CheckTier string
-
-const (
-	// TierCore identifies checks whose precision is demonstrated on the
-	// repository audit and guarded by the precision replay; they run by default.
-	TierCore CheckTier = "core"
-	// TierExperimental identifies heuristic audits that may change or be
-	// retired; they run only under an experimental ceiling or by check ID.
-	TierExperimental CheckTier = "experimental"
-)
-
-// Tiers lists the tiers from most to least trusted.
-func Tiers() []CheckTier {
-	return []CheckTier{TierCore, TierExperimental}
-}
-
-// ParseTier returns the tier named by value.
-func ParseTier(value string) (CheckTier, error) {
-	for _, tier := range Tiers() {
-		if string(tier) == value {
-			return tier, nil
-		}
-	}
-	if value == "extended" {
-		// The extended tier was removed on 2026-09-25 while it held no checks.
-		return "", errors.New("the extended tier was removed; use core or experimental")
-	}
-	return "", fmt.Errorf("unknown tier %q (expected core or experimental)", value)
-}
-
-// Within reports whether tier is at or above the trust of ceiling, so a
-// ceiling of experimental admits core and experimental checks.
-func (tier CheckTier) Within(ceiling CheckTier) bool {
-	return tierRank(tier) <= tierRank(ceiling)
-}
-
-func tierRank(tier CheckTier) int {
-	return slices.Index(Tiers(), tier)
-}
 
 // CheckInfo describes one independently configurable diagnostic rule.
 type CheckInfo struct {

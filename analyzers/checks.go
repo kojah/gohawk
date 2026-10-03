@@ -6,38 +6,32 @@ import "github.com/kojah/gohawk/internal/catalog"
 type AnalyzerCheck string
 
 // CheckKind describes the semantic claim made by a diagnostic rule.
-type CheckKind string
+type CheckKind = catalog.CheckKind
 
 const (
 	// CheckKindDefect identifies behavior that the available evidence establishes as broken or ineffective.
-	CheckKindDefect CheckKind = "defect"
+	CheckKindDefect = catalog.KindDefect
 	// CheckKindHazard identifies risky behavior whose harm depends on a wider runtime contract.
-	CheckKindHazard CheckKind = "hazard"
+	CheckKindHazard = catalog.KindHazard
 	// CheckKindPolicy identifies valid Go that violates an intentionally selected engineering convention.
-	CheckKindPolicy CheckKind = "policy"
+	CheckKindPolicy = catalog.KindPolicy
 )
 
 // CheckTier records how much trust a check has earned and whether it runs
 // without being asked for: core runs by default, and experimental must be
 // selected under an explicit experimental ceiling or by check ID.
-type CheckTier string
+type CheckTier = catalog.CheckTier
 
 const (
 	// CheckTierCore identifies checks whose precision is demonstrated on the repository audit; they run by default.
-	CheckTierCore CheckTier = "core"
+	CheckTierCore = catalog.TierCore
 	// CheckTierExperimental identifies heuristic audits that may change or be retired.
-	CheckTierExperimental CheckTier = "experimental"
+	CheckTierExperimental = catalog.TierExperimental
 )
 
 // ParseCheckTier returns the tier named by value.
 func ParseCheckTier(value string) (CheckTier, error) {
-	tier, err := catalog.ParseTier(value)
-	return CheckTier(tier), err
-}
-
-// Within reports whether tier is at or above the trust of ceiling.
-func (tier CheckTier) Within(ceiling CheckTier) bool {
-	return catalog.CheckTier(tier).Within(catalog.CheckTier(ceiling))
+	return catalog.ParseTier(value)
 }
 
 // AnalyzerCheckInfo describes a specific diagnostic rule.
