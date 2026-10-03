@@ -18,38 +18,44 @@ const (
 	reasonUnusedCommandOwnershipUnknown
 	reasonProgramLifetimeOwnershipUnknown
 	reasonCommandUseCutoff
+	reasonCallerCommandOwnershipUnknown
+	reasonAggregateCommandOwnershipUnknown
+	reasonPreStartOwnershipUnknown
+	reasonSuccessfulStartCannotReturn
+	reasonLocalWaitObligation
+	reasonPreStartCutoff
+	reasonPreStartEvidenceUnavailable
 	processReasonCount
 )
 
+// Presentation cannot choose ownership policy. This read-only table has one
+// spelling per proof reason; tests require every enum entry to be covered.
+var processReasonCodes = [...]string{
+	reasonNone:                             "",
+	reasonHelperOwnershipUnknown:           "helper-command-ownership-unknown",
+	reasonStartFailureReturn:               "start-failure-return",
+	reasonSuccessfulStartProcessNonNil:     "successful-start-process-non-nil",
+	reasonReturnedOwner:                    "returned-value-owns-command",
+	reasonReturnedHandle:                   "returns-process-handle",
+	reasonReturnedMergedOwner:              "returned-value-owns-merged-command",
+	reasonWaitOwnershipProven:              "wait-ownership-proven",
+	reasonUnownedReturn:                    "unowned-return",
+	reasonAmbiguousWaitOwnership:           "ambiguous-wait-ownership",
+	reasonUnusedCommandOwnershipUnknown:    "unused-command-ownership-unknown",
+	reasonProgramLifetimeOwnershipUnknown:  "program-lifetime-ownership-unknown",
+	reasonCommandUseCutoff:                 "command-use-budget-exhausted",
+	reasonCallerCommandOwnershipUnknown:    "caller-command-ownership-unknown",
+	reasonAggregateCommandOwnershipUnknown: "aggregate-command-ownership-unknown",
+	reasonPreStartOwnershipUnknown:         "pre-start-ownership-unknown",
+	reasonSuccessfulStartCannotReturn:      "successful-start-cannot-return",
+	reasonLocalWaitObligation:              "local-wait-obligation",
+	reasonPreStartCutoff:                   "budget-exhausted",
+	reasonPreStartEvidenceUnavailable:      "evidence-unavailable",
+}
+
 func (reason processReason) String() string {
-	switch reason {
-	case reasonNone:
-		return ""
-	case reasonHelperOwnershipUnknown:
-		return "helper-command-ownership-unknown"
-	case reasonStartFailureReturn:
-		return "start-failure-return"
-	case reasonSuccessfulStartProcessNonNil:
-		return "successful-start-process-non-nil"
-	case reasonReturnedOwner:
-		return "returned-value-owns-command"
-	case reasonReturnedHandle:
-		return "returns-process-handle"
-	case reasonReturnedMergedOwner:
-		return "returned-value-owns-merged-command"
-	case reasonWaitOwnershipProven:
-		return "wait-ownership-proven"
-	case reasonUnownedReturn:
-		return "unowned-return"
-	case reasonAmbiguousWaitOwnership:
-		return "ambiguous-wait-ownership"
-	case reasonUnusedCommandOwnershipUnknown:
-		return "unused-command-ownership-unknown"
-	case reasonProgramLifetimeOwnershipUnknown:
-		return "program-lifetime-ownership-unknown"
-	case reasonCommandUseCutoff:
-		return "command-use-budget-exhausted"
-	default:
+	if int(reason) >= len(processReasonCodes) {
 		return "invalid-process-reason"
 	}
+	return processReasonCodes[reason]
 }

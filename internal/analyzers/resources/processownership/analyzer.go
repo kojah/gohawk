@@ -44,7 +44,9 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				evidence.ForCandidate(start.Pos())
 				probe := analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos())
 				proof := &commandProof{evidence: evidence, pool: ssaflow.NewSearchBudget(processPoolBudget).Observed(probe.Observer())}
-				if commandOwnedElsewhere(pass, proof, function, start, command) {
+				decision := proveProcessStart(proof, function, start, command)
+				if decision.state != ssaflow.EvidenceProven {
+					emitProcessDecision(pass, function, start, command, decision)
 					continue
 				}
 				reportStartedCommand(pass, proof, function, start, command)
@@ -62,61 +64,6 @@ func startedCommand(instruction ssa.Instruction) (*ssa.Call, ssa.Value, bool) { 
 		return nil, nil, false
 	}
 	return start, ssaflow.CallReceiver(start.Common()), true
-}
-
-// commandOwnedElsewhere reports whether the started command's Wait
-// responsibility provably or possibly lies outside this function, so the
-// flow after Start is not asked about it.
-func commandOwnedElsewhere(
-	pass *analysis.Pass, proof *commandProof, function *ssa.Function, start *ssa.Call, command ssa.Value,
-) bool {
-	prefix := collectProcessStartInstructions(start, command, proof.budget())
-	if !prefix.Proven() {
-		analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos()).Decision(analysisTrace.Step{
-			Reason: prefix.Reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: start.Pos(),
-		})
-		return true
-	}
-	owners := prefix.owners
-	// A helper returning *exec.Cmd may already have registered cleanup
-	// or wait ownership. Without interprocedural evidence either way,
-	// reporting here would trade precision for recall. containerd wraps
-	// command construction and returns the started command in binaryIO:
-	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/cmd/containerd-shim-runc-v2/process/io.go#L288-L330
-	if commandReturnedByHelper(command) {
-		analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos()).Decision(analysisTrace.Step{
-			Reason: reasonHelperOwnershipUnknown.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: start.Pos(),
-		})
-		return true
-	}
-	// Caller retains a parameter command after this helper returns, so
-	// helper-local Start does not transfer caller's Wait responsibility.
-	if heapmodel.MayAliasAny(command, parameterValues(function.Params)) || ssaflow.ExternallyOwnedValue(command) {
-		return true
-	}
-	// A command loaded from an element of an aggregate is shared with
-	// every other reader of that aggregate, which may wait on it through
-	// a different element load the flow cannot link back. cocoon starts
-	// worker commands from one loop over a slice and waits in another:
-	// https://github.com/cocoonstack/cocoon/blob/51ff88bcf8f175a2d82b162d9bf9f65604a607b5/cmd/storebench/main.go#L123-L138
-	if ssaflow.ElementOfAggregate(command) {
-		return true
-	}
-	// Cleanup may be registered before Start. This is common when a
-	// constructor builds a teardown closure first, then starts the
-	// process and returns that closure to its caller.
-	if processOwnershipDominatesStart(proof, prefix.instructions, command) ||
-		processOwnerDominatesStart(proof, function, start, owners, prefix.instructions) ||
-		commandStoredExternallyBeforeStart(prefix.instructions, command) {
-		return true
-	}
-	returns := successfulStartCannotReturn(start, proof.budget())
-	if returns.Reason == ssaflow.EvidenceBudgetExhausted {
-		analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos()).Decision(analysisTrace.Step{
-			Reason: returns.Reason.String(), Outcome: analysisTrace.OutcomeUnknown, Pos: start.Pos(),
-		})
-	}
-	return returns.State != ssaflow.EvidenceDisproven
 }
 
 // reportStartedCommand asks the flow whether every successful return waits on

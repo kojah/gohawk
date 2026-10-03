@@ -278,3 +278,15 @@ keep independent costs. `command_use_test.go` pins completed positive/negative
 SSA shapes, every cutoff, fresh recovery, loop-back-edge semantics and the final
 candidate-attributed cutoff trace. Existing fixtures remain the diagnostic and
 accepted behavior controls.
+
+## Authoritative pre-Start decision
+
+`proveProcessStart` owns the ordered pre-Start suppression rules. Its structured
+state and stable reason drive entry dispatch and the same final trace adapter
+used after Start. Caller storage, aggregate elements and possible registration
+produce unknown ownership; proven absence of a successful normal return is
+accepted. A local wait obligation proceeds to flow analysis and emits no final
+pre-Start decision. Existing rule order, query allowances and diagnostics remain.
+`prestart_decision_test.go` covers each outcome and exhausted/unavailable inputs;
+the analyzer trace test requires one candidate-associated final decision for
+caller ownership, deferred registration and a nonreturning success path.

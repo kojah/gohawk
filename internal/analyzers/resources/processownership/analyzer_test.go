@@ -29,6 +29,7 @@ func TestAnalyzer(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := map[string]bool{}
+	preStart := map[string]int{"callerOwnsWait": 0, "ownerRegisteredBeforeStart": 0, "processExitOwnsTermination": 0}
 	unusedDecisions := map[string]int{
 		"launchBrowser": 0, "pipeOnlyInput": 0, "pipeOnlyOutput": 0, "pipeOnlyErrorOutput": 0,
 	}
@@ -40,8 +41,14 @@ func TestAnalyzer(t *testing.T) {
 		if event.Phase == "decision" {
 			found[event.Outcome] = true
 		}
+		assertPreStartProcessTrace(t, event, preStart)
 		assertUnusedProcessTrace(t, event, unusedDecisions)
 		assertProcessTraceBoundary(t, event, found)
+	}
+	for function, count := range preStart {
+		if count != 1 {
+			t.Errorf("%s: want one pre-start final decision, got %d", function, count)
+		}
 	}
 	for function, count := range unusedDecisions {
 		if count != 1 {
@@ -134,4 +141,25 @@ func processTraceFile(t *testing.T) string {
 
 func TestProgramEntryAnalyzer(t *testing.T) {
 	analyzertest.Run(t, analysistest.TestData(), Analyzer(), "processentry", "processentryloop", "processentryreferenced")
+}
+
+func assertPreStartProcessTrace(t *testing.T, event processTraceEvent, decisions map[string]int) {
+	t.Helper()
+	if event.Phase != "decision" {
+		return
+	}
+	for function := range decisions {
+		if !strings.HasSuffix(event.Function, "."+function) {
+			continue
+		}
+		decisions[function]++
+		want := map[string]struct{ reason, outcome string }{
+			"callerOwnsWait":             {"caller-command-ownership-unknown", "unknown"},
+			"ownerRegisteredBeforeStart": {"pre-start-ownership-unknown", "unknown"},
+			"processExitOwnsTermination": {"successful-start-cannot-return", "accepted"},
+		}[function]
+		if event.Reason != want.reason || event.Outcome != want.outcome || event.Candidate == "" {
+			t.Errorf("%s: final pre-start decision = %+v, want %+v", function, event, want)
+		}
+	}
 }

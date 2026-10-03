@@ -5278,3 +5278,15 @@ precision replay or local race test is part of this iteration.
 Final canonical verification passes all eight gates and its binary matches the
 frozen reviewed binary. Architecture tests after documentation updates pass.
 The receipts establish this scoped cleanup; broader completion remains unproven.
+
+## Process pre-Start decision ownership
+
+Bead `gohawk-dho.23.28` moves the ordered pre-Start suppression rules out of entry
+orchestration into one structured decision beside their evidence queries. The
+entry point and final tracing consume that decision. Caller ownership,
+registration and aggregate storage remain unknown; a proven nonreturning success
+path is accepted. A local obligation continues to the existing post-Start flow.
+The [scoped audit](../../benchmarks/precision/audits/process-prestart-decision-2026-10-03.md)
+records actual SSA controls, parent-overlay missing-trace failures and preserved
+complete diagnostic payloads. Other semantic review families and the five-site
+production queue remain unresolved; this does not establish overall completion.

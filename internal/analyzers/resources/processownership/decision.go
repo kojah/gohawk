@@ -8,30 +8,31 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
-// This file turns the post-Start flow result into the final reporting decision.
+// This file owns final process decision presentation and post-Start policy.
+// Pre-Start suppressions and post-Start results share the same trace projection.
 // An unowned return is insufficient when the handle is unused: detached launch
 // intent remains unknown. Tracing consumes the same decision as reporting.
-type processReturnDecision struct {
+type processDecision struct {
 	state  ssaflow.EvidenceState
 	reason processReason
 }
 
-func decideProcessReturn(start *ssa.Call, command ssa.Value, witness *ssa.Return, unknown bool, budget *ssaflow.SearchBudget) processReturnDecision {
+func decideProcessReturn(start *ssa.Call, command ssa.Value, witness *ssa.Return, unknown bool, budget *ssaflow.SearchBudget) processDecision {
 	if witness == nil {
 		if unknown {
-			return processReturnDecision{ssaflow.EvidenceUnknown, reasonAmbiguousWaitOwnership}
+			return processDecision{ssaflow.EvidenceUnknown, reasonAmbiguousWaitOwnership}
 		}
-		return processReturnDecision{ssaflow.EvidenceDisproven, reasonWaitOwnershipProven}
+		return processDecision{ssaflow.EvidenceDisproven, reasonWaitOwnershipProven}
 	}
 	// Fire-and-forget alone cannot distinguish an intentional browser or
 	// daemon launch from a defect. Retiring the detached audit must not
 	// broaden missing-wait to report those same uncertain launches.
 	use := proveCommandUseAfterStart(start, command, budget)
 	if use.State == ssaflow.EvidenceUnknown {
-		return processReturnDecision{ssaflow.EvidenceUnknown, reasonCommandUseCutoff}
+		return processDecision{ssaflow.EvidenceUnknown, reasonCommandUseCutoff}
 	}
 	if use.State == ssaflow.EvidenceDisproven {
-		return processReturnDecision{ssaflow.EvidenceUnknown, reasonUnusedCommandOwnershipUnknown}
+		return processDecision{ssaflow.EvidenceUnknown, reasonUnusedCommandOwnershipUnknown}
 	}
 	// A one-time start in the executable's entry may be owned until program
 	// exit. An uncovered entry return cannot distinguish that lifetime from
@@ -40,12 +41,12 @@ func decideProcessReturn(start *ssa.Call, command ssa.Value, witness *ssa.Return
 	// referenced entries and reusable callees remain ordinary wait obligations.
 	// https://github.com/coder/acp-go-sdk/blob/0845a3bb9eddda5bfc22a94dd3598c90cb842451/example/agent/main.go#L401-L423
 	if ssaflow.RunsOnceInProgramEntry(start) {
-		return processReturnDecision{ssaflow.EvidenceUnknown, reasonProgramLifetimeOwnershipUnknown}
+		return processDecision{ssaflow.EvidenceUnknown, reasonProgramLifetimeOwnershipUnknown}
 	}
-	return processReturnDecision{ssaflow.EvidenceProven, reasonUnownedReturn}
+	return processDecision{ssaflow.EvidenceProven, reasonUnownedReturn}
 }
 
-func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa.Call, command ssa.Value, decision processReturnDecision) {
+func emitProcessDecision(pass *analysis.Pass, function *ssa.Function, start *ssa.Call, command ssa.Value, decision processDecision) {
 	checkID := string(check.ProcessWait)
 	if !analysisTrace.Enabled("processownership", checkID) {
 		return

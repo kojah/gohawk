@@ -242,3 +242,59 @@ func appendRegisteredOwnerResults(owners []ssa.Value, call *ssa.Call, budget *ss
 	}
 	return owners
 }
+
+// proveProcessStart owns the ordered pre-Start suppression policy. Proven means
+// a local wait obligation proceeds to flow analysis, not a proven violation.
+// Possible registration or external ownership remains unknown; only a proven
+// absence of successful normal returns yields an accepted final decision.
+func proveProcessStart(proof *commandProof, function *ssa.Function, start *ssa.Call, command ssa.Value) processDecision {
+	prefix := collectProcessStartInstructions(start, command, proof.budget())
+	if !prefix.Proven() {
+		reason := reasonPreStartEvidenceUnavailable
+		if prefix.Reason == ssaflow.EvidenceBudgetExhausted {
+			reason = reasonPreStartCutoff
+		}
+		return processDecision{ssaflow.EvidenceUnknown, reason}
+	}
+	owners := prefix.owners
+	// A helper returning *exec.Cmd may already have registered cleanup
+	// or wait ownership. Without interprocedural evidence either way,
+	// reporting here would trade precision for recall. containerd wraps
+	// command construction and returns the started command in binaryIO:
+	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/cmd/containerd-shim-runc-v2/process/io.go#L288-L330
+	if commandReturnedByHelper(command) {
+		return processDecision{ssaflow.EvidenceUnknown, reasonHelperOwnershipUnknown}
+	}
+	// Caller retains a parameter command after this helper returns, so
+	// helper-local Start does not transfer caller's Wait responsibility.
+	if heapmodel.MayAliasAny(command, parameterValues(function.Params)) || ssaflow.ExternallyOwnedValue(command) {
+		return processDecision{ssaflow.EvidenceUnknown, reasonCallerCommandOwnershipUnknown}
+	}
+	// A command loaded from an element of an aggregate is shared with
+	// every other reader of that aggregate, which may wait on it through
+	// a different element load the flow cannot link back. cocoon starts
+	// worker commands from one loop over a slice and waits in another:
+	// https://github.com/cocoonstack/cocoon/blob/51ff88bcf8f175a2d82b162d9bf9f65604a607b5/cmd/storebench/main.go#L123-L138
+	if ssaflow.ElementOfAggregate(command) {
+		return processDecision{ssaflow.EvidenceUnknown, reasonAggregateCommandOwnershipUnknown}
+	}
+	// Cleanup may be registered before Start. This is common when a
+	// constructor builds a teardown closure first, then starts the
+	// process and returns that closure to its caller.
+	if processOwnershipDominatesStart(proof, prefix.instructions, command) ||
+		processOwnerDominatesStart(proof, function, start, owners, prefix.instructions) ||
+		commandStoredExternallyBeforeStart(prefix.instructions, command) {
+		return processDecision{ssaflow.EvidenceUnknown, reasonPreStartOwnershipUnknown}
+	}
+	returns := successfulStartCannotReturn(start, proof.budget())
+	if returns.Reason == ssaflow.EvidenceBudgetExhausted {
+		return processDecision{ssaflow.EvidenceUnknown, reasonPreStartCutoff}
+	}
+	if returns.State == ssaflow.EvidenceProven {
+		return processDecision{ssaflow.EvidenceDisproven, reasonSuccessfulStartCannotReturn}
+	}
+	if returns.State == ssaflow.EvidenceUnknown {
+		return processDecision{ssaflow.EvidenceUnknown, reasonPreStartEvidenceUnavailable}
+	}
+	return processDecision{ssaflow.EvidenceProven, reasonLocalWaitObligation}
+}
