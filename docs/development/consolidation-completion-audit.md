@@ -5871,3 +5871,43 @@ three-family tests, canonical validation and scoped payloads. After publication,
 this closes the finite named-family inventory. The broader `.23` completion
 requirements and five-site easy-FP disposition still need reconciliation against
 current authoritative state; this inventory alone does not close the root goal.
+
+
+## Completion scope expansion to execution adapters
+
+The current completion audit at `21de366c` expands the normalized inventories
+from `internal/` to all authored production Go source under the repository.
+The same fixture/test/generated/vendor/dot/underscore exclusions retain 358
+files and 2,285 declarations. It finds six whole-body and 40 partial groups;
+one whole-body tier aggregation and seven overlapping report-filter windows
+are outside the earlier scan. This contradicts completion based solely on the
+internal inventory and produces Beads `gohawk-dho.23.21.16`.
+
+CLI and golangci plugin report filters now share `check.FilterAnalyzerReports`.
+It shallow-copies the analyzer, skips Run when all declared checks are disabled,
+filters exact diagnostic categories and projects the same reporting reason,
+phase and outcome. Run results/errors and pass.Report restoration are retained.
+Adapters still validate selections and choose their local disabled IDs. Public
+and internal catalog tier selection now delegate to `catalog.MostTrustedTier`;
+empty collections retain experimental and mixed collections retain the most
+trusted tier. No public metadata shape, check identity or CLI option changes.
+
+Focused tests verify partial filtering, original analyzer preservation, original
+result/error propagation, reporter restoration after error and all-disabled
+skip. Existing CLI/plugin integration covers default/explicit profiles, enabled
+and disabled individual checks, and selection validation. The broader root
+inventory is a candidate aid, not an exhaustive proof of semantic equivalence.
+
+Current pinned refresh scans the five affected scopes for Openase, goiardi,
+Ferro and the corrected Skywalking/Rune controls. Actual fresh probes retain
+Ferro's twelve-row implicit-zero/scalar-publication/state-feasibility gaps and
+goiardi's three-row mutable-global/caller-snapshot distinction without cutoff.
+Openase's pinned dependency Session.Close delegates to channel close, whereas
+Session.Wait awaits exit status and copy results. Close does not establish the
+reader goroutines have joined. These remain larger evidence models; budget
+silence is not credited as an FP correction.
+
+The scoped adapter review records validation and comparisons. The `.23`
+completion audit remains active: it must reconcile this widened scope and
+current five-site disposition with the original requirements, rather than
+closing from finite child reviews or scan counts alone.

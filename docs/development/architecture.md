@@ -179,6 +179,11 @@ for each; these times include each check's prerequisite passes.
 - `internal/check` and `internal/trace` provide reporting and evidence
   tracing. Every diagnostic flows through `check.Report`, which is what lets
   the tracer record whether a candidate was reported, suppressed, or removed.
+  CLI and plugin execution share `check.FilterAnalyzerReports`: exact check
+  category filtering, all-disabled skip, final trace projection and restoration
+  of the pass reporter have one implementation. Selection validation remains
+  in each adapter. Public and internal catalog metadata share tier aggregation
+  through `catalog.MostTrustedTier` without converting their check records.
 
 ## Invariants the tests enforce
 

@@ -42,6 +42,20 @@ func Tiers() []CheckTier {
 	return []CheckTier{TierCore, TierExperimental}
 }
 
+// MostTrustedTier returns the strongest tier supplied by checks. An empty
+// collection retains the experimental default. The accessor lets public and
+// internal metadata share this policy without converting their check records.
+func MostTrustedTier[Check any](checks []Check, tierOf func(Check) CheckTier) CheckTier {
+	tier := TierExperimental
+	for _, item := range checks {
+		candidate := tierOf(item)
+		if candidate.Within(tier) {
+			tier = candidate
+		}
+	}
+	return tier
+}
+
 // ParseTier returns the tier named by value.
 func ParseTier(value string) (CheckTier, error) {
 	for _, tier := range Tiers() {

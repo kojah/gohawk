@@ -12,7 +12,6 @@ import (
 	"github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/testvariant"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -110,7 +109,7 @@ func selectAnalyzers(settings pluginSettings) ([]*analysis.Analyzer, error) {
 				disabled[id] = true
 			}
 		}
-		configured := withDisabledChecks(analyzer, disabled, len(metadata[analyzer.Name].Checks))
+		configured := check.FilterAnalyzerReports(analyzer, disabled, len(metadata[analyzer.Name].Checks))
 		selected = append(selected, testvariant.IncludeProductionFiles(configured))
 	}
 	return selected, nil
@@ -128,33 +127,4 @@ func requestedChecks(setting string, values []string, owners map[string]string) 
 		requested[id] = true
 	}
 	return requested, nil
-}
-
-func withDisabledChecks(analyzer *analysis.Analyzer, disabled map[string]bool, checkCount int) *analysis.Analyzer {
-	wrapper := *analyzer
-	run := analyzer.Run
-	allDisabled := len(disabled) == checkCount
-	wrapper.Run = func(pass *analysis.Pass) (any, error) {
-		if allDisabled {
-			return nil, nil
-		}
-		report := pass.Report
-		pass.Report = func(diagnostic analysis.Diagnostic) {
-			if disabled[diagnostic.Category] {
-				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-					Analyzer: analyzer.Name, Phase: analysisTrace.PhaseDecision, Reason: check.ReportingDisabled.String(),
-					Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
-				})
-				return
-			}
-			analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-				Analyzer: analyzer.Name, Phase: analysisTrace.PhaseDecision, Reason: check.ReportingEmitted.String(),
-				Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
-			})
-			report(diagnostic)
-		}
-		defer func() { pass.Report = report }()
-		return run(pass)
-	}
-	return &wrapper
 }

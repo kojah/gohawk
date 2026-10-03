@@ -10,7 +10,6 @@ import (
 
 	gohawk "github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/check"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -155,32 +154,7 @@ func withDisabledChecks(analyzers []*analysis.Analyzer, metadata map[string]goha
 				analyzerDisabled[string(check.ID)] = true
 			}
 		}
-		wrapped := *analyzer
-		run := analyzer.Run
-		allDisabled := len(analyzerDisabled) == len(metadata[analyzer.Name].Checks)
-		wrapped.Run = func(pass *analysis.Pass) (any, error) {
-			if allDisabled {
-				return nil, nil
-			}
-			report := pass.Report
-			pass.Report = func(diagnostic analysis.Diagnostic) {
-				if analyzerDisabled[diagnostic.Category] {
-					analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-						Analyzer: analyzer.Name, Phase: analysisTrace.PhaseDecision, Reason: check.ReportingDisabled.String(),
-						Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
-					})
-					return
-				}
-				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-					Analyzer: analyzer.Name, Phase: analysisTrace.PhaseDecision, Reason: check.ReportingEmitted.String(),
-					Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
-				})
-				report(diagnostic)
-			}
-			defer func() { pass.Report = report }()
-			return run(pass)
-		}
-		result = append(result, &wrapped)
+		result = append(result, check.FilterAnalyzerReports(analyzer, analyzerDisabled, len(metadata[analyzer.Name].Checks)))
 	}
 	return result
 }

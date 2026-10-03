@@ -70,13 +70,7 @@ type AnalyzerSpec struct {
 // Tier is the most trusted tier among the analyzer's checks: the analyzer
 // runs whenever a check at that tier is selected.
 func (spec AnalyzerSpec) Tier() CheckTier {
-	tier := TierExperimental
-	for _, info := range spec.Checks {
-		if info.Tier.Within(tier) {
-			tier = info.Tier
-		}
-	}
-	return tier
+	return MostTrustedTier(spec.Checks, func(info CheckInfo) CheckTier { return info.Tier })
 }
 
 // EnabledAt reports whether the analyzer has a check that runs under ceiling.
