@@ -1,7 +1,10 @@
 // Package enumtext preserves textual output for domain-owned numeric enums.
 package enumtext
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // Name presents a valid label, including the unset zero label. Invalid numeric
 // values remain visible rather than impersonating an unset value.
@@ -20,13 +23,18 @@ func Encode[N ~uint8](value N, labels []string) ([]byte, error) {
 	return []byte(labels[value]), nil
 }
 
-// Decode resolves a wire label, including the unset zero label. Callers should
-// assign the returned value only on success to preserve their previous state.
-func Decode[N ~uint8](text []byte, labels []string) (N, error) {
+// Decode resolves a wire label into destination, including the unset zero
+// label. Unknown labels leave the previous value intact; a nil destination
+// returns an error.
+func Decode[N ~uint8](destination *N, text []byte, labels []string) error {
+	if destination == nil {
+		return errors.New("nil enum destination")
+	}
 	for index, label := range labels {
 		if string(text) == label {
-			return N(index), nil
+			*destination = N(index)
+			return nil
 		}
 	}
-	return 0, fmt.Errorf("unknown enum label %q", text)
+	return fmt.Errorf("unknown enum label %q", text)
 }

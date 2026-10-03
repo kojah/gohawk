@@ -5421,3 +5421,24 @@ original result-storage, identity, path, heap/type/alias and caller inventory
 scope. Broader semantic duplication review and the five-site production queue
 remain active; this child is not a reason to invent further speculative budget
 work or to claim architecture completion.
+
+
+## Current duplicate review and enum state-update rule
+
+Bead `gohawk-dho.23.21.9` removes the new four-way text decoder update copy
+introduced by numeric enums. The shared codec owns successful assignment and
+failed-decode preservation; typed adapters supply their domain labels. All
+canonical gates, domain wire controls and ten exact CLI comparisons pass.
+The [current scoped record](../../benchmarks/precision/audits/enum-decode-contract-2026-10-03.md)
+refreshes the complete/partial candidate scan at `ff0e35f` plus this change:
+334 files, 2,201 declarations, five whole-body and 35 partial candidates remain.
+It disposes the current indexed candidates from exact source and identifies two
+concrete remaining consolidations: callback stable-content agreement in
+`.23.21.10` and repeated selected instance identity in `.23.21.11`.
+
+The lock ownership parent has explicit recent dispositions for returned-result,
+instance identity, writer and caller selection. Declaration/path binding and
+heap/type/alias query internals retain separate cost owners; these reviews do
+not imply one transitive wall-clock bound. Broader completion still needs the
+remaining mechanical consolidations, parent evidence reconciliation and the
+five-site production FP assessment. No full replay or FP credit is claimed.

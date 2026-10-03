@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/analyzers"
+	"github.com/kojah/gohawk/internal/enumtext"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/trace"
 )
@@ -68,5 +69,11 @@ func TestInvalidDomainValues(t *testing.T) {
 		if _, err := json.Marshal(value); err == nil {
 			t.Errorf("%T accepted invalid numeric value", value)
 		}
+	}
+}
+
+func TestDecodeNilDestination(t *testing.T) {
+	if err := enumtext.Decode[uint8](nil, []byte(""), []string{""}); err == nil {
+		t.Fatal("nil destination accepted")
 	}
 }

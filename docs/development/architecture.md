@@ -250,8 +250,10 @@ Check kinds and tiers have one owning numeric implementation in
 `internal/catalog/classification.go`; the public analyzer API aliases these
 same domains. Proof provenance and trace outcomes likewise use numeric domains.
 `internal/enumtext` supplies their text codec, preserving existing JSON labels
-and empty labels for unset zero values. Unknown labels and invalid numeric wire
-values are rejected. Go callers use the named constants or parsing methods;
+and empty labels for unset zero values. The codec also owns updating a decoded
+receiver only on success, so domain adapters do not repeat that state rule.
+Unknown labels and invalid numeric wire values are rejected. Go callers use
+the named constants or parsing methods;
 string literals and string casts no longer construct these enums.
 
 Synchronization queries preserve a typed graph failure or upstream concurrency

@@ -78,11 +78,7 @@ func (value CheckKind) MarshalText() ([]byte, error) {
 
 // UnmarshalText accepts only domain labels and leaves value unchanged on error.
 func (value *CheckKind) UnmarshalText(text []byte) error {
-	parsed, err := enumtext.Decode[CheckKind](text, checkKindLabels[:])
-	if err == nil {
-		*value = parsed
-	}
-	return err
+	return enumtext.Decode(value, text, checkKindLabels[:])
 }
 
 var checkTierLabels = [...]string{0: "", TierCore: "core", TierExperimental: "experimental"}
@@ -97,9 +93,5 @@ func (value CheckTier) MarshalText() ([]byte, error) {
 
 // UnmarshalText accepts only domain labels and leaves value unchanged on error.
 func (value *CheckTier) UnmarshalText(text []byte) error {
-	parsed, err := enumtext.Decode[CheckTier](text, checkTierLabels[:])
-	if err == nil {
-		*value = parsed
-	}
-	return err
+	return enumtext.Decode(value, text, checkTierLabels[:])
 }

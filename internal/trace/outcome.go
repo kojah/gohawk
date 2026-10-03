@@ -44,9 +44,5 @@ func (value Outcome) MarshalText() ([]byte, error) { return enumtext.Encode(valu
 
 // UnmarshalText accepts only domain labels and leaves value unchanged on error.
 func (value *Outcome) UnmarshalText(text []byte) error {
-	parsed, err := enumtext.Decode[Outcome](text, outcomeLabels[:])
-	if err == nil {
-		*value = parsed
-	}
-	return err
+	return enumtext.Decode(value, text, outcomeLabels[:])
 }

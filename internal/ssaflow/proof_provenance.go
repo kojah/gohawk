@@ -26,9 +26,5 @@ func (value EvidenceProvenance) MarshalText() ([]byte, error) {
 
 // UnmarshalText accepts only domain labels and leaves value unchanged on error.
 func (value *EvidenceProvenance) UnmarshalText(text []byte) error {
-	parsed, err := enumtext.Decode[EvidenceProvenance](text, evidenceProvenanceLabels[:])
-	if err == nil {
-		*value = parsed
-	}
-	return err
+	return enumtext.Decode(value, text, evidenceProvenanceLabels[:])
 }
