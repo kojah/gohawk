@@ -2,12 +2,13 @@
 
 Beads `gohawk-dho.23` tracks the original objective: clean architecture,
 no unnecessary duplicated mechanics, and all remaining easy false positives
-addressed. This requirement reconciliation uses `e3957de9`; earlier sections
-retain their source pins and historical measurements. Source ownership and
-candidate dispositions are reconciled below. The fixed production queue refresh found a
-reappeared returned-logger FP. The [conditional-copy follow-up](../../benchmarks/precision/audits/conditional-return-copy-2026-10-03.md)
-records its repair and affected controls. The [final fixed-queue refresh](../../benchmarks/precision/audits/final-production-fp-refresh-2026-10-03.md)
-reconciles all original sites after the repair; overall requirement closure remains pending.
+addressed. The final [requirement closure](consolidation-closure-2026-10-03.md)
+verifies the current source, canonical gates, fixed production queue and larger
+model dispositions. Production source is at `da87150d`; the final queue ledger
+is published in `f6e8c953`. Earlier sections retain their source pins and
+historical measurements. The urunc regression and resource family discriminator
+found during completion review are corrected. Five larger-model sites remain
+explicitly tracked in `gohawk-xmz`, `gohawk-zta` and `gohawk-278`.
 
 ## Requirements and evidence
 
@@ -18,9 +19,9 @@ reconciles all original sites after the repair; overall requirement closure rema
 | One authoritative decision for every check | The eight-analyzer/ten-check inventory maps each reporter to its proof. Resource/cancel, goroutine, process, lock, defer-loop, producer and capture reconciliations cover their input, classification and final-result families. Public reporting and CLI/plugin filtering consume these results. | Named decision owners and source-family coverage are reconciled. Reporting filters and trace projections do not independently decide lifecycle policy. |
 | Numeric closed classification domains | Numeric kind, reason, phase and action migrations are recorded with syntax/type controls. The owner review found raw graph modes; `.23.40.1` keeps `lockorder.LockMode` numeric through the graph and CLI and extends raw parameter guards. | The identified kind/mode discriminators and the newly found resource family discriminator are fixed (`da87150d`, `.23.41`). Guards cover declared roles; source review distinguishes serialized labels and open identifiers from closed modes. |
 | Remaining easy FPs addressed | The original 55-site queue, focused corrections, separate Rune controls and source/SSA assessments remain authoritative. Five assessed sites need transport completion, relational caller/mutation evidence or receiver-conditioned result models. | The final 55-site refresh at 116376a8 records 52 absences, the two known goiardi FPs and the retained Promu true positive. All twenty-nine package scopes succeed; the only complete-payload change from e395 is the corrected urunc finding. The numeric family follow-up preserves four affected scopes exactly. Unknown/cutoff silence receives no correction credit. |
-| Precision preserved | Focused accepted/diagnostic controls and counterfactuals accompany implementation changes. The final mode binary preserves the two lock scopes' complete diagnostics, 86,727 records and 121 decisions. Earlier scoped control receipts retain their original pins and binary hashes. | Affected implementation checks pass. The fixed-queue refresh contradicts the older urunc absence receipt; the conditional-copy follow-up verifies the repaired site and retained Promu diagnostic. Final closure must keep those receipt scopes distinct. This is not a new audit of every historical batch. |
+| Precision preserved | Focused accepted/diagnostic controls and counterfactuals accompany implementation changes. The final mode binary preserves the two lock scopes' complete diagnostics, 86,727 records and 121 decisions. Earlier scoped control receipts retain their original pins and binary hashes. | Affected implementation checks pass. The fixed-queue refresh contradicts the older urunc absence receipt; the conditional-copy follow-up verifies the repaired site and retained Promu diagnostic. The final requirement closure keeps those receipt scopes distinct. This is not a new audit of every historical batch. |
 | Tight development cycle | Focused tests precede canonical validation. At `da87150d`, all eight final canonical gates cover generation, modules, vet, formatting, dead-code, lint, dogfood and ordinary tests. Final architecture checks pass; the preceding conditional-copy correction also has a complete passing receipt. | Maintained. No full precision-regression per iteration and no local race run. Documentation reconciliation reuses unaffected passing code receipts. |
-| Work tracked and own changes published | Beads records corrections and bounded reviews. `116376a8` and `da87150d` are pushed; upstream synchronization was verified. The staged blog-plan deletion and untracked artifacts remain untouched. | Publish the final queue reconciliation after documentation checks. Keep the original epic active until full requirement closure and the larger-model dispositions are verified. |
+| Work tracked and own changes published | Beads records corrections and bounded reviews. `116376a8` and `da87150d` are pushed; upstream synchronization was verified. The staged blog-plan deletion and untracked artifacts remain untouched. | The final queue and requirement closure are verified. Close the consolidation parents after publishing the closure; larger-model work remains separately tracked. |
 
 ## Broader duplicate-candidate scan
 
@@ -6361,3 +6362,16 @@ claim coverage of external code and every runtime configuration.
 The fixed queue and family correction are reconciled. Overall closure still
 requires the final requirement-by-requirement disposition, including the three
 remaining larger-model families, without changing the original easy-FP scope.
+
+
+## Requirement closure
+
+The [final requirement matrix](consolidation-closure-2026-10-03.md) reconciles
+all eight original requirements against current source and actual receipts,
+including canonical Makefile scope and source-inventory exclusions. Both Rune
+issues are closed with their current control keys absent. The five larger-model
+sites retain their exact source assessments and have explicit future contracts
+in `gohawk-xmz`, `gohawk-zta` and `gohawk-278`; none receives correction credit.
+All identified easy shared-mechanic, classification and precision gaps are
+resolved. The completion claim is the original consolidation/easy-FP objective,
+with the documented source and validation boundaries retained.
