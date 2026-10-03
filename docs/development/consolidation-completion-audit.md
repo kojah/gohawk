@@ -5758,3 +5758,36 @@ records canonical validation, the assertion-failing uncached overlay, twelve
 unchanged scoped diagnostic scans and final trace comparisons. Scanner candidate
 signatures remain unchanged; distinct instruction-cache and recursive
 function-summary contracts remain with their owning layers.
+
+
+## Process startup, guard and handle reconciliation
+
+Beads `gohawk-dho.23.21.13` bounds this inventory to the process family after
+`3c27597e`; `.13.1` replaces its remaining eager deferred binding queries.
+Current source fallback reviewed the orchestration, classifier, flow, decision,
+startup, values, deferred waiter, callback, command-use and returned-owner files.
+Graph MCP tools remain unavailable. This is a source-based family review,
+without a whole-repository semantic absence claim.
+
+| Evidence family | Authoritative policy and retained distinction |
+| --- | --- |
+| Pre-Start registration | `collectProcessStartInstructions` publishes only a completed dominating prefix and owner census. `proveProcessStart` orders helper/caller/aggregate uncertainty, registration and successful-return proofs. Wrapper supervision needs a deferred registration plus possible later watcher; a resultless helper supplies effect uncertainty rather than a wrapper owner. |
+| Successful command merge | `successfulCommandMerge` selects the exact incoming command on a proven successful edge and excludes cyclic successor blocks. `proveProcessReturns` starts at that merge with non-nil evidence. This differs from a possible merged Wait receiver, which supplies unknown in `provePossibleWaitHandoff`. |
+| Immediate Process guard | `proveImmediateProcessGuard` requires adjacent mutation-free blocks and fixes only the immediate load. It gives no stability guarantee to later field loads. Deferred guarded loads retain unknown and field replacements remain outside exact cleanup. |
+| Deferred Wait | One completed instruction/store/load census supplies capture-first and argument-second searches. Shared lazy binding iterators now consume the supplied allowance directly; cutoff stops before fallback or final disproof. Every-return coverage stays in the shared flow query. |
+| Callback and lower-level handle | Possible opaque callback capture and a nonreturning worker's positive Wait witness supply unknown. Exact visible completion remains separate. Known `Cmd.Wait`, projected `Process.Wait`/`Release`, external receiver storage and parameter-bound completion retain their existing structural contracts. The inventory does not strengthen mutable handle identity. |
+| Return permissions and reporting | Direct returned command/handle ownership permissions remain in `proveProcessReturns`; a returned aggregate containing a projected handle supplies classifier uncertainty. PID-only data does not qualify. `decideProcessReturn` requires command use and excludes uncertain one-time program entry; reporting and final tracing consume its decision. |
+
+The binding change removes eager slice preparation, preserving per-visit cost:
+the actual 65-argument closure completes at 86 visits in both implementations.
+A mid-argument cutoff returns unknown with the parent pool available; a fresh child
+proves the Wait. Existing accepted/diagnostic fixtures retain startup, merge,
+guard, callback, aggregate-owner and lower-handle boundaries. These are distinct
+contracts rather than interchangeable generic cleanup predicates.
+
+Validation and pinned comparison receipts belong in the
+[deferred binding review](../../benchmarks/precision/audits/process-deferred-binding-2026-10-03.md).
+This finite process review does not close broader `.23.21`: deferred-loop,
+producer, capture and lock family reconciliation remains, together with five
+reviewed production FP sites. Ferro receiver-state feasibility remains a model
+gap; cutoff silence supplies no correction credit.

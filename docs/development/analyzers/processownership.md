@@ -164,11 +164,18 @@ not make arbitrary loaded receiver identities equal. Capture proofs retain
 priority over argument proofs. The census, binding visits, selected witnesses
 and shared every-return coverage query use the command candidate's child
 allowance. Any interrupted stage supplies unknown, never exact cleanup or
-absence of ownership. Heap identity/type and binding metadata retain their
-existing separate cost boundaries.
+absence of ownership. Capture and argument metadata are yielded lazily by
+`ClosureBindingPairsWithin` and `CallBindingsWithin` under that same allowance.
+An interrupted capture census returns unknown before argument fallback, and an
+interrupted argument census returns unknown before final disproof. Heap
+identity/type queries retain their existing separate cost boundaries.
 
 `deferred_wait_test.go` uses compiled SSA to pin exact, conditional, guarded
 and replaced Process forms, intermediate cutoffs and fresh-child recovery.
+`deferred_binding_budget_test.go` adds an argument-heavy compiled closure:
+cutoff remains unknown with its parent pool available, and a fresh query proves
+the supplied-command Wait. The old and new query both complete at 86 visits;
+the change removes eager binding slices without claiming extra charged work.
 The classifier and coverage controls reject exhausted candidate/query budgets.
 Existing fixture pairs in `processownership.go` and `guarded_merge.go` preserve
 accepted defensive guards and diagnostic independent flags or field replacement.

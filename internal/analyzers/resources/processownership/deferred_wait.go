@@ -38,27 +38,27 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 	if !search.collect() {
 		return ssaflow.EvidenceUnknown
 	}
-	for _, captured := range ssaflow.ClosureBindingPairs(function, closure) {
-		if !budget.Spend() {
-			return ssaflow.EvidenceUnknown
-		}
+	for captured := range ssaflow.ClosureBindingPairsWithin(function, closure, budget) {
 		if heapmodel.CapturedBindingMatches(captured.Binding, command) {
 			if proof := search.waitsOnEveryReturn(captured.Free); proof != ssaflow.EvidenceDisproven {
 				return proof
 			}
 		}
 	}
+	if budget.Exhausted() {
+		return ssaflow.EvidenceUnknown
+	}
 	// Keep capture evidence first: an unknown captured waiter must not be
 	// reordered behind an argument proof by the shared positional mapping.
-	for _, binding := range ssaflow.CallBindings(common, function, nil) {
-		if !budget.Spend() {
-			return ssaflow.EvidenceUnknown
-		}
+	for binding := range ssaflow.CallBindingsWithin(common, function, nil, budget) {
 		if heapmodel.MayAlias(binding.Supplied, command) {
 			if proof := search.waitsOnEveryReturn(binding.Local); proof != ssaflow.EvidenceDisproven {
 				return proof
 			}
 		}
+	}
+	if budget.Exhausted() {
+		return ssaflow.EvidenceUnknown
 	}
 	return ssaflow.EvidenceDisproven
 }
