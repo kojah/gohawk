@@ -136,7 +136,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	unobserved := analysis.proveUnobservedSignalsWithin(censusBudget)
 	if !unobserved.Known() {
 		if unobserved.Reason == ssaflow.EvidenceBudgetExhausted {
-			return analysis.lifetimeCutoff(censusBudget, "signal-census", reasonSignalCensusUnavailable)
+			return analysis.lifetimeCutoff(censusBudget, querySignalCensus, reasonSignalCensusUnavailable)
 		}
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonSignalCensusUnavailable}
 	}
@@ -200,7 +200,7 @@ func (analysis *spawnAnalysis) lifecycleProof() (GoroutineProof, bool) {
 	relayBudget := analysis.budget()
 	relay := analysis.relayDependencyUncertain(relayBudget)
 	if relayBudget.Exhausted() {
-		return analysis.lifetimeCutoff(relayBudget, "relay-dependency", reasonRelayDependencyBudgetExhausted), true
+		return analysis.lifetimeCutoff(relayBudget, queryRelayDependency, reasonRelayDependencyBudgetExhausted), true
 	}
 	if relay {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonRelayDependency}, true
@@ -236,7 +236,7 @@ func (analysis *spawnAnalysis) callerLifetimeProof() (GoroutineProof, bool) {
 	for _, query := range queries {
 		found := query.find()
 		if budget.Exhausted() {
-			return analysis.lifetimeCutoff(budget, "caller-lifetime", reasonReceiveBudgetExhausted), true
+			return analysis.lifetimeCutoff(budget, queryCallerLifetime, reasonReceiveBudgetExhausted), true
 		}
 		if found {
 			return GoroutineProof{Outcome: GoroutineUnknown, Reason: query.reason}, true
@@ -246,10 +246,10 @@ func (analysis *spawnAnalysis) callerLifetimeProof() (GoroutineProof, bool) {
 }
 
 func (analysis *spawnAnalysis) lifetimeCutoff(
-	budget *ssaflow.SearchBudget, phase string, reason goroutineOwnershipReason,
+	budget *ssaflow.SearchBudget, phase queryPhase, reason goroutineOwnershipReason,
 ) GoroutineProof {
 	budget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
-		return map[string]string{"phase": phase}
+		return map[string]string{"phase": phase.String()}
 	})
 	return GoroutineProof{Outcome: GoroutineUnknown, Reason: reason}
 }
@@ -282,7 +282,7 @@ func (analysis *spawnAnalysis) dominatingProof() (GoroutineProof, bool) {
 		}
 	}
 	if budget.Exhausted() {
-		return analysis.lifetimeCutoff(budget, "pre-spawn-census", reasonPreSpawnCensusCutoff), true
+		return analysis.lifetimeCutoff(budget, queryPreSpawnCensus, reasonPreSpawnCensusCutoff), true
 	}
 	if unknown {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true

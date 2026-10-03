@@ -41,7 +41,7 @@ func TestUnobservedSignalCensusCutoff(t *testing.T) {
 	if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted || !child.Exhausted() || candidate.pool.Exhausted() {
 		t.Fatalf("cut=%+v", got)
 	}
-	cutoff := candidate.lifetimeCutoff(child, "signal-census", reasonSignalCensusUnavailable)
+	cutoff := candidate.lifetimeCutoff(child, querySignalCensus, reasonSignalCensusUnavailable)
 	if cutoff.Outcome != GoroutineUnknown || cutoff.Reason != reasonSignalCensusUnavailable {
 		t.Fatalf("signal cutoff projection: %+v", cutoff)
 	}
@@ -57,7 +57,7 @@ func TestUnobservedSignalCensusCutoff(t *testing.T) {
 	requireCensusCutoffTrace(t, path, "signal-census")
 }
 
-func requireCensusCutoffTrace(t *testing.T, path, phase string) {
+func requireCensusCutoffTrace(t *testing.T, path, label string) {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -68,9 +68,9 @@ func requireCensusCutoffTrace(t *testing.T, path, phase string) {
 		if err := json.Unmarshal([]byte(line), &event); err != nil {
 			t.Fatal(err)
 		}
-		if event.Phase == "evidence" && event.Reason == "budget-exhausted" && event.Candidate != "" && event.Details["phase"] == phase {
+		if event.Phase == "evidence" && event.Reason == "budget-exhausted" && event.Candidate != "" && event.Details["phase"] == label {
 			return
 		}
 	}
-	t.Fatalf("%s cutoff has no attributed evidence event", phase)
+	t.Fatalf("%s cutoff has no attributed evidence event", label)
 }

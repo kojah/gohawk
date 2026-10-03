@@ -23,7 +23,7 @@ import (
 type event struct {
 	Analyzer string
 	Check    string
-	Phase    string
+	Phase    Phase
 	Reason   string
 	Outcome  Outcome
 	Pos      token.Pos
@@ -220,7 +220,7 @@ func Enabled(analyzer, check string) bool {
 // keep the analyzer identity, evidence phase, and reason from being transposed.
 type DiagnosticEvent struct {
 	Analyzer   string
-	Phase      string
+	Phase      Phase
 	Reason     string
 	Outcome    Outcome
 	Diagnostic analysis.Diagnostic
@@ -293,7 +293,7 @@ func write(pass *analysis.Pass, entry event) {
 	captured := Record{
 		Analyzer:  entry.Analyzer,
 		Check:     entry.Check,
-		Phase:     entry.Phase,
+		Phase:     entry.Phase.String(),
 		Reason:    entry.Reason,
 		Outcome:   entry.Outcome,
 		Position:  position,
@@ -384,29 +384,29 @@ func ForPackage(pass *analysis.Pass, analyzer, check string) Probe {
 func (probe Probe) Enabled() bool { return probe.enabled }
 
 // Evidence records a fact that supports or rejects the candidate.
-func (probe Probe) Evidence(step Step) { probe.emit("evidence", step) }
+func (probe Probe) Evidence(step Step) { probe.emit(PhaseEvidence, step) }
 
 // Decision records the outcome the proof reached for the candidate.
-func (probe Probe) Decision(step Step) { probe.emit("decision", step) }
+func (probe Probe) Decision(step Step) { probe.emit(PhaseDecision, step) }
 
 // Label records the label a lifecycle classifier gave one instruction on the
 // candidate's path, and why, so a reader sees what the flow query was asked
 // to combine without reading the evidence behind each label.
-func (probe Probe) Label(step Step) { probe.emit("label", step) }
+func (probe Probe) Label(step Step) { probe.emit(PhaseLabel, step) }
 
 // Candidate records that a potentially reportable construct was observed.
-func (probe Probe) Candidate(step Step) { probe.emit("candidate", step) }
+func (probe Probe) Candidate(step Step) { probe.emit(PhaseCandidate, step) }
 
 // Considered records a proof step that was evaluated and did not hold, so a
 // reader can see which suppressions were tried before the reported reason won.
-func (probe Probe) Considered(step Step) { probe.emit("considered", step) }
+func (probe Probe) Considered(step Step) { probe.emit(PhaseConsidered, step) }
 
 // Observe records a give-up reported by a shared proof: the reason the proof
 // stopped, where, and what blocked it. Its signature uses only primitives so
 // ssaflow's Observer can be satisfied by this method value without importing
 // the tracer.
 func (probe Probe) Observe(reason string, at token.Pos, details map[string]string) {
-	probe.emit("evidence", Step{Reason: reason, Outcome: OutcomeUnknown, Pos: at, Details: details})
+	probe.emit(PhaseEvidence, Step{Reason: reason, Outcome: OutcomeUnknown, Pos: at, Details: details})
 }
 
 // Observer returns Observe as a plain function when the probe is enabled and
@@ -419,7 +419,7 @@ func (probe Probe) Observer() func(reason string, at token.Pos, details map[stri
 	return probe.Observe
 }
 
-func (probe Probe) emit(phase string, step Step) {
+func (probe Probe) emit(phase Phase, step Step) {
 	if !probe.enabled {
 		return
 	}

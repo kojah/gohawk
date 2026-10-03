@@ -76,7 +76,7 @@ func newSpawnAnalysis(pass *analysis.Pass, function *ssa.Function, spawn *ssa.Go
 	analysis.tracing = analysisTrace.Enabled("goroutineownership", string(analysis.checkID))
 	analysis.probe = analysisTrace.For(pass, "goroutineownership", string(analysis.checkID), spawn.Pos())
 	analysis.discoverCompletion()
-	if analysis.discoveryUnavailable("completion-discovery") {
+	if analysis.discoveryUnavailable(queryCompletionDiscovery) {
 		return analysis
 	}
 	analysis.discoverAdapters()
@@ -102,15 +102,15 @@ func (analysis *spawnAnalysis) discoverAdapters() {
 	if analysis.relayGroup != nil {
 		analysis.groups = append(analysis.groups, analysis.relayGroup)
 	}
-	if analysis.discoveryUnavailable("relay-discovery") {
+	if analysis.discoveryUnavailable(queryRelayDiscovery) {
 		return
 	}
 	analysis.owners = spawnedLifecycleOwners(analysis.pass, analysis.spawn, analysis.discoveryBudget)
-	if analysis.discoveryUnavailable("owner-discovery") {
+	if analysis.discoveryUnavailable(queryOwnerDiscovery) {
 		return
 	}
 	analysis.pipePeers = analysis.spawnedPipePeers(analysis.discoveryBudget)
-	if analysis.discoveryUnavailable("pipe-peer-discovery") {
+	if analysis.discoveryUnavailable(queryPipePeerDiscovery) {
 		return
 	}
 }
@@ -122,7 +122,7 @@ func (analysis *spawnAnalysis) discoverCompletion() {
 
 // discoveryUnavailable preserves cutoff availability across constructor adapters.
 // Partial owner/peer evidence cannot establish that another handle is absent.
-func (analysis *spawnAnalysis) discoveryUnavailable(phase string) bool {
+func (analysis *spawnAnalysis) discoveryUnavailable(phase queryPhase) bool {
 	if !analysis.discoveryBudget.Exhausted() {
 		return false
 	}
@@ -131,7 +131,7 @@ func (analysis *spawnAnalysis) discoveryUnavailable(phase string) bool {
 		if analysis.discoveryBudget.PoolExhausted() {
 			pool = "true"
 		}
-		return map[string]string{"phase": phase, "pool_exhausted": pool}
+		return map[string]string{"phase": phase.String(), "pool_exhausted": pool}
 	})
 	return true
 }

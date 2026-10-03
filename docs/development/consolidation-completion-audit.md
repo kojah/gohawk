@@ -5633,3 +5633,41 @@ assertion-failing standalone counterfactual, and six unchanged full-payload
 comparisons. The maintained source inventory is scoped evidence; the normalized
 scanner's unchanged five full-body and 33 partial candidates do not settle
 global semantic duplication. No reviewed production FP correction is credited.
+
+
+## Closed phase domains
+
+The final goroutine proof review at `d2864432` found another string discriminator:
+`discoveryUnavailable` and `lifetimeCutoff` accepted phase labels as strings.
+Beads `.44.14` replaces their finite request vocabulary with numeric phases.
+The shared tracer's emission and diagnostic event phases use `trace.Phase`;
+`trace.Record` retains string labels at the serialized output boundary.
+Reporting wrappers in check, analyzer registration, CLI and golangci pass
+numeric phases. No analyzer decision, trace spelling or wire field changes.
+
+The architecture guard now rejects raw string phase parameters, resolves their
+aliases through Go types, and rejects named string Phase domains. Matcher
+controls retain serialized phase fields and numeric parameters, including
+imported types. Parameter selection is shared between syntax and typed guards.
+The guard is bounded by declared roles; it does not infer every possible closed
+semantic domain from arbitrary identifiers.
+
+Guarded local non-nil joins rerun the same cached classifier under a stable
+channel assumption; edge-local joins remain deliberately excluded from that
+query. Flag/count correlation returns unknown and never establishes an exact
+join. Counted drain instead requires `ProveCountedRegion` and a complete
+single-send channel-use census, so its loop-exit evidence is a different
+contract. Final `prove` consumes these results and remains the only reporting
+outcome owner. Caller/lifecycle adapters check request availability before
+naming lifetime witnesses. This review leaves the transitive guarded/count
+traversal cost and proof inventory reconciliation open; no universal timing or
+whole-repository duplication absence is claimed.
+
+
+The [phase review](../../benchmarks/precision/audits/phase-enums-2026-10-03.md)
+records final canonical validation, full trace tests, all five event-method
+serialization controls, 14 unchanged scoped diagnostic scans and two additional
+traced scans. All 653 diagnostics and 3,359 complete trace records agree with
+the parent; traced JSON diagnostics equal untraced results. Numeric internal
+representations preserve output labels. The scanner retains the same five
+full-body and 33 partial candidate signatures, without an absence claim.

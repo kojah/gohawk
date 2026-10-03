@@ -10,7 +10,8 @@ import (
 // Kind is an internal discriminator. Text at an output boundary should name
 // its role (a noun, label, or prefix), rather than masquerading as an enum.
 // This syntax gate covers raw fields, parameters, results and literal kind
-// assignments, including tests. Named string domains are checked below.
+// assignments, including tests, and raw phase parameters. Serialized phase fields
+// remain text at the output boundary. Named string domains are checked below.
 func TestNoRawKindEnums(t *testing.T) {
 	t.Parallel()
 	assertNoStringEnums(t, rawKindEnum)
@@ -19,6 +20,11 @@ func TestNoRawKindEnums(t *testing.T) {
 func rawKindEnum(node ast.Node) bool {
 	isKind := func(name *ast.Ident) bool { return strings.EqualFold(name.Name, "kind") }
 	switch node := node.(type) {
+	case *ast.FuncType:
+		return phaseParameter(node, func(expression ast.Expr) bool {
+			underlying, ok := expression.(*ast.Ident)
+			return ok && underlying.Name == "string"
+		})
 	case *ast.Field:
 		underlying, ok := node.Type.(*ast.Ident)
 		if !ok || underlying.Name != "string" {
@@ -58,6 +64,9 @@ func TestRawKindEnumMatcher(t *testing.T) {
 		want   bool
 	}{
 		{`func f(kind string){}`, true},
+		{`func f(phase string){}`, true},
+		{`type record struct{Phase string}`, false},
+		{`type queryPhase uint8;func f(phase queryPhase){}`, false},
 		{`func f()(kind,title string){return "",""}`, true},
 		{`type item struct{Kind string}`, true},
 		{`var kind string`, true},
@@ -93,7 +102,7 @@ func namedStringEnum(node ast.Node) bool {
 }
 
 func classificationDomainName(name string) bool {
-	return slices.ContainsFunc([]string{"Kind", "Tier", "Outcome", "Provenance", "Reason", "State", "Mode", "Action"}, func(suffix string) bool {
+	return slices.ContainsFunc([]string{"Kind", "Tier", "Outcome", "Provenance", "Reason", "State", "Mode", "Action", "Phase"}, func(suffix string) bool {
 		return strings.HasSuffix(name, suffix) || strings.EqualFold(name, suffix)
 	})
 }
@@ -106,6 +115,7 @@ func TestNamedStringEnumMatcher(t *testing.T) {
 		{`type CheckKind string`, true},
 		{`type CheckTier = string`, true},
 		{`type Outcome string`, true},
+		{`type Phase string`, true},
 		{`type EvidenceProvenance string`, true},
 		{`type reason string`, true},
 		{`type CheckKind uint8`, false},
@@ -127,4 +137,17 @@ func assertNoStringEnums(t *testing.T, matches func(ast.Node) bool) {
 			return true
 		})
 	}
+}
+
+// phaseParameter shares parameter selection between syntax and type evidence.
+// Serialized fields are not parameters and retain their wire vocabulary.
+func phaseParameter(function *ast.FuncType, isString func(ast.Expr) bool) bool {
+	if function.Params == nil {
+		return false
+	}
+	return slices.ContainsFunc(function.Params.List, func(field *ast.Field) bool {
+		return isString(field.Type) && slices.ContainsFunc(field.Names, func(name *ast.Ident) bool {
+			return strings.EqualFold(name.Name, "phase")
+		})
+	})
 }

@@ -696,3 +696,13 @@ require the candidate position and summary-join phase. Existing summary fixtures
 retain imported Wait/receive, returned waiters, different handles, conditional
 receives, launched observers and missing-return paths. Cancellation effects and
 lifecycle owners do not become joins.
+
+
+## Budget phase vocabulary
+
+Discovery and lifetime cutoff helpers accept the numeric `queryPhase` domain.
+Its labels are rendered only into trace details; spellings and attribution are
+unchanged. This separates the closed internal request vocabulary from output
+records. The trace package likewise accepts numeric event phases and converts
+them to serialized labels at record publication. Phase parameter and named
+Phase-domain guards supplement the existing kind/decision enum checks.

@@ -166,13 +166,13 @@ func withDisabledChecks(analyzers []*analysis.Analyzer, metadata map[string]goha
 			pass.Report = func(diagnostic analysis.Diagnostic) {
 				if analyzerDisabled[diagnostic.Category] {
 					analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-						Analyzer: analyzer.Name, Phase: "decision", Reason: check.ReportingDisabled.String(),
+						Analyzer: analyzer.Name, Phase: analysisTrace.PhaseDecision, Reason: check.ReportingDisabled.String(),
 						Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,
 					})
 					return
 				}
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
-					Analyzer: analyzer.Name, Phase: "decision", Reason: check.ReportingEmitted.String(),
+					Analyzer: analyzer.Name, Phase: analysisTrace.PhaseDecision, Reason: check.ReportingEmitted.String(),
 					Outcome: analysisTrace.OutcomeRejected, Diagnostic: diagnostic,
 				})
 				report(diagnostic)

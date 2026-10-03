@@ -121,7 +121,7 @@ func TestEmitDiagnosticResolvesEnclosingFunction(t *testing.T) {
 		pass,
 		DiagnosticEvent{
 			Analyzer:   "concurrentcapture",
-			Phase:      "candidate",
+			Phase:      PhaseCandidate,
 			Reason:     "diagnostic-candidate",
 			Outcome:    OutcomeObserved,
 			Diagnostic: analysis.Diagnostic{Category: "concurrentcapture/shared-capture", Pos: function.Pos(), Message: "unsafe send"},

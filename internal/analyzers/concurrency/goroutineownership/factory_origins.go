@@ -32,7 +32,7 @@ func (analysis *spawnAnalysis) completionHandleProof() (GoroutineProof, bool) {
 
 func (analysis *spawnAnalysis) factoryOriginDecision(origin ssaflow.Proof, budget *ssaflow.SearchBudget) (GoroutineProof, bool) {
 	if !origin.Known() {
-		return analysis.lifetimeCutoff(budget, "factory-origin", reasonFactoryOriginBudgetExhausted), true
+		return analysis.lifetimeCutoff(budget, queryFactoryOrigin, reasonFactoryOriginBudgetExhausted), true
 	}
 	if origin.Proven() {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}, true

@@ -58,6 +58,8 @@ func TestNoTypedStringEnums(t *testing.T) {
 
 func typedStringEnum(node ast.Node, info *types.Info) bool {
 	switch node := node.(type) {
+	case *ast.FuncType:
+		return phaseParameter(node, func(expression ast.Expr) bool { return stringUnderlying(info.TypeOf(expression)) })
 	case *ast.TypeSpec:
 		return classificationDomainName(node.Name.Name) && stringUnderlying(info.TypeOf(node.Name))
 	case *ast.Field:
@@ -109,6 +111,9 @@ func TestTypedStringEnumMatcher(t *testing.T) {
 		{"local alias domain", `type text = string; type CheckMode = text`, true},
 		{"imported string domain", `type CheckState = wire.Text`, true},
 		{"aliased field", `type item struct{ Kind wire.Text }`, true},
+		{"aliased phase parameter", `func f(phase wire.Text){}`, true},
+		{"serialized phase field", `type record struct{Phase wire.Text}`, false},
+		{"indirect phase domain", `type QueryPhase wire.Text`, true},
 		{"aliased parameter", `func f(kind wire.Text){}`, true},
 		{"aliased result", `func f()(kind wire.Text){return ""}`, true},
 		{"inferred variable", `func text()string{return ""}; var kind = text()`, true},
