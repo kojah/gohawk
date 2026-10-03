@@ -406,6 +406,19 @@ flow setup. Those remain the transitive-cost review in `gohawk-dho.44.11.5`.
 
 ### Call metadata allowance
 
+Factory-origin queries share their supplied allowance between reaching-value
+visits and storage resolution. Channel factories retain possible ownership;
+group factories are opaque only without a resolved body. Field, tuple, wrapper
+and phi traversal retain their distinct transparency policies. These queries
+return a structured proof, and the lifecycle decision stops with
+`factory-origin-budget-exhausted` and unknown before trying an external transfer
+or caller-lifetime explanation when the relevant origin query is incomplete.
+The evidence event uses phase `factory-origin`; tracing consumes that decision.
+`factory_origin_budget_test.go` covers actual SSA direct, wrapped, phi, field,
+opaque and fresh origins with tiny and swept allowances. Caller integration
+checks origin, caller-lifetime and relay cutoff phases plus fresh recovery.
+This bounds selected query visits, not graph construction or type-system work.
+
 Retained-owner and caller-bound queries enumerate arguments/captures through
 `ssaflow.CallBindingsWithin` or `ClosureBindingPairsWithin`. These iterators
 charge before yielding and allocate no binding slice. Default collectors use

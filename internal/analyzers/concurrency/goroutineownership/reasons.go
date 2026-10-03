@@ -63,10 +63,12 @@ const (
 	reasonLabelPossibleSignalReceive
 	reasonSelectedPossibleReceiveEdge
 	reasonCountedPossibleDrainEdge
+	reasonFactoryOriginBudgetExhausted
 	goroutineOwnershipReasonCount
 )
 
 var ownershipReasonCodes = [...]string{
+	reasonFactoryOriginBudgetExhausted:   "factory-origin-budget-exhausted",
 	reasonPreSpawnCensusCutoff:           "pre-spawn-census-budget-exhausted",
 	reasonRelayDependencyBudgetExhausted: "relay-dependency-budget-exhausted",
 	reasonRetainedOwnerBudgetExhausted:   "retained-owner-budget-exhausted",

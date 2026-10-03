@@ -5489,3 +5489,17 @@ remain unchanged at 334 files, 2,202 declarations, five whole-body and 34 partia
 groups. This finding demonstrates why parent reconciliation cannot be replaced
 by child closure or scan counts. Standalone policy and graph/type/alias costs,
 parent reconciliation and the five-site FP queue remain outside this receipt.
+
+## Factory-origin query availability
+
+Bead `gohawk-dho.44.11.8` resolves the source-backed origin-query gap at
+`5e74c02`: shared reaching visits now use the storage allowance, structured
+origin proofs preserve cutoff availability, and one completion-handle decision
+owns the resulting unknown reason. Signal/group origin policy and external
+transfer precedence are retained. The [scoped record](../../benchmarks/precision/audits/factory-origin-allowance-2026-10-03.md)
+records ten actual-SSA controls, two assertion-failing counterfactuals, canonical
+verification and six unchanged full-payload scans. The current review-aid
+inventory is 335 files and 2,205 declarations, five whole-body and 34 partial
+groups with unchanged signatures. No broader duplication absence, transitive
+cost completeness or FP correction is inferred; parent reconciliation and the
+five-site residual queue remain separate requirements.

@@ -4,6 +4,7 @@ import "testing"
 
 func TestGoroutineOwnershipReasonCodes(t *testing.T) {
 	want := map[goroutineOwnershipReason]string{
+		reasonFactoryOriginBudgetExhausted:   "factory-origin-budget-exhausted",
 		reasonPreSpawnCensusCutoff:           "pre-spawn-census-budget-exhausted",
 		reasonRelayDependencyBudgetExhausted: "relay-dependency-budget-exhausted",
 		reasonRetainedOwnerBudgetExhausted:   "retained-owner-budget-exhausted",

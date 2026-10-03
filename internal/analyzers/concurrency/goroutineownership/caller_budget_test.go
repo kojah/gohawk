@@ -27,9 +27,9 @@ func relay() { group:=new(sync.WaitGroup); done:=make(chan int); go func(){group
 		name          string
 		fresh, cutoff goroutineOwnershipReason
 	}{
-		{"channel", reasonStopLifecycle, reasonReceiveBudgetExhausted},
-		{"receiver", reasonReceiverContext, reasonReceiveBudgetExhausted},
-		{"local", reasonLocallyCanceledContext, reasonReceiveBudgetExhausted},
+		{"channel", reasonStopLifecycle, reasonFactoryOriginBudgetExhausted},
+		{"receiver", reasonReceiverContext, reasonFactoryOriginBudgetExhausted},
+		{"local", reasonLocallyCanceledContext, reasonFactoryOriginBudgetExhausted},
 		{"relay", reasonNone, reasonRelayDependencyBudgetExhausted},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -47,6 +47,9 @@ func relay() { group:=new(sync.WaitGroup); done:=make(chan int); go func(){group
 			if proof.Reason != test.fresh || decided != (test.fresh != reasonNone) {
 				t.Fatalf("fresh=%+v decided=%v, want %v", proof, decided, test.fresh)
 			}
+			if test.name != "relay" {
+				assertCallerLifetimeQueryCutoff(t, fresh)
+			}
 		})
 	}
 	data, err := os.ReadFile(path)
@@ -63,8 +66,19 @@ func relay() { group:=new(sync.WaitGroup); done:=make(chan int); go func(){group
 			phases[event.Details["phase"]] = true
 		}
 	}
-	if !phases["caller-lifetime"] || !phases["relay-dependency"] {
+	if !phases["factory-origin"] || !phases["caller-lifetime"] || !phases["relay-dependency"] {
 		t.Fatalf("missing attributed cutoff phases: %v", phases)
+	}
+}
+
+// Once origin admission is complete, the caller-lifetime query still owns
+// its independent cutoff and attributed evidence phase.
+func assertCallerLifetimeQueryCutoff(t *testing.T, candidate *spawnAnalysis) {
+	t.Helper()
+	candidate.pool = ssaflow.NewSearchBudget(0).Observed(candidate.probe.Observer())
+	proof, decided := candidate.callerLifetimeProof()
+	if !decided || proof.Outcome != GoroutineUnknown || proof.Reason != reasonReceiveBudgetExhausted {
+		t.Fatalf("caller cutoff=%+v decided=%v", proof, decided)
 	}
 }
 
