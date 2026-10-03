@@ -5301,3 +5301,13 @@ local policy; generic return obligations answer a different flow question.
 This finite review covers the defer analyzer's four production files and selected
 adapter boundaries, not their transitive implementations. Other semantic review
 families and five production sites remain open.
+
+## Final reportability evidence adapters
+
+Bead `gohawk-dho.23.30` removes the two remaining direct final EvidenceState
+presentation branches found in the producer/capture source review. Both use the
+shared diagnostic projection while retaining their own proof and report gates.
+Domain outcome enums and action-label polarity remain distinct adapters.
+The [scoped audit](../../benchmarks/precision/audits/final-evidence-projection-2026-10-03.md)
+records preserved full diagnostics and enabled candidate event sequences.
+This census does not close transitive semantic review or the five-site queue.

@@ -63,15 +63,11 @@ func reportAbandonedProducerSends(pass *analysis.Pass, function *ssa.Function) {
 			}
 			probe := trace.For(pass, "producerlifecycle", string(check.ProducerLifecycleSend), position)
 			probe.Candidate(trace.Step{Reason: reasonProducerSend.String(), Outcome: trace.OutcomeObserved})
-			outcome := trace.OutcomeUnknown
 			if proof.Proven() {
-				outcome = trace.OutcomeRejected
 				reported[position] = true
 				check.Reportf(pass, check.ProducerLifecycleSend, position, "goroutine send can block after the receiver stops waiting")
-			} else if proof.Known() {
-				outcome = trace.OutcomeAccepted
 			}
-			probe.Decision(trace.Step{Reason: proof.Reason.String(), Outcome: outcome})
+			probe.Decision(trace.Step{Reason: proof.Reason.String(), Outcome: trace.DiagnosticOutcome(proof.State)})
 		}
 	}
 }

@@ -90,3 +90,10 @@ containing them is `73f25e27`. The experimental tier itself remains.
   the second made none.
 
 The channel census they shared was removed with them.
+
+## Final diagnostic trace projection
+
+Final reportability evidence is presented through `trace.DiagnosticOutcome`.
+Proof rules and report gates remain local; shared presentation neither supplies
+missing evidence nor turns uncertainty into a diagnostic. Existing trace fixtures
+pin the supported outcomes and source attribution.

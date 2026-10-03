@@ -142,11 +142,9 @@ func reportCapturedMutations(
 			// must not hide a later unguarded write to the same capture, so only
 			// objects with a reportable proof enter the deduplication set.
 			proof := evidence.proveMutation(pass, closure, node, varying, fallbackLock)
-			outcome := analysisTrace.OutcomeUnknown
-			if proof.state == ssaflow.EvidenceProven {
-				outcome = analysisTrace.OutcomeRejected
-			}
-			probe.Decision(analysisTrace.Step{Reason: proof.reason.String(), Outcome: outcome, Pos: identifier.Pos()})
+			probe.Decision(analysisTrace.Step{
+				Reason: proof.reason.String(), Outcome: analysisTrace.DiagnosticOutcome(proof.state), Pos: identifier.Pos(),
+			})
 			if proof.state != ssaflow.EvidenceProven {
 				continue
 			}

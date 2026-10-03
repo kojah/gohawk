@@ -36,3 +36,10 @@ channel guards, and the branching-worker lock fallback. The accepted
 `conditionalLockMayGuard` fixture documents the intentionally uncertain
 fallback, even though the condition may leave the write unlocked. This
 consolidation changes trace polarity and decision ownership, not diagnostics.
+
+## Final diagnostic trace projection
+
+Final reportability evidence is presented through `trace.DiagnosticOutcome`.
+Proof rules and report gates remain local; shared presentation neither supplies
+missing evidence nor turns uncertainty into a diagnostic. Existing trace fixtures
+pin the supported outcomes and source attribution.
