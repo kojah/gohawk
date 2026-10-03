@@ -52,7 +52,9 @@ func bindLockAcquisition(acquired lockAcquisition, call *ssa.Call) lockAcquisiti
 		acquired.resource = root
 		acquired.instance = mutexPathInstanceIdentity(root)
 		if _, fresh := root.Root.(*ssa.Alloc); fresh {
-			acquired.class = localMutexPathIdentity(root)
+			// Instance resolution already rejects loop allocations. For this
+			// exact fresh root it also supplies the local class; reuse the proof.
+			acquired.class = acquired.instance
 			acquired.widened = false
 		} else if possibleFreshBoundMutex(root).possible {
 			acquired.class = ""

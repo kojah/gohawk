@@ -5442,3 +5442,22 @@ heap/type/alias query internals retain separate cost owners; these reviews do
 not imply one transitive wall-clock bound. Broader completion still needs the
 remaining mechanical consolidations, parent evidence reconciliation and the
 five-site production FP assessment. No full replay or FP credit is claimed.
+
+
+## Callback content agreement and selected fresh identity
+
+Beads `gohawk-dho.23.21.10` and `.23.21.11` resolve both mechanical findings
+from the preceding current-source review. Lifecycle field and element callback
+selection share one stable exact-content agreement proof at the same observation;
+field/index geometry and array coverage remain separate. Fresh lock binding
+reuses its already selected instance for the local class, with the loop-allocation
+boundary retained and the class-only caller still owning its independent query.
+The [scoped record](../../benchmarks/precision/audits/callback-binding-consolidation-2026-10-03.md)
+records actual-SSA allowance/recovery and fresh/loop controls, canonical gates
+and scoped compatibility evidence.
+
+The refreshed candidate scan covers 334 files and 2,202 declarations, retaining
+five full-body and 34 partial groups. The duplicate callback agreement group
+is removed; the remaining indexed groups retain the prior distinct-contract
+dispositions. Finite parent requirement/evidence reconciliation and assessment
+of the five production sites remain necessary before overall completion.

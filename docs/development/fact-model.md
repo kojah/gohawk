@@ -544,7 +544,11 @@ requiring definite identity. The query requires agreeing reaching writes, checks
 address escapes and competing writes, and preserves the time of aggregate
 copies and saved reads. `Content` observes before an instruction; `StableContent`
 also rejects subsequent mutation outside that instruction, for callback
-bindings whose accesses are independently checked. An ambiguous argument receiving
+bindings whose accesses are independently checked. Callback field and element
+resolution share one stable-content agreement step: all selected addresses must
+yield the same exact SSA callback value at the same observation. Field selection
+and array index coverage remain separate. A different or unavailable value
+supplies no completion witness. An ambiguous argument receiving
 a lifecycle summary is unknown rather than proven cleanup. Access-path
 identity describes corresponding storage locations beneath already-matched
 roots; it does not by itself establish that their contents are unchanged.

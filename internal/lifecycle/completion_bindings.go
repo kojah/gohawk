@@ -192,8 +192,8 @@ func resolveCallbackField(walk ssaflow.ReachingWalk, ref callbackValue, field *s
 		if address.Field != field.Field {
 			continue
 		}
-		value := heapmodel.NewStorage(budget).StableContent(address, root.observation)
-		if !value.Proven() || stored != nil && stored != value.Value {
+		value := stableCallbackContent(stored, address, root.observation, budget)
+		if !value.Proven() {
 			return callbackValue{}, false
 		}
 		stored = value.Value
@@ -238,8 +238,8 @@ func resolveCallbackElement(walk ssaflow.ReachingWalk, ref callbackValue, index 
 		if fixed && !constant.Compare(selected.Value, token.EQL, key.Value) {
 			continue
 		}
-		value := heapmodel.NewStorage(budget).StableContent(address, root.observation)
-		if !value.Proven() || stored != nil && stored != value.Value {
+		value := stableCallbackContent(stored, address, root.observation, budget)
+		if !value.Proven() {
 			return callbackValue{}, false
 		}
 		stored = value.Value
@@ -249,6 +249,17 @@ func resolveCallbackElement(walk ssaflow.ReachingWalk, ref callbackValue, index 
 	}
 	root.value = stored
 	return resolveCallbackBinding(walk, root, budget)
+}
+
+// Selected callback addresses must have stable contents at the same observation
+// and agree on the exact SSA value. Possible aliasing cannot establish which
+// callback runs. Field selection and array coverage remain the callers' policy.
+func stableCallbackContent(previous, address ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) heapmodel.StoredValue {
+	value := heapmodel.NewStorage(budget).StableContent(address, observation)
+	if value.Proven() && previous != nil && previous != value.Value {
+		return heapmodel.StoredValue{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceStoredValuesDiffer}}
+	}
+	return value
 }
 
 func callbackArray(value ssa.Value) *types.Array {

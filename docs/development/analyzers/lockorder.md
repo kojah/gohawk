@@ -614,3 +614,15 @@ initialization, method, asynchronous and caller-count boundaries.
 `heapmodel.ExclusiveAt` remains responsible for cached graph construction,
 observation replay, object selection and publication reachability. Charging a
 caller visit is not a transitive bound on those separate graph queries.
+
+
+## Fresh binding identity reuse
+
+Call-site binding resolves an embedded mutex path's instance once. When the
+bound root is an exact local allocation, that same identity supplies its local
+comparison class; instance resolution already declines allocations inside a
+loop. This does not infer private ownership or safe publication. The separate
+class-only query still uses `localMutexPathIdentity` when no prior instance
+proof exists. `binding_identity_test.go` checks actual SSA for an ordinary fresh
+helper argument and an allocation repeated inside a loop; existing constructor,
+publication and pointer-field fixtures preserve their policy boundaries.
