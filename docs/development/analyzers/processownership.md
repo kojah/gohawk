@@ -302,3 +302,28 @@ become either no successful branch or a proven nonreturning success path.
 outer pool and retains the returning, looping and panicking SSA controls plus
 intermediate/fresh queries. The pre-Start decision continues to consume that
 single returned proof.
+
+
+## Candidate instruction actions and successful-return proof
+
+`commandProof.action` memoizes the authoritative `processOwnershipAction` by
+instruction and exact command SSA value. Classification does not depend on the
+flow's current guards, so revisits use the same result rather than repeat
+completion/transfer queries and spend another allowance. Primary and merged
+commands keep distinct keys. A candidate may retain unknown locally; it never
+publishes that cutoff as a complete function summary or shares it with a fresh
+candidate.
+
+`proveProcessReturns` owns acquisition-time command resolution, successful
+merges, return permissions, immediate process guards and the one post-Start
+flow query. Its result carries the final decision, resolved command and
+uncovered return to reporting. `reportStartedCommand` presents that result;
+pre-Start external-store evidence lives with the prefix proof in `prestart.go`.
+The flow still combines primary/merged actions in the original order, preserves
+unknown ownership and asks `decideProcessReturn` for the final policy.
+
+`action_cache_test.go` builds an actual deferred Wait and proves cache admission,
+revisit after pool exhaustion, distinct-command keys and fresh-candidate
+cutoff/recovery. Removing the memo compiles and fails the revisit assertion.
+Pinned process controls and complete fixture payloads preserve diagnostics;
+final trace decisions agree while repeated evidence queries disappear.

@@ -24,6 +24,7 @@ const processPoolBudget = 100 * processQueryBudget
 type commandProof struct {
 	evidence *lifecyclefacts.LifecycleEvidence
 	pool     *ssaflow.SearchBudget
+	actions  map[commandActionKey]ssaflow.EvidenceState
 }
 
 // budget draws one query's allowance from the candidate's pool so the

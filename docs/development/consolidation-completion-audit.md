@@ -95,10 +95,10 @@ claim or a review of every transitive predicate.
 | Check | Decision owner and reporting boundary | Remaining architecture question |
 | --- | --- | --- |
 | Concurrent capture | The AST collector selects repeated writes to outer locals, then `captureEvidence.proveMutation` returns the guard decision consumed by reporting and tracing. | The former inline four-rule switch is consolidated. Syntax candidate gates remain bounded suppressions; their semantic contracts still need review. |
-| Goroutine join | `spawnAnalysis.prove` combines obligation discovery, one obligation walk and conservative post-walk boundaries into `GoroutineProof`. The entry reports only `GoroutineLifecycleViolated`. | Classification and discovery helpers need the remaining partial-duplication review; the final reporter does not independently select suppressions. |
+| Goroutine join | `spawnAnalysis.prove` combines obligation discovery, one obligation walk and conservative post-walk boundaries into `GoroutineProof`. The entry reports only `GoroutineLifecycleViolated`. | The finite discovery/classifier review in dho.44 is reconciled. Selected cost owners and distinct guard/count policies are recorded below; broader semantic absence remains unproven. |
 | Cancellation release | `proveCancellation` converts `EvaluateObligationWitness` into `CancellationProof`; reporting and final tracing consume the same outcome. | Parent and deferred-cell classifiers remain distinct evidence families; their shared mechanics need review rather than a generic cancellation exemption. |
 | Resource release | `evaluateResourceFlow` owns acquisition boundaries, the memory-writer policy exclusion, resource-state walking and final structured result. `checkAcquisition` traces that state and reports only proven diagnostic evidence. | dho.30 puts the memory-writer gate inside the proof and removes trace-only reason interpretation. Resource state is richer than a generic join lattice; transitive classification review remains required. |
-| Process wait | Pre-Start ownership gates select local obligations; the post-Start walk supplies a witness to `decideProcessReturn`. Reporting and tracing consume that final decision. | Pre-Start paths are not all traced. Their ownership rules and the flow's command/merged-command classification still require partial-duplication review. |
+| Process wait | Pre-Start ownership gates select local obligations; `proveProcessReturns` consumes cached instruction/command actions and supplies a witness to `decideProcessReturn`. Reporting and tracing consume that result. | Pre-Start decisions have a shared trace projection. Candidate-local action caching and post-Start proof/report separation are implemented in dho.23.21.12; the wider startup/handle/transfer family inventory still needs reconciliation. |
 | Deferred cleanup in loop | `proveDeferLifetime` owns retention-before-defer, instruction classification and live-backedge search. Its structured outcome controls reporting and final tracing. | dho.28 separates unknown backedges from no-live-backedge acceptance without changing the traversal or diagnostic rule. Classifier policy still needs the remaining partial-duplication review. |
 | Producer send lifetime | `abandonedProducerSend` returns `producerProof` after send attribution and `channelReceives`; the reporter and final trace consume Proven/Known. | Protocol counting and receive effects require the remaining classification review. Position deduplication is reporting mechanics, not a second proof. |
 | Lock missing release | A completed buffered `walkLockOrderBounded` supplies held-return witnesses to `lockFlowContext.reportMissingReleases`, which requests `proveMissingRelease` for private-lock, witnessed-release and caller-release boundaries. | dho.27 moves final multi-rule policy into one structured proof. Flow evidence and caller contracts retain their distinct owners. |
@@ -5718,3 +5718,43 @@ canonical validation and six unchanged scoped payloads. The scanner retains
 unchanged candidate signatures. This closes selected worker-output budget
 ownership and supports the finite input/proof reconciliation above; it supplies
 no production FP correction or whole-repository architecture completion claim.
+
+
+## Process instruction actions and proof/report separation
+
+Beads `gohawk-dho.23.21.12` follows the remaining process family in the completion
+matrix. The flow's ownership callback formerly repeated the same instruction
+query on each revisit, including separately selected primary/merged commands.
+`commandProof.action` now owns one candidate-local result per instruction and
+command and delegates policy to the existing classifier. It retains exact
+completed actions across later budget depletion and conservative unknown
+locally, without publishing a shortened summary or lending it to fresh candidates.
+
+The post-Start engine moves from the reporting function into `flow.go`.
+`proveProcessReturns` preserves acquisition-time load resolution, merge priority,
+return ownership, immediate success-edge assumptions and final witness policy.
+Its result carries the resolved command used for reporting text. Pre-Start
+external stores move to the existing prefix implementation. The extracted flow
+function remains cohesive: its local callbacks bind one obligation, produce
+one flow witness and request one final decision. It exceeds the 60-line review
+trigger without introducing a second proof vocabulary or reporting policy.
+
+Actual deferred-Wait SSA and a compiled uncached counterfactual verify revisit,
+command-key and fresh-candidate boundaries. Complete parent/current process
+fixture and pinned payloads agree across twelve successful read-only scans.
+All 153 final trace decisions agree; six repeated evidence-unavailable events
+are removed, with no new evidence records. Traced JSON diagnostics match the
+untraced payloads. This is measured consolidation, without production FP credit.
+
+The broader process startup/handle/deferred-owner inventory remains open in
+`.23.21`, alongside deferred-loop, producer, capture and lock family completion
+reconciliation. Graph tools remain unavailable; exact source fallback and the
+normalized scanner provide bounded evidence rather than whole-repository
+semantic absence. Five reviewed production FP sites remain unresolved.
+
+
+The [process action review](../../benchmarks/precision/audits/process-action-consolidation-2026-10-03.md)
+records canonical validation, the assertion-failing uncached overlay, twelve
+unchanged scoped diagnostic scans and final trace comparisons. Scanner candidate
+signatures remain unchanged; distinct instruction-cache and recursive
+function-summary contracts remain with their owning layers.

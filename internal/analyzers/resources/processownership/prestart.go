@@ -302,3 +302,27 @@ func proveProcessStart(proof *commandProof, function *ssa.Function, start *ssa.C
 	}
 	return processDecision{ssaflow.EvidenceProven, reasonLocalWaitObligation}
 }
+
+// commandStoredExternallyBeforeStart reports whether the command was stored
+// into caller-owned storage on every path to Start, typically a receiver
+// field that a later method or goroutine waits through. The walk after Start
+// cannot see that store, so it is asked here. Istio's Envoy driver keeps the
+// command on the receiver and waits on e.cmd from a goroutine:
+// https://github.com/istio/proxy/blob/1bdb025a454d26a55ffa11a50e5c0a70dff7d853/test/envoye2e/driver/envoy.go#L135-L154
+func commandStoredExternallyBeforeStart(before []ssa.Instruction, command ssa.Value) bool {
+	for _, instruction := range before {
+		store, ok := instruction.(*ssa.Store)
+		if !ok || !heapmodel.MayAlias(store.Val, command) {
+			continue
+		}
+		if storesProcessHandleInExternalField(store, command) || externallyOwnedAddress(store.Addr) {
+			return true
+		}
+	}
+	return false
+}
+
+func externallyOwnedAddress(address ssa.Value) bool {
+	field, ok := address.(*ssa.FieldAddr)
+	return ok && ssaflow.ExternallyOwnedValue(field.X)
+}
