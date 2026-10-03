@@ -6,7 +6,8 @@ addressed. This requirement reconciliation uses `e3957de9`; earlier sections
 retain their source pins and historical measurements. Source ownership and
 candidate dispositions are reconciled below. The fixed production queue refresh found a
 reappeared returned-logger FP. The [conditional-copy follow-up](../../benchmarks/precision/audits/conditional-return-copy-2026-10-03.md)
-records its repair and affected controls; overall requirement closure remains pending.
+records its repair and affected controls. The [final fixed-queue refresh](../../benchmarks/precision/audits/final-production-fp-refresh-2026-10-03.md)
+reconciles all original sites after the repair; overall requirement closure remains pending.
 
 ## Requirements and evidence
 
@@ -15,11 +16,11 @@ records its repair and affected controls; overall requirement closure remains pe
 | Shared responsibilities and downward dependencies | The current source-owner table maps every one of the 359 authored production paths to its concern and maintained review. SSA, storage, completion, domain facts, summary selection, reporting and adapters retain distinct owners. Current architecture tests enforce the specified import and API boundaries. | Ownership coverage is reconciled. Structural gates complement the source contracts; they do not replace that review. |
 | No unnecessary duplicated mechanics | Whole-body candidates of every size and the 33 partial-block groups have source-backed dispositions. Semantic family reviews reconcile differently written traversals, classifiers, storage and summary consumers. Concrete copies now delegate to shared owners or standard operations. | Identified copies are consolidated. Retained typed adapters and different observation/polarity contracts are deliberate; candidate counts alone supply no semantic absence proof. |
 | One authoritative decision for every check | The eight-analyzer/ten-check inventory maps each reporter to its proof. Resource/cancel, goroutine, process, lock, defer-loop, producer and capture reconciliations cover their input, classification and final-result families. Public reporting and CLI/plugin filtering consume these results. | Named decision owners and source-family coverage are reconciled. Reporting filters and trace projections do not independently decide lifecycle policy. |
-| Numeric closed classification domains | Numeric kind, reason, phase and action migrations are recorded with syntax/type controls. The owner review found raw graph modes; `.23.40.1` keeps `lockorder.LockMode` numeric through the graph and CLI and extends raw parameter guards. | The identified string discriminator is fixed. Guards cover declared roles; source review distinguishes serialized labels and open identifiers from closed modes. |
-| Remaining easy FPs addressed | The original 55-site queue, focused corrections, separate Rune controls and source/SSA assessments remain authoritative. Five assessed sites need transport completion, relational caller/mutation evidence or receiver-conditioned result models. | The completed 55-site refresh records 51 absences, the two known goiardi FPs, the retained Promu true positive and one reappeared urunc FP. The conditional-copy follow-up restores the urunc absence at its original pin. The other fifty-three sites retain the e395 observations; those are not a fresh replay of the changed heap projection. Unknown/cutoff silence receives no correction credit. |
+| Numeric closed classification domains | Numeric kind, reason, phase and action migrations are recorded with syntax/type controls. The owner review found raw graph modes; `.23.40.1` keeps `lockorder.LockMode` numeric through the graph and CLI and extends raw parameter guards. | The identified kind/mode discriminators and the newly found resource family discriminator are fixed (`da87150d`, `.23.41`). Guards cover declared roles; source review distinguishes serialized labels and open identifiers from closed modes. |
+| Remaining easy FPs addressed | The original 55-site queue, focused corrections, separate Rune controls and source/SSA assessments remain authoritative. Five assessed sites need transport completion, relational caller/mutation evidence or receiver-conditioned result models. | The final 55-site refresh at 116376a8 records 52 absences, the two known goiardi FPs and the retained Promu true positive. All twenty-nine package scopes succeed; the only complete-payload change from e395 is the corrected urunc finding. The numeric family follow-up preserves four affected scopes exactly. Unknown/cutoff silence receives no correction credit. |
 | Precision preserved | Focused accepted/diagnostic controls and counterfactuals accompany implementation changes. The final mode binary preserves the two lock scopes' complete diagnostics, 86,727 records and 121 decisions. Earlier scoped control receipts retain their original pins and binary hashes. | Affected implementation checks pass. The fixed-queue refresh contradicts the older urunc absence receipt; the conditional-copy follow-up verifies the repaired site and retained Promu diagnostic. Final closure must keep those receipt scopes distinct. This is not a new audit of every historical batch. |
-| Tight development cycle | Focused tests precede canonical validation. At `e3957de9`, seven canonical gates and the separate successful lint rerun cover generation, modules, vet, formatting, dead-code, dogfood and ordinary tests. Final architecture checks pass. | Maintained. No full precision-regression per iteration and no local race run. Documentation reconciliation reuses unaffected passing code receipts. |
-| Work tracked and own changes published | Beads records corrections and bounded reviews. `84ebdd2d` and `e3957de9` are pushed; upstream synchronization was verified. The staged blog-plan deletion and untracked artifacts remain untouched. | Publish this reconciliation after documentation checks. Keep the original epic active until the urunc regression and full requirement closure are verified. |
+| Tight development cycle | Focused tests precede canonical validation. At `da87150d`, all eight final canonical gates cover generation, modules, vet, formatting, dead-code, lint, dogfood and ordinary tests. Final architecture checks pass; the preceding conditional-copy correction also has a complete passing receipt. | Maintained. No full precision-regression per iteration and no local race run. Documentation reconciliation reuses unaffected passing code receipts. |
+| Work tracked and own changes published | Beads records corrections and bounded reviews. `116376a8` and `da87150d` are pushed; upstream synchronization was verified. The staged blog-plan deletion and untracked artifacts remain untouched. | Publish the final queue reconciliation after documentation checks. Keep the original epic active until full requirement closure and the larger-model dispositions are verified. |
 
 ## Broader duplicate-candidate scan
 
@@ -6324,3 +6325,39 @@ it is not rewritten as a new 55-site receipt for this implementation. The
 source-owner inventory still covers the same production paths, with one new
 private field-joining function inside the previously reviewed heap-copy concern.
 The earlier function and scanner counts remain historical measurements.
+
+
+## Final fixed-queue reconciliation and family discriminator
+
+The [final queue receipt](../../benchmarks/precision/audits/final-production-fp-refresh-2026-10-03.md)
+replays all fifty-five original keys after the conditional-copy repair. All
+twenty-nine original package scopes succeed with empty stderr, as does the
+separate Rune control. Fifty-two keys are absent and three remain reported:
+two assessed goiardi FPs and Promu's reviewed true positive. Complete package
+diagnostic comparison finds only the intended urunc removal and no additions.
+Three larger-model silences and twelve targets with cutoff events retain their
+separate assessments rather than receiving new correction credit.
+
+Completion review also found a missed raw resource family discriminator.
+`da87150d` converts it to a numeric analyzer-owned domain and extends the shared
+syntax/type guard. Fifty-two policy function bodies are token-identical after
+old-label substitution, and four pinned controls preserve ten diagnostics and
+65,436 trace records. Focused checks, six assertion-failing guard controls, all
+eight final canonical gates and final architecture checks verify that change.
+The [family receipt](../../benchmarks/precision/audits/resource-family-enum-2026-10-03.md)
+records those scopes and guard limitations. It remains distinct from the
+116376a8 executable used for the full fixed queue.
+
+Current inventories `.build/goal-final-owner-da871.json` and
+`.build/goal-final-blocks-da871.json` cover the same 359 production paths and
+2,290 functions, with the same 55 whole-body and 33 partial-block groups. No
+new production duplicate candidate is introduced. Exact source review of
+production string cases and 57 nonempty-literal equality comparisons separates
+CLI input/wire decoding, API and builtin identity, HTTP headers and published
+scalar encoding from closed internal classifications. These additional checks
+supplement the maintained semantic owner reviews; they do not replace them or
+claim coverage of external code and every runtime configuration.
+
+The fixed queue and family correction are reconciled. Overall closure still
+requires the final requirement-by-requirement disposition, including the three
+remaining larger-model families, without changing the original easy-FP scope.
