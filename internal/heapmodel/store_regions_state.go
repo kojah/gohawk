@@ -149,7 +149,16 @@ func (graph *regionGraph) merge(state, other *regionState, backEdge bool, header
 }
 
 func (graph *regionGraph) mergeContents(state, other *regionState, backEdge bool, header *ssa.BasicBlock) {
-	before := state.clone()
+	// Missing slots can read backing copies or wildcard elements that this
+	// same join updates. Preserve the original read order when those reads
+	// are needed; otherwise the snapshot would never be used.
+	var before *regionState
+	for target := range other.contents {
+		if _, present := state.contents[target]; !present {
+			before = state.clone()
+			break
+		}
+	}
 	stale := func(pointee slot, stale bool) bool {
 		return stale || backEdge && createdInsideLoop(pointee.region, header)
 	}
