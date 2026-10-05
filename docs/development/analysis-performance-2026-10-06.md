@@ -181,3 +181,47 @@ gates pass) and `merge-lint-final.log` (corrected lint gate). The earlier scalar
 snapshot commit `672fd78f` also has passing hosted CI, including targeted races.
 The broader performance goal remains open; disabled trace metadata and
 prerequisite-pass attribution still need investigation.
+
+## Disabled tracing metadata
+
+A follow-up to `36859343` guards function-identity formatting in lifecycle
+summary candidates/decisions, retention budget give-ups, lock-state budget
+give-ups, HTTP acquisition boundary events, acquisition-error evidence, and
+optional-acquisition evidence. Each guard uses the same
+candidate probe that emits the event. The proof runs outside the guard; only
+metadata construction and emission move behind selection. Tracing schemas,
+reasons, candidate attribution, and analyzer budgets are unchanged.
+
+A normal SSA-function benchmark of disabled lock-budget tracing previously
+allocated 48 bytes in three allocations per call, with a three-sample median
+of 101 ns. The guarded path has zero allocations and a median of 10.82 ns.
+The allocation regression fails on the previous code and passes on the guard;
+a separate test checks the enabled unknown budget decision and candidate.
+This measures a metadata helper, not a whole-analyzer speedup.
+
+Two immutable binaries analyze a small module containing leaked, closed, and
+HEAD HTTP response forms. Complete JSON diagnostics are identical; all 36261
+trace records also match as a multiset across target and dependency packages.
+This includes 4602 lifecycle summary candidate/decision pairs, 26 lock-state
+budget events, and two declined HEAD-client events. A disabled-trace invocation
+has the same diagnostics as the enabled invocation. Local HTTP-header-only
+trace events and retention budget events are not established by that fixture;
+existing focused analyzer tests cover the underlying proofs. The guards retain
+the original event construction when those probes are enabled.
+
+Focused lifecycle-fact, lock, resource-lifetime, and tracer tests pass. Artifacts
+are in the original performance directory: `trace-budget-before.txt`,
+`trace-budget-after.txt`, `trace-budget-counterfactual.txt`, `trace-focused.log`,
+`trace-comparison.json`, and the enabled/disabled trace and diagnostic files.
+
+Allocation regressions also cover disabled acquisition-error and optional-acquisition
+helpers, and enabled tests pin their evidence reasons, accepted outcomes, function
+identity and candidate. Both zero-allocation assertions fail when their previous
+unguarded implementations are restored. Receipt: `trace-resource-counterfactual.txt`.
+
+Final verification passes all eight canonical local gates, including the full
+ordinary suite; receipt `trace-final-verify.log`. The final binary still matches
+all 36261 baseline records and complete JSON diagnostics after adding the two
+resource-helper guards; receipt `trace-final-comparison.json`. Earlier passing
+receipts are retained but are not substituted for this final source validation.
+No local race tests were run. Broader prerequisite-cost attribution remains open.

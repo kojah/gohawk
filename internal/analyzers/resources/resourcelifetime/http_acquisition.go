@@ -24,19 +24,25 @@ func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call, budget *ssaflo
 	if head.Reason != resourceReasonNone {
 		// The rule applied to a Client.Do and declined; say which input failed
 		// so a trace of the site does not need the source to explain it.
-		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()).Considered(analysisTrace.Step{
-			Reason: head.Reason.String(), Outcome: analysisTrace.OutcomeRejected, Pos: call.Pos(), Function: call.Parent().String(),
-		})
+		probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos())
+		if probe.Enabled() {
+			probe.Considered(analysisTrace.Step{
+				Reason: head.Reason.String(), Outcome: analysisTrace.OutcomeRejected, Pos: call.Pos(), Function: call.Parent().String(),
+			})
+		}
 	}
 	proof := proveLocalHeaderOnlyAcquisitionWithin(call, budget)
 	if proof.Reason != resourceReasonNone {
-		outcome := analysisTrace.OutcomeUnknown
-		if proof.Proven() {
-			outcome = analysisTrace.OutcomeAccepted
+		probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos())
+		if probe.Enabled() {
+			outcome := analysisTrace.OutcomeUnknown
+			if proof.Proven() {
+				outcome = analysisTrace.OutcomeAccepted
+			}
+			probe.Evidence(analysisTrace.Step{
+				Reason: proof.Reason.String(), Outcome: outcome, Pos: call.Pos(), Function: call.Parent().String(),
+			})
 		}
-		analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos()).Evidence(analysisTrace.Step{
-			Reason: proof.Reason.String(), Outcome: outcome, Pos: call.Pos(), Function: call.Parent().String(),
-		})
 	}
 	if proof.State == ssaflow.EvidenceUnknown && proof.Reason == resourceReasonBudgetExhausted {
 		return proof.Reason

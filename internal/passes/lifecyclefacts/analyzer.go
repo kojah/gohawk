@@ -76,30 +76,31 @@ func run(pass *analysis.Pass) (any, error) {
 		// walk as well as after it: a run that stops making progress is then
 		// located by its last candidate rather than by a stack dump.
 		probe := analysisTrace.For(pass, traceAnalyzer, "", function.Pos())
-		probe.Candidate(analysisTrace.Step{
-			Reason:   reasonSummarizingFunction.String(),
-			Outcome:  analysisTrace.OutcomeObserved,
-			Pos:      function.Pos(),
-			Function: function.String(),
-		})
+		if probe.Enabled() {
+			probe.Candidate(analysisTrace.Step{
+				Reason:   reasonSummarizingFunction.String(),
+				Outcome:  analysisTrace.OutcomeObserved,
+				Pos:      function.Pos(),
+				Function: function.String(),
+			})
+		}
 		fact := callbacks.summarize(function)
 		summaries[function] = fact
 		local = append(local, function)
 		if fact.Heap != nil {
 			heapmodel.RegisterHeapSummary(function, *fact.Heap)
 		}
-		var details map[string]string
 		if probe.Enabled() {
-			details = fact.traceDetails()
+			details := fact.traceDetails()
 			maps.Copy(details, heapTraceDetails(function, fact.Heap))
+			probe.Decision(analysisTrace.Step{
+				Reason:   reasonFunctionSummarized.String(),
+				Outcome:  analysisTrace.OutcomeAccepted,
+				Pos:      function.Pos(),
+				Function: function.String(),
+				Details:  details,
+			})
 		}
-		probe.Decision(analysisTrace.Step{
-			Reason:   reasonFunctionSummarized.String(),
-			Outcome:  analysisTrace.OutcomeAccepted,
-			Pos:      function.Pos(),
-			Function: function.String(),
-			Details:  details,
-		})
 	}
 	// A returned view is decided once every method of this package is
 	// summarized, because the releasing method usually lives beside the

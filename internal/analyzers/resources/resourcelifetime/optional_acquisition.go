@@ -175,7 +175,11 @@ func sameExactOperand(left, right ssa.Value) bool {
 
 func traceOptionalAcquisition(pass *analysis.Pass, proof optionalAcquisitionProof, candidate token.Pos) {
 	checkID := string(check.ResourceRelease)
-	analysisTrace.For(pass, "resourcelifetime", checkID, candidate).Evidence(analysisTrace.Step{
+	probe := analysisTrace.For(pass, "resourcelifetime", checkID, candidate)
+	if !probe.Enabled() {
+		return
+	}
+	probe.Evidence(analysisTrace.Step{
 		Reason:   proof.proof.Reason.String(),
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      proof.resourcePhi.Pos(),

@@ -96,7 +96,11 @@ func (search *retention) answer(function *ssa.Function, parameter ssa.Value) boo
 	if !search.budget.Exhausted() {
 		return retained
 	}
-	analysisTrace.For(search.pass, traceAnalyzer, "", function.Pos()).Considered(analysisTrace.Step{
+	probe := analysisTrace.For(search.pass, traceAnalyzer, "", function.Pos())
+	if !probe.Enabled() {
+		return retained
+	}
+	probe.Considered(analysisTrace.Step{
 		Reason:   reasonRetentionBudget.String(),
 		Outcome:  analysisTrace.OutcomeUnknown,
 		Pos:      function.Pos(),

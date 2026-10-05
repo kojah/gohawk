@@ -370,7 +370,11 @@ func nonNilErrorSentinelReason(value ssa.Value, budget *ssaflow.SearchBudget) re
 }
 
 func traceAcquisitionErrorProof(pass *analysis.Pass, branch *ssa.If, proof resourceLifetimeReason, candidate token.Pos) {
-	analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), candidate).Evidence(analysisTrace.Step{
+	probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), candidate)
+	if !probe.Enabled() {
+		return
+	}
+	probe.Evidence(analysisTrace.Step{
 		Reason:   resourceReasonAcquisitionErrorProven.String(),
 		Outcome:  analysisTrace.OutcomeAccepted,
 		Pos:      branch.Cond.Pos(),
