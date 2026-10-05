@@ -95,27 +95,31 @@ func stepKey(path string) string {
 func (state *regionState) clone() *regionState {
 	result := &regionState{
 		contents:   make(map[slot]pointees, len(state.contents)),
-		backing:    make(map[slot]*region, len(state.backing)),
+		backing:    cloneRegionMap(state.backing),
 		epoch:      state.epoch,
 		reachEpoch: state.reachEpoch,
-		stepEpochs: make(map[string]int, len(state.stepEpochs)),
-		clobbered:  make(map[slot]int, len(state.clobbered)),
-		escaped:    make(map[*region]bool, len(state.escaped)),
+		stepEpochs: cloneRegionMap(state.stepEpochs),
+		clobbered:  cloneRegionMap(state.clobbered),
+		escaped:    cloneRegionMap(state.escaped),
 		ran:        maps.Clone(state.ran),
-		escapes:    make(map[slot]HeapEscape, len(state.escapes)),
+		escapes:    cloneRegionMap(state.escapes),
 		opaque:     state.opaque,
 		deferred:   state.deferred.clone(),
 		calls:      slices.Clone(state.calls),
 	}
-	maps.Copy(result.escapes, state.escapes)
 	for target, set := range state.contents {
 		result.contents[target] = set.clone()
 	}
-	maps.Copy(result.backing, state.backing)
-	maps.Copy(result.stepEpochs, state.stepEpochs)
-	maps.Copy(result.clobbered, state.clobbered)
-	maps.Copy(result.escaped, state.escaped)
 	return result
+}
+
+// cloneRegionMap copies scalar state through the runtime's map clone rather
+// than hashing each entry again. A zero state still needs writable maps.
+func cloneRegionMap[K comparable, V any](source map[K]V) map[K]V {
+	if source == nil {
+		return map[K]V{}
+	}
+	return maps.Clone(source)
 }
 
 // merge folds another state into this one at a join. Contents union, and a

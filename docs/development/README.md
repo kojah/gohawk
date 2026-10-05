@@ -48,6 +48,8 @@ Start with [Understanding SSA](../understanding-ssa.md) and the public
   evidence, reviewed duplicate candidates and remaining verification gaps.
 - [Heap evidence loss](heap-evidence-loss.md) — pinned measurements of where
   cached heap evidence is lost.
+- [Analysis performance](analysis-performance-2026-10-06.md) — cold and cached
+  driver costs, analyzer timing, and heap-state snapshot measurements.
 - [Resource test performance](resource-test-performance.md) — baseline
   measurements of resource analyzer test runtime.
 - [Synchronization graph](synchronization-graph.md) — why the cross-goroutine
