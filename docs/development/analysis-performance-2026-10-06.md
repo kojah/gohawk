@@ -1262,3 +1262,65 @@ and the complete ordinary suite. Coverage passes at 92.5% with output paths
 redirected into RAM; the README badge remains accurate. Small receipts stay in
 `.build/perf-guard-key-window-20261006/`. No local race tests or full precision
 replay were run; hosted checks for the new commit remain separate.
+
+
+## Remove the non-live defer suffix and disabled process metadata
+
+`advanceDeferState` now returns directly at the block-end index when a path is
+settled or unknown. The old suffix only incremented that index: it did not
+classify instructions, emit evidence or spend charges. The original loop guard
+still preserves positions already at or beyond the block end. Status, block,
+predecessor and successor behavior stay unchanged. Focused state tests exercise
+both non-live statuses and those position boundaries.
+
+The proven immediate process guard still sets its constant assumption from the
+same proof. A focused evidence emitter checks `Probe.Enabled` before reading
+trace-only positions or formatting the function name. It does not re-evaluate
+the proof or change reporting. Its disabled allocation regression supplies no
+SSA metadata, so a future eager access fails rather than silently allocating.
+
+Three-sample medians under the serial RAM workflow are:
+
+| Primitive | Before | After | Bytes/allocations before/after |
+| --- | ---: | ---: | --- |
+| Non-live suffix, 1 instruction | 4.034 ns | 3.802 ns | 0/0 both |
+| Non-live suffix, 32 instructions | 13.09 ns | 3.790 ns | 0/0 both |
+| Non-live suffix, 256 instructions | 110.7 ns | 3.840 ns | 0/0 both |
+| Non-live suffix, 1024 instructions | 367.5 ns | 3.866 ns | 0/0 both |
+| Disabled immediate-process-guard event | 97.68 ns | 2.879 ns | 56/3 to 0/0 |
+
+The suffix benchmark is synthetic and isolates the counter-only work; it does
+not measure live classification or typical block size. The trace benchmark
+uses an actual built SSA function but isolates presentation. These are small
+local improvements, not evidence of a whole-run speedup.
+
+Before/after production CLI scans run all checks with the selected analyzer's
+trace enabled on its complete testdata package through GOPATH mode. Both
+preserve full diagnostic JSON, exit 3 and empty stderr. Complete JSON event
+multisets match: 1280 defer events and 1682 process events, including accepted,
+rejected and unknown evidence. Thus presentation remains identical while
+`-json` stays valid. Existing accepted/diagnostic fixtures remain unchanged,
+and each analyzer's development note records the implementation contract.
+
+Raw binaries, traces, diagnostic JSON and benchmarks stay in the RAM
+workspace's `proof-small/`. Heavy jobs remain serialized with the retained
+RAM cache and reduced priority. The two candidates identified in the preceding
+source review are addressed; the broader source/profile completion audit still
+needs its remaining scopes verified.
+
+The additional bounded source review reads goroutine proof orchestration,
+cancellation action caching and resource setup/action caching. Cancellation
+and resource classifiers already retain one label per exact instruction and
+tracked obligation; removing those maps would repeat proof work. The pointee
+union fixtures deliberately accept mixed known/unknown source sets, so a
+shortcut based only on set size cannot establish that a set is known. A
+stronger representation invariant would require broader changes, not a local
+scan removal. These observations constrain candidates without establishing
+completion of every auxiliary proof path.
+
+All eight canonical `make verify` gates pass, including all-check self-analysis
+and the complete ordinary suite. Coverage passes at 92.5% with profile and
+summary paths redirected into RAM; the README badge remains accurate. Small
+receipts stay in `.build/perf-proof-small-20261006/`. No local race tests or
+full precision replay were run; hosted checks for the new commit remain
+separate. The broader performance goal remains active.

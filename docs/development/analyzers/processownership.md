@@ -334,3 +334,13 @@ revisit after pool exhaustion, distinct-command keys and fresh-candidate
 cutoff/recovery. Removing the memo compiles and fails the revisit assertion.
 Pinned process controls and complete fixture payloads preserve diagnostics;
 final trace decisions agree while repeated evidence queries disappear.
+
+## Immediate guard trace cost
+
+The immediate successful-Start guard still supplies the constant assumption
+from its authoritative proof. Its evidence emitter checks the bound probe
+before reading positions or formatting the function name, so disabled tracing
+creates no metadata. `guard_trace_allocations_test.go` checks that contract,
+and `process_guards.go` plus the enabled analyzer trace assert the accepted
+guard and its candidate association. Measurements live in
+[the performance investigation](../analysis-performance-2026-10-06.md).

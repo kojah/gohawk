@@ -72,9 +72,7 @@ func proveProcessReturns(pass *analysis.Pass, proof *commandProof, function *ssa
 	assumptions := ssaflow.EntryAssumptions{}
 	if guard := proveImmediateProcessGuard(start, command); guard.State == ssaflow.EvidenceProven {
 		assumptions.Constants = ssaflow.FixedValues{guard.NonNil: ssaflow.OutcomeNonNil}
-		probe.Evidence(analysisTrace.Step{
-			Reason: guard.Reason.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: guard.NonNil.Pos(), Function: function.String(),
-		})
+		emitImmediateProcessGuard(probe, function, guard)
 	}
 	// Result summaries exclude only branches the shared proof rules out.
 	// They never supply wait ownership; opaque results retain both edges.
@@ -97,4 +95,13 @@ func proveProcessReturns(pass *analysis.Pass, proof *commandProof, function *ssa
 		decision: decideProcessReturn(start, command, witness, unknown, proof.budget()),
 		command:  command, witness: witness,
 	}
+}
+
+func emitImmediateProcessGuard(probe analysisTrace.Probe, function *ssa.Function, guard processGuardProof) {
+	if !probe.Enabled() {
+		return
+	}
+	probe.Evidence(analysisTrace.Step{
+		Reason: guard.Reason.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: guard.NonNil.Pos(), Function: function.String(),
+	})
 }

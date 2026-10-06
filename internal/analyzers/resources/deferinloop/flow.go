@@ -152,7 +152,10 @@ func advanceDeferState(
 ) deferFlowState {
 	for ; state.index < len(state.block.Instrs); state.index++ {
 		if state.status != resourceLive {
-			continue
+			// The suffix has no classification or charges once this path is
+			// settled or unknown. Preserve its final position without scanning.
+			state.index = len(state.block.Instrs)
+			return state
 		}
 		instruction := state.block.Instrs[state.index]
 		status, reason := classifyResourceInstruction(evidence, probe, instruction, obligation)

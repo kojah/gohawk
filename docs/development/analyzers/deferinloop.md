@@ -54,3 +54,14 @@ when the candidate probe is enabled. Required alias, containment and lifetime
 queries remain outside those guards. Final presentation was already guarded;
 tracing preserves the authoritative proof and all enabled event contents.
 The existing trace fixtures cover accepted, unknown and reported backedges.
+
+## State advancement cost
+
+Once a path is settled or unknown, instruction advancement moves directly to
+the same block-end index. The skipped suffix previously performed only index
+increments: it classified no instructions, emitted no evidence and spent no
+budget. The state and successor policy remain unchanged.
+`flow_suffix_test.go` checks both non-live statuses and positions before, at
+and beyond the block end; the accepted and diagnostic lifetime fixtures remain
+the behavior gate. Measurements live in
+[the performance investigation](../analysis-performance-2026-10-06.md).
