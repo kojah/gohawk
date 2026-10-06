@@ -14,7 +14,7 @@ summaries, and keeps missing summaries distinct from disproved ownership.
 
 ```go
 var Analyzer = &analysis.Analyzer{
-	Name:		"gohawklifecyclefacts",
+	Name:		"lifecyclefacts",
 	Doc:		"exports internal lifecycle ownership summaries",
 	Requires:	[]*analysis.Analyzer{buildssa.Analyzer},
 	FactTypes:	[]analysis.Fact{new(publishedFact), new(publishedCleanup), new(publishedPackage)},

@@ -30,14 +30,14 @@ gohawk dump facts [-func NAME] [-kind KINDS] package...
 Prints the facts the given packages export, and those of the callees they
 resolve, one family per header:
 
-- `gohawklifecyclefacts`: lifecycle summaries decoded per parameter, each
+- `lifecyclefacts`: lifecycle summaries decoded per parameter, each
   summary case and released use as a sentence ending in its condition, such
   as `Close parameter 0 when argument 1 is nil`, and the heap projection as
   `heap …` lines, including the `requires` lines that name the methods it
   calls on what it was handed.
-- `gohawkresultfacts`: result guarantees, result cases such as
+- `resultfacts`: result guarantees, result cases such as
   `result 0 (*File) is nil when result 1 is non-nil`, and returned parameters.
-- `gohawkconcurrencyfacts`: the ordered synchronization effects, or each path
+- `concurrencyfacts`: the ordered synchronization effects, or each path
   alternative with the conditions that select it and what it returns.
 
 `-kind` narrows the dump to a comma-separated list of `lifecycle`,

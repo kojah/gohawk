@@ -65,7 +65,7 @@ type publication = factcodec.Envelope[Fact]
 
 // Analyzer exports complete effects and provides a shared engine to consumers.
 var Analyzer = &analysis.Analyzer{
-	Name: "gohawkconcurrencyfacts", Doc: "exports bounded ordered synchronization effects",
+	Name: "concurrencyfacts", Doc: "exports bounded ordered synchronization effects",
 	Requires: []*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
 	ResultType: reflect.TypeFor[*Engine](), Run: run,
 }

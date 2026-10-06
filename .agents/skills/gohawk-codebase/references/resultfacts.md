@@ -14,7 +14,7 @@ sibling results; these guarantees establish no ownership or cleanup.
 
 ```go
 var Analyzer = &analysis.Analyzer{
-	Name:	"gohawkresultfacts", Doc: "exports bounded unconditional result guarantees",
+	Name:	"resultfacts", Doc: "exports bounded unconditional result guarantees",
 	Requires:	[]*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
 	ResultType:	reflect.TypeFor[*Engine](), Run: run,
 }

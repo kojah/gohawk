@@ -35,7 +35,7 @@ type publication = factcodec.Envelope[Fact]
 // Analyzer computes result knowledge only when required before dependency
 // analysis. It does not require lifecycle or concurrency inference.
 var Analyzer = &analysis.Analyzer{
-	Name: "gohawkresultfacts", Doc: "exports bounded unconditional result guarantees",
+	Name: "resultfacts", Doc: "exports bounded unconditional result guarantees",
 	Requires: []*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
 	ResultType: reflect.TypeFor[*Engine](), Run: run,
 }

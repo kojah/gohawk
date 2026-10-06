@@ -68,8 +68,8 @@ func Finish(done chan struct{}) { close(done) }
 	text := output.String()
 	for _, want := range []string{
 		"CloseFile (exported here", "0 file: Closed", "MaybeClose (exported here", "Close parameter 0 when argument 1 is true",
-		"gohawkresultfacts example.com/factsdump.Open", "result 0 (*os.File) is nil when result 1 is non-nil",
-		"gohawkconcurrencyfacts example.com/factsdump.Finish", "close parameter 0",
+		"resultfacts example.com/factsdump.Open", "result 0 (*os.File) is nil when result 1 is non-nil",
+		"concurrencyfacts example.com/factsdump.Finish", "close parameter 0",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("facts dump lacks %q:\n%s", want, text)
@@ -99,9 +99,9 @@ func Open(path string) (*os.File, error) { return os.Open(path) }
 		want    []string
 		without []string
 	}{
-		{"result", []string{"gohawkresultfacts example.com/factkinds.Open"}, []string{"gohawklifecyclefacts", "heap "}},
-		{"heap", []string{"heap edge"}, []string{"gohawkresultfacts", "no parameter is proven"}},
-		{"lifecycle", []string{"gohawklifecyclefacts example.com/factkinds.Open"}, []string{"heap ", "gohawkresultfacts"}},
+		{"result", []string{"resultfacts example.com/factkinds.Open"}, []string{"lifecyclefacts", "heap "}},
+		{"heap", []string{"heap edge"}, []string{"resultfacts", "no parameter is proven"}},
+		{"lifecycle", []string{"lifecyclefacts example.com/factkinds.Open"}, []string{"heap ", "resultfacts"}},
 	} {
 		var output, errorsOutput bytes.Buffer
 		if err := printFacts([]string{"-func", "Open", "-kind", test.kinds, "."}, &output, &errorsOutput); err != nil {
