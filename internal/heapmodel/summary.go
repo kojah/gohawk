@@ -7,8 +7,8 @@
 package heapmodel
 
 import (
+	"cmp"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -37,25 +37,29 @@ func SortedSlots(set map[HeapSlot]bool) []HeapSlot {
 	for at := range set {
 		slots = append(slots, at)
 	}
-	sort.Slice(slots, func(i, j int) bool { return SlotLess(slots[i], slots[j]) })
+	slices.SortFunc(slots, compareSlots)
 	return slots
 }
 
 // SlotLess orders summary slots by root identity and access path.
 func SlotLess(left, right HeapSlot) bool {
+	return compareSlots(left, right) < 0
+}
+
+func compareSlots(left, right HeapSlot) int {
 	if left.Root != right.Root {
 		if left.Root.Kind != right.Root.Kind {
-			return left.Root.Kind < right.Root.Kind
+			return cmp.Compare(left.Root.Kind, right.Root.Kind)
 		}
 		if left.Root.Index != right.Root.Index {
-			return left.Root.Index < right.Root.Index
+			return cmp.Compare(left.Root.Index, right.Root.Index)
 		}
 		if left.Root.Package != right.Root.Package {
-			return left.Root.Package < right.Root.Package
+			return strings.Compare(left.Root.Package, right.Root.Package)
 		}
-		return left.Root.Name < right.Root.Name
+		return strings.Compare(left.Root.Name, right.Root.Name)
 	}
-	return left.Path < right.Path
+	return strings.Compare(left.Path, right.Path)
 }
 
 // EdgeLess orders projected edges deterministically.

@@ -1399,3 +1399,51 @@ into RAM; the README badge remains accurate. Small receipts are retained under
 `.build/perf-pointee-add-20261006/`. No local race tests or full precision replay
 were run; hosted checks for the new commit remain separate. The broader
 performance goal remains active.
+
+### Typed ordering of published summary slots
+
+`SortedSlots` is used by the projection's truncated and written slot inventories.
+Its five identity fields define a total order: root kind, index, package, name,
+then serialized path. It now uses `slices.SortFunc`; `SlotLess` delegates to
+the same private comparator so edge, effect and requirement ordering retain
+one source of truth. No root identity, path encoding, publication limit or
+proof budget changes. Distinct slot keys cannot compare equal, so this switch
+does not introduce a different tie selection.
+
+The regression enumerates 324 slots in explicit expected order across all five
+fields, checks input evidence is unchanged and preserves nonnil empty output.
+Three-sample benchmark medians on the retained RAM workspace are:
+
+| Slots | Reflective sort | Typed sort | Bytes before → after | Allocations before → after |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | 43.77 ns | 13.27 ns | 24 → 0 | 1 → 0 |
+| 1 | 99.73 ns | 77.16 ns | 88 → 64 | 2 → 1 |
+| 8 | 783.6 ns | 454.7 ns | 648 → 512 | 4 → 1 |
+| 32 | 3770 ns | 2585 ns | 2440 → 2304 | 4 → 1 |
+| 128 | 23600 ns | 17836 ns | 9608 → 9472 | 4 → 1 |
+
+These are local primitive measurements, not a whole-run speedup claim. Raw
+receipts remain in the RAM workspace's `summary-sort/`. Four reflective sorts
+remain in holds, edges, effects and requirements; their own performance and
+tie/selection behavior still require assessment. The broader goal stays open.
+
+A broader literal inventory of `sort.Slice` in `internal/heapmodel` also finds
+the escape proof's event ordering (`escape_query.go`) and the dump renderer's
+escape-origin ordering (`store_regions_render.go`). The former is an additional
+normal-query candidate, distinct from the four remaining summary sorts. Its
+less relation can scan a block to break instruction-position ties; changing
+that needs event-order fixtures and measurements. The latter is dump-only and
+outside the normal-run timing scope. Graph tools remain unavailable; this
+inventory uses exact source search/read fallback and makes no graph coverage
+claim.
+
+The complete fresh-action all-check Caddy scan preserves diagnostic JSON, exit
+3 and empty stderr. It takes 113.790 seconds and writes 16 KiB physically; this
+single run does not establish a whole-run speedup. All eight canonical local
+verification gates pass, including the full ordinary suite (127 seconds) and
+all-check self-analysis.
+
+Canonical RAM coverage passes at 92.5%, matching the README badge. Small
+receipts are retained in `.build/perf-summary-sort-20261006/`; full profiles
+stay in RAM. No local race tests or full precision replay were run. Hosted
+checks for this commit are separate from these local passing receipts.
