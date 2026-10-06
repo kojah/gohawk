@@ -110,11 +110,20 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 	}
 	result := function.Signature.Results().At(resultIndex).Type()
 	var released FieldMask
+	methodsKnown := true
 	for _, method := range resultMethods(function) {
 		summary, ok := summaries[method]
 		if !ok {
 			imported, found := factForFunction(pass, method)
 			if !found {
+				// Private methods have no exported fact, but a visible body is
+				// not opaque. Reuse the same receiver-field release inference;
+				// its conservative completion cutoffs also apply to this path.
+				if object := method.Object(); object != nil && !object.Exported() && len(method.Blocks) > 0 {
+					released |= releasedFields(pass, method)
+					continue
+				}
+				methodsKnown = false
 				continue
 			}
 			summary = imported
@@ -126,7 +135,7 @@ func returnedViews(pass *analysis.Pass, function *ssa.Function, fact Fact, summa
 		if !fact.ReturnedOwner().contains(index) {
 			continue
 		}
-		if parameterIsView(function, parameter, result, structure, released) {
+		if parameterIsView(function, parameter, result, structure, released, methodsKnown) {
 			views |= parameterMaskFor(index)
 		}
 	}
@@ -154,6 +163,7 @@ func parameterIsView(
 	result types.Type,
 	structure *types.Struct,
 	released FieldMask,
+	methodsKnown bool,
 ) bool {
 	// Returning the same value under the same static type preserves the
 	// caller-visible owner rather than hiding it behind a view. This is the
@@ -181,6 +191,12 @@ func parameterIsView(
 	}
 	if !typeCanRelease(result) {
 		return true
+	}
+	// A missing receiver-method summary cannot prove that a stored field is
+	// never released. Type-only view evidence above does not depend on that
+	// field census; the field-based claim requires complete method knowledge.
+	if !methodsKnown {
+		return false
 	}
 	for _, field := range storedFieldIndices(parameter, structure) {
 		if !released.contains(field) {

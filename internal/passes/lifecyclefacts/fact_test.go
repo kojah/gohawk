@@ -424,6 +424,9 @@ func MaybeWrapLink(link *Link, wrap bool) *Link {
 	owner := pkg.Type("Owner").Type()
 	closeMethod := pkg.Prog.LookupMethod(types.NewPointer(owner), pkg.Pkg, "Close")
 	summaries[closeMethod] = summarize(pass, closeMethod)
+	link := pkg.Type("Link").Type()
+	linkClose := pkg.Prog.LookupMethod(types.NewPointer(link), pkg.Pkg, "Close")
+	summaries[linkClose] = summarize(pass, linkClose)
 	if got := returnedViews(pass, pkg.Func("NewReader"), summaries[pkg.Func("NewReader")], summaries); !got.contains(0) {
 		t.Errorf("NewReader ReturnedView = %#x, want parameter 0", uint64(got))
 	}

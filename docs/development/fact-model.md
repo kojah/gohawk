@@ -81,6 +81,14 @@ proof vocabulary, and explicitly reviewed structure-only helpers remain usable.
 Raw object-fact import/export remains inside the owning domain pass; the broker
 cannot bypass that boundary either.
 
+Returned-view field inference distinguishes complete receiver-method summaries
+from unavailable ones. Visible private bodies reuse receiver-field inference
+rather than requiring an exported fact. An unavailable method cannot supply
+negative release evidence; the field-based claim is withheld. A valid package marker can still
+supply a known empty summary. Type-only view rules do not consume that field
+census. See `internal/passes/lifecyclefacts/returned_views.go` and its focused
+unavailable-method regression.
+
 ## Unconditional result guarantees
 
 The result component records `AlwaysNil`, `AlwaysNonNil`, `AlwaysTrue`,
@@ -267,7 +275,7 @@ type Fact struct {
 type MustClaims struct {
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
-	// caller keeps the obligation. See fields.go.
+	// caller keeps the obligation. See returned_views.go.
 	ReturnedView	ParameterMask
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.

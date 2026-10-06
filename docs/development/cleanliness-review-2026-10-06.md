@@ -74,10 +74,26 @@ is not a finding that they should be split: each needs a cohesion judgment.
 - trace/trace.go
 - heapmodel/store_regions_effects.go
 
-Further proof-boundary review must distinguish unavailable summaries from
-negative evidence, especially where returned-view inference consumes receiver
-release masks. No semantic change or new diagnostic is inferred from this
-source-review question; it needs real SSA/fact evidence before any fix.
+The returned-view availability question is confirmed and fixed. An actual SSA
+fixture storing a closable parameter into a returned owner originally produced
+`ReturnedView = 0x1` even when the receiver's `Close` summary was unavailable.
+Field-based view inference now withholds that claim for unavailable methods.
+Visible private method bodies reuse the same receiver-field release inference
+rather than becoming opaque merely because their facts are not exported.
+Independent type-only rules retain their existing behavior.
+
+Controls cover unavailable methods, known releasing/no-op methods, type-only
+views and private releasing/no-op helpers. The existing same-type wrapper
+unit harness now supplies its known no-op method summary. The split-owner
+analyzer fixture remains diagnostic after resolving its visible private reset
+helper. All eight final verification gates pass for this boundary change.
+The scoped round-2 replay on pinned `mongodb/amboy` passes: both retained
+resource-lifetime true positives remain present, no baseline drift is reported,
+and the scan is required to be scannable. This scope has no false-positive
+labels and is not a full cumulative precision audit. Canonical RAM coverage
+passes at 92.6%, matching the README. Small receipts are retained in
+`.build/returned-view-audit-20261006/`; raw SSA/test output stays in RAM. No local
+race tests were run; hosted checks remain separate.
 
 The overall cleanliness goal remains active. Unrelated staged deletion and
 untracked files from other sessions are excluded from this task.

@@ -766,7 +766,7 @@ Heap rather than stored; see heap.go.
 type MustClaims struct {
 	// ReturnedView narrows ReturnedOwner: the parameter is stored in the
 	// returned struct, but no method of that type releases the field, so the
-	// caller keeps the obligation. See fields.go.
+	// caller keeps the obligation. See returned_views.go.
 	ReturnedView	ParameterMask
 	// OwnedFields and ReleasedFields are indexed by struct field, not
 	// parameter; see fields.go for the constructor and method summaries.

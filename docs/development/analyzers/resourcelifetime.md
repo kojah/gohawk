@@ -828,6 +828,14 @@ resource in its returned struct transfers the obligation only when that
 struct's type has a method proven to release the field; a returned view such
 as a buffered reader leaves the obligation with the caller, even when the
 view's type has a `Close` of its own that releases nothing.
+Field-based returned-view inference requires release evidence for every
+receiver method. Visible private bodies reuse the same field-release inference
+as exported methods. A missing or bodiless method remains unknown; it cannot turn
+an empty release mask into proof that the wrapper leaves the field untouched.
+Known empty summaries still support that distinction, and independent type-only
+view rules retain their existing behavior. The focused
+`returned_views_unknown_test.go` cases cover unavailable, releasing, no-op and
+type-only receiver behavior using actual SSA.
 
 Every instruction after an acquisition is classified once as a release or
 transfer, an opaque use, or nothing, and a leak is reported only when no
