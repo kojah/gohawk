@@ -1184,3 +1184,81 @@ paths redirected into RAM; the README badge remains accurate. Small receipts
 are retained in `.build/perf-guard-addresses-20261006/`. No local race tests or
 full precision replay were run. Hosted checks for the new commit remain
 separate, and the broader performance completion audit remains open.
+
+## A bounded window for interleaved guard keys
+
+The one-entry key memo misses when the work list alternates guard lists.
+The memo now retains its current entry and a lazily allocated three-entry
+history. A historical hit swaps with the current entry; misses replace one
+history slot in rotation. This is a bounded replacement policy, not an LRU
+promise. A walk using only one list never allocates the additional window.
+
+All comparisons happen after the existing per-guard charges. Keys still come
+from the authoritative byte grammar, including legacy delimiter collisions;
+stability is omitted exactly as before. Empty and oversized inputs preserve
+their original paths. Cutoff cannot promote a partial key or evict completed
+evidence. Retained parts copy identity/value/count rather than borrowing the
+caller's mutable guard slice. Tests cover input mutation, replacement, evicted
+keys, lazy history and historical hits under local/shared allowances. Existing
+collision, stability, oversized-input and location/coverage regressions pass.
+
+The benchmark rotates long eight-guard lists, with setup and warmup excluded.
+Three-sample medians with the original one-entry memo and final window are:
+
+| Alternating lists | Before | Window | Bytes/allocations before | Bytes/allocations window |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 48.48 ns | 48.76 ns | 0 / 0 | 0 / 0 |
+| 2 | 554.9 ns | 82.86 ns | 1536 / 1 | 0 / 0 |
+| 4 | 415.1 ns | 93.56 ns | 1536 / 1 | 0 / 0 |
+| 8 | 416.7 ns | 454.8 ns | 1536 / 1 | 1536 / 1 |
+
+The larger working set still misses and pays extra lookups; this is not a
+universal latency improvement. An initial history loop copied every entry;
+indexed references remove those miss-path copies in the final implementation.
+
+The real all-check Caddy candidate and a fresh matched baseline both preserve
+full diagnostic JSON, exit 3, empty stderr and all 14924 action records. The
+candidate writes 20 KiB physically; the baseline writes 16 KiB. Guard-key
+allocation attribution is 486.73 MiB for the candidate versus 541.26 MiB for
+this matched baseline, about 55 MiB less. The candidate includes 1.50 MiB for
+history storage and 485.23 MiB for rendered bytes. The preceding baseline
+profile attributed 586.27 MiB to keys, illustrating process-snapshot variation.
+
+Total snapshots are 2566.37 MiB candidate and 2573.98 MiB fresh baseline, so no
+material process-total allocation improvement is established by that pair.
+The selected certmagic Run is 7.076 seconds candidate versus 6.702 baseline;
+whole commands are 96.950 versus 103.453 seconds. These mixed single-profile
+timings do not establish an overall speedup. CPU profiles include all
+goroutines during the selected Run; allocation snapshots accumulate since
+process startup and do not measure peak RSS. The retained benefit is reduced
+rendering allocation, with a measured miss-path cost.
+
+Raw artifacts stay under the RAM workspace's `guard-key-window/`, including
+its fresh baseline in `before/`. Heavy jobs use the retained RAM cache,
+reduced priority and serial execution.
+
+### Deeper proof paths reviewed, with concrete followups
+
+Source review now includes defer lifetime state advancement/classification,
+producer send-count and receive/helper proofs, and process pre-start/return
+proofs. These paths retain exact target binding, dominance constraints,
+unknown outcomes and existing budgets; generic result caching cannot safely
+ignore those inputs. This is bounded source evidence, not an exhaustive claim
+about each analyzer's auxiliary proof files.
+
+Two straightforward candidates remain to measure. In
+`internal/analyzers/resources/deferinloop/flow.go`, `advanceDeferState` continues
+incrementing to the block end after status is settled or unknown, without
+further classification or budget charges. A direct jump to the same end index
+may remove that counter-only suffix. In
+`internal/analyzers/resources/processownership/flow.go`, the proven immediate
+process guard formats `function.String()` for an evidence event even when its
+probe is disabled. Gating that presentation alone may avoid an allocation
+without changing the constant assumption. These are not yet implementation or
+performance claims, and the broader completion audit remains open.
+
+All eight canonical `make verify` gates pass, including all-check self-analysis
+and the complete ordinary suite. Coverage passes at 92.5% with output paths
+redirected into RAM; the README badge remains accurate. Small receipts stay in
+`.build/perf-guard-key-window-20261006/`. No local race tests or full precision
+replay were run; hosted checks for the new commit remain separate.
