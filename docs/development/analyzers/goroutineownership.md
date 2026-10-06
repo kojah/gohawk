@@ -4,6 +4,27 @@ The public page is [goroutineownership](../../analyzers/). This note keeps every
 boundary: what the analyzer accepts or reports at the edge of its proof, and
 why. Update it with the fixtures when a boundary changes.
 
+## Implementation responsibilities
+
+`classify.go` owns the action lattice and instruction-label orchestration.
+`call_actions.go` owns synchronous, launched and opaque call contracts;
+`receive_actions.go` owns exact versus possible signal identity and selected-arm
+observations. They feed the same cached labels and final proof.
+
+`obligation.go` owns completion-handle discovery and parent binding;
+`completion_coverage.go` owns terminal-work and return-coverage requirements.
+The remaining finder is cohesive despite exceeding the size review trigger:
+channel and group promises share discovery, nil-actual exclusion and exact
+parent mapping. Its notification predicates remain authoritative for direct
+and nested discovery. Unknown channel capacity supplies possible buffering,
+not a proof that an unbuffered join obligation exists.
+
+Callback-target resolution uses `ResolveReachingValue` with opaque phis and
+explicit wrapper forms. Static functions and exact closure bindings remain
+visible; loads, assertions, parameters and merged choices remain opaque.
+`callback_target_test.go` checks actual SSA before and after the traversal
+cleanup. This changes the guard machinery, not the diagnostic policy.
+
 ## Detection boundaries
 
 Reports goroutines whose proven completion obligation is not honored on every return path.

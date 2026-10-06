@@ -1,7 +1,7 @@
 # Codebase cleanliness review — 2026-10-06
 
-Status: in progress. Passing gates are evidence for their enforced rules, not
-proof that every implementation file has been reviewed.
+Status: review complete. The completion audit below records the scope and
+evidence for each criterion.
 
 ## Review criteria
 
@@ -163,15 +163,31 @@ Raw outputs and AST snapshots remain in the RAM workspace's
 replay were run for these moves. Hosted checks remain separate from local
 validation.
 
-## Remaining review
+## Final cohesion review
 
-Three production source files remain to be reviewed for cohesion. These
-exceed the 400-line review trigger; that is not a finding that they should be
-split. The larger heap projection file has been reviewed above.
+Goroutine instruction orchestration, call contracts and receive identity now
+have focused files. Completion coverage is separated from obligation discovery.
+All 51 function signatures and bodies match immediately after these moves;
+subsequent callback-target cleanup changes one function to the shared resolver
+with opaque phis. Actual SSA controls pass before and after for static,
+converted, captured, parameter, asserted and merged callbacks. The remaining
+finder stays together: channel/group promises use the same nil-actual exclusion
+and exact parent binding. Its size is a reviewed exception, not an outstanding
+split request. Comments now describe unknown buffer capacity accurately.
 
-- goroutineownership/classify.go
-- goroutineownership/obligation.go
-- heapmodel/store_regions_effects.go
+`heapmodel/store_regions_effects.go` stays together after complete source
+review: deferred and ordinary calls, escape propagation and clobbering own one
+memory-invalidation boundary. Map stores use that same escape model. Exact
+builtin/API and heap-summary application are already delegated. Its call
+comment now agrees with the structural reach rules for globals, callee-created
+objects and values the function let out; no effects change.
+
+No file from the original cohesion review list remains unreviewed. All eight
+final local gates pass, full RAM coverage is 92.6%, and the scoped round-2
+Vekil replay preserves one absent goroutine false positive and one retained true
+positive. Its checkout is clean at the cohort pin and scannability is required.
+Small receipts are retained in `.build/final-cleanliness-audit-20261006/`; raw
+profiles and original source snapshots stay in RAM.
 
 The returned-view availability question is confirmed and fixed. An actual SSA
 fixture storing a closable parameter into a returned owner originally produced
@@ -194,5 +210,28 @@ passes at 92.6%, matching the README. Small receipts are retained in
 `.build/returned-view-audit-20261006/`; raw SSA/test output stays in RAM. No local
 race tests were run; hosted checks remain separate.
 
-The overall cleanliness goal remains active. Unrelated staged deletion and
-untracked files from other sessions are excluded from this task.
+## Completion audit
+
+| Criterion | Current evidence | Result |
+|---|---|---|
+| Shared mechanics and owning layers | Dependency direction, summary broker, object-fact ownership, reporting and traversal architecture gates pass. Implementation responsibilities and helper references agree with the final layout. | Complete |
+| Typed decision domains | Authored-source numeric enum/type checks and raw reason/kind checks pass. The supplementary string search finds only the three textual observer signatures in trace/proof-observer boundaries. | Complete |
+| One proof path and unknown preservation | Final proof/classifier source review, unchanged-body comparisons, ordinary analyzer fixtures, unavailable-method controls and scoped FP/TP replays support the retained boundaries. Callback and exact-local walks preserve opaque merges under the shared guard. | Complete |
+| File cohesion | Full authored production inventory contains 380 files. Its four files over 400 lines are obligation discovery (443), heap projection (605), region graph (521) and heap effects (418); each has a recorded cohesion judgment. The original review queue is exhausted. | Complete |
+| Contracts, comments and references | Stale field, callback, buffer-capacity and foreign-reach comments are corrected. Generated references, documentation-link checks and public-documentation architecture checks pass. | Complete |
+| Local validation and relevant precision | All eight final `make verify` gates pass; canonical full coverage is 92.6%, matching the README. Scoped replays and actual-SSA before/after controls pass. | Complete |
+
+The supplementary recursive-value census covers direct self-calls whose
+signatures explicitly name `ssa.Value` in authored analyzer source, excluding
+fixtures, tests and generated files. Ten reported functions carry the shared
+reaching walk; exact reads confirm the fold/Mark guard or guarded caller. The
+remaining returned-wrapper proof decreases the four-constructor depth bound
+and charges its request allowance. This census is not a call graph or an audit
+of indirect/mutual recursion; the architecture memo/traversal gates cover their
+own enforced scopes. Graph tools remain unavailable, so no graph completeness
+claim is made.
+
+No required cleanup remains open under these criteria. Focused commits and
+upstream synchronization are checked in the task's final Git receipt. Unrelated
+staged deletion and untracked files from other sessions are excluded. No local
+race tests were run; hosted CI remains separate from the local evidence above.

@@ -285,9 +285,9 @@ func (graph *regionGraph) closureOnlyReads(closure *region, captured slot) bool 
 	return ok && isCell && captured.region.kind == regionSite && captured.path == "" && ssaflow.CallbackCaptureReadOnly(literal, cell, graph.budget)
 }
 
-// call applies a call's effects. Results are opaque objects. Every object
-// the function did not allocate may be written by any callee, and an
-// escaped site with it. An unescaped site whose address reaches the callee
+// call applies a call's effects. Results begin as opaque objects. A call the
+// graph cannot follow may write globals, callee-created objects, and what
+// this function has let out. An unescaped site whose address reaches the callee
 // keeps its contents only when the local effect proof shows the callee
 // merely reads it; otherwise it is clobbered, and retained or started work
 // escapes it. A callee the graph cannot resolve escapes everything it is

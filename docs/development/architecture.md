@@ -30,6 +30,13 @@ point in `analyzer.go` owns scheduling and publication; `summarize.go` composes
 the per-function guarantees. These boundaries preserve one fact schema and
 one inference path rather than adding adapters between parallel models.
 
+Goroutine ownership instruction orchestration remains in `classify.go`;
+`call_actions.go` and `receive_actions.go` own their distinct evidence contracts.
+`obligation.go` finds and binds completion promises, while
+`completion_coverage.go` keeps terminal-work and return-coverage requirements
+separate. Callback targets use the shared resolver with opaque merges, so
+cycle handling does not widen the single-origin contract.
+
 Resource lifetime API acquisition contracts remain in `contracts.go`; cleanup
 and ownership instruction labels live in `release.go`. Cancellation outcomes
 and candidate state remain in `proof.go`; `classify.go` owns instruction labels
