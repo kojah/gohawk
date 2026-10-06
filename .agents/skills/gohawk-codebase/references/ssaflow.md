@@ -2665,6 +2665,18 @@ composing a fold inside a memoized proof may invalidate the enclosing answer
 because a revisited origin is not a completed absence proof. The callback
 changes no fold result and propagates through recursive and sibling walks.
 
+## ReachingWalk.OpaquePhis
+
+[Source](../../../../internal/ssaflow/value_reaching.go)
+
+```go
+func (walk ReachingWalk) OpaquePhis() ReachingWalk
+```
+
+OpaquePhis keeps phi merges as leaves instead of examining their incoming
+alternatives. Callers whose identity proof admits only a single wrapper/load
+chain can use the shared cycle guard without widening that proof at merges.
+
 ## ReachingWalk.Within
 
 [Source](../../../../internal/ssaflow/value_reaching.go)

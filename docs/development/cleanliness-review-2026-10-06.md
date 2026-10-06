@@ -110,6 +110,49 @@ precision replay are needed for unchanged implementations. Small receipts live
 in `.build/evidence-layout-audit-20261006/`; source snapshots and profiles stay
 in RAM. No local race tests were run; hosted checks remain separate.
 
+## Resource and cancellation review
+
+Resource acquisition contracts and exclusions remain in `contracts.go` (242
+lines); `release.go` owns cleanup and ownership instruction classification
+(358). All 22 function signatures and bodies match their originals. The
+callback rationale and pinned source link now document the callback function,
+while the search-budget rationale documents its constant.
+
+Cancellation proof separates final outcomes/candidate state (163 lines),
+instruction classification (259) and private-use resolution. All 28 function
+signatures and bodies match immediately after the move. A subsequent traversal
+cleanup replaces only `exactLocalValueUse` with the shared fold and its leaf.
+The shared fold gains an explicit opaque-phi mode because its ordinary fan-out
+would widen this exact-use boundary. Defaults, sibling traversal, leaf policy
+and budget availability remain explicit. Actual SSA controls pass both before
+and after the change, including converted/nested loads and an opaque merge.
+This is traversal consistency, not a new diagnostic or claimed precision gain.
+
+All eight final canonical local gates pass, and full RAM coverage passes at
+92.6%, matching the README. The round-2 scoped replays preserve both cancellation
+false positives as absent (`nextzhou/workpool` and `tsouza/cerberus`) and both
+resource true positives as present (`mongodb/amboy`). Each checkout is clean
+and matches its cohort pin, and each final scan requires scannability. The first
+Cerberus attempt hit the harness's 180-second timeout during the cold build;
+it checked no label and is not counted as a pass. After reclaiming older data
+entries from this task's RAM cache, the warmed retry passed under the same
+limit. No baselines or labels were edited; this is not a cumulative audit.
+Small receipts live in `.build/resource-layout-audit-20261006/`; raw profiles,
+source snapshots and the cache-eviction manifest stay in RAM. No local race
+tests were run; hosted checks remain separate.
+
+## Region graph cohesion review
+
+`heapmodel/store_regions.go` remains intact after a full source review. Its
+object/slot vocabulary, absorbing unknown pointee lattice, stable interning and
+stamps, widening and bounded fixpoint define one authoritative memory graph.
+Per-instruction replay consumes that same graph rather than a second model.
+Instruction effects and query/cache boundaries already live elsewhere. The
+constructor's nonempty-body precondition is supplied by `regionsOfFunction`;
+the private projection rebuild is reached only for an available/building graph.
+The fixpoint's unavailable result discards entry/exit evidence. No source change
+or extra behavioral fixture is warranted solely by this file's size.
+
 ## Validation receipts
 
 All eight final `make verify` gates pass. The corrected canonical coverage
@@ -122,21 +165,13 @@ validation.
 
 ## Remaining review
 
-Six production source files remain to be reviewed for cohesion. These
+Three production source files remain to be reviewed for cohesion. These
 exceed the 400-line review trigger; that is not a finding that they should be
 split. The larger heap projection file has been reviewed above.
 
-- cancellationownership/proof.go
-- resourcelifetime/contracts.go
 - goroutineownership/classify.go
 - goroutineownership/obligation.go
-- heapmodel/store_regions.go
 - heapmodel/store_regions_effects.go
-
-The next resource-contract review has identified API catalog declarations and
-release classification in the same file. Its callback rationale is currently
-attached to the search-budget constant rather than the callback function;
-this boundary and comment placement remain to be cleaned up.
 
 The returned-view availability question is confirmed and fixed. An actual SSA
 fixture storing a closable parameter into a returned owner originally produced

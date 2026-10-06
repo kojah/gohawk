@@ -4,6 +4,15 @@ The public page is [resourcelifetime](../../analyzers/). This note keeps every p
 boundary: what the analyzer accepts or reports at the edge of its proof, and
 why. Update it with the fixtures when a boundary changes.
 
+## Implementation responsibilities
+
+`contracts.go` owns exact API acquisition contracts, inferred result contracts
+and the memory-writer exclusion. `release.go` owns instruction cleanup and
+ownership labels, including SQL exhaustion uncertainty and callback handoff.
+These consume the same contract and flow model; no reporting rule or API
+coverage changes with the separation. Callback registration rationale stays
+with that function, independently of the recursive-completion budget rationale.
+
 ## Final decision and tracing
 
 `evaluateResourceFlow` owns the final diagnostic evidence and reason, including

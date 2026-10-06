@@ -22,15 +22,24 @@ import (
 
 // ReachingWalk carries the transparent forms and the visited set of one fold.
 type ReachingWalk struct {
-	forms     TransparentValueForm
-	seen      map[ssa.Value]bool
-	budget    *SearchBudget
-	onRevisit func()
+	forms      TransparentValueForm
+	opaquePhis bool
+	seen       map[ssa.Value]bool
+	budget     *SearchBudget
+	onRevisit  func()
 }
 
 // NewReachingWalk starts a fold that looks through forms.
 func NewReachingWalk(forms TransparentValueForm) ReachingWalk {
 	return ReachingWalk{forms: forms, seen: map[ssa.Value]bool{}}
+}
+
+// OpaquePhis keeps phi merges as leaves instead of examining their incoming
+// alternatives. Callers whose identity proof admits only a single wrapper/load
+// chain can use the shared cycle guard without widening that proof at merges.
+func (walk ReachingWalk) OpaquePhis() ReachingWalk {
+	walk.opaquePhis = true
+	return walk
 }
 
 // Within attaches a shared allowance to value visits, including transparent
@@ -91,7 +100,7 @@ func (walk ReachingWalk) any(value ssa.Value, origin func(ssa.Value) bool, leaf 
 	if inner, ok := UnwrapTransparentValue(value, walk.forms); ok {
 		return walk.any(inner, origin, leaf)
 	}
-	if phi, ok := value.(*ssa.Phi); ok {
+	if phi, ok := value.(*ssa.Phi); ok && !walk.opaquePhis {
 		for _, edge := range phi.Edges {
 			if walk.any(edge, origin, leaf) {
 				return true
@@ -117,7 +126,7 @@ func (walk ReachingWalk) Every(value ssa.Value, leaf func(ReachingWalk, ssa.Valu
 	if inner, ok := UnwrapTransparentValue(value, walk.forms); ok {
 		return walk.Every(inner, leaf)
 	}
-	if phi, ok := value.(*ssa.Phi); ok {
+	if phi, ok := value.(*ssa.Phi); ok && !walk.opaquePhis {
 		return walk.EveryOf(phi.Edges, leaf)
 	}
 	matched := leaf(walk, value)
@@ -169,7 +178,7 @@ func ResolveReachingValue[T any, K comparable](
 		return ResolveReachingValue(walk, inner, leaf, key)
 	}
 	phi, ok := value.(*ssa.Phi)
-	if !ok {
+	if !ok || walk.opaquePhis {
 		resolved, found := leaf(walk, value)
 		if walk.budget.Exhausted() {
 			return zero, false
@@ -193,5 +202,7 @@ func ResolveReachingValue[T any, K comparable](
 
 // branch copies the visited set so sibling phi edges are judged independently.
 func (walk ReachingWalk) branch() ReachingWalk {
-	return ReachingWalk{forms: walk.forms, seen: maps.Clone(walk.seen), budget: walk.budget, onRevisit: walk.onRevisit}
+	return ReachingWalk{
+		forms: walk.forms, opaquePhis: walk.opaquePhis, seen: maps.Clone(walk.seen), budget: walk.budget, onRevisit: walk.onRevisit,
+	}
 }

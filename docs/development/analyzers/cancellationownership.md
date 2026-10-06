@@ -4,6 +4,22 @@ The public page is [cancellationownership](../../analyzers/). This note keeps ev
 boundary: what the analyzer accepts or reports at the edge of its proof, and
 why. Update it with the fixtures when a boundary changes.
 
+## Implementation responsibilities
+
+`proof.go` owns candidate state and the final obligation outcome. `classify.go`
+owns cached instruction labels and `local_uses.go` owns private observation and
+opaque-use resolution. None introduces a second diagnostic decision path.
+Local exact-use resolution follows the same wrapper and load forms as before;
+`ReachingWalk.OpaquePhis` keeps merges opaque while the shared fold owns cycle
+handling. An unrelated alternative cannot establish use of one formal.
+
+`local_uses_test.go` checks actual SSA for direct identity, conversions, loads,
+nested loads, converted loads, merged values and unrelated formals. The same
+controls pass against the original recursive walk and the shared fold. Shared
+`reaching_opaque_test.go` covers Any, Every and Resolve, wrapper handling,
+sibling-policy propagation and exhausted allowances. Default reaching folds
+continue to inspect phi alternatives.
+
 ## Detection boundaries
 
 For a standard context derived directly from a fresh local cancelable context,
@@ -107,9 +123,8 @@ Fixtures `entrycontext/main.go`, `callableentry/main.go`, and
 deferred timeout cancel, and the excluded loop/helper/closure/method/signal and
 referenced/non-entry main forms. The analyzer's `program_entry_test.go` checks
 final outcomes and one unknown label per return, including when exact cleanup wins.
-The small policy extension stays at the existing classifier decision point in
-`proof.go`; it adds no traversal or parallel reporting rule to that already
-large cohesive proof implementation.
+The policy stays at the existing classifier decision point in `classify.go`;
+it adds no traversal or parallel reporting rule.
 
 ### Cancels owned by a returned struct
 

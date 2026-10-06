@@ -18,13 +18,14 @@ analyzer.
 ## What flows into this value?
 
 Value-provenance folds own the recursion, the visited set, and the fan-out
-over phi merges. Analyzers supply only a leaf predicate and the transparent
-forms to look through. `TestAnalyzersUseSharedTraversal` rejects an analyzer
+over phi merges. Analyzers supply a leaf predicate and choose which wrappers
+and merges are transparent. `TestAnalyzersUseSharedTraversal` rejects an analyzer
 that fans out over phi edges or threads its own visited set.
 
 | helper | answers |
 |---|---|
 | `NewReachingWalk(forms)` with `Any`, `Every`, and `EveryOf` | does some / every value reaching here satisfy the predicate? |
+| `ReachingWalk.OpaquePhis` | keep merges as leaves when a single-chain identity proof must not borrow an incoming alternative |
 | `ReachingWalk.AnyIncludingOrigin` | accept a direct origin witness before wrapper/phi expansion or a revisit, under the same allowance |
 | `NewReachingWalk(forms).Within(budget)` | charge wrappers, phi alternatives and revisits to a shared allowance; cutoff supplies no fold evidence |
 | `StructurallyIdenticalWithin`, `AccessPathStepsWithin`, `ValueIsAccessPathFromWithin` | structural identity/projection with one allowance; cutoff is unproved, not unrelated |

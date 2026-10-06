@@ -30,6 +30,13 @@ point in `analyzer.go` owns scheduling and publication; `summarize.go` composes
 the per-function guarantees. These boundaries preserve one fact schema and
 one inference path rather than adding adapters between parallel models.
 
+Resource lifetime API acquisition contracts remain in `contracts.go`; cleanup
+and ownership instruction labels live in `release.go`. Cancellation outcomes
+and candidate state remain in `proof.go`; `classify.go` owns instruction labels
+and `local_uses.go` owns private-use resolution. Its load/wrapper identity walk
+uses `ReachingWalk.OpaquePhis`, preserving merge opacity while sharing the cycle
+guard. Ordinary reaching folds retain their existing phi expansion.
+
 Lifecycle proof orchestration remains in `lifecyclefacts/evidence.go`;
 `captured_evidence.go` owns capture-cell uses, possible literal retention and
 immutable imported-argument completion. The same proof entry point consumes
