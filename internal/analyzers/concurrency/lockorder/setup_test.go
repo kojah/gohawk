@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -26,7 +27,7 @@ func TestLockSetupInventoryAndOwnership(t *testing.T) {
 	} {
 		fn := pkg.Func(test.name)
 		pass := lockSetupPass(fn, concurrencyfacts.NewEngine())
-		proof := buildLockSetup(pass, fn, ssaflow.NewSearchBudget(lockStateWorkBudget))
+		proof := buildLockSetup(pass, fn, proofs.NewSearchBudget(lockStateWorkBudget))
 		if !proof.Proven() || proof.setup == nil {
 			t.Fatalf("%s: %+v", test.name, proof)
 		}
@@ -52,10 +53,10 @@ func TestLockSetupCutoffDiscardsInventory(t *testing.T) {
 	for _, name := range []string{"borrow", "via", "empty"} {
 		fn := pkg.Func(name)
 		finished := false
-		for limit := range ssaflow.SummaryBudget {
+		for limit := range proofs.SummaryBudget {
 			engine := concurrencyfacts.NewEngine()
 			pass := lockSetupPass(fn, engine)
-			pool := ssaflow.NewSearchBudget(lockStateWorkBudget)
+			pool := proofs.NewSearchBudget(lockStateWorkBudget)
 			child := pool.Within(limit)
 			proof := buildLockSetup(pass, fn, child)
 			if proof.Proven() {
@@ -65,10 +66,10 @@ func TestLockSetupCutoffDiscardsInventory(t *testing.T) {
 				finished = true
 				break
 			}
-			if proof.setup != nil || proof.Reason != ssaflow.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
+			if proof.setup != nil || proof.Reason != proofs.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
 				t.Fatalf("%s cut%d: %+v exhausted=%v/%v", name, limit, proof, child.Exhausted(), pool.Exhausted())
 			}
-			fresh := buildLockSetup(pass, fn, pool.Within(ssaflow.SummaryBudget))
+			fresh := buildLockSetup(pass, fn, pool.Within(proofs.SummaryBudget))
 			if !fresh.Proven() || fresh.setup.hasAcquisition != (name != "empty") {
 				t.Fatalf("%s fresh%d: %+v", name, limit, fresh)
 			}
@@ -106,7 +107,7 @@ func lockSetupPackage(t *testing.T) *ssa.Package {
 func TestLockSetupDeferredWriterWitness(t *testing.T) {
 	fn := lockSetupPackage(t).Func("opaque")
 	pass := lockSetupPass(fn, concurrencyfacts.NewEngine())
-	proof := buildLockSetup(pass, fn, ssaflow.NewSearchBudget(lockStateWorkBudget))
+	proof := buildLockSetup(pass, fn, proofs.NewSearchBudget(lockStateWorkBudget))
 	if !proof.Proven() || len(proof.setup.possibleWriters) != 1 || len(proof.setup.defers) != 1 ||
 		proof.setup.possibleWriters[0] != proof.setup.defers[0] {
 		t.Fatalf("opaque wrapper witness: %+v", proof)
@@ -124,16 +125,16 @@ func TestLockSetupNestedSummaryAllowance(t *testing.T) {
 		fn := pkg.Func("root")
 		pass := lockSetupPass(fn, concurrencyfacts.NewEngine())
 		limit := 100
-		if count > ssaflow.SummaryBudget {
+		if count > proofs.SummaryBudget {
 			limit = lockStateWorkBudget
 		}
-		budget := ssaflow.NewSearchBudget(limit)
+		budget := proofs.NewSearchBudget(limit)
 		proof := buildLockSetup(pass, fn, budget)
-		if proof.Proven() || proof.setup != nil || proof.Reason != ssaflow.EvidenceBudgetExhausted || budget.Exhausted() != (count < ssaflow.SummaryBudget) {
+		if proof.Proven() || proof.setup != nil || proof.Reason != proofs.EvidenceBudgetExhausted || budget.Exhausted() != (count < proofs.SummaryBudget) {
 			t.Fatalf("padded%d setup: %+v exhausted=%v", count, proof, budget.Exhausted())
 		}
-		if count < ssaflow.SummaryBudget {
-			fresh := buildLockSetup(pass, fn, ssaflow.NewSearchBudget(lockStateWorkBudget))
+		if count < proofs.SummaryBudget {
+			fresh := buildLockSetup(pass, fn, proofs.NewSearchBudget(lockStateWorkBudget))
 			if !fresh.Proven() || !fresh.setup.hasAcquisition || len(fresh.setup.summaries) != 2 {
 				t.Fatalf("fresh padded setup: %+v", fresh)
 			}
@@ -144,16 +145,16 @@ func TestLockSetupNestedSummaryAllowance(t *testing.T) {
 func TestLockSetupBindingCutoff(t *testing.T) {
 	fn := lockSetupPackage(t).Func("via")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-	summary := concurrencyfacts.NewEngine().AtCall(call, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	summary := concurrencyfacts.NewEngine().AtCall(call, proofs.NewSearchBudget(proofs.SummaryBudget))
 	if !summary.Complete() || len(summary.Operations) != 2 {
 		t.Fatalf("helper summary: %+v", summary)
 	}
-	pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 	child := pool.Within(1)
 	if effects, complete := bindMutexEffects(call, summary.Operations, child); complete || len(effects) != 0 || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("partial effect binding: %+v/%v", effects, complete)
 	}
-	if effects, complete := bindMutexEffects(call, summary.Operations, pool.Within(ssaflow.SummaryBudget)); !complete || len(effects) != 2 {
+	if effects, complete := bindMutexEffects(call, summary.Operations, pool.Within(proofs.SummaryBudget)); !complete || len(effects) != 2 {
 		t.Fatalf("fresh effect binding: %+v/%v", effects, complete)
 	}
 }

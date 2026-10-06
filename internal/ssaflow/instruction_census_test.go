@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -18,17 +19,17 @@ func subject(flag bool) { marker(); if flag {marker()}; marker() }
 	for _, block := range function.Blocks {
 		expected = append(expected, block.Instrs...)
 	}
-	zero := NewSearchBudget(0)
+	zero := proofs.NewSearchBudget(0)
 	if got := slices.Collect(InstructionsWithin(function, zero)); len(got) != 0 || !zero.Exhausted() {
 		t.Fatalf("zero census=%v exhausted=%v", got, zero.Exhausted())
 	}
-	partial := NewSearchBudget(2)
+	partial := proofs.NewSearchBudget(2)
 	if got := slices.Collect(InstructionsWithin(function, partial)); !slices.Equal(got, expected[:2]) || !partial.Exhausted() {
 		t.Fatalf("partial census=%v exhausted=%v", got, partial.Exhausted())
 	}
 	// Exactly enough allowance is still available until a further step is
 	// requested. Stopping on a witness must not probe the next instruction.
-	early := NewSearchBudget(1)
+	early := proofs.NewSearchBudget(1)
 	for got := range InstructionsWithin(function, early) {
 		if got != expected[0] {
 			t.Fatal("census order changed")
@@ -38,7 +39,7 @@ func subject(flag bool) { marker(); if flag {marker()}; marker() }
 	if early.Exhausted() || early.Spend() || !early.Exhausted() {
 		t.Fatal("early break must spend exactly the yielded instruction")
 	}
-	fresh := NewSearchBudget(len(expected))
+	fresh := proofs.NewSearchBudget(len(expected))
 	if got := slices.Collect(InstructionsWithin(function, fresh)); !slices.Equal(got, expected) || fresh.Exhausted() {
 		t.Fatalf("fresh census=%v exhausted=%v", got, fresh.Exhausted())
 	}

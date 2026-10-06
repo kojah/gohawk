@@ -2,6 +2,7 @@ package resourcelifetime
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,7 +17,7 @@ import (
 // cleanup registration has its own coverage proof; a visible observer that
 // neither invokes nor retains the callback is not an ownership boundary.
 func (analysis *resourceAnalysis) provePossiblyRetainedCallbackWithin(
-	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *proofs.SearchBudget,
 ) resourceProof {
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
@@ -29,7 +30,7 @@ func (analysis *resourceAnalysis) provePossiblyRetainedCallbackWithin(
 			return carriedValueProof(false, resourceReasonUntouched, budget)
 		}
 		closure := analysis.proveCarriedClosureWithin(argument, budget)
-		if closure.State == ssaflow.EvidenceUnknown {
+		if closure.State == proofs.EvidenceUnknown {
 			return closure
 		}
 		if !closure.Proven() {
@@ -47,7 +48,7 @@ func (analysis *resourceAnalysis) provePossiblyRetainedCallbackWithin(
 // proveCarriedAggregateArgumentsWithin finds a separate owner argument even
 // when another argument directly borrows the resource. A reader plus a variadic
 // closer list can return ownership through the list without the reader owning it.
-func (analysis *resourceAnalysis) proveCarriedAggregateArgumentsWithin(common *ssa.CallCommon, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveCarriedAggregateArgumentsWithin(common *ssa.CallCommon, budget *proofs.SearchBudget) resourceProof {
 	for _, argument := range common.Args {
 		if !budget.Spend() {
 			return carriedValueProof(false, resourceReasonUntouched, budget)
@@ -59,14 +60,14 @@ func (analysis *resourceAnalysis) proveCarriedAggregateArgumentsWithin(common *s
 		// closure/launch policy already decides its fate. An interrupted capture
 		// search cannot justify treating it as a different kind of aggregate.
 		closure := analysis.proveCarriedClosureWithin(argument, budget)
-		if closure.State == ssaflow.EvidenceUnknown {
+		if closure.State == proofs.EvidenceUnknown {
 			return closure
 		}
 		if closure.Proven() {
 			continue
 		}
 		nested := analysis.proveNestedCarryWithin(argument, budget)
-		if nested.State != ssaflow.EvidenceDisproven {
+		if nested.State != proofs.EvidenceDisproven {
 			return nested
 		}
 	}
@@ -75,7 +76,7 @@ func (analysis *resourceAnalysis) proveCarriedAggregateArgumentsWithin(common *s
 
 // Keep the existing single transparent step: recognizing a callback argument
 // is narrower than the recursive may-containment query over all its wrappers.
-func (analysis *resourceAnalysis) proveCarriedClosureWithin(argument ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveCarriedClosureWithin(argument ssa.Value, budget *proofs.SearchBudget) resourceProof {
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
@@ -91,7 +92,7 @@ func (analysis *resourceAnalysis) proveCarriedClosureWithin(argument ssa.Value, 
 	return analysis.proveClosureCarryWithin(closure, budget)
 }
 
-func (analysis *resourceAnalysis) proveClosureCarryWithin(closure *ssa.MakeClosure, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveClosureCarryWithin(closure *ssa.MakeClosure, budget *proofs.SearchBudget) resourceProof {
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
@@ -106,7 +107,7 @@ func (analysis *resourceAnalysis) proveClosureCarryWithin(closure *ssa.MakeClosu
 			return carriedValueProof(false, resourceReasonUntouched, budget)
 		}
 		carried := analysis.proveCarriedValueWithin(binding, budget)
-		if carried.State != ssaflow.EvidenceDisproven {
+		if carried.State != proofs.EvidenceDisproven {
 			return carried
 		}
 	}

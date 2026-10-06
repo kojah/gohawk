@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -22,7 +23,7 @@ import (
 // function's to prove. A logger routed into a server's error log is the
 // common case. A chain stored into a local allocation stays owed here.
 // https://github.com/1parado/grok-build-switch/blob/c1ee703bf6000abd92d8d29ca94a4ed59cb510f2/main.go#L173-L176
-func (analysis *resourceAnalysis) proveWrapperStoredOnForeignOwnerWithin(store *ssa.Store, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveWrapperStoredOnForeignOwnerWithin(store *ssa.Store, budget *proofs.SearchBudget) resourceProof {
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
@@ -30,7 +31,7 @@ func (analysis *resourceAnalysis) proveWrapperStoredOnForeignOwnerWithin(store *
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
 	wrapper := analysis.provePossibleWrapperWithin(store.Val, maxWrapperChain, true, budget)
-	if wrapper.State != ssaflow.EvidenceProven {
+	if wrapper.State != proofs.EvidenceProven {
 		return wrapper
 	}
 	root := store.Addr
@@ -59,13 +60,13 @@ func (analysis *resourceAnalysis) proveWrapperStoredOnForeignOwnerWithin(store *
 // callee proven to store it: a method call on the logger with unknown effects,
 // such as Info, does not publish the file, and a chain the function merely
 // uses still leaves it owed.
-func (analysis *resourceAnalysis) proveChainKeptWithin(instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveChainKeptWithin(instruction ssa.Instruction, common *ssa.CallCommon, budget *proofs.SearchBudget) resourceProof {
 	for index, argument := range common.Args {
 		if !budget.Spend() {
 			return aggregateEscapeProof(false, budget)
 		}
 		wrapper := analysis.provePossibleWrapperWithin(argument, maxWrapperChain, false, budget)
-		if wrapper.State == ssaflow.EvidenceUnknown {
+		if wrapper.State == proofs.EvidenceUnknown {
 			return wrapper
 		}
 		if !wrapper.Proven() {
@@ -97,7 +98,7 @@ const maxWrapperChain = 4
 // wrapper owns cleanup.
 // https://github.com/Mmx233/BitSrunLoginGo/blob/a744f312b3835f329eb98e45c8d19bc2a5b7d4c0/internal/config/log.go#L58-L59
 // https://github.com/inkdust2021/VibeGuard/blob/12a46784a7ebca95f7765178edd8344a974da849/internal/log/log.go#L42-L47
-func (analysis *resourceAnalysis) provePossibleWrapperWithin(value ssa.Value, depth int, direct bool, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) provePossibleWrapperWithin(value ssa.Value, depth int, direct bool, budget *proofs.SearchBudget) resourceProof {
 	call, ok := unwrapWrapperWithin(value, budget).(*ssa.Call)
 	if !ok {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
@@ -107,13 +108,13 @@ func (analysis *resourceAnalysis) provePossibleWrapperWithin(value ssa.Value, de
 	}
 	if depth > 0 {
 		appended := analysis.proveAppendedWrapperWithin(call, depth, budget)
-		if appended.State != ssaflow.EvidenceDisproven {
+		if appended.State != proofs.EvidenceDisproven {
 			return appended
 		}
 	}
 	for _, argument := range call.Common().Args {
 		held := analysis.proveWrapperArgumentWithin(argument, depth, direct, budget)
-		if held.State == ssaflow.EvidenceUnknown {
+		if held.State == proofs.EvidenceUnknown {
 			return held
 		}
 		if !held.Proven() {
@@ -127,8 +128,8 @@ func (analysis *resourceAnalysis) provePossibleWrapperWithin(value ssa.Value, de
 		effects := analysis.evidence.CallEffectsWithin(call, argument, budget)
 		// Missing body effects retain the existing possible-wrapper policy;
 		// shortened effects must preserve cutoff rather than claim retention.
-		if effects.Reason == ssaflow.EvidenceBudgetExhausted {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		if effects.Reason == proofs.EvidenceBudgetExhausted {
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if !effects.Proven() || effects.Effects&ssaflow.EffectRetain != 0 {
 			return carriedValueProof(true, resourceReasonWrapperMayCarry, budget)
@@ -142,7 +143,7 @@ func (analysis *resourceAnalysis) provePossibleWrapperWithin(value ssa.Value, de
 // append to a discarded local collection as a handoff. Spread slices remain
 // outside this bounded query.
 // https://github.com/twmb/kcl/blob/5290cb05bcc421a239e327ba11408bc4e27bd2dd/client/client.go#L1445-L1456
-func (analysis *resourceAnalysis) proveAppendedWrapperWithin(call *ssa.Call, depth int, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveAppendedWrapperWithin(call *ssa.Call, depth int, budget *proofs.SearchBudget) resourceProof {
 	values, explicit := ssaflow.AppendedValuesWithin(call, budget)
 	if resourceFlowExhausted(budget) || !explicit {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
@@ -152,7 +153,7 @@ func (analysis *resourceAnalysis) proveAppendedWrapperWithin(call *ssa.Call, dep
 			return carriedValueProof(false, resourceReasonUntouched, budget)
 		}
 		wrapper := analysis.provePossibleWrapperWithin(value, depth-1, true, budget)
-		if wrapper.State != ssaflow.EvidenceDisproven {
+		if wrapper.State != proofs.EvidenceDisproven {
 			return wrapper
 		}
 	}
@@ -162,14 +163,14 @@ func (analysis *resourceAnalysis) proveAppendedWrapperWithin(call *ssa.Call, dep
 // The outermost constructor excludes a direct resource unless its caller
 // explicitly selects direct mode. Inner steps may accept it, with the original
 // four-step cap. Derived stored values keep their broader nested policy.
-func (analysis *resourceAnalysis) proveWrapperArgumentWithin(argument ssa.Value, depth int, direct bool, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveWrapperArgumentWithin(argument ssa.Value, depth int, direct bool, budget *proofs.SearchBudget) resourceProof {
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
 	exact := heapmodel.MayAlias(argument, analysis.resource)
 	if !exact {
 		nested := analysis.proveNestedCarryWithin(argument, budget)
-		if nested.State != ssaflow.EvidenceDisproven {
+		if nested.State != proofs.EvidenceDisproven {
 			return nested
 		}
 	}
@@ -184,7 +185,7 @@ func (analysis *resourceAnalysis) proveWrapperArgumentWithin(argument ssa.Value,
 
 // unwrapWrapperWithin peels the interface conversions a wrapper passes through on
 // its way to the next constructor, such as a handler boxed as slog.Handler.
-func unwrapWrapperWithin(value ssa.Value, budget *ssaflow.SearchBudget) ssa.Value {
+func unwrapWrapperWithin(value ssa.Value, budget *proofs.SearchBudget) ssa.Value {
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentMakeInterface
 	for {
 		if !budget.Spend() {

@@ -3,21 +3,22 @@ package heapmodel
 import (
 	"go/types"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
 
 // ProveMayAlias asks one function's graph whether two values may name the
 // same object. An unavailable graph falls back to the structural value walk.
-func ProveMayAlias(value, target ssa.Value) ssaflow.AliasProof {
+func ProveMayAlias(value, target ssa.Value) proofs.AliasProof {
 	graph := regionsOf(value)
 	if graph.available && valueFunction(target) == graph.function {
 		return graph.aliasProof(value, target)
 	}
-	return ssaflow.AliasProof{
+	return proofs.AliasProof{
 		Aliases:    ssaflow.StructurallySame(value, target),
-		Reason:     ssaflow.EvidenceStructuralWalk,
-		Provenance: ssaflow.EvidenceFromLocalSSA,
+		Reason:     proofs.EvidenceStructuralWalk,
+		Provenance: proofs.EvidenceFromLocalSSA,
 	}
 }
 

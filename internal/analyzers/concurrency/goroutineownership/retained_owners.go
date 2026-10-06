@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -28,10 +29,10 @@ func (analysis *spawnAnalysis) selectedOwnershipEdge(from, to *ssa.BasicBlock) b
 		return false
 	}
 	proof := analysis.observesOpaqueWorkerContext(channel)
-	if proof.State == ssaflow.EvidenceDisproven {
+	if proof.State == proofs.EvidenceDisproven {
 		return false
 	}
-	if proof.Reason == ssaflow.EvidenceBudgetExhausted {
+	if proof.Reason == proofs.EvidenceBudgetExhausted {
 		analysis.recordEdge(from, to, reasonRetainedOwnerBudgetExhausted, ssaflow.ObligationUnknown)
 		return true
 	}
@@ -39,13 +40,13 @@ func (analysis *spawnAnalysis) selectedOwnershipEdge(from, to *ssa.BasicBlock) b
 	return true
 }
 
-func (analysis *spawnAnalysis) observesOpaqueWorkerContext(channel ssa.Value) ssaflow.Proof {
+func (analysis *spawnAnalysis) observesOpaqueWorkerContext(channel ssa.Value) proofs.Proof {
 	budget := analysis.budget()
 	found := analysis.observesOpaqueWorkerContextWithin(channel, budget)
 	return analysis.retainedOwnerProof(found, budget)
 }
 
-func (analysis *spawnAnalysis) observesOpaqueWorkerContextWithin(channel ssa.Value, budget *ssaflow.SearchBudget) bool {
+func (analysis *spawnAnalysis) observesOpaqueWorkerContextWithin(channel ssa.Value, budget *proofs.SearchBudget) bool {
 	call, ok := channel.(*ssa.Call)
 	if !ok || !ssaflow.CallMatchesSymbol(call.Common(),
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "context", Receiver: "Context", Name: "Done"})) {
@@ -76,7 +77,7 @@ func (analysis *spawnAnalysis) observesOpaqueWorkerContextWithin(channel ssa.Val
 // worker: the constructor may retain its argument somewhere besides its result.
 // Requiring a positive summary avoids treating an ignored argument as an owner.
 // https://github.com/abshkbh/arrakis/blob/877231496acbf3b3091ab33340d2d126a251c4d5/cmd/vsockclient/main.go#L30-L76
-func (analysis *spawnAnalysis) closesRetainedWorkerOwner(instruction ssa.Instruction, common *ssa.CallCommon) ssaflow.Proof {
+func (analysis *spawnAnalysis) closesRetainedWorkerOwner(instruction ssa.Instruction, common *ssa.CallCommon) proofs.Proof {
 	budget := analysis.budget()
 	found := analysis.closesRetainedWorkerOwnerWithin(instruction, common, budget)
 	return analysis.retainedOwnerProof(found, budget)
@@ -84,21 +85,21 @@ func (analysis *spawnAnalysis) closesRetainedWorkerOwner(instruction ssa.Instruc
 
 // A cutoff leaves ownership uncertain at this call or selected edge. It does
 // not excuse a return that flow reaches without that observation.
-func (analysis *spawnAnalysis) retainedOwnerProof(found bool, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func (analysis *spawnAnalysis) retainedOwnerProof(found bool, budget *proofs.SearchBudget) proofs.Proof {
 	if budget.Exhausted() {
-		budget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
+		budget.Observe(proofs.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
 			return map[string]string{"phase": "retained-owner"}
 		})
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 	}
 	if found {
-		return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk}
+		return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+	return proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 }
 
 func (analysis *spawnAnalysis) closesRetainedWorkerOwnerWithin(
-	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *proofs.SearchBudget,
 ) bool {
 	receivers := cleanupTargets(common, budget)
 	if len(receivers) == 0 {
@@ -135,7 +136,7 @@ func (analysis *spawnAnalysis) closesRetainedWorkerOwnerWithin(
 // use makes cleanup uncertain, never a proven worker join.
 // https://github.com/lynxbase/lynxdb/blob/7c4bf0432b0cef2807f0ddcd2cd2000ce7ffb8c1/pkg/ingest/receiver/otlpgrpc/server.go#L106-L121
 func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(
-	function *ssa.Function, closure *ssa.MakeClosure, receiver ssa.Value, budget *ssaflow.SearchBudget,
+	function *ssa.Function, closure *ssa.MakeClosure, receiver ssa.Value, budget *proofs.SearchBudget,
 ) bool {
 	storage := heapmodel.NewStorage(budget)
 	bindings := ssaflow.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget)
@@ -171,7 +172,7 @@ func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(
 // Cleanup of the opaque call's receiver cannot release later independent work.
 // Admit only the worker's nonblocking completion tail, not a second call, send,
 // receive, or loop. This narrows the new field mapping, not existing retention.
-func opaqueCallEndsWorkerWork(call *ssa.Call, budget *ssaflow.SearchBudget) bool {
+func opaqueCallEndsWorkerWork(call *ssa.Call, budget *proofs.SearchBudget) bool {
 	for _, instruction := range ssaflow.InstructionsReachableAfterWithin(call, budget) {
 		if !budget.Spend() || ssaflow.BlockInCycle(instruction.Block()) {
 			return false
@@ -197,7 +198,7 @@ func opaqueCallEndsWorkerWork(call *ssa.Call, budget *ssaflow.SearchBudget) bool
 	return !budget.Exhausted()
 }
 
-func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value, budget *ssaflow.SearchBudget) func(ssaflow.ReachingWalk, ssa.Value) bool {
+func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value, budget *proofs.SearchBudget) func(ssaflow.ReachingWalk, ssa.Value) bool {
 	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	evidence.ForCandidate(analysis.spawn.Pos())
 	storage := heapmodel.NewStorage(budget)
@@ -241,7 +242,7 @@ func (analysis *spawnAnalysis) retainedWorkerOwner(receiver ssa.Value, budget *s
 // results. Passing the exact peer to another participant can release worker I/O.
 // This only supplies unknown-use evidence after launch, never a completion claim.
 // https://github.com/mutagen-io/mutagen/blob/6ccfeaaf4dfd261e59ef9aac56e3c157b62e605b/pkg/integration/protocols/netpipe/synchronization.go#L63-L95
-func (analysis *spawnAnalysis) spawnedPipePeers(budget *ssaflow.SearchBudget) []trackedValue {
+func (analysis *spawnAnalysis) spawnedPipePeers(budget *proofs.SearchBudget) []trackedValue {
 	function, closure := resolveSpawnedFunction(analysis.pass, analysis.spawn, budget)
 	if function == nil || workerHasSendWithin(function, budget) {
 		return nil

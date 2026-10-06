@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -33,7 +34,7 @@ func TestCapturedAggregateOwnerAllowance(t *testing.T) {
 			if test.name == "empty" {
 				query.owners = nil
 			}
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				return query.proveCapturedAggregateOwnerWithin(closure, budget)
 			}, test.want)
 			if got := query.proveCapturedAggregateOwnerWithin(closure, nil); test.want && got.Reason != resourceReasonCapturedAggregateOwner {
@@ -52,11 +53,11 @@ func TestCapturedOwnerClassifierCutoff(t *testing.T) {
 			closure := call.Common().Value.(*ssa.MakeClosure)
 			query := aggregateEscapeAnalysis(fn)
 			query.owners = []ssa.Value{fn.Params[1]}
-			query.pool = ssaflow.NewSearchBudget(2)
+			query.pool = proofs.NewSearchBudget(2)
 			if reason, opaque := query.opaqueClosureCall(call, closure, false); !opaque || reason != resourceReasonBudgetExhausted {
 				t.Fatalf("interrupted owner classifier = %v/%v", reason, opaque)
 			}
-			query.pool = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+			query.pool = proofs.NewSearchBudget(proofs.SummaryBudget)
 			reason, opaque := query.opaqueClosureCall(call, closure, false)
 			if name == "owner" {
 				if !opaque || reason != resourceReasonCapturedAggregateOwner {
@@ -77,9 +78,9 @@ func TestCapturedOwnerChildCutoff(t *testing.T) {
 			closure := ssaflow.InstructionsOf[*ssa.MakeClosure](fn)[0]
 			query := aggregateEscapeAnalysis(fn)
 			query.owners = []ssa.Value{fn.Params[1]}
-			pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+			pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 			proof := query.proveCapturedAggregateOwnerWithin(closure, pool.Within(2))
-			if proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || resourceFlowExhausted(pool) {
+			if proof.State != proofs.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || resourceFlowExhausted(pool) {
 				t.Fatalf("owner child cutoff = %+v, parent exhausted %v", proof, resourceFlowExhausted(pool))
 			}
 		})
@@ -96,7 +97,7 @@ func TestCapturedOwnerDiscoveredAfterClosure(t *testing.T) {
 	if len(query.owners) == 0 {
 		t.Fatalf("discovered owners = %v; SSA:\n%s", query.owners, carriedSSA(t, fn))
 	}
-	proof := query.proveCapturedAggregateOwnerWithin(closure, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	proof := query.proveCapturedAggregateOwnerWithin(closure, proofs.NewSearchBudget(proofs.SummaryBudget))
 	if !proof.Proven() || proof.Reason != resourceReasonCapturedAggregateOwner {
 		t.Fatalf("late-populated owner capture = %+v; SSA:\n%s", proof, carriedSSA(t, fn))
 	}

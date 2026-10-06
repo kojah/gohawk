@@ -2,6 +2,7 @@ package lockorder
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -13,27 +14,27 @@ import (
 
 // One possible writer leaves the mutation uncertain. Interrupted witness
 // selection is also unknown; it cannot impersonate an absent writer guard.
-func provePossibleWriterAt(writers []*ssa.Defer, instruction ssa.Instruction, calls []*ssa.Call, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func provePossibleWriterAt(writers []*ssa.Defer, instruction ssa.Instruction, calls []*ssa.Call, budget *proofs.SearchBudget) proofs.Proof {
 	if budget.Exhausted() || budget.PoolExhausted() {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	}
 	for _, deferred := range writers {
 		if !budget.Spend() {
-			return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+			return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 		}
 		proof := possibleWriterAt(deferred, instruction, calls, budget)
 		if !proof.Known() || proof.Proven() {
 			return proof
 		}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+	return proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 }
 
 // The caller supplies the completed setup census. Rechecking temporal and alias
 // evidence here shares the request allowance and must not rediscover the body.
-func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction, calls []*ssa.Call, budget *ssaflow.SearchBudget) ssaflow.Proof {
-	unknown := ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
-	absent := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction, calls []*ssa.Call, budget *proofs.SearchBudget) proofs.Proof {
+	unknown := proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
+	absent := proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 	dominates := ssaflow.InstructionDominatesWithin(deferred, instruction, budget)
 	if budget.Exhausted() || budget.PoolExhausted() {
 		return unknown
@@ -67,7 +68,7 @@ func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction, calls []
 			return absent
 		}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk}
+	return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk}
 }
 
 // An imported wrapper can acquire its embedded mutex while doing bookkeeping
@@ -77,7 +78,7 @@ func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction, calls []
 // it must never enter order or recursive-lock proofs. Distinct wrapper receivers,
 // known empty calls, and a release already executed provide no such evidence.
 // https://github.com/rfjakob/gocryptfs/blob/842af4463989ee6808d397433e9aba8517e49c89/internal/fusefrontend/file.go#L418-L430
-func (setup *lockFunctionSetup) deferredWriterWitnesses(budget *ssaflow.SearchBudget) []*ssa.Defer {
+func (setup *lockFunctionSetup) deferredWriterWitnesses(budget *proofs.SearchBudget) []*ssa.Defer {
 	var writers []*ssa.Defer
 	for _, deferred := range setup.defers {
 		if !budget.Spend() {

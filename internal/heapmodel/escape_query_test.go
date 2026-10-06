@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -126,26 +127,26 @@ func TestEscapeReachabilityCutoffs(t *testing.T) {
 	target := slot{region: &region{kind: regionSite}}
 	graph := &regionGraph{}
 	state := newRegionState()
-	if _, complete := graph.escapeReachability(state, pointees{target: false}, target, ssaflow.NewSearchBudget(0)); complete {
+	if _, complete := graph.escapeReachability(state, pointees{target: false}, target, proofs.NewSearchBudget(0)); complete {
 		t.Fatal("exhausted query claimed complete reachability")
 	}
 	unknown := slot{region: &region{kind: regionUnknown}}
 	for range 32 {
-		found, complete := graph.escapeReachability(state, pointees{target: false, unknown: false}, target, ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+		found, complete := graph.escapeReachability(state, pointees{target: false, unknown: false}, target, proofs.NewSearchBudget(proofs.QueryBudget))
 		if !found || complete {
 			t.Fatal("known witness hid unknown sibling contents")
 		}
 	}
-	if _, complete := graph.escapeReachability(state, pointees{unknown: false}, target, ssaflow.NewSearchBudget(ssaflow.QueryBudget)); complete {
+	if _, complete := graph.escapeReachability(state, pointees{unknown: false}, target, proofs.NewSearchBudget(proofs.QueryBudget)); complete {
 		t.Fatal("unknown contents proved non-escape")
 	}
 	owner := slot{region: &region{kind: regionSite}}
 	state.contents[owner] = pointees{owner: false}
-	if found, complete := graph.escapeReachability(state, pointees{owner: false}, target, ssaflow.NewSearchBudget(ssaflow.QueryBudget)); found || !complete {
+	if found, complete := graph.escapeReachability(state, pointees{owner: false}, target, proofs.NewSearchBudget(proofs.QueryBudget)); found || !complete {
 		t.Fatal("exact local cycle did not terminate with a negative answer")
 	}
 	state.backing[owner] = &region{kind: regionSnapshot}
-	if _, complete := graph.escapeReachability(state, pointees{owner: false}, target, ssaflow.NewSearchBudget(ssaflow.QueryBudget)); complete {
+	if _, complete := graph.escapeReachability(state, pointees{owner: false}, target, proofs.NewSearchBudget(proofs.QueryBudget)); complete {
 		t.Fatal("unresolved backing copy proved non-escape")
 	}
 }

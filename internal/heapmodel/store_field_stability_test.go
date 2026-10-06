@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -45,7 +46,7 @@ func directWrite() { var o owner; o.data = make(chan int); o.data = nil }
 				observation = call
 			}
 		}
-		storage := heapmodel.NewStorage(ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		storage := heapmodel.NewStorage(proofs.NewSearchBudget(proofs.SummaryBudget))
 		got := storage.StableFieldContent(address, observation)
 		if got.Proven() != (name == "stable") {
 			t.Errorf("%s: %+v", name, got)
@@ -53,7 +54,7 @@ func directWrite() { var o owner; o.data = make(chan int); o.data = nil }
 	}
 	stores := ssaflow.InstructionsOf[*ssa.Store](pkg.Func("directWrite"))
 	write := stores[len(stores)-1]
-	storage := heapmodel.NewStorage(ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	storage := heapmodel.NewStorage(proofs.NewSearchBudget(proofs.SummaryBudget))
 	if got := storage.StableFieldContent(write.Addr, write); got.Proven() {
 		t.Errorf("observation's own write was ignored: %+v", got)
 	}

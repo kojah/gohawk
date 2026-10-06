@@ -3,6 +3,7 @@ package ssaflow_test
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -19,11 +20,11 @@ func merge(flag bool,x,y int) int { v:=x; if flag { v=y }; return v }
 	}
 	noLeaf := func(ssaflow.ReachingWalk, ssa.Value) bool { return false }
 	origin := func(candidate ssa.Value) bool { return candidate == value }
-	fresh := ssaflow.NewSearchBudget(1)
+	fresh := proofs.NewSearchBudget(1)
 	if !ssaflow.NewReachingWalk(0).Within(fresh).AnyIncludingOrigin(value, origin, noLeaf) || fresh.Exhausted() {
 		t.Fatal("direct phi identity must need only its origin visit")
 	}
-	cutoff := ssaflow.NewSearchBudget(1)
+	cutoff := proofs.NewSearchBudget(1)
 	cutoff.Spend()
 	if ssaflow.NewReachingWalk(0).Within(cutoff).AnyIncludingOrigin(value, origin, noLeaf) || !cutoff.Exhausted() {
 		t.Fatal("exhausted request must not accept direct identity")

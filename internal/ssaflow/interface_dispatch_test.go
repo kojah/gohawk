@@ -3,6 +3,7 @@ package ssaflow_test
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -19,7 +20,7 @@ func unknown(a actor) { a.Run() }
 `)
 	for _, name := range []string{"exact", "different", "unknown"} {
 		for _, call := range ssaflow.InstructionsOf[*ssa.Call](pkg.Func(name)) {
-			proof := ssaflow.ResolveInterfaceDispatch(call.Common(), pkg.Prog, ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+			proof := ssaflow.ResolveInterfaceDispatch(call.Common(), pkg.Prog, proofs.NewSearchBudget(proofs.QueryBudget))
 			if !call.Common().IsInvoke() || len(call.Common().Args) != 0 {
 				t.Error("dispatch resolution mutated the source call")
 			}

@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -78,7 +79,7 @@ func TestExactInvocationCompletion(t *testing.T) {
 			fn := pkg.Func(test.name)
 			proof := ProveCompletion(CompletionRequest{
 				Instruction: findLaunch(t, fn), Target: fn.Params[0], InvokeTarget: true,
-				Budget: ssaflow.NewSearchBudget(1000),
+				Budget: proofs.NewSearchBudget(1000),
 			})
 			if proof.Proven() != test.proven {
 				t.Fatalf("proof = %+v, want proven %v", proof, test.proven)
@@ -113,14 +114,14 @@ func TestSpawnedInvocationCompletion(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
 			spawn := ssaflow.InstructionsOf[*ssa.Go](function)[0]
-			proof := ProveSpawnedInvocation(spawn, function.Params[0], ssaflow.NewSearchBudget(1000))
+			proof := ProveSpawnedInvocation(spawn, function.Params[0], proofs.NewSearchBudget(1000))
 			if proof.Proven() != test.want {
 				t.Fatalf("body invocation = %+v, want proven %v", proof, test.want)
 			}
 			// The body promise never makes its outer launch synchronous.
 			if outer := ProveCompletion(CompletionRequest{
 				Instruction: spawn, Target: function.Params[0], InvokeTarget: true,
-				Budget: ssaflow.NewSearchBudget(1000),
+				Budget: proofs.NewSearchBudget(1000),
 			}); outer.Proven() {
 				t.Fatalf("asynchronous caller completion = %+v", outer)
 			}
@@ -133,9 +134,9 @@ func TestSpawnedInvocationUnknownAndBudget(t *testing.T) {
 	function := pkg.Func("recursive")
 	proof := ProveCompletion(CompletionRequest{
 		Instruction: findLaunch(t, function), Target: function.Params[0], InvokeTarget: true,
-		Budget: ssaflow.NewSearchBudget(1000),
+		Budget: proofs.NewSearchBudget(1000),
 	})
-	if proof.State != ssaflow.EvidenceUnknown {
+	if proof.State != proofs.EvidenceUnknown {
 		t.Fatalf("ordinary recursive invocation = %+v, want unknown", proof)
 	}
 	for _, name := range []string{"spawnedRecursive", "spawnedUnavailable", "spawnedForwarded"} {
@@ -145,11 +146,11 @@ func TestSpawnedInvocationUnknownAndBudget(t *testing.T) {
 		if name == "spawnedForwarded" {
 			limit = 1
 		}
-		proof := ProveSpawnedInvocation(spawn, function.Params[0], ssaflow.NewSearchBudget(limit))
-		if proof.State != ssaflow.EvidenceUnknown {
+		proof := ProveSpawnedInvocation(spawn, function.Params[0], proofs.NewSearchBudget(limit))
+		if proof.State != proofs.EvidenceUnknown {
 			t.Fatalf("%s proof = %+v, want unknown", name, proof)
 		}
-		if name == "spawnedForwarded" && proof.Reason != ssaflow.EvidenceBudgetExhausted {
+		if name == "spawnedForwarded" && proof.Reason != proofs.EvidenceBudgetExhausted {
 			t.Fatalf("budget proof = %+v", proof)
 		}
 	}
@@ -158,18 +159,18 @@ func TestSpawnedInvocationUnknownAndBudget(t *testing.T) {
 func TestExactInvocationBudgetAndCache(t *testing.T) {
 	pkg := buildTestSSA(t, exactInvocationFixture)
 	fn := pkg.Func("forwarded")
-	request := CompletionRequest{Instruction: findLaunch(t, fn), Target: fn.Params[0], InvokeTarget: true, Budget: ssaflow.NewSearchBudget(1)}
+	request := CompletionRequest{Instruction: findLaunch(t, fn), Target: fn.Params[0], InvokeTarget: true, Budget: proofs.NewSearchBudget(1)}
 	proof := ProveCompletion(request)
-	if proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+	if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted {
 		t.Fatalf("budget exhaustion = %+v", proof)
 	}
 	var evidence LocalEvidence
-	request.Budget = ssaflow.NewSearchBudget(1000)
+	request.Budget = proofs.NewSearchBudget(1000)
 	if proof := evidence.Completion(request); !proof.Proven() {
 		t.Fatalf("invocation = %+v", proof)
 	}
 	request.InvokeTarget = false
-	if proof := evidence.Completion(request); proof.State != ssaflow.EvidenceUnknown {
+	if proof := evidence.Completion(request); proof.State != proofs.EvidenceUnknown {
 		t.Fatalf("invalid method request reused invocation cache: %+v", proof)
 	}
 }

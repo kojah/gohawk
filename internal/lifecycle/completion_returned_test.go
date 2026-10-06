@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -76,7 +77,7 @@ func TestReturnedCleanupCompletion(t *testing.T) {
 				calls := ssaflow.InstructionsOf[*ssa.Call](function)
 				invocation = calls[len(calls)-1]
 			}
-			request := CompletionRequest{Instruction: invocation, Target: target, Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(2000)}
+			request := CompletionRequest{Instruction: invocation, Target: target, Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(2000)}
 			switch test.name {
 			case "cancellation":
 				request.Methods, request.InvokeTarget = nil, true

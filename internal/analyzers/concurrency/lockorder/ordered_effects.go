@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -17,7 +18,7 @@ type mutexEffect struct {
 	acquired  lockAcquisition
 }
 
-func directMutexEffectWithin(instruction ssa.Instruction, budget *ssaflow.SearchBudget) (mutexEffect, bool) {
+func directMutexEffectWithin(instruction ssa.Instruction, budget *proofs.SearchBudget) (mutexEffect, bool) {
 	operation, identity, receiver, ok := mutexActionWithin(instruction, budget)
 	if !ok {
 		return mutexEffect{}, false
@@ -32,7 +33,7 @@ func directMutexEffectWithin(instruction ssa.Instruction, budget *ssaflow.Search
 	return effect, true
 }
 
-func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation, budget *ssaflow.SearchBudget) ([]mutexEffect, bool) {
+func bindMutexEffects(call *ssa.Call, operations []concurrencyfacts.Operation, budget *proofs.SearchBudget) ([]mutexEffect, bool) {
 	var effects []mutexEffect
 	for _, operation := range operations {
 		if !budget.Spend() {

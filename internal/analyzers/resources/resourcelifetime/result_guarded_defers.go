@@ -2,6 +2,7 @@ package resourcelifetime
 
 import (
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -24,7 +25,7 @@ import (
 // https://github.com/grpc/grpc-go/commit/db35da8bc5e8dcfcb57b94e9be0fba306710cc77
 
 // cleanupRequests is one completion question per cleanup method.
-func (analysis *resourceAnalysis) cleanupRequests(budget *ssaflow.SearchBudget) []lifecycle.CompletionRequest {
+func (analysis *resourceAnalysis) cleanupRequests(budget *proofs.SearchBudget) []lifecycle.CompletionRequest {
 	requests := make([]lifecycle.CompletionRequest, 0, len(analysis.contract.cleanup))
 	for _, method := range analysis.contract.cleanup {
 		requests = append(requests, lifecycle.CompletionRequest{
@@ -34,7 +35,7 @@ func (analysis *resourceAnalysis) cleanupRequests(budget *ssaflow.SearchBudget) 
 	return requests
 }
 
-func (analysis *resourceAnalysis) discoverResultGuardedDefersWithin(budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) discoverResultGuardedDefersWithin(budget *proofs.SearchBudget) resourceProof {
 	var guards []lifecycle.ResultGuard
 	seen := make(map[*ssa.Defer]bool)
 	for _, request := range analysis.cleanupRequests(budget) {
@@ -43,7 +44,7 @@ func (analysis *resourceAnalysis) discoverResultGuardedDefersWithin(budget *ssaf
 		}
 		discovery := lifecycle.ProveResultGuards(analysis.function, request)
 		if !discovery.Proven() || resourceFlowExhausted(budget) {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		for _, guard := range discovery.Guards {
 			if !budget.Spend() {
@@ -56,7 +57,7 @@ func (analysis *resourceAnalysis) discoverResultGuardedDefersWithin(budget *ssaf
 		}
 	}
 	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	analysis.guardedDefers = guards
 	return carriedValueProof(true, resourceReasonNone, budget)
@@ -99,16 +100,16 @@ func (analysis *resourceAnalysis) resultGuardedReturn(returned *ssa.Return) (res
 	for _, guard := range analysis.guardedDefers {
 		reaching := guard.ProveReachesReturn(returned, budget)
 		if !reaching.Proven() {
-			uncertain = uncertain || reaching.State == ssaflow.EvidenceUnknown
+			uncertain = uncertain || reaching.State == proofs.EvidenceUnknown
 			continue
 		}
 		for _, request := range analysis.cleanupRequests(budget) {
 			switch guard.CompletesAtReturn(request, returned, outcomeOf) {
-			case ssaflow.EvidenceProven:
+			case proofs.EvidenceProven:
 				return actionSettled, resourceReasonResultGuardedRelease, true
-			case ssaflow.EvidenceUnknown:
+			case proofs.EvidenceUnknown:
 				uncertain = true
-			case ssaflow.EvidenceDisproven:
+			case proofs.EvidenceDisproven:
 			}
 		}
 	}

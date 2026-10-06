@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,16 +15,16 @@ import (
 func CallInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool {
 	return ProveCompletion(CompletionRequest{
 		Instruction: instruction, Target: target, InvokeTarget: true,
-		Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
+		Budget: proofs.NewSearchBudget(proofs.QueryBudget),
 	}).Proven()
 }
 
 // ProveSpawnedInvocation observes the launched wrapper's body and requires
 // synchronous invocation of target before every normal return. The caller's
 // budget bounds this query; a cutoff stays unknown and proves no invocation.
-func ProveSpawnedInvocation(spawn *ssa.Go, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.CompletionProof {
+func ProveSpawnedInvocation(spawn *ssa.Go, target ssa.Value, budget *proofs.SearchBudget) proofs.CompletionProof {
 	if spawn == nil || target == nil {
-		return ssaflow.CompletionProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+		return proofs.CompletionProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	}
 	request := CompletionRequest{Instruction: spawn, Target: target, InvokeTarget: true, Budget: budget}
 	function, closure := ssaflow.DirectCallee(spawn.Common())

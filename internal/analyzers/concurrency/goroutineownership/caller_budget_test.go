@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -37,7 +38,7 @@ func relay() { group:=new(sync.WaitGroup); done:=make(chan int); go func(){group
 			spawn := ssaflow.InstructionsOf[*ssa.Go](function)[0]
 			pass := &analysis.Pass{Fset: pkg.Prog.Fset, Pkg: pkg.Pkg}
 			candidate := newSpawnAnalysis(pass, function, spawn)
-			candidate.pool = ssaflow.NewSearchBudget(0).Observed(candidate.probe.Observer())
+			candidate.pool = proofs.NewSearchBudget(0).Observed(candidate.probe.Observer())
 			proof, decided := candidate.lifecycleProof()
 			if !decided || proof.Outcome != GoroutineUnknown || proof.Reason != test.cutoff {
 				t.Fatalf("cutoff=%+v decided=%v", proof, decided)
@@ -75,7 +76,7 @@ func relay() { group:=new(sync.WaitGroup); done:=make(chan int); go func(){group
 // its independent cutoff and attributed evidence phase.
 func assertCallerLifetimeQueryCutoff(t *testing.T, candidate *spawnAnalysis) {
 	t.Helper()
-	candidate.pool = ssaflow.NewSearchBudget(0).Observed(candidate.probe.Observer())
+	candidate.pool = proofs.NewSearchBudget(0).Observed(candidate.probe.Observer())
 	proof, decided := candidate.callerLifetimeProof()
 	if !decided || proof.Outcome != GoroutineUnknown || proof.Reason != reasonReceiveBudgetExhausted {
 		t.Fatalf("caller cutoff=%+v decided=%v", proof, decided)
@@ -101,11 +102,11 @@ func asynchronous() { _,cancel:=context.WithCancel(context.Background()); go fun
 			spawn := ssaflow.InstructionsOf[*ssa.Go](function)[0]
 			calls := ssaflow.InstructionsOf[*ssa.Call](function)
 			cancel := ssaflow.CallResult(calls[1], 1)
-			cutoff := ssaflow.NewSearchBudget(0)
+			cutoff := proofs.NewSearchBudget(0)
 			if cancelCoversSpawn(spawn, cancel, heapmodel.NewStorage(cutoff)) || !cutoff.Exhausted() {
 				t.Fatal("unavailable coverage must not prove cancellation")
 			}
-			fresh := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+			fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 			if got := cancelCoversSpawn(spawn, cancel, heapmodel.NewStorage(fresh)); got != test.want || fresh.Exhausted() {
 				t.Fatalf("fresh coverage=%v exhausted=%v, want %v", got, fresh.Exhausted(), test.want)
 			}

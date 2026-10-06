@@ -10,6 +10,7 @@ import (
 	"github.com/kojah/gohawk/internal/summaries"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
@@ -79,10 +80,10 @@ func runLockOrder(pass *analysis.Pass) (any, error) {
 	calleeLocks := newCalleeLockSearch()
 	ssaResult := pass.ResultOf[buildssa.Analyzer].(*buildssa.SSA)
 	packageFunctions := ssaflow.PackageFunctions(pass)
-	inventory := collectLockCallers(ssaResult.Pkg.Func("init"), packageFunctions, ssaflow.NewSearchBudget(callerSetBudget))
+	inventory := collectLockCallers(ssaResult.Pkg.Func("init"), packageFunctions, proofs.NewSearchBudget(callerSetBudget))
 	callers := inventory
 	exclusive := newExclusiveCallers(pass, inventory)
-	fields := collectReadLockFieldEvidence(functions, ssaflow.NewSearchBudget(lockStateWorkBudget))
+	fields := collectReadLockFieldEvidence(functions, proofs.NewSearchBudget(lockStateWorkBudget))
 	for _, function := range functions {
 		var evidence lifecycle.LocalEvidence
 		walkLockOrder(pass, function, relations, calleeLocks, &evidence, callers, exclusive, fields)
@@ -100,7 +101,7 @@ func walkLockOrder(
 	exclusive *exclusiveCallers, fields readLockFieldEvidence,
 ) {
 	probe := analysisTrace.For(pass, "lockorder", string(check.LockMissingRelease), function.Pos())
-	walk := lockStateWalk{budget: ssaflow.NewSearchBudget(lockStateWorkBudget).Observed(probe.Observer()), fieldEvidence: fields}
+	walk := lockStateWalk{budget: proofs.NewSearchBudget(lockStateWorkBudget).Observed(probe.Observer()), fieldEvidence: fields}
 	walk.analyze(pass, function, relations, calleeLocks, evidence, callers, exclusive)
 }
 

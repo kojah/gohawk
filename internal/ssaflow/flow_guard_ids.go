@@ -1,8 +1,12 @@
 package ssaflow
 
-// Guard IDs are local to one walk and intern the authoritative encoded bytes,
-// not the structural guard list. Legacy delimiter collisions must still name
-// the same visited state. Rendering retains every original budget charge.
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+	// Guard IDs are local to one walk and intern the authoritative encoded bytes,
+	// not the structural guard list. Legacy delimiter collisions must still name
+	// the same visited state. Rendering retains every original budget charge.
+)
+
 type guardKeyID int
 
 type guardIDs struct {
@@ -12,7 +16,7 @@ type guardIDs struct {
 	lastID guardKeyID
 }
 
-func (ids *guardIDs) within(guards PathGuards, budget *SearchBudget) guardKeyID {
+func (ids *guardIDs) within(guards PathGuards, budget *proofs.SearchBudget) guardKeyID {
 	key := ids.keys.keyWithin(guards, budget)
 	if budget.Exhausted() || key == "" {
 		return 0

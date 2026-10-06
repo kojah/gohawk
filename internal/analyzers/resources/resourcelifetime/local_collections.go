@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -46,7 +47,7 @@ type collectionDecision struct {
 }
 
 func findLocalCollection(
-	evidence *lifecyclefacts.LifecycleEvidence, resource ssa.Value, cleanup []string, budget *ssaflow.SearchBudget,
+	evidence *lifecyclefacts.LifecycleEvidence, resource ssa.Value, cleanup []string, budget *proofs.SearchBudget,
 ) collectionDecision {
 	appends := resourceAppends(resource)
 	if len(appends) == 0 {
@@ -139,7 +140,7 @@ func (collection *localCollection) member(value ssa.Value) bool {
 
 // understood reports whether one use of a version keeps the collection's
 // elements where this function can account for them.
-func (collection *localCollection) understood(version ssa.Value, user ssa.Instruction, cleanup []string, budget *ssaflow.SearchBudget) bool {
+func (collection *localCollection) understood(version ssa.Value, user ssa.Instruction, cleanup []string, budget *proofs.SearchBudget) bool {
 	switch typed := user.(type) {
 	case *ssa.Phi:
 		return collection.member(typed)
@@ -162,7 +163,7 @@ func (collection *localCollection) understood(version ssa.Value, user ssa.Instru
 // releaseLoopReads reports whether an element address is the element read of
 // a range loop over the version that releases that element on every
 // iteration, and records the loop's exit edge as releasing the collection.
-func (collection *localCollection) releaseLoopReads(address *ssa.IndexAddr, cleanup []string, budget *ssaflow.SearchBudget) bool {
+func (collection *localCollection) releaseLoopReads(address *ssa.IndexAddr, cleanup []string, budget *proofs.SearchBudget) bool {
 	for _, header := range address.Parent().Blocks {
 		loop, ok := ssaflow.RangeElementLoop(header, budget)
 		if !ok || !loop.ReadsElement(address) || !lifecycle.ElementLoopReleasesEach(loop, address, cleanup) {

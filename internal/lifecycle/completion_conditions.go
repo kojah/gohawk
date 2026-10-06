@@ -5,6 +5,7 @@ import (
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -21,10 +22,10 @@ import (
 // completion of request.Target on the edge to to. Instruction is derived from
 // the test; only synchronous calls and exact target mappings are eligible.
 // The result says nothing about the opposite edge or an untested call.
-func ProveCompletionOnEdge(from, to *ssa.BasicBlock, request CompletionRequest) ssaflow.CompletionProof {
+func ProveCompletionOnEdge(from, to *ssa.BasicBlock, request CompletionRequest) proofs.CompletionProof {
 	call, condition, ok := completionEdgeCondition(from, to)
 	if !ok {
-		return ssaflow.CompletionProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+		return proofs.CompletionProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	}
 	request.Instruction, request.condition = call, condition
 	request.ExactTarget, request.Coverage = true, CoverageEveryReturn

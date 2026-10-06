@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -45,9 +46,9 @@ func TestStoredValueTraversalAllowance(t *testing.T) {
 		t.Fatalf("field, index, loaded slot and cyclic owner contents = %v", counts)
 	}
 	finished := false
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		pool := ssaflow.NewSearchBudget(limit)
-		budget := pool.Within(ssaflow.SummaryBudget)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		pool := proofs.NewSearchBudget(limit)
+		budget := pool.Within(proofs.SummaryBudget)
 		got := map[ssa.Value]int{}
 		for value := range StoredIntoWithin(root, budget) {
 			got[value]++
@@ -78,7 +79,7 @@ func TestStoredValueTraversalAllowance(t *testing.T) {
 
 func TestStoredValueTraversalEarlyStop(t *testing.T) {
 	_, root := storedOwnerFixture(t)
-	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	budget := proofs.NewSearchBudget(proofs.SummaryBudget)
 	visits := 0
 	for range StoredIntoWithin(root, budget) {
 		visits++
@@ -87,9 +88,9 @@ func TestStoredValueTraversalEarlyStop(t *testing.T) {
 	if visits != 1 || budget.Exhausted() {
 		t.Fatal("early stopping must complete one yield without exhausting")
 	}
-	pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
-	child := pool.Within(ssaflow.SummaryBudget)
-	sibling := pool.Within(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
+	child := pool.Within(proofs.SummaryBudget)
+	sibling := pool.Within(proofs.SummaryBudget)
 	visits = 0
 	for range StoredIntoWithin(root, child) {
 		visits++
@@ -118,7 +119,7 @@ func merged(value *int, flag bool) **int {
 	for _, name := range []string{"called", "converted", "merged"} {
 		fn := pkg.Func(name)
 		root := ssaflow.InstructionsOf[*ssa.Return](fn)[0].Results[0]
-		budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+		budget := proofs.NewSearchBudget(proofs.SummaryBudget)
 		for value := range StoredIntoWithin(root, budget) {
 			t.Fatalf("%s crossed an opaque call, conversion or phi to %v", name, value)
 		}

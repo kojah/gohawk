@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -39,7 +40,7 @@ func TestPublicationCutoffDiscardsEveryEffect(t *testing.T) {
 			}
 			checkPublicationCutoffs(t, fn, engine, want)
 			checkColdPublicationCutoffs(t, fn, want)
-			fresh, ok := NewEngine().exportFunction(fn, ssaflow.NewSearchBudget(exportBudget))
+			fresh, ok := NewEngine().exportFunction(fn, proofs.NewSearchBudget(exportBudget))
 			if !ok || !reflect.DeepEqual(fresh, want) {
 				t.Fatalf("fresh publication=%+v/%v want%+v", fresh, ok, want)
 			}
@@ -49,11 +50,11 @@ func TestPublicationCutoffDiscardsEveryEffect(t *testing.T) {
 
 func checkPublicationCutoffs(t *testing.T, fn *ssa.Function, engine *Engine, want Fact) {
 	t.Helper()
-	if got, ok := engine.exportFunction(fn, ssaflow.NewSearchBudget(0)); ok || !reflect.DeepEqual(got, Fact{Version: factVersion}) {
+	if got, ok := engine.exportFunction(fn, proofs.NewSearchBudget(0)); ok || !reflect.DeepEqual(got, Fact{Version: factVersion}) {
 		t.Fatalf("zero allowance retained%+v/%v", got, ok)
 	}
 	for limit := 0; limit <= exportBudget; limit++ {
-		pool := ssaflow.NewSearchBudget(4 * exportBudget)
+		pool := proofs.NewSearchBudget(4 * exportBudget)
 		child := pool.Within(limit)
 		got, ok := engine.exportFunction(fn, child)
 		if child.Exhausted() {
@@ -85,7 +86,7 @@ func TestInterruptedProjectionCannotUsePreviouslyInferredRoot(t *testing.T) {
 		t.Fatal("no embedded path")
 	}
 	operation.Resource.Projection = path
-	budget := ssaflow.NewSearchBudget(1)
+	budget := proofs.NewSearchBudget(1)
 	if effect, ok := exportEffect(fn, operation, budget); ok || !budget.Exhausted() {
 		t.Fatalf("interrupted path retained%+v/%v", effect, ok)
 	}
@@ -97,7 +98,7 @@ func TestInterruptedProjectionCannotUsePreviouslyInferredRoot(t *testing.T) {
 func checkColdPublicationCutoffs(t *testing.T, fn *ssa.Function, want Fact) {
 	t.Helper()
 	for limit := 0; limit <= exportBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+		budget := proofs.NewSearchBudget(limit)
 		got, ok := NewEngine().exportFunction(fn, budget)
 		if budget.Exhausted() {
 			if ok || !reflect.DeepEqual(got, Fact{Version: factVersion}) {
@@ -117,12 +118,12 @@ func TestPublicationFieldSearchSharesAllowance(t *testing.T) {
 	source := `package publication
  import "sync"
  type D struct{mu sync.Mutex;n int}
- func padded(d *D)int{f:=func(){_=d.n};_=f;n:=0;` + strings.Repeat("n++;", ssaflow.QueryBudget+1) + `d.mu.Lock();d.mu.Unlock();return n}`
+ func padded(d *D)int{f:=func(){_=d.n};_=f;n:=0;` + strings.Repeat("n++;", proofs.QueryBudget+1) + `d.mu.Lock();d.mu.Unlock();return n}`
 	fn := ssaflowtest.BuildPackage(t, "publication", source).Func("padded")
 	field := ssaflow.InstructionsOf[*ssa.FieldAddr](fn)[0]
 	operation := Operation{Kind: Lock, Resource: Reference{Value: field}}
-	pool := ssaflow.NewSearchBudget(10 * exportBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(10 * exportBudget)
+	child := pool.Within(proofs.QueryBudget)
 	if effect, ok := exportEffect(fn, operation, child); ok || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("cut retained%+v/%v", effect, ok)
 	}
@@ -136,10 +137,10 @@ func TestAlternativeCutoffDiscardsEarlierPaths(t *testing.T) {
 	fn := ssaflowtest.BuildPackage(t, "publication", publicationFixture).Func("Linear")
 	body := NewEngine().Function(fn, nil)
 	second := body
-	second.Conditions = []Condition{{Value: fn.Params[0], Context: make([]token.Pos, ssaflow.QueryBudget+1), Holds: true}}
+	second.Conditions = []Condition{{Value: fn.Params[0], Context: make([]token.Pos, proofs.QueryBudget+1), Holds: true}}
 	paths := []Summary{body, second}
-	pool := ssaflow.NewSearchBudget(4 * exportBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(4 * exportBudget)
+	child := pool.Within(proofs.QueryBudget)
 	if got, ok := exportAlternatives(fn, paths, child); ok || !child.Exhausted() || pool.Exhausted() || !reflect.DeepEqual(got, Fact{Version: factVersion}) {
 		t.Fatalf("alternative cutoff retained%+v/%v", got, ok)
 	}

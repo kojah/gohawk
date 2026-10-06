@@ -67,8 +67,12 @@ malformed JSON and analyzer errors keep their existing distinct handling.
 
 ## Shared engine
 
-- `internal/ssaflow` owns the reusable SSA mechanics: proof outcomes and
-  budgets, value provenance (`ReachingWalk`), calls, and control-flow queries
+- `internal/proof` owns shared evidence outcomes, reason/provenance vocabulary,
+  observers and work budgets. It has no dependency on SSA, heap or lifecycle
+  engines; those consumers import it directly.
+
+- `internal/ssaflow` owns the reusable SSA mechanics: value provenance
+  (`ReachingWalk`), calls, and control-flow queries
   (`WalkStates` and `EvaluateObligation`). It provides how to walk, not an
   analyzer's reporting policy.
 - `internal/lifecycle` builds completion and ownership-transfer
@@ -179,7 +183,7 @@ malformed JSON and analyzer errors keep their existing distinct handling.
   those relationships; the consuming analyzer still decides whether to report.
   Lifecycle summaries can carry conditional transitions through helpers and
   across package boundaries.
-- Every interprocedural question spends a `ssaflow.SearchBudget`, named
+- Every interprocedural question spends a `proof.SearchBudget`, named
   `QueryBudget` or `SummaryBudget` unless a proof has a reason of its own, and
   a lifecycle analyzer draws each question's budget from one pool per
   candidate with `Within`, so the proof as a whole is bounded and every
@@ -254,8 +258,8 @@ the code cannot drift apart silently.
 | `TestTraceEventsAreAttributedToACandidate` | every trace event names the candidate whose proof it serves, so one finding's evidence can be selected out of a package's trace |
 | `TestTransparentFormsAreNamedAtTheCallSite` | each proof names the SSA wrappers it may look through, so a form added later cannot widen a proof nobody reviewed for it |
 | `TestCallGraphGuardsGoThroughTheSharedMemo` | a path-scoped call-graph guard goes through `ssaflow.CallGraphMemo`, so a walk covers the call graph rather than every call path through it |
-| `TestInterproceduralSearchesNameABudget` | a completion request names a `ssaflow.SearchBudget`, so an interprocedural walk gives up rather than hanging on mutually recursive callees, and its caller decides what an abandoned search permits |
-| `TestSearchBudgetsAreNamed` | a `SearchBudget` is constructed from `ssaflow.QueryBudget`, `ssaflow.SummaryBudget`, or a named constant beside the proof, never a bare number, so the size of a bound is a recorded decision rather than a copied neighbour |
+| `TestInterproceduralSearchesNameABudget` | a completion request names a `proof.SearchBudget`, so an interprocedural walk gives up rather than hanging on mutually recursive callees, and its caller decides what an abandoned search permits |
+| `TestSearchBudgetsAreNamed` | a `SearchBudget` is constructed from `proof.QueryBudget`, `proof.SummaryBudget`, or a named constant beside the proof, never a bare number, so the size of a bound is a recorded decision rather than a copied neighbour |
 | `TestSummaryInfrastructureBoundaries` | analyzers, SSA engines, and fact passes use the shared summary API; only the two implementation files own raw memo/guard operations and fields. Analyzer query sites must not pass literal nil budgets |
 | `TestSummaryBoundaryMatcher` | summary API checks resolve type identity, including import aliases, generic types, promoted methods, and method expressions; unrelated lookalike names remain allowed |
 | `TestReasonEnumBoundaryMatcher` | reason checks reject string aliases and raw reason fields while allowing textual observer/output boundaries |

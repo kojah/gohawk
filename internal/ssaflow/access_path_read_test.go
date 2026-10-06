@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -21,8 +22,8 @@ func TestAccessPathReadKeepsSnapshotAndDiscardsCutMetadata(t *testing.T) {
 	}
 	value := InstructionsOf[*ssa.Return](fn)[0].Results[0]
 	sawCut := false
-	for limit := 1; limit <= QueryBudget; limit++ {
-		budget := NewSearchBudget(limit)
+	for limit := 1; limit <= proofs.QueryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		path, read, known := AccessPathReadWithin(value, cells[0], budget)
 		if budget.Exhausted() {
 			sawCut = true

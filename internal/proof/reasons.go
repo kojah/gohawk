@@ -1,4 +1,4 @@
-package ssaflow
+package proof
 
 var evidenceReasonCodes = [...]string{
 	EvidenceNone:                         "",

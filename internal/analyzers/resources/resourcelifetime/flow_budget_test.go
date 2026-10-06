@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
@@ -30,8 +31,8 @@ func TestResourceKeyKeepsObligationAtSameLocation(t *testing.T) {
 func TestResourceFlowCandidateAllowance(t *testing.T) {
 	for _, test := range []struct {
 		body string
-		want ssaflow.EvidenceState
-	}{{"value.Close()", ssaflow.EvidenceDisproven}, {"println(value)", ssaflow.EvidenceProven}} {
+		want proofs.EvidenceState
+	}{{"value.Close()", proofs.EvidenceDisproven}, {"println(value)", proofs.EvidenceProven}} {
 		t.Run(test.body, func(t *testing.T) {
 			analysis, _ := helperBudgetAnalysis(t, test.body)
 			analysis.actions = make(map[ssa.Instruction]resourceAction)
@@ -41,7 +42,7 @@ func TestResourceFlowCandidateAllowance(t *testing.T) {
 				}
 			}
 			got := analysis.proveResourceFlow(nil)
-			if got.state != test.want || analysis.pool.Exhausted() || (got.leak != nil) != (test.want == ssaflow.EvidenceProven) {
+			if got.state != test.want || analysis.pool.Exhausted() || (got.leak != nil) != (test.want == proofs.EvidenceProven) {
 				t.Fatalf("fresh flow = %+v, want state %v", got, test.want)
 			}
 			checkResourceFlowCutoffs(t, test.body, test.want)
@@ -60,21 +61,21 @@ func presence(flag bool) { value := acquire(); if value != nil { value.Close() }
 `)
 	for _, test := range []struct {
 		name string
-		want ssaflow.EvidenceState
-	}{{"leaky", ssaflow.EvidenceProven}, {"closed", ssaflow.EvidenceDisproven}, {"presence", ssaflow.EvidenceDisproven}} {
+		want proofs.EvidenceState
+	}{{"leaky", proofs.EvidenceProven}, {"closed", proofs.EvidenceDisproven}, {"presence", proofs.EvidenceDisproven}} {
 		function := pkg.Func(test.name)
 		acquisition := ssaflow.InstructionsOf[*ssa.Call](function)[0]
 		if test.name != "presence" && len(ssaflow.GuardsDominatingWithin(acquisition, nil)) == 0 {
 			t.Fatal("fixture must establish a dominating guard in actual SSA")
 		}
 		completed := false
-		for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+		for limit := 0; limit <= proofs.SummaryBudget; limit++ {
 			provider := resourceSummaries.Provider(nil)
 			evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
 			analysis := &resourceAnalysis{
 				function: function, acquisition: acquisition, resource: acquisition,
 				evidence: evidence, summaries: provider, contract: resourceContract{cleanup: []string{"Close"}},
-				actions: make(map[ssa.Instruction]resourceAction), pool: ssaflow.NewSearchBudget(limit),
+				actions: make(map[ssa.Instruction]resourceAction), pool: proofs.NewSearchBudget(limit),
 			}
 			got := analysis.proveResourceFlow(nil)
 			if !analysis.pool.Exhausted() {
@@ -84,7 +85,7 @@ func presence(flag bool) { value := acquire(); if value != nil { value.Close() }
 				completed = true
 				break
 			}
-			if got.state != ssaflow.EvidenceUnknown || got.reason != resourceReasonBudgetExhausted || got.leak != nil {
+			if got.state != proofs.EvidenceUnknown || got.reason != resourceReasonBudgetExhausted || got.leak != nil {
 				t.Fatalf("guarded cutoff admitted proof: %+v", got)
 			}
 		}
@@ -94,13 +95,13 @@ func presence(flag bool) { value := acquire(); if value != nil { value.Close() }
 	}
 }
 
-func checkResourceFlowCutoffs(t *testing.T, body string, want ssaflow.EvidenceState) {
+func checkResourceFlowCutoffs(t *testing.T, body string, want proofs.EvidenceState) {
 	t.Helper()
 	completed := false
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
 		analysis, _ := helperBudgetAnalysis(t, body)
 		analysis.actions = make(map[ssa.Instruction]resourceAction)
-		analysis.pool = ssaflow.NewSearchBudget(limit)
+		analysis.pool = proofs.NewSearchBudget(limit)
 		got := analysis.proveResourceFlow(nil)
 		if !analysis.pool.Exhausted() {
 			if got.state != want {
@@ -109,7 +110,7 @@ func checkResourceFlowCutoffs(t *testing.T, body string, want ssaflow.EvidenceSt
 			completed = true
 			break
 		}
-		if got.state != ssaflow.EvidenceUnknown || got.reason != resourceReasonBudgetExhausted || got.leak != nil || analysis.leak != nil {
+		if got.state != proofs.EvidenceUnknown || got.reason != resourceReasonBudgetExhausted || got.leak != nil || analysis.leak != nil {
 			t.Fatalf("allowance %d admitted incomplete flow: %+v", limit, got)
 		}
 	}

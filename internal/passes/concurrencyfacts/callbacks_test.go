@@ -3,6 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -31,7 +32,7 @@ func branching(mu *sync.Mutex, done chan int, flag bool) {
 }
 `)
 	engine := NewEngine()
-	budget := func() *ssaflow.SearchBudget { return ssaflow.NewSearchBudget(2000) }
+	budget := func() *proofs.SearchBudget { return proofs.NewSearchBudget(2000) }
 
 	hole := engine.Function(pkg.Func("run"), budget())
 	if hole.Complete() || hole.Reason != ReasonCallbackBindingRequired || len(hole.Operations) != 3 ||
@@ -95,12 +96,12 @@ func TestImportedCallbackHoles(t *testing.T) {
 			for _, function := range functions {
 				switch function.Name() {
 				case "closeUnderLock":
-					got := engine.Root(function, ssaflow.NewSearchBudget(2000))
+					got := engine.Root(function, proofs.NewSearchBudget(2000))
 					if got.Completeness() != CompleteWithEffects || !kinds(got, Lock, Close, Unlock) {
 						t.Errorf("closeUnderLock = %+v", got)
 					}
 				case "forwardHole":
-					got := engine.Function(function, ssaflow.NewSearchBudget(2000))
+					got := engine.Function(function, proofs.NewSearchBudget(2000))
 					if got.Reason != ReasonCallbackBindingRequired || !kinds(got, Lock, Invoke, Unlock) {
 						t.Errorf("forwardHole = %+v", got)
 					}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -58,7 +59,7 @@ func addressStoresCancellationLeaf(walk ssaflow.ReachingWalk, value, cancel ssa.
 	return false
 }
 
-func deferredClosureUseIsLocallyResolved(instruction ssa.Instruction, cancel ssa.Value, observer ssaflow.Observer) bool {
+func deferredClosureUseIsLocallyResolved(instruction ssa.Instruction, cancel ssa.Value, observer proofs.Observer) bool {
 	if _, ok := instruction.(*ssa.Defer); !ok {
 		return false
 	}
@@ -87,7 +88,7 @@ func deferredClosureUseIsLocallyResolved(instruction ssa.Instruction, cancel ssa
 	return found
 }
 
-func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value, observer ssaflow.Observer) bool {
+func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value, observer proofs.Observer) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) == 0 {
 		return false
@@ -95,7 +96,7 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value, observ
 	callee := common.StaticCallee()
 	// Proven read-only use is not cancellation. Unknown effects still go
 	// through the cancellation-specific invocation policy below.
-	if ssaflow.NewCallEffects(ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Call(instruction, cancel).PreservesStorage() {
+	if ssaflow.NewCallEffects(proofs.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Call(instruction, cancel).PreservesStorage() {
 		return true
 	}
 	found := false
@@ -121,7 +122,7 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value, observ
 // short by it is not retained.
 type cancellationUse struct {
 	memo   *ssaflow.CallGraphMemo[cancellationUseKey, bool]
-	budget *ssaflow.SearchBudget
+	budget *proofs.SearchBudget
 }
 
 type cancellationUseKey struct {
@@ -129,10 +130,10 @@ type cancellationUseKey struct {
 	parameter ssa.Value
 }
 
-func newCancellationUse(observer ssaflow.Observer) *cancellationUse {
+func newCancellationUse(observer proofs.Observer) *cancellationUse {
 	return &cancellationUse{
 		memo:   ssaflow.NewCallGraphMemo[cancellationUseKey, bool](),
-		budget: ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer),
+		budget: proofs.NewSearchBudget(cancellationCompletionBudget).Observed(observer),
 	}
 }
 

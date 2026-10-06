@@ -3,7 +3,7 @@ package resultfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -59,7 +59,7 @@ func TestResultGuarantees(t *testing.T) {
 		"GenericNil": {Unknown},
 	} {
 		t.Run(name, func(t *testing.T) {
-			got := NewEngine().Function(pkg.Func(name), ssaflow.NewSearchBudget(2000))
+			got := NewEngine().Function(pkg.Func(name), proofs.NewSearchBudget(2000))
 			for index, expected := range want {
 				if got.Result(index) != expected {
 					t.Errorf("result %d: got %v, want %v (%+v)", index, got.Result(index), expected, got)
@@ -72,10 +72,10 @@ func TestResultGuarantees(t *testing.T) {
 func TestResultBudgetDoesNotPoisonSummary(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "results", resultFixture)
 	engine := NewEngine()
-	if got := engine.Function(pkg.Func("Forward"), ssaflow.NewSearchBudget(1)); got.Result(0) != Unknown {
+	if got := engine.Function(pkg.Func("Forward"), proofs.NewSearchBudget(1)); got.Result(0) != Unknown {
 		t.Fatalf("shortened proof: %+v", got)
 	}
-	if got := engine.Function(pkg.Func("Forward"), ssaflow.NewSearchBudget(2000)); got.Result(0) != AlwaysNil {
+	if got := engine.Function(pkg.Func("Forward"), proofs.NewSearchBudget(2000)); got.Result(0) != AlwaysNil {
 		t.Fatalf("fresh budget did not recover: %+v", got)
 	}
 }
@@ -89,7 +89,7 @@ func TestNeverReturns(t *testing.T) {
 		"Die": true, "DieVia": true, "Serve": true, "PanicOnly": true, "Forever": true,
 		"MaybeDie": false, "Returns": false, "Nil": false, "Recovered": false,
 	} {
-		if got := NewEngine().Function(pkg.Func(name), ssaflow.NewSearchBudget(4000)).NeverReturns(); got != want {
+		if got := NewEngine().Function(pkg.Func(name), proofs.NewSearchBudget(4000)).NeverReturns(); got != want {
 			t.Errorf("%s: NeverReturns = %t, want %t", name, got, want)
 		}
 	}

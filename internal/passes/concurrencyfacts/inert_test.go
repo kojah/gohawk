@@ -3,7 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -46,16 +46,16 @@ func EveryBranchPanics(ch chan int, bad bool) {
 `)
 	engine := NewEngine()
 	for _, name := range []string{"Helpers", "Builtins", "Assert", "PanicBranch"} {
-		got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000))
+		got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000))
 		if got.Completeness() != CompleteWithEffects || len(got.Operations) != 1 || got.Operations[0].Kind != Close {
 			t.Errorf("%s = %+v, want one close", name, got)
 		}
 	}
-	if got := engine.Function(pkg.Func("fail"), ssaflow.NewSearchBudget(2000)); got.Completeness() != CompleteNoEffects {
+	if got := engine.Function(pkg.Func("fail"), proofs.NewSearchBudget(2000)); got.Completeness() != CompleteNoEffects {
 		t.Errorf("helper returning an error = %+v, want complete", got)
 	}
 	for _, name := range []string{"ChannelHelper", "ChannelAppend", "AssertChannel", "AlwaysPanics", "EveryBranchPanics"} {
-		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); got.Complete() {
+		if got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000)); got.Complete() {
 			t.Errorf("%s = %+v, want incomplete", name, got)
 		}
 	}

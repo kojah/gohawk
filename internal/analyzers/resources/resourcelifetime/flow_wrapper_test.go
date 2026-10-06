@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -45,9 +46,9 @@ func tooDeep(p, other *resource) *owner { return wrap(wrap(wrap(wrap(wrap(p)))))
 			if got := query.returnedWrapperPositionWithin(returned, nil); got != test.want {
 				t.Fatalf("default wrapper result = %d, want %d", got, test.want)
 			}
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				pool := ssaflow.NewSearchBudget(limit)
-				budget := pool.Within(ssaflow.SummaryBudget)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				pool := proofs.NewSearchBudget(limit)
+				budget := pool.Within(proofs.SummaryBudget)
 				got := query.returnedWrapperPositionWithin(returned, budget)
 				if budget.Exhausted() {
 					if got >= 0 {
@@ -87,17 +88,17 @@ func caller(p *resource) *view { return makeView(p) }
 			contract: resourceContract{cleanup: []string{"Close"}},
 		}
 		completed := false
-		for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-			pool := ssaflow.NewSearchBudget(limit)
-			budget := pool.Within(ssaflow.SummaryBudget)
+		for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+			pool := proofs.NewSearchBudget(limit)
+			budget := pool.Within(proofs.SummaryBudget)
 			got := query.proveReturnedProjection(returned, returned.Results[0], budget)
 			if budget.Exhausted() {
-				if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
+				if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
 					t.Fatalf("declared %v, allowance %d retained cutoff: %+v", declared, limit, got)
 				}
 				continue
 			}
-			if got.State == ssaflow.EvidenceUnknown || got.Proven() == declared {
+			if got.State == proofs.EvidenceUnknown || got.Proven() == declared {
 				t.Fatalf("declared %v, completed projection = %+v", declared, got)
 			}
 			completed = true
@@ -120,7 +121,7 @@ func makeView(a) *view
 func caller(p a) *view {
 `)
 	previous := "p"
-	for index := range ssaflow.QueryBudget + 10 {
+	for index := range proofs.QueryBudget + 10 {
 		target := "b"
 		if index%2 != 0 {
 			target = "a"
@@ -132,7 +133,7 @@ func caller(p a) *view {
 	fmt.Fprintf(&source, "return makeView(%s)\n}\n", previous)
 	pkg := ssaflowtest.BuildPackage(t, "projectioncap", source.String())
 	fn := pkg.Func("caller")
-	if count := len(ssaflow.InstructionsOf[*ssa.ChangeType](fn)); count <= ssaflow.QueryBudget {
+	if count := len(ssaflow.InstructionsOf[*ssa.ChangeType](fn)); count <= proofs.QueryBudget {
 		t.Fatalf("fixture has only %d SSA conversions", count)
 	}
 	pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
@@ -145,9 +146,9 @@ func caller(p a) *view {
 		contract: resourceContract{cleanup: []string{"Close"}},
 	}
 	returned := ssaflow.InstructionsOf[*ssa.Return](fn)[0]
-	budget := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	budget := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	got := query.proveReturnedProjection(returned, returned.Results[0], budget)
-	if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || budget.Exhausted() {
+	if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || budget.Exhausted() {
 		t.Fatalf("binding cutoff became method-set acceptance: %+v, parent exhausted %v", got, budget.Exhausted())
 	}
 }

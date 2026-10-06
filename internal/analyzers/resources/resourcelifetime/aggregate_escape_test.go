@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -32,18 +33,18 @@ func callback(p, other *resource) { use(func(){ println(p) }) }
 			fn := pkg.Func(test.name)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 			completed := false
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
 				query := aggregateEscapeAnalysis(fn)
-				query.pool = ssaflow.NewSearchBudget(limit)
-				budget := query.budget(ssaflow.SummaryBudget)
+				query.pool = proofs.NewSearchBudget(limit)
+				budget := query.budget(proofs.SummaryBudget)
 				got := query.proveAggregateOwnerEscapeWithin(call, call.Common(), budget)
 				if resourceFlowExhausted(budget) {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
+					if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
 						t.Fatalf("allowance %d retained interrupted escape: %+v", limit, got)
 					}
 					continue
 				}
-				if got.State == ssaflow.EvidenceUnknown || got.Proven() != test.want {
+				if got.State == proofs.EvidenceUnknown || got.Proven() != test.want {
 					t.Fatalf("complete escape = %+v, want %v", got, test.want)
 				}
 				completed = true
@@ -67,11 +68,11 @@ func caller(p *resource) { retain(&holder{p}) }
 	fn := pkg.Func("caller")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 	query := aggregateEscapeAnalysis(fn)
-	query.pool = ssaflow.NewSearchBudget(0)
+	query.pool = proofs.NewSearchBudget(0)
 	if reason, opaque := query.opaqueFunctionCall(call, call.Common(), true); !opaque || reason != resourceReasonBudgetExhausted {
 		t.Fatalf("interrupted classifier = %v/%v", reason, opaque)
 	}
-	query.pool = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	query.pool = proofs.NewSearchBudget(proofs.SummaryBudget)
 	if reason, opaque := query.opaqueFunctionCall(call, call.Common(), true); !opaque || reason != resourceReasonAggregateOwnerMayEscape {
 		t.Fatalf("fresh classifier = %v/%v", reason, opaque)
 	}

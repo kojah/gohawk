@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -14,7 +15,7 @@ import (
 // consumption. It supplies the final detached-intent boundary, not Wait proof.
 // Instruction, CFG, binding, operand, reaching-value and stored-value visits
 // share the caller allowance; interrupted absence stays unknown.
-func proveCommandUseAfterStart(start *ssa.Call, command ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func proveCommandUseAfterStart(start *ssa.Call, command ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
 	for instruction := range ssaflow.InstructionsWithin(start.Parent(), budget) {
 		// Preserve possible ordering through back edges. The runtime-value census
 		// deliberately stops there and cannot replace this structural use policy.
@@ -31,7 +32,7 @@ func proveCommandUseAfterStart(start *ssa.Call, command ssa.Value, budget *ssafl
 	return commandUseProof(false, budget)
 }
 
-func instructionCarriesCommand(instruction ssa.Instruction, start *ssa.Call, command ssa.Value, budget *ssaflow.SearchBudget) bool {
+func instructionCarriesCommand(instruction ssa.Instruction, start *ssa.Call, command ssa.Value, budget *proofs.SearchBudget) bool {
 	if _, ok := instruction.(*ssa.DebugRef); ok {
 		return false
 	}
@@ -68,15 +69,15 @@ func instructionCarriesCommand(instruction ssa.Instruction, start *ssa.Call, com
 	return false
 }
 
-func commandUseProof(found bool, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func commandUseProof(found bool, budget *proofs.SearchBudget) proofs.Proof {
 	if budget.Exhausted() {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	}
-	state, reason := ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
+	state, reason := proofs.EvidenceDisproven, proofs.EvidenceNotFound
 	if found {
-		state, reason = ssaflow.EvidenceProven, ssaflow.EvidenceStructuralWalk
+		state, reason = proofs.EvidenceProven, proofs.EvidenceStructuralWalk
 	}
-	return ssaflow.Proof{State: state, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}
+	return proofs.Proof{State: state, Reason: reason, Provenance: proofs.EvidenceFromLocalSSA}
 }
 
 // handsValueOn reports whether an instruction can pass a value it consumes
@@ -97,7 +98,7 @@ func handsValueOn(instruction ssa.Instruction) bool {
 // or an aggregate holding either. Derivation stops at a scalar, because a PID
 // or a name read from the handle is data the recipient cannot wait on or
 // release.
-func proveHandleCarried(value, command ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func proveHandleCarried(value, command ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
 	// All storage and operand edges share one visited set. Starting a new walk
 	// on either edge loops forever on cyclic owner structures (seen while

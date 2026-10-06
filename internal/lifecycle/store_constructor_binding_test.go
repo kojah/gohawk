@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -31,14 +32,14 @@ func boxed(p *int) *owner { var f factory = &builder{}; return f.Build(p) }
 			} else if !call.Common().IsInvoke() || call.Common().StaticCallee() != nil {
 				t.Fatal("interface fixture no longer has unresolved dispatch")
 			}
-			proof := ProveReturnedOwnershipWithin(returned, fn.Params[0], nil, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
-			if proof.State == ssaflow.EvidenceUnknown || proof.Proven() != (name == "direct") {
+			proof := ProveReturnedOwnershipWithin(returned, fn.Params[0], nil, proofs.NewSearchBudget(proofs.SummaryBudget))
+			if proof.State == proofs.EvidenceUnknown || proof.Proven() != (name == "direct") {
 				t.Fatalf("constructor binding = %+v", proof)
 			}
 			// A completed decline supplies no owner evidence, not a claim
 			// that a dynamically dispatched constructor cannot retain its input.
-			cutoff := ProveReturnedOwnershipWithin(returned, fn.Params[0], nil, ssaflow.NewSearchBudget(0))
-			if cutoff.State != ssaflow.EvidenceUnknown || cutoff.Reason != ssaflow.EvidenceBudgetExhausted {
+			cutoff := ProveReturnedOwnershipWithin(returned, fn.Params[0], nil, proofs.NewSearchBudget(0))
+			if cutoff.State != proofs.EvidenceUnknown || cutoff.Reason != proofs.EvidenceBudgetExhausted {
 				t.Fatalf("interrupted constructor binding = %+v", cutoff)
 			}
 		})

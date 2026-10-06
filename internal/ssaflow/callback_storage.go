@@ -1,9 +1,12 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+	"golang.org/x/tools/go/ssa"
+	// CallbackCaptureReadOnly reports whether a closure only observes one captured cell.
+)
 
-// CallbackCaptureReadOnly reports whether a closure only observes one captured cell.
-func CallbackCaptureReadOnly(closure *ssa.MakeClosure, cell ssa.Value, budget *SearchBudget) bool {
+func CallbackCaptureReadOnly(closure *ssa.MakeClosure, cell ssa.Value, budget *proofs.SearchBudget) bool {
 	function, ok := closure.Fn.(*ssa.Function)
 	if !ok {
 		return false

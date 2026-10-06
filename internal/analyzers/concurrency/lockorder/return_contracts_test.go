@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -16,7 +17,7 @@ func TestLockReturnContractsShareAllowance(t *testing.T) {
 	pkg := lockReturnPackage(t)
 	for _, name := range []string{"heldSuccess", "heldFalse"} {
 		fn := pkg.Func(name)
-		setup := buildLockSetup(lockSetupPass(fn, concurrencyfacts.NewEngine()), fn, ssaflow.NewSearchBudget(lockStateWorkBudget)).setup
+		setup := buildLockSetup(lockSetupPass(fn, concurrencyfacts.NewEngine()), fn, proofs.NewSearchBudget(lockStateWorkBudget)).setup
 		identity := lockIdentityOf(pkg.Var("global"))
 		heldAt := lockReturnStates(setup, identity, name == "heldSuccess")
 		var acquisitions []ssa.Instruction
@@ -31,8 +32,8 @@ func TestLockReturnContractsShareAllowance(t *testing.T) {
 		}
 		callers := conditionalCallerSet{Calls: ssaflow.InstructionsOf[*ssa.Call](caller)[:1]}
 		complete := false
-		for limit := range ssaflow.SummaryBudget {
-			pool := ssaflow.NewSearchBudget(lockStateWorkBudget)
+		for limit := range proofs.SummaryBudget {
+			pool := proofs.NewSearchBudget(lockStateWorkBudget)
 			child := pool.Within(limit)
 			query := lockReturnQueries{setup: setup, budget: child}
 			proof := query.conditionalCallerRelease(fn, []ssa.Value{pkg.Var("global")}, heldAt, identity, callers)
@@ -46,7 +47,7 @@ func TestLockReturnContractsShareAllowance(t *testing.T) {
 			if !child.Exhausted() || pool.Exhausted() {
 				t.Fatalf("%s cut%d exhausted=%v/%v proof=%+v", name, limit, child.Exhausted(), pool.Exhausted(), proof)
 			}
-			fresh := lockReturnQueries{setup: setup, budget: pool.Within(ssaflow.SummaryBudget)}
+			fresh := lockReturnQueries{setup: setup, budget: pool.Within(proofs.SummaryBudget)}
 			if proof := fresh.conditionalCallerRelease(fn, []ssa.Value{pkg.Var("global")}, heldAt, identity, callers); !proof.proven {
 				t.Fatalf("%s fresh caller contract: %+v", name, proof)
 			}
@@ -54,7 +55,7 @@ func TestLockReturnContractsShareAllowance(t *testing.T) {
 		if !complete {
 			t.Fatalf("%s caller contract never completes", name)
 		}
-		query := lockReturnQueries{setup: setup, budget: ssaflow.NewSearchBudget(ssaflow.SummaryBudget)}
+		query := lockReturnQueries{setup: setup, budget: proofs.NewSearchBudget(proofs.SummaryBudget)}
 		proof := query.acquiresForCaller(fn, acquisitions, heldAt, identity)
 		if proof.proven != (name == "heldSuccess") {
 			t.Fatalf("%s held-success policy changed: %+v", name, proof)
@@ -69,13 +70,13 @@ func TestLockReturnContractsShareAllowance(t *testing.T) {
 func TestLockHeldContractCutoffAndGuardedError(t *testing.T) {
 	pkg := lockReturnPackage(t)
 	fn := pkg.Func("heldSuccess")
-	setup := buildLockSetup(lockSetupPass(fn, concurrencyfacts.NewEngine()), fn, ssaflow.NewSearchBudget(lockStateWorkBudget)).setup
+	setup := buildLockSetup(lockSetupPass(fn, concurrencyfacts.NewEngine()), fn, proofs.NewSearchBudget(lockStateWorkBudget)).setup
 	identity := lockIdentityOf(pkg.Var("global"))
 	heldAt := lockReturnStates(setup, identity, true)
 	acquisition := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 	complete := false
-	for limit := range ssaflow.SummaryBudget {
-		pool := ssaflow.NewSearchBudget(lockStateWorkBudget)
+	for limit := range proofs.SummaryBudget {
+		pool := proofs.NewSearchBudget(lockStateWorkBudget)
 		child := pool.Within(limit)
 		query := lockReturnQueries{setup: setup, budget: child}
 		proof := query.acquiresForCaller(fn, []ssa.Instruction{acquisition}, heldAt, identity)
@@ -89,7 +90,7 @@ func TestLockHeldContractCutoffAndGuardedError(t *testing.T) {
 		if !child.Exhausted() || pool.Exhausted() {
 			t.Fatalf("cut%d proof=%+v exhausted=%v/%v", limit, proof, child.Exhausted(), pool.Exhausted())
 		}
-		fresh := lockReturnQueries{setup: setup, budget: pool.Within(ssaflow.SummaryBudget)}
+		fresh := lockReturnQueries{setup: setup, budget: pool.Within(proofs.SummaryBudget)}
 		if !fresh.acquiresForCaller(fn, []ssa.Instruction{acquisition}, heldAt, identity).proven {
 			t.Fatal("fresh held-success query fails")
 		}
@@ -98,13 +99,13 @@ func TestLockHeldContractCutoffAndGuardedError(t *testing.T) {
 		t.Fatal("held-success query never completes")
 	}
 	fn = pkg.Func("guarded")
-	setup = buildLockSetup(lockSetupPass(fn, concurrencyfacts.NewEngine()), fn, ssaflow.NewSearchBudget(lockStateWorkBudget)).setup
-	query := lockReturnQueries{setup: setup, budget: ssaflow.NewSearchBudget(ssaflow.SummaryBudget)}
+	setup = buildLockSetup(lockSetupPass(fn, concurrencyfacts.NewEngine()), fn, proofs.NewSearchBudget(lockStateWorkBudget)).setup
+	query := lockReturnQueries{setup: setup, budget: proofs.NewSearchBudget(proofs.SummaryBudget)}
 	successes := 0
 	for _, returned := range setup.returns {
 		if query.successfulReturn(fn, returned) {
 			successes++
-			cut := lockReturnQueries{setup: setup, budget: ssaflow.NewSearchBudget(0)}
+			cut := lockReturnQueries{setup: setup, budget: proofs.NewSearchBudget(0)}
 			if cut.successfulReturn(fn, returned) || !cut.budget.Exhausted() {
 				t.Fatal("nil-guard proof bypassed zero allowance")
 			}
@@ -122,7 +123,7 @@ func TestLockFinalMetadataCutoffDiscardsReportsAndOrders(t *testing.T) {
 func TestLockCallerCoverageChargesAllowance(t *testing.T) {
 	fn := lockReturnPackage(t).Func("paddedCaller")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-	pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 	child := pool.Within(20)
 	query := lockReturnQueries{budget: child}
 	global := fn.Pkg.Var("global")
@@ -130,7 +131,7 @@ func TestLockCallerCoverageChargesAllowance(t *testing.T) {
 	if query.callerReleasesOnFlag(call, global, heldWhen) || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("caller coverage cutoff exhausted=%v/%v", child.Exhausted(), pool.Exhausted())
 	}
-	fresh := lockReturnQueries{budget: pool.Within(ssaflow.SummaryBudget)}
+	fresh := lockReturnQueries{budget: pool.Within(proofs.SummaryBudget)}
 	if !fresh.callerReleasesOnFlag(call, global, heldWhen) || fresh.budget.Exhausted() {
 		t.Fatal("fresh padded caller fails")
 	}

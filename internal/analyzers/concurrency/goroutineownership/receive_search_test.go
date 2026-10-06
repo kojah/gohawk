@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -20,7 +21,7 @@ func worker(target, other <-chan int) {
 
 `)
 	function := pkg.Func("worker")
-	if !receivesAnywhere(function, function.Params[0], ssaflow.NewSearchBudget(1000)) {
+	if !receivesAnywhere(function, function.Params[0], proofs.NewSearchBudget(1000)) {
 		t.Fatal("second visit to receive must inspect the distinct formal binding")
 	}
 }
@@ -42,23 +43,23 @@ func opaque(ch <-chan int) { unavailable(ch) }
 `)
 	for _, test := range []struct {
 		name string
-		want ssaflow.EvidenceState
+		want proofs.EvidenceState
 	}{
-		{"diamond", ssaflow.EvidenceProven},
+		{"diamond", proofs.EvidenceProven},
 		// A spilled parameter's capture cell is not the parameter value.
 		// The shared traversal preserves that opaque mapping boundary.
-		{"captured", ssaflow.EvidenceDisproven},
+		{"captured", proofs.EvidenceDisproven},
 		// The search preserves possible consumption by nested workers.
 		// That supplies uncertainty about ownership, never a join.
-		{"asynchronous", ssaflow.EvidenceProven},
-		{"unrelated", ssaflow.EvidenceDisproven},
-		{"ignore", ssaflow.EvidenceDisproven},
-		{"recursive", ssaflow.EvidenceUnknown},
-		{"opaque", ssaflow.EvidenceUnknown},
+		{"asynchronous", proofs.EvidenceProven},
+		{"unrelated", proofs.EvidenceDisproven},
+		{"ignore", proofs.EvidenceDisproven},
+		{"recursive", proofs.EvidenceUnknown},
+		{"opaque", proofs.EvidenceUnknown},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
-			search := newWorkerReceiveSearch(ssaflow.NewSearchBudget(1000), func(_ *ssa.Function, local, channel ssa.Value) bool {
+			search := newWorkerReceiveSearch(proofs.NewSearchBudget(1000), func(_ *ssa.Function, local, channel ssa.Value) bool {
 				return heapmodel.ValueDerivesFrom(channel, local)
 			})
 			if proof := search.prove(function, function.Params[0]); proof.State != test.want {
@@ -75,13 +76,13 @@ func leaf(ch <-chan int) { <-ch }
 func forward(ch <-chan int) { leaf(ch) }
 `)
 	function := pkg.Func("forward")
-	search := newWorkerReceiveSearch(ssaflow.NewSearchBudget(1), func(_ *ssa.Function, local, channel ssa.Value) bool {
+	search := newWorkerReceiveSearch(proofs.NewSearchBudget(1), func(_ *ssa.Function, local, channel ssa.Value) bool {
 		return heapmodel.ValueDerivesFrom(channel, local)
 	})
-	if proof := search.prove(function, function.Params[0]); proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+	if proof := search.prove(function, function.Params[0]); proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted {
 		t.Fatalf("exhausted receive proof = %+v", proof)
 	}
-	search.budget = ssaflow.NewSearchBudget(1000)
+	search.budget = proofs.NewSearchBudget(1000)
 	if proof := search.prove(function, function.Params[0]); !proof.Proven() {
 		t.Fatalf("fresh budget reused incomplete answer: %+v", proof)
 	}
@@ -96,7 +97,7 @@ func subject(ch <-chan int) { go func() { leaf(ch) }() }
 	function := pkg.Func("subject")
 	analysis := &spawnAnalysis{
 		function: function, spawn: ssaflow.InstructionsOf[*ssa.Go](function)[0],
-		pool: ssaflow.NewSearchBudget(1),
+		pool: proofs.NewSearchBudget(1),
 	}
 	proof, decided := analysis.lifecycleProof()
 	if !decided || proof.Outcome != GoroutineUnknown || proof.Reason != reasonReceiveBudgetExhausted {
@@ -123,7 +124,7 @@ func replaced(target, other *owner) { target.ctx = context.Background(); receive
 		{"replaced", false},
 	} {
 		function := pkg.Func(test.name)
-		if got := contextFieldReceivedAnywhere(function, function.Params[0], function, ssaflow.NewSearchBudget(1000)); got != test.want {
+		if got := contextFieldReceivedAnywhere(function, function.Params[0], function, proofs.NewSearchBudget(1000)); got != test.want {
 			t.Fatalf("%s field receive = %v, want %v", test.name, got, test.want)
 		}
 	}

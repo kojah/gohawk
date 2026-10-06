@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -82,18 +83,18 @@ func assertNamedCellSlots(t *testing.T, proof ssaflow.NamedResultCellsProof, cou
 
 func assertNamedCellCutoffs(t *testing.T, fn *ssa.Function, baseline ssaflow.NamedResultCellsProof) {
 	t.Helper()
-	pool := ssaflow.NewSearchBudget(100000)
-	for limit := range ssaflow.SummaryBudget {
+	pool := proofs.NewSearchBudget(100000)
+	for limit := range proofs.SummaryBudget {
 		budget := pool.Within(limit)
 		got := ssaflow.ProveNamedResultCellsWithin(fn, budget)
 		if budget.Exhausted() || budget.PoolExhausted() || limit == 0 {
-			if got.Proven() || got.Reason != ssaflow.EvidenceBudgetExhausted || got.Cells != nil {
+			if got.Proven() || got.Reason != proofs.EvidenceBudgetExhausted || got.Cells != nil {
 				t.Fatalf("cut%d=%+v", limit, got)
 			}
 		} else if !reflect.DeepEqual(got, baseline) {
 			t.Fatalf("complete%d=%+v baseline=%+v", limit, got, baseline)
 		}
-		freshBudget := pool.Within(ssaflow.SummaryBudget)
+		freshBudget := pool.Within(proofs.SummaryBudget)
 		fresh := ssaflow.ProveNamedResultCellsWithin(fn, freshBudget)
 		if freshBudget.Exhausted() || pool.Exhausted() || !reflect.DeepEqual(fresh, baseline) {
 			t.Fatalf("fresh%d=%+v", limit, fresh)

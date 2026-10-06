@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"strings"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -33,7 +34,7 @@ type FixedValues map[ssa.Value]Outcome
 // FixedArgumentsProof publishes only a complete census of modeled argument
 // and capture outcomes. Proven does not establish any callee behavior.
 type FixedArgumentsProof struct {
-	Proof
+	proofs.Proof
 	Values FixedValues
 }
 
@@ -43,12 +44,12 @@ type FixedArgumentsProof struct {
 // map; nil budget retains the same binding policy without a work limit. Missing
 // bodies yield a completed empty metadata census.
 func ProveFixedArgumentsWithin(
-	common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known FixedValues, budget *SearchBudget,
+	common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known FixedValues, budget *proofs.SearchBudget,
 ) FixedArgumentsProof {
 	if callee == nil || len(callee.Blocks) == 0 {
-		return FixedArgumentsProof{Proof: Proof{State: EvidenceProven, Reason: EvidenceStructuralWalk}}
+		return FixedArgumentsProof{Proof: proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk}}
 	}
-	unknown := FixedArgumentsProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+	unknown := FixedArgumentsProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 	if !budget.Spend() {
 		return unknown
 	}
@@ -79,13 +80,15 @@ func ProveFixedArgumentsWithin(
 	if budget.Exhausted() || budget.PoolExhausted() {
 		return unknown
 	}
-	return FixedArgumentsProof{Proof: Proof{State: EvidenceProven, Reason: EvidenceStructuralWalk, Provenance: EvidenceFromLocalSSA}, Values: fixed}
+	return FixedArgumentsProof{Proof: proofs.Proof{
+		State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA,
+	}, Values: fixed}
 }
 
 // A caller-fixed current cell remains valid only in a directly read-only
 // body. Otherwise require a unique store before capture, including read-only nested
 // lexical captures, and retain the existing nilness relevance rule.
-func capturedArgumentOutcomeWithin(pair CapturedBinding, closure *ssa.MakeClosure, known FixedValues, budget *SearchBudget) (Outcome, bool) {
+func capturedArgumentOutcomeWithin(pair CapturedBinding, closure *ssa.MakeClosure, known FixedValues, budget *proofs.SearchBudget) (Outcome, bool) {
 	if outcome, ok := known[pair.Binding]; ok && onlyReadWithin(pair.Free, budget) {
 		return outcome, true
 	}
@@ -99,7 +102,7 @@ func capturedArgumentOutcomeWithin(pair CapturedBinding, closure *ssa.MakeClosur
 // Boolean bindings are always useful; nilness is retained only for an exact
 // nil comparison or capture store, keeping unrelated pointer states out of
 // callee contexts. These predicates select relevance, not outcome truth.
-func decidableWithin(parameter *ssa.Parameter, outcome Outcome, budget *SearchBudget) bool {
+func decidableWithin(parameter *ssa.Parameter, outcome Outcome, budget *proofs.SearchBudget) bool {
 	if outcome == OutcomeTrue || outcome == OutcomeFalse {
 		return true
 	}
@@ -111,7 +114,7 @@ func decidableWithin(parameter *ssa.Parameter, outcome Outcome, budget *SearchBu
 	return false
 }
 
-func decidableCellWithin(cell *ssa.FreeVar, outcome Outcome, budget *SearchBudget) bool {
+func decidableCellWithin(cell *ssa.FreeVar, outcome Outcome, budget *proofs.SearchBudget) bool {
 	if outcome == OutcomeTrue || outcome == OutcomeFalse {
 		return true
 	}
@@ -129,7 +132,7 @@ func decidableCellWithin(cell *ssa.FreeVar, outcome Outcome, budget *SearchBudge
 
 // Only direct loads preserve a caller-fixed captured cell's outcome inside
 // this body. Nested captures retain the ordinary once-stored fallback.
-func onlyReadWithin(cell *ssa.FreeVar, budget *SearchBudget) bool {
+func onlyReadWithin(cell *ssa.FreeVar, budget *proofs.SearchBudget) bool {
 	for user := range ReferrersWithin(cell, budget) {
 		if load, ok := user.(*ssa.UnOp); !ok || load.Op != token.MUL {
 			return false
@@ -151,7 +154,7 @@ func ComparesWithNil(user ssa.Instruction) bool {
 	return comparesWithNilWithin(user, nil)
 }
 
-func comparesWithNilWithin(user ssa.Instruction, budget *SearchBudget) bool {
+func comparesWithNilWithin(user ssa.Instruction, budget *proofs.SearchBudget) bool {
 	switch typed := user.(type) {
 	case *ssa.BinOp:
 		return (typed.Op == token.EQL || typed.Op == token.NEQ) && (DefinitelyNilWithin(typed.X, budget) || DefinitelyNilWithin(typed.Y, budget))
@@ -201,7 +204,7 @@ func neverNil(value ssa.Value) bool {
 // capturedOutcomeWithin reports the outcome every read of a captured cell yields:
 // a cell written once before capture with a fixed value, whose captures only
 // read it, or a cell an enclosing closure already bound and passes on.
-func capturedOutcomeWithin(binding ssa.Value, closure *ssa.MakeClosure, known FixedValues, budget *SearchBudget) (Outcome, bool) {
+func capturedOutcomeWithin(binding ssa.Value, closure *ssa.MakeClosure, known FixedValues, budget *proofs.SearchBudget) (Outcome, bool) {
 	switch cell := binding.(type) {
 	case *ssa.FreeVar:
 		outcome, ok := known[cell]
@@ -223,7 +226,7 @@ func capturedOutcomeWithin(binding ssa.Value, closure *ssa.MakeClosure, known Fi
 // DecidedSuccessorWithin returns the successor a block's branch takes when its
 // condition is a bound Boolean value, possibly negated, or a comparison of a
 // bound nilable value with nil. Cutoff supplies no decided successor.
-func (fixed FixedValues) DecidedSuccessorWithin(block *ssa.BasicBlock, budget *SearchBudget) (*ssa.BasicBlock, bool) {
+func (fixed FixedValues) DecidedSuccessorWithin(block *ssa.BasicBlock, budget *proofs.SearchBudget) (*ssa.BasicBlock, bool) {
 	if len(fixed) == 0 || len(block.Instrs) == 0 || len(block.Succs) != 2 {
 		return nil, false
 	}
@@ -249,7 +252,7 @@ func (fixed FixedValues) Holds(condition ssa.Value) (holds, decided bool) {
 
 // HoldsWithin shares negation and nil-fold visits with the caller allowance.
 // Exhaustion cannot decide a bound condition; a nil budget retains defaults.
-func (fixed FixedValues) HoldsWithin(condition ssa.Value, budget *SearchBudget) (holds, decided bool) {
+func (fixed FixedValues) HoldsWithin(condition ssa.Value, budget *proofs.SearchBudget) (holds, decided bool) {
 	condition, negated := booleanNegationSourceWithin(condition, budget)
 	if budget.Exhausted() {
 		return false, false
@@ -264,7 +267,7 @@ func (fixed FixedValues) HoldsWithin(condition ssa.Value, budget *SearchBudget) 
 	return (outcome == OutcomeTrue) != negated, true
 }
 
-func (fixed FixedValues) nilComparisonWithin(comparison *ssa.BinOp, negated bool, budget *SearchBudget) (bool, bool) {
+func (fixed FixedValues) nilComparisonWithin(comparison *ssa.BinOp, negated bool, budget *proofs.SearchBudget) (bool, bool) {
 	operand := comparison.X
 	rightNil := DefinitelyNilWithin(comparison.Y, budget)
 	if budget.Exhausted() {
@@ -292,7 +295,7 @@ func BooleanNegationSource(value ssa.Value) (ssa.Value, bool) {
 	return booleanNegationSourceWithin(value, nil)
 }
 
-func booleanNegationSourceWithin(value ssa.Value, budget *SearchBudget) (ssa.Value, bool) {
+func booleanNegationSourceWithin(value ssa.Value, budget *proofs.SearchBudget) (ssa.Value, bool) {
 	negated := false
 	for {
 		if !budget.Spend() {
@@ -325,7 +328,7 @@ func (fixed FixedValues) Narrow(successors []*ssa.BasicBlock, block *ssa.BasicBl
 
 // NarrowWithin shares bound-condition and successor-filter visits. Cutoff
 // keeps the primitive's input edges; callers retain availability before use.
-func (fixed FixedValues) NarrowWithin(successors []*ssa.BasicBlock, block *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock {
+func (fixed FixedValues) NarrowWithin(successors []*ssa.BasicBlock, block *ssa.BasicBlock, budget *proofs.SearchBudget) []*ssa.BasicBlock {
 	taken, decided := fixed.DecidedSuccessorWithin(block, budget)
 	if !decided {
 		return successors

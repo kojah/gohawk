@@ -8,6 +8,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 
 	"github.com/kojah/gohawk/internal/analyzertest"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
@@ -35,7 +36,7 @@ func TestInitialPublicationGuardBoundaries(t *testing.T) {
  func both(r *registry,k string){r.mu.Lock();r.extra.Lock();g:=new(sync.Mutex);r.entries[k]=g;g.Lock()}
  func unrelated(r *registry,w *writer,k string){w.mu.Lock();r.mu.Lock();g:=new(sync.Mutex);r.entries[k]=g;g.Lock()}
  `)
-	query := func(name string, budget *ssaflow.SearchBudget, uncertain bool) publicationGuardProof {
+	query := func(name string, budget *proofs.SearchBudget, uncertain bool) publicationGuardProof {
 		function := pkg.Func(name)
 		calls := ssaflow.InstructionsOf[*ssa.Call](function)
 		target := calls[len(calls)-1]
@@ -84,22 +85,22 @@ func TestInitialPublicationGuardBoundaries(t *testing.T) {
 		{"unrelated", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			proof := query(test.name, ssaflow.NewSearchBudget(lockStateWorkBudget), false)
-			if (proof.state == ssaflow.EvidenceUnknown) != test.unknown {
+			proof := query(test.name, proofs.NewSearchBudget(lockStateWorkBudget), false)
+			if (proof.state == proofs.EvidenceUnknown) != test.unknown {
 				t.Fatalf("publication = %+v, unknown want %v", proof, test.unknown)
 			}
 		})
 	}
-	if proof := query("plain", ssaflow.NewSearchBudget(lockStateWorkBudget), true); proof.state == ssaflow.EvidenceUnknown {
+	if proof := query("plain", proofs.NewSearchBudget(lockStateWorkBudget), true); proof.state == proofs.EvidenceUnknown {
 		t.Fatal("possibly released writer supplied publication evidence")
 	}
-	pool := ssaflow.NewSearchBudget(lockStateWorkBudget)
+	pool := proofs.NewSearchBudget(lockStateWorkBudget)
 	cut := query("plain", pool.Within(0), false)
-	if cut.state != ssaflow.EvidenceUnknown || cut.reason != lockReasonLockStateBudgetExhausted || cut.identity != "" {
+	if cut.state != proofs.EvidenceUnknown || cut.reason != lockReasonLockStateBudgetExhausted || cut.identity != "" {
 		t.Fatalf("cutoff supplies guard identity: %+v", cut)
 	}
 	fresh := query("plain", pool.Within(lockStateWorkBudget), false)
-	if fresh.state != ssaflow.EvidenceUnknown || fresh.reason != lockReasonInitialPublicationUnknown || fresh.identity == "" {
+	if fresh.state != proofs.EvidenceUnknown || fresh.reason != lockReasonInitialPublicationUnknown || fresh.identity == "" {
 		t.Fatalf("fresh allowance did not recover publication evidence: %+v", fresh)
 	}
 }

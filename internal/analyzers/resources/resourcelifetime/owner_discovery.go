@@ -2,6 +2,7 @@ package resourcelifetime
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -10,7 +11,7 @@ import (
 // disposition used by the classifier. A complete census proves only that this
 // model collected its candidates; it never proves ownership or cleanup.
 type resourceOwnerDiscoveryProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Owners []ssa.Value
 	Stores map[*ssa.Store]resourceStorageProof
 }
@@ -18,7 +19,7 @@ type resourceOwnerDiscoveryProof struct {
 // discoverResourceOwnersWithin commits only a complete census. Interrupted
 // candidate collection must not leave partial owners or storage dispositions
 // available to the classifier's later flow queries.
-func (analysis *resourceAnalysis) discoverResourceOwnersWithin(budget *ssaflow.SearchBudget) resourceOwnerDiscoveryProof {
+func (analysis *resourceAnalysis) discoverResourceOwnersWithin(budget *proofs.SearchBudget) resourceOwnerDiscoveryProof {
 	proof := proveLocalResourceOwnersWithin(analysis.function, analysis.resource, budget)
 	if proof.Proven() {
 		analysis.owners = proof.Owners
@@ -27,10 +28,10 @@ func (analysis *resourceAnalysis) discoverResourceOwnersWithin(budget *ssaflow.S
 	return proof
 }
 
-func proveLocalResourceOwnersWithin(function *ssa.Function, resource ssa.Value, budget *ssaflow.SearchBudget) resourceOwnerDiscoveryProof {
+func proveLocalResourceOwnersWithin(function *ssa.Function, resource ssa.Value, budget *proofs.SearchBudget) resourceOwnerDiscoveryProof {
 	var owners []ssa.Value
 	var stores map[*ssa.Store]resourceStorageProof
-	unknown := resourceOwnerDiscoveryProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}}
+	unknown := resourceOwnerDiscoveryProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 	if !budget.Spend() {
 		return unknown
 	}
@@ -64,6 +65,6 @@ func proveLocalResourceOwnersWithin(function *ssa.Function, resource ssa.Value, 
 		return unknown
 	}
 	return resourceOwnerDiscoveryProof{
-		Proof: ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk}, Owners: owners, Stores: stores,
+		Proof: proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk}, Owners: owners, Stores: stores,
 	}
 }

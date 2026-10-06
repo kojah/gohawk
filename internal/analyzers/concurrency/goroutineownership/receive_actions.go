@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -20,7 +21,7 @@ func receivesFrom(instruction ssa.Instruction, matches func(ssa.Value) bool) boo
 	return receivesFromWithin(instruction, matches, nil)
 }
 
-func receivesFromWithin(instruction ssa.Instruction, matches func(ssa.Value) bool, budget *ssaflow.SearchBudget) bool {
+func receivesFromWithin(instruction ssa.Instruction, matches func(ssa.Value) bool, budget *proofs.SearchBudget) bool {
 	switch typed := instruction.(type) {
 	case *ssa.UnOp:
 		return typed.Op == token.ARROW && matches(typed.X)
@@ -105,7 +106,7 @@ func (analysis *spawnAnalysis) isSignal(value ssa.Value) bool {
 
 // isSignalWithin shares exact channel identity between observations and relay
 // discovery. Aggregate roots retain possible ownership, never an exact join.
-func (analysis *spawnAnalysis) isSignalWithin(value ssa.Value, budget *ssaflow.SearchBudget) bool {
+func (analysis *spawnAnalysis) isSignalWithin(value ssa.Value, budget *proofs.SearchBudget) bool {
 	if !ssaflow.ChannelType(value) {
 		return false
 	}

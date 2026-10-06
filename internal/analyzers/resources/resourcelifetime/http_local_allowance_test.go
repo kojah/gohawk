@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -30,14 +31,14 @@ func TestLocalHTTPAcquisitionAllowance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			call := localHTTPGetCall(t, pkg.Func(test.name))
 			baseline := proveLocalHeaderOnlyAcquisitionWithin(call, nil)
-			if baseline.Proven() != test.want || baseline.State == ssaflow.EvidenceUnknown {
+			if baseline.Proven() != test.want || baseline.State == proofs.EvidenceUnknown {
 				t.Fatalf("default endpoint proof=%+v, want %v; SSA:\n%s", baseline, test.want, carriedSSA(t, call.Parent()))
 			}
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := proveLocalHeaderOnlyAcquisitionWithin(call, budget)
 				if resourceFlowExhausted(budget) || limit == 0 {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
+					if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
 						t.Fatalf("cut endpoint proof=%+v", got)
 					}
 					continue
@@ -54,9 +55,9 @@ func TestLocalHTTPAcquisitionAllowance(t *testing.T) {
 
 func TestLocalHTTPAcquisitionChildCutoff(t *testing.T) {
 	call := localHTTPGetCall(t, localHTTPAllowanceFixture(t, false).Func("exact"))
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	cut := proveLocalHeaderOnlyAcquisitionWithin(call, pool.Within(2))
-	if cut.State != ssaflow.EvidenceUnknown || cut.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+	if cut.State != proofs.EvidenceUnknown || cut.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 		t.Fatalf("endpoint cutoff=%+v", cut)
 	}
 	if fresh := proveLocalHeaderOnlyAcquisitionWithin(call, pool.Within(releaseSearchBudget)); !fresh.Proven() {
@@ -67,7 +68,7 @@ func TestLocalHTTPAcquisitionChildCutoff(t *testing.T) {
 func TestLocalHTTPWriterMemoFreshAllowance(t *testing.T) {
 	fn := localHTTPAllowanceFixture(t, false).Func("headerHelper")
 	effects := newHTTPWriterEffects()
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	child := pool.Within(2)
 	if effects.headerOnly(fn.Params[0], child) || !child.Exhausted() || pool.Exhausted() {
 		t.Fatal("writer cutoff must leave parent available")
@@ -80,7 +81,7 @@ func TestLocalHTTPWriterMemoFreshAllowance(t *testing.T) {
 
 func TestLocalHTTPEffectsChildCutoffFlow(t *testing.T) {
 	call := localHTTPGetCall(t, localHTTPAllowanceFixture(t, true).Func("exact"))
-	assertHTTPChildCutoffFlow(t, call, func(budget *ssaflow.SearchBudget) resourceProof {
+	assertHTTPChildCutoffFlow(t, call, func(budget *proofs.SearchBudget) resourceProof {
 		return proveLocalHeaderOnlyAcquisitionWithin(call, budget)
 	})
 }

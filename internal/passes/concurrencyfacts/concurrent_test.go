@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -28,7 +29,7 @@ func root(ch chan int) { forward(ch) }
 		workers.Go(func() {
 			<-start
 			for range 20 {
-				budget := ssaflow.NewSearchBudget(2000)
+				budget := proofs.NewSearchBudget(2000)
 				var summary Summary
 				switch worker % 3 {
 				case 0:

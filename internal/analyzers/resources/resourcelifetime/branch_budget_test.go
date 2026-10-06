@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"github.com/kojah/gohawk/internal/summaries"
@@ -70,8 +71,8 @@ func captured(err error) { check := predicate; func() { if check(err) { println(
 				// These actual bodies require more than sixteen structural visits;
 				// standalone derivation or summary budgets would wrongly accept them.
 				got := proveResourceSuccessBranch(nil, branchTestKnowledge(), branch.Block(), branch.Block().Succs[0],
-					errorValue, token.NoPos, ssaflow.NewSearchBudget(16))
-				if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
+					errorValue, token.NoPos, proofs.NewSearchBudget(16))
+				if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
 					t.Fatalf("nested work bypassed the branch allowance: %+v", got)
 				}
 			}
@@ -87,11 +88,11 @@ func captured(err error) { check := predicate; func() { if check(err) { println(
 
 func checkResourceBranchArm(t *testing.T, branch *ssa.If, successor *ssa.BasicBlock, errorValue ssa.Value, wantKnown, wantSuccess bool) {
 	t.Helper()
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		got := proveResourceSuccessBranch(nil, branchTestKnowledge(), branch.Block(), successor, errorValue, token.NoPos, budget)
 		if resourceFlowExhausted(budget) {
-			if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || got.success {
+			if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || got.success {
 				t.Fatalf("allowance %d admitted interrupted branch: %+v", limit, got)
 			}
 			continue
@@ -115,12 +116,12 @@ func acquire() *resource { return new(resource) }
 func identity(err error) error { return err }
 func branch(err error) {
 value := acquire()
-`+strings.Repeat("err = identity(err)\n", ssaflow.SummaryBudget)+`if err != nil { println(value) }
+`+strings.Repeat("err = identity(err)\n", proofs.SummaryBudget)+`if err != nil { println(value) }
 }`)
 	fn := pkg.Func("branch")
 	branch := ssaflow.InstructionsOf[*ssa.If](fn)[0]
 	acquisition := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	state := resourceFlowState{block: branch.Block()}
 	knowledge := branchTestKnowledge()
 	evidence, _ := knowledge.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
@@ -129,7 +130,7 @@ value := acquire()
 		contract: resourceContract{cleanup: []string{"Close"}}, actions: map[ssa.Instruction]resourceAction{},
 	}
 	got := resourceSuccessorStates(query, state, fn.Params[0], pool)
-	if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || got.states != nil || pool.Exhausted() {
+	if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || got.states != nil || pool.Exhausted() {
 		t.Fatalf("branch child cutoff must discard all successors while outer pool remains live: %+v, outer exhausted %v", got, pool.Exhausted())
 	}
 	// Isolate the edge proof from instruction classification so this control
@@ -137,9 +138,9 @@ value := acquire()
 	for instruction := range ssaflow.InstructionsWithin(fn, nil) {
 		query.actions[instruction] = actionNone
 	}
-	query.pool = ssaflow.NewSearchBudget(resourcePoolBudget)
+	query.pool = proofs.NewSearchBudget(resourcePoolBudget)
 	flow := query.proveResourceFlow(fn.Params[0])
-	if flow.state != ssaflow.EvidenceUnknown || flow.reason != resourceReasonBudgetExhausted || flow.leak != nil || query.pool.Exhausted() {
+	if flow.state != proofs.EvidenceUnknown || flow.reason != resourceReasonBudgetExhausted || flow.leak != nil || query.pool.Exhausted() {
 		t.Fatalf("final flow admitted a child cutoff: %+v, outer exhausted %v", flow, query.pool.Exhausted())
 	}
 }
@@ -154,11 +155,11 @@ func next(rows, other *sql.Rows) { if rows.Next() { println(rows) } }
 	for arm, successor := range branch.Block().Succs {
 		for index, resource := range fn.Params {
 			completed := false
-			for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := proveSQLRowsExhaustionEdge(branch.Block(), successor, resource, budget)
 				if resourceFlowExhausted(budget) {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
+					if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
 						t.Fatalf("Rows cutoff admitted proof: %+v", got)
 					}
 					continue

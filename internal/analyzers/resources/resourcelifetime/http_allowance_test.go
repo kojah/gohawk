@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -11,11 +12,11 @@ import (
 
 // HTTP allowance controls exercise the same cutoff boundary for HEAD and
 // local header-only acquisitions while keeping their protocol fixtures separate.
-func assertHTTPChildCutoffFlow(t *testing.T, call *ssa.Call, prove func(*ssaflow.SearchBudget) resourceProof) {
+func assertHTTPChildCutoffFlow(t *testing.T, call *ssa.Call, prove func(*proofs.SearchBudget) resourceProof) {
 	t.Helper()
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	proof := prove(pool.Within(releaseSearchBudget))
-	if proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+	if proof.State != proofs.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 		t.Errorf("HTTP child availability=%+v", proof)
 	}
 	provider := resourceSummaries.Provider(nil)
@@ -32,7 +33,7 @@ func assertHTTPChildCutoffFlow(t *testing.T, call *ssa.Call, prove func(*ssaflow
 	got := evaluateResourceFlow(nil, evidence, call, resource, resourceContract{
 		family: resourceFamilyHTTP, packagePath: "net/http", cleanup: []string{"Close"},
 	})
-	if got.state != ssaflow.EvidenceUnknown || got.reason != resourceReasonBudgetExhausted || got.leak != nil {
+	if got.state != proofs.EvidenceUnknown || got.reason != resourceReasonBudgetExhausted || got.leak != nil {
 		t.Fatalf("HTTP cutoff fell through to leak=%+v", got)
 	}
 }

@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -41,16 +42,16 @@ func TestMethodCoverageAllowance(t *testing.T) {
 				if MethodCallCoverage(function, calls, coverage, nonNil) != want {
 					t.Fatal("default contract changed")
 				}
-				for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-					budget := ssaflow.NewSearchBudget(limit)
+				for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+					budget := proofs.NewSearchBudget(limit)
 					proof := ProveMethodCallCoverageWithin(function, calls, coverage, nonNil, budget)
 					if budget.Exhausted() || limit == 0 {
-						if proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+						if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted {
 							t.Fatalf("cut%d=%+v", limit, proof)
 						}
 						continue
 					}
-					if proof.State == ssaflow.EvidenceUnknown || proof.Proven() != want {
+					if proof.State == proofs.EvidenceUnknown || proof.Proven() != want {
 						t.Fatalf("complete%d=%+v want%v", limit, proof, want)
 					}
 					return
@@ -67,12 +68,12 @@ func TestMethodCoverageChildAndFresh(t *testing.T) {
 		common := ssaflow.InstructionCall(instruction)
 		return common != nil && ssaflow.CallName(common) == "action"
 	}
-	pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 	cut := ProveMethodCallCoverageWithin(pkg.Func("exact"), calls, CoverageEveryReturn, nil, pool.Within(1))
-	if cut.State != ssaflow.EvidenceUnknown || cut.Reason != ssaflow.EvidenceBudgetExhausted || pool.Exhausted() {
+	if cut.State != proofs.EvidenceUnknown || cut.Reason != proofs.EvidenceBudgetExhausted || pool.Exhausted() {
 		t.Fatalf("cut=%+v parent exhausted=%v", cut, pool.Exhausted())
 	}
-	fresh := ProveMethodCallCoverageWithin(pkg.Func("exact"), calls, CoverageEveryReturn, nil, pool.Within(ssaflow.SummaryBudget))
+	fresh := ProveMethodCallCoverageWithin(pkg.Func("exact"), calls, CoverageEveryReturn, nil, pool.Within(proofs.SummaryBudget))
 	if !fresh.Proven() {
 		t.Fatalf("fresh=%+v", fresh)
 	}

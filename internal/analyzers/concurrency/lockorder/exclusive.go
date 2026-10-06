@@ -10,6 +10,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -49,7 +50,7 @@ type exclusiveCallers struct {
 }
 
 type exclusiveProof struct {
-	state     ssaflow.EvidenceState
+	state     proofs.EvidenceState
 	reason    lockReason
 	parameter int
 }
@@ -68,7 +69,7 @@ func newExclusiveCallers(pass *analysis.Pass, sites map[*ssa.Function]conditiona
 // not escaped at the call. Exported functions, methods, functions with escaped
 // uses, and incomplete or empty caller sets remain unknown. A fresh direct
 // caller cannot establish what a callback or asynchronous caller hands in.
-func (callers *exclusiveCallers) parameterExclusive(function *ssa.Function, index int, budget *ssaflow.SearchBudget) exclusiveProof {
+func (callers *exclusiveCallers) parameterExclusive(function *ssa.Function, index int, budget *proofs.SearchBudget) exclusiveProof {
 	unknown := exclusiveProof{reason: lockReasonExclusiveOwnershipUnknown}
 	cutoff := exclusiveProof{reason: lockReasonLockStateBudgetExhausted}
 	// Admission also applies to cached answers: an interrupted flow cannot use
@@ -102,7 +103,7 @@ func (callers *exclusiveCallers) parameterExclusive(function *ssa.Function, inde
 			return unknown
 		}
 	}
-	proof := exclusiveProof{state: ssaflow.EvidenceProven, reason: lockReasonExclusiveParameterFromFreshCallers, parameter: index}
+	proof := exclusiveProof{state: proofs.EvidenceProven, reason: lockReasonExclusiveParameterFromFreshCallers, parameter: index}
 	callers.exclusive[key] = proof
 	return proof
 }
@@ -111,10 +112,10 @@ func (callers *exclusiveCallers) parameterExclusive(function *ssa.Function, inde
 // because its object is exclusively owned at the instruction, and traces
 // the half of the proof that decided it.
 func (callers *exclusiveCallers) acquisitionExclusive(
-	function *ssa.Function, instruction ssa.Instruction, receiver ssa.Value, budget *ssaflow.SearchBudget,
+	function *ssa.Function, instruction ssa.Instruction, receiver ssa.Value, budget *proofs.SearchBudget,
 ) exclusiveProof {
 	proof := callers.proveAcquisitionExclusive(function, instruction, receiver, budget)
-	if proof.state != ssaflow.EvidenceProven {
+	if proof.state != proofs.EvidenceProven {
 		return proof
 	}
 	probe := analysisTrace.For(callers.pass, "lockorder", string(check.LockContradictoryOrder), instruction.Pos())
@@ -130,7 +131,7 @@ func (callers *exclusiveCallers) acquisitionExclusive(
 }
 
 func (callers *exclusiveCallers) proveAcquisitionExclusive(
-	function *ssa.Function, instruction ssa.Instruction, receiver ssa.Value, budget *ssaflow.SearchBudget,
+	function *ssa.Function, instruction ssa.Instruction, receiver ssa.Value, budget *proofs.SearchBudget,
 ) exclusiveProof {
 	unknown := exclusiveProof{reason: lockReasonExclusiveOwnershipUnknown}
 	if !budget.Spend() {
@@ -145,7 +146,7 @@ func (callers *exclusiveCallers) proveAcquisitionExclusive(
 	}
 	switch {
 	case exclusive.Local && exclusive.Published:
-		return exclusiveProof{state: ssaflow.EvidenceProven, reason: lockReasonExclusiveObjectBeforePublication}
+		return exclusiveProof{state: proofs.EvidenceProven, reason: lockReasonExclusiveObjectBeforePublication}
 	case exclusive.Local:
 		return unknown
 	default:
@@ -162,7 +163,7 @@ type publicationGuardProof struct {
 }
 
 func (flow lockFlowContext) initialPublicationGuard(instruction ssa.Instruction, receiver ssa.Value, state lockFlowState) publicationGuardProof {
-	proof := publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}}
+	proof := publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{proofs.EvidenceDisproven, lockReasonNone}}
 	effect, direct := flow.setup.direct[instruction]
 	allocation, fresh := receiver.(*ssa.Alloc)
 	if !direct || effect.operation != mutexAcquire || effect.acquired.read || !fresh || allocation.Block() != instruction.Block() {
@@ -170,7 +171,7 @@ func (flow lockFlowContext) initialPublicationGuard(instruction ssa.Instruction,
 	}
 	owner := initialPublicationOwner(allocation, instruction, flow.budget)
 	if flow.budget.Exhausted() || flow.budget.PoolExhausted() {
-		return publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}}
+		return publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonLockStateBudgetExhausted}}
 	}
 	if owner == nil {
 		return proof
@@ -180,7 +181,7 @@ func (flow lockFlowContext) initialPublicationGuard(instruction ssa.Instruction,
 	matched := ""
 	for _, identity := range state.held {
 		if !flow.budget.Spend() {
-			return publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}}
+			return publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonLockStateBudgetExhausted}}
 		}
 		if slices.Contains(state.readHeld, identity) || flow.unprovenRelease[identity] {
 			continue
@@ -193,10 +194,10 @@ func (flow lockFlowContext) initialPublicationGuard(instruction ssa.Instruction,
 		}
 	}
 	if flow.budget.Exhausted() || flow.budget.PoolExhausted() {
-		return publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}}
+		return publicationGuardProof{lockDiagnosticProof: lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonLockStateBudgetExhausted}}
 	}
 	if matched != "" {
-		return publicationGuardProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonInitialPublicationUnknown}, matched}
+		return publicationGuardProof{lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonInitialPublicationUnknown}, matched}
 	}
 	return proof
 }
@@ -220,7 +221,7 @@ func (flow lockFlowContext) writerMatchesOwner(identity string, owner ssa.Value)
 // publication and first Lock. Calls, stores, sends, branches or a second map
 // publication break that closed interval: another participant could see or lock
 // the value before the acquisition. Unsupported shapes retain ordering evidence.
-func initialPublicationOwner(allocation *ssa.Alloc, acquisition ssa.Instruction, budget *ssaflow.SearchBudget) ssa.Value {
+func initialPublicationOwner(allocation *ssa.Alloc, acquisition ssa.Instruction, budget *proofs.SearchBudget) ssa.Value {
 	first := ssaflow.InstructionIndexWithin(allocation, budget)
 	last := ssaflow.InstructionIndexWithin(acquisition, budget)
 	if first < 0 || last <= first {

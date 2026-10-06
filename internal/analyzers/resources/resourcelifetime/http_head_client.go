@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -11,7 +12,7 @@ import (
 // or unchanged package defaults. Referrer and capture visits share the request
 // allowance; shortened default-effect children retain explicit uncertainty.
 
-func proveHeadClientUnconfiguredWithin(client ssa.Value, function *ssa.Function, budget *ssaflow.SearchBudget) resourceProof {
+func proveHeadClientUnconfiguredWithin(client ssa.Value, function *ssa.Function, budget *proofs.SearchBudget) resourceProof {
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
@@ -38,7 +39,7 @@ func proveHeadClientUnconfiguredWithin(client ssa.Value, function *ssa.Function,
 // change nothing about it. pmtiles keeps one client in a variable its
 // download workers capture:
 // https://github.com/protomaps/go-pmtiles/blob/a3e4951ea6a0477b784c27c1dcbfd9c130878c5a/pmtiles/sync.go#L73-L80
-func zeroClientCellWithin(cell *ssa.Alloc, budget *ssaflow.SearchBudget) bool {
+func zeroClientCellWithin(cell *ssa.Alloc, budget *proofs.SearchBudget) bool {
 	if cell.Referrers() == nil {
 		return false
 	}
@@ -72,7 +73,7 @@ func zeroClientCellWithin(cell *ssa.Alloc, budget *ssaflow.SearchBudget) bool {
 
 // onlyStoredInto reports whether the fresh allocation's only use is the store
 // that puts it in the cell: no field was addressed, so it is zero-valued.
-func onlyStoredIntoWithin(fresh *ssa.Alloc, store *ssa.Store, budget *ssaflow.SearchBudget) bool {
+func onlyStoredIntoWithin(fresh *ssa.Alloc, store *ssa.Store, budget *proofs.SearchBudget) bool {
 	if fresh.Referrers() == nil {
 		return false
 	}
@@ -87,7 +88,7 @@ func onlyStoredIntoWithin(fresh *ssa.Alloc, store *ssa.Store, budget *ssaflow.Se
 	return true
 }
 
-func closureLoadsCellForDoWithin(closure *ssa.MakeClosure, cell *ssa.Alloc, budget *ssaflow.SearchBudget) bool {
+func closureLoadsCellForDoWithin(closure *ssa.MakeClosure, cell *ssa.Alloc, budget *proofs.SearchBudget) bool {
 	function, ok := closure.Fn.(*ssa.Function)
 	if !ok {
 		return false
@@ -121,7 +122,7 @@ func closureLoadsCellForDoWithin(closure *ssa.MakeClosure, cell *ssa.Alloc, budg
 
 // Only direct Do calls may observe these fresh values. Field addresses, aliases
 // and helper escapes would hide configuration or method mutation.
-func onlyHTTPDoUsesWithin(value ssa.Value, budget *ssaflow.SearchBudget) bool {
+func onlyHTTPDoUsesWithin(value ssa.Value, budget *proofs.SearchBudget) bool {
 	refs := value.Referrers()
 	if refs == nil || len(*refs) == 0 {
 		return false

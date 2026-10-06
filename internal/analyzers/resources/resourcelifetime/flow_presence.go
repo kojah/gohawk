@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -18,7 +19,7 @@ import (
 // derives from the resource and its type can hold it. An error returned by a
 // helper that was handed the file derives from the file, but no error value
 // is the file, so its nil check says nothing about whether the file exists.
-func holdsResource(value, resource ssa.Value, budget *ssaflow.SearchBudget) bool {
+func holdsResource(value, resource ssa.Value, budget *proofs.SearchBudget) bool {
 	return budget.Spend() && types.AssignableTo(resource.Type(), value.Type()) && heapmodel.ValueDerivesFromWithin(value, resource, budget)
 }
 
@@ -29,7 +30,7 @@ func holdsResource(value, resource ssa.Value, budget *ssaflow.SearchBudget) bool
 // returned without error always has a non-nil Body, so a close guarded by
 // `resp != nil && resp.Body != nil` covers every feasible path:
 // https://github.com/Authula/authula/blob/87a880a2872fae95d749d7a250db0274524fafce/plugins/oauth2/services/base_provider.go#L63-L74
-func presenceOperand(value, resource ssa.Value, budget *ssaflow.SearchBudget) bool {
+func presenceOperand(value, resource ssa.Value, budget *proofs.SearchBudget) bool {
 	if holdsResource(value, resource, budget) {
 		return true
 	}
@@ -38,25 +39,25 @@ func presenceOperand(value, resource ssa.Value, budget *ssaflow.SearchBudget) bo
 }
 
 type resourcePresenceProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Present bool
 }
 
-func unknownResourcePresence(budget *ssaflow.SearchBudget) resourcePresenceProof {
-	reason := ssaflow.EvidenceUnavailable
+func unknownResourcePresence(budget *proofs.SearchBudget) resourcePresenceProof {
+	reason := proofs.EvidenceUnavailable
 	if resourceFlowExhausted(budget) {
-		reason = ssaflow.EvidenceBudgetExhausted
+		reason = proofs.EvidenceBudgetExhausted
 	}
-	return resourcePresenceProof{Proof: ssaflow.Proof{Reason: reason}}
+	return resourcePresenceProof{Proof: proofs.Proof{Reason: reason}}
 }
 
 func provenResourcePresence(present bool) resourcePresenceProof {
-	return resourcePresenceProof{Proof: ssaflow.Proof{
-		State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA,
+	return resourcePresenceProof{Proof: proofs.Proof{
+		State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA,
 	}, Present: present}
 }
 
-func proveResourcePresenceBranch(block, predecessor, successor *ssa.BasicBlock, resource ssa.Value, budget *ssaflow.SearchBudget) resourcePresenceProof {
+func proveResourcePresenceBranch(block, predecessor, successor *ssa.BasicBlock, resource ssa.Value, budget *proofs.SearchBudget) resourcePresenceProof {
 	if resource == nil || len(block.Instrs) == 0 || len(block.Succs) != 2 {
 		return unknownResourcePresence(budget)
 	}
@@ -103,7 +104,7 @@ func proveResourcePresenceBranch(block, predecessor, successor *ssa.BasicBlock, 
 // assertedResource reports whether condition is the ok result of a comma-ok
 // type assertion whose operand resolves to the resource and whose asserted
 // type the resource's static type satisfies, so the assertion succeeds.
-func assertedResource(condition, resource ssa.Value, budget *ssaflow.SearchBudget) bool {
+func assertedResource(condition, resource ssa.Value, budget *proofs.SearchBudget) bool {
 	okResult, ok := condition.(*ssa.Extract)
 	if !ok || okResult.Index != 1 {
 		return false

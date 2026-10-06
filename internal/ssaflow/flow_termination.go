@@ -1,11 +1,14 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+	"golang.org/x/tools/go/ssa"
+	// Terminator extends the documented catalog of terminating calls with what
+	// an analyzer knows from summaries: a project's own fatal wrapper, or a
+	// server loop that never returns. It reports only calls; the catalog still
+	// decides deferred exits and runtime.Goexit.
+)
 
-// Terminator extends the documented catalog of terminating calls with what
-// an analyzer knows from summaries: a project's own fatal wrapper, or a
-// server loop that never returns. It reports only calls; the catalog still
-// decides deferred exits and runtime.Goexit.
 type Terminator func(*ssa.Call) bool
 
 // InstructionTerminatesControlFlow reports calls whose documented behavior
@@ -24,7 +27,7 @@ func InstructionTerminatesWith(instruction ssa.Instruction, terminates Terminato
 // deferred registration census and dominance. Exhaustion supplies no positive
 // termination evidence; callers retain availability before continuing a path.
 // A nil budget preserves the default termination policy.
-func InstructionTerminatesWithin(instruction ssa.Instruction, terminates Terminator, budget *SearchBudget) bool {
+func InstructionTerminatesWithin(instruction ssa.Instruction, terminates Terminator, budget *proofs.SearchBudget) bool {
 	if call, ok := instruction.(*ssa.Call); ok {
 		if !budget.Spend() {
 			return false

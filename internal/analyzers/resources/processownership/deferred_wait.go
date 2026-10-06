@@ -3,6 +3,7 @@ package processownership
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -15,52 +16,52 @@ type deferredWaitSearch struct {
 	calls    []ssa.Instruction
 	stores   []*ssa.Store
 	loads    []*ssa.UnOp
-	budget   *ssaflow.SearchBudget
+	budget   *proofs.SearchBudget
 }
 
-func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Value, budget *ssaflow.SearchBudget) ssaflow.EvidenceState {
+func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Value, budget *proofs.SearchBudget) proofs.EvidenceState {
 	if _, ok := instruction.(*ssa.Defer); !ok {
-		return ssaflow.EvidenceDisproven
+		return proofs.EvidenceDisproven
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
-		return ssaflow.EvidenceDisproven
+		return proofs.EvidenceDisproven
 	}
 	closure, _ := common.Value.(*ssa.MakeClosure)
 	if closure == nil {
-		return ssaflow.EvidenceDisproven
+		return proofs.EvidenceDisproven
 	}
 	function, _ := closure.Fn.(*ssa.Function)
 	if function == nil {
-		return ssaflow.EvidenceDisproven
+		return proofs.EvidenceDisproven
 	}
 	search := deferredWaitSearch{function: function, budget: budget}
 	if !search.collect() {
-		return ssaflow.EvidenceUnknown
+		return proofs.EvidenceUnknown
 	}
 	for captured := range ssaflow.ClosureBindingPairsWithin(function, closure, budget) {
 		if heapmodel.CapturedBindingMatches(captured.Binding, command) {
-			if proof := search.waitsOnEveryReturn(captured.Free); proof != ssaflow.EvidenceDisproven {
+			if proof := search.waitsOnEveryReturn(captured.Free); proof != proofs.EvidenceDisproven {
 				return proof
 			}
 		}
 	}
 	if budget.Exhausted() {
-		return ssaflow.EvidenceUnknown
+		return proofs.EvidenceUnknown
 	}
 	// Keep capture evidence first: an unknown captured waiter must not be
 	// reordered behind an argument proof by the shared positional mapping.
 	for binding := range ssaflow.CallBindingsWithin(common, function, nil, budget) {
 		if heapmodel.MayAlias(binding.Supplied, command) {
-			if proof := search.waitsOnEveryReturn(binding.Local); proof != ssaflow.EvidenceDisproven {
+			if proof := search.waitsOnEveryReturn(binding.Local); proof != proofs.EvidenceDisproven {
 				return proof
 			}
 		}
 	}
 	if budget.Exhausted() {
-		return ssaflow.EvidenceUnknown
+		return proofs.EvidenceUnknown
 	}
-	return ssaflow.EvidenceDisproven
+	return proofs.EvidenceDisproven
 }
 
 // A deferred waiter guarded only by its captured Cmd.Process field may own
@@ -68,50 +69,50 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 // uncertainty without teaching shared non-nil flow that possible aliases are
 // equal. A Boolean condition still leaves an unowned path, and a visible field
 // replacement defeats even this possible successful-Start contract.
-func (search *deferredWaitSearch) guardedWait(command ssa.Value) ssaflow.EvidenceState {
+func (search *deferredWaitSearch) guardedWait(command ssa.Value) proofs.EvidenceState {
 	for _, store := range search.stores {
 		if !search.budget.Spend() {
-			return ssaflow.EvidenceUnknown
+			return proofs.EvidenceUnknown
 		}
 		if heapmodel.ValueDerivesFrom(store.Addr, command) {
-			return ssaflow.EvidenceDisproven
+			return proofs.EvidenceDisproven
 		}
 	}
 	for _, load := range search.loads {
 		if !search.budget.Spend() {
-			return ssaflow.EvidenceUnknown
+			return proofs.EvidenceUnknown
 		}
 		if !osProcessDerivedFromCommand(load, command) {
 			continue
 		}
 		result := search.coverage(command, load)
-		if result.State == ssaflow.EvidenceUnknown || result.Proven() {
-			return ssaflow.EvidenceUnknown
+		if result.State == proofs.EvidenceUnknown || result.Proven() {
+			return proofs.EvidenceUnknown
 		}
 	}
-	return ssaflow.EvidenceDisproven
+	return proofs.EvidenceDisproven
 }
 
-func (search *deferredWaitSearch) waitsOnEveryReturn(command ssa.Value) ssaflow.EvidenceState {
+func (search *deferredWaitSearch) waitsOnEveryReturn(command ssa.Value) proofs.EvidenceState {
 	// A successful Cmd.Start guarantees Cmd.Process is non-nil. Each concrete
 	// Wait receiver supplies that assumption for a defensive Process guard.
 	for _, candidate := range search.calls {
 		if !search.budget.Spend() {
-			return ssaflow.EvidenceUnknown
+			return proofs.EvidenceUnknown
 		}
 		if !waitsForCommand(candidate, command) {
 			continue
 		}
 		receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(candidate))
 		result := search.coverage(command, receiver)
-		if result.State != ssaflow.EvidenceDisproven {
+		if result.State != proofs.EvidenceDisproven {
 			return result.State
 		}
 	}
 	return search.guardedWait(command)
 }
 
-func (search *deferredWaitSearch) coverage(command, nonNil ssa.Value) ssaflow.Proof {
+func (search *deferredWaitSearch) coverage(command, nonNil ssa.Value) proofs.Proof {
 	return lifecycle.ProveMethodCallCoverageWithin(search.function, func(candidate ssa.Instruction) bool {
 		return waitsForCommand(candidate, command)
 	}, lifecycle.CoverageEveryReturn, nonNil, search.budget)

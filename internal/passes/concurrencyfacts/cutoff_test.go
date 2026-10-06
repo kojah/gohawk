@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -21,7 +21,7 @@ func opaque(f func()) { f() }
 `)
 	engine := NewEngine()
 	for _, name := range []string{"first", "second", "first"} {
-		got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 		if got.Reason != ReasonLoadUnknown || got.Complete() {
 			t.Fatalf("%s: unexpected summary %+v", name, got)
 		}
@@ -42,7 +42,7 @@ func opaque(f func()) { f() }
 		{"loop", "unsupported-loop-or-branch", "*ssa.If"},
 		{"opaque", "instruction", "*ssa.Call"},
 	} {
-		got := engine.Root(pkg.Func(test.name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		got := engine.Root(pkg.Func(test.name), proofs.NewSearchBudget(proofs.SummaryBudget))
 		got.ObserveCutoff(func(_ string, _ token.Pos, details map[string]string) {
 			if details["shape"] != test.shape || details["instruction-kind"] != test.instruction {
 				t.Errorf("%s: %+v", test.name, details)
@@ -52,7 +52,7 @@ func opaque(f func()) { f() }
 			t.Errorf("%s lost cutoff", test.name)
 		}
 	}
-	got := engine.Root(pkg.Func("safe"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	got := engine.Root(pkg.Func("safe"), proofs.NewSearchBudget(proofs.SummaryBudget))
 	got.ObserveCutoff(func(string, token.Pos, map[string]string) { t.Error("complete summary emitted cutoff") })
 	if !got.Complete() || got.cutoff != nil {
 		t.Fatalf("successful summary retained failure: %+v", got)
@@ -65,7 +65,7 @@ func leaf(p *chan int) { _ = *p }
 func root(p *chan int) { leaf(p) }
 `)
 	engine := NewEngine()
-	got := engine.Root(pkg.Func("root"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	got := engine.Root(pkg.Func("root"), proofs.NewSearchBudget(proofs.SummaryBudget))
 	original := got.cutoff
 	call := original.calls[0]
 	for range maxCutoffCalls + 2 {

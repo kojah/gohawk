@@ -5,6 +5,7 @@ package concurrencyfacts
 import (
 	"go/types"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -34,7 +35,7 @@ func condLocker(call ssa.CallInstruction) (ssa.Value, bool) {
 // CondMutex resolves the exact Mutex supplied to a NewCond allocation. It does
 // not prove that L remains unchanged: callers need a complete root summary,
 // which rejects condition-field access, mutation and opaque publication.
-func (engine *Engine) CondMutex(reference Reference, budget *ssaflow.SearchBudget) (Reference, bool) {
+func (engine *Engine) CondMutex(reference Reference, budget *proofs.SearchBudget) (Reference, bool) {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
 	call, ok := reference.Value.(*ssa.Call)

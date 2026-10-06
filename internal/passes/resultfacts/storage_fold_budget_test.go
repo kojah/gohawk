@@ -3,7 +3,7 @@ package resultfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -45,7 +45,7 @@ func TestResultFoldSharedAllowance(t *testing.T) {
 				}
 			}
 			engine := NewEngine()
-			fresh := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+			fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 			if got := engine.value(value, fresh); got != test.want || fresh.Exhausted() {
 				t.Fatalf("fresh value = %v, want %v", got, test.want)
 			}
@@ -60,13 +60,13 @@ func TestResultFoldSharedAllowance(t *testing.T) {
 func checkResultFoldCutoffs(t *testing.T, engine *Engine, value ssa.Value, want Guarantee) {
 	t.Helper()
 	// A leaf allowance alone cannot cover its reaching-value visit.
-	one := ssaflow.NewSearchBudget(1)
+	one := proofs.NewSearchBudget(1)
 	if got := engine.value(value, one); got != Unknown || !one.Exhausted() {
 		t.Fatal("leaf-only allowance admitted uncharged fold work")
 	}
 	completed := false
-	for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.QueryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		got := engine.value(value, budget)
 		if got == want {
 			if budget.Exhausted() {
@@ -82,8 +82,8 @@ func checkResultFoldCutoffs(t *testing.T, engine *Engine, value ssa.Value, want 
 	if !completed {
 		t.Fatal("result fold never completed")
 	}
-	pool := ssaflow.NewSearchBudget(0)
-	if got := engine.value(value, pool.Within(ssaflow.QueryBudget)); got != Unknown || !pool.Exhausted() {
+	pool := proofs.NewSearchBudget(0)
+	if got := engine.value(value, pool.Within(proofs.QueryBudget)); got != Unknown || !pool.Exhausted() {
 		t.Fatal("pool cutoff admitted result evidence")
 	}
 }
@@ -93,9 +93,9 @@ func TestResultFoldSummaryRecovery(t *testing.T) {
 	for _, name := range []string{"boxed", "agreeing", "stored"} {
 		t.Run(name, func(t *testing.T) {
 			completed := false
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
 				engine := NewEngine()
-				budget := ssaflow.NewSearchBudget(limit)
+				budget := proofs.NewSearchBudget(limit)
 				got := engine.Function(pkg.Func(name), budget)
 				if got.Available {
 					if got.Result(0) != AlwaysNonNil || budget.Exhausted() {
@@ -107,7 +107,7 @@ func TestResultFoldSummaryRecovery(t *testing.T) {
 				if got.Result(0) != Unknown || !budget.Exhausted() {
 					t.Fatal("incomplete result summary established a guarantee")
 				}
-				fresh := engine.Function(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+				fresh := engine.Function(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 				if !fresh.Available || fresh.Result(0) != AlwaysNonNil {
 					t.Fatal("cutoff poisoned fresh result inference")
 				}

@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -16,7 +17,7 @@ import (
 // address decoding, cycle checks and invalidating-store scans. At cutoff it
 // returns no seed; callers inspect availability before judging return coverage.
 // A nil budget retains the existing bounded guard-selection policy.
-func GuardsDominatingWithin(target ssa.Instruction, budget *SearchBudget) PathGuards {
+func GuardsDominatingWithin(target ssa.Instruction, budget *proofs.SearchBudget) PathGuards {
 	var guards PathGuards
 	block := target.Block()
 	for dominator := block.Idom(); dominator != nil && len(guards) < GuardLimit; dominator = dominator.Idom() {
@@ -62,7 +63,7 @@ func GuardsDominatingWithin(target ssa.Instruction, budget *SearchBudget) PathGu
 	return guards
 }
 
-func guardStoredWithin(identity string, arm *ssa.BasicBlock, target ssa.Instruction, budget *SearchBudget) bool {
+func guardStoredWithin(identity string, arm *ssa.BasicBlock, target ssa.Instruction, budget *proofs.SearchBudget) bool {
 	for instruction := range InstructionsWithin(target.Parent(), budget) {
 		store, ok := instruction.(*ssa.Store)
 		if !ok {

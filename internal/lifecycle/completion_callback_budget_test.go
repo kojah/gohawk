@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 func TestStoredCallbackCompletionAllowance(t *testing.T) {
@@ -23,11 +23,11 @@ func TestStoredCallbackCompletionAllowance(t *testing.T) {
 				t.Fatalf("complete callback %+v", complete)
 			}
 			for limit := range 1000 {
-				pool := ssaflow.NewSearchBudget(10000)
+				pool := proofs.NewSearchBudget(10000)
 				request.Budget = pool.Within(limit)
 				proof := ProveCompletion(request)
 				if request.Budget.Exhausted() {
-					if proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted || pool.Exhausted() {
+					if proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted || pool.Exhausted() {
 						t.Fatalf("cut%d supplied callback: %+v", limit, proof)
 					}
 					request.Budget = pool.Within(1000)

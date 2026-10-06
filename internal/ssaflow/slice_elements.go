@@ -4,6 +4,7 @@ import (
 	"go/constant"
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -29,7 +30,7 @@ func AppendedValues(call *ssa.Call) ([]ssa.Value, bool) {
 // AppendedValuesWithin follows the same explicit variadic array under budget.
 // Array users and writes share the allowance; cutoff returns no partial values.
 // Callers distinguish an unsupported shape from cutoff through the budget.
-func AppendedValuesWithin(call *ssa.Call, budget *SearchBudget) ([]ssa.Value, bool) {
+func AppendedValuesWithin(call *ssa.Call, budget *proofs.SearchBudget) ([]ssa.Value, bool) {
 	if !budget.Spend() {
 		return nil, false
 	}
@@ -112,7 +113,7 @@ type ElementLoop struct {
 // RangeElementLoop recognizes the element loop whose header is header. It
 // declines a loop with another exit, such as a break or a return in the
 // body, and a bound that is not the length of one slice value.
-func RangeElementLoop(header *ssa.BasicBlock, budget *SearchBudget) (ElementLoop, bool) {
+func RangeElementLoop(header *ssa.BasicBlock, budget *proofs.SearchBudget) (ElementLoop, bool) {
 	if len(header.Instrs) == 0 || len(header.Succs) != 2 {
 		return ElementLoop{}, false
 	}

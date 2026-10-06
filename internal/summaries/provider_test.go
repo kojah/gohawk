@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -59,7 +60,7 @@ func Unknown(value bool) bool { return value }
 		if requested {
 			want = Available
 		}
-		_, results := view.Results(ssaflow.NewSearchBudget(2000))
+		_, results := view.Results(proofs.NewSearchBudget(2000))
 		_, lifecycle := view.Lifecycle()
 		_, concurrency := provider.Concurrency()
 		if results != want || lifecycle != want || concurrency != want {
@@ -69,13 +70,13 @@ func Unknown(value bool) bool { return value }
 	selected := Select(Requirements{Results: true, Lifecycle: true, Concurrency: true})
 	missingProvider := selected.Provider(nil)
 	missing := missingProvider.ForFunction(function)
-	_, results := missing.Results(ssaflow.NewSearchBudget(2000))
+	_, results := missing.Results(proofs.NewSearchBudget(2000))
 	_, lifecycle := missing.Lifecycle()
 	_, concurrency := missingProvider.Concurrency()
 	if results != Unavailable || lifecycle != Unavailable || concurrency != Unavailable {
 		t.Fatal("missing prerequisites treated as requested evidence")
 	}
-	unknown, available := selected.Provider(pass).ForFunction(pkg.Func("Unknown")).Results(ssaflow.NewSearchBudget(2000))
+	unknown, available := selected.Provider(pass).ForFunction(pkg.Func("Unknown")).Results(proofs.NewSearchBudget(2000))
 	if available != Available || unknown.Result(0) != resultfacts.Unknown {
 		t.Fatal("available component confused with proven guarantee")
 	}
@@ -89,7 +90,7 @@ func Caller(value bool) int { if Unknown(value) { return 1 }; return 2 }
 	pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{resultfacts.Analyzer: resultfacts.NewEngine()}}
 	provider := Select(Requirements{Results: true}).Provider(pass)
 	branch := ssaflow.InstructionsOf[*ssa.If](pkg.Func("Caller"))[0]
-	if successors := provider.FeasibleSuccessors(branch.Block(), nil, ssaflow.NewSearchBudget(2000)); len(successors) != 2 {
+	if successors := provider.FeasibleSuccessors(branch.Block(), nil, proofs.NewSearchBudget(2000)); len(successors) != 2 {
 		t.Fatalf("unknown eliminated a branch: %v", successors)
 	}
 }
@@ -161,7 +162,7 @@ func loose(ok bool) *box {
 		if len(block.Preds) > 0 {
 			predecessor = block.Preds[0]
 		}
-		got := provider.FeasibleSuccessors(block, predecessor, ssaflow.NewSearchBudget(2000))
+		got := provider.FeasibleSuccessors(block, predecessor, proofs.NewSearchBudget(2000))
 		if len(got) != want {
 			t.Errorf("%s: %d feasible successors, want %d", name, len(got), want)
 		}
@@ -196,10 +197,10 @@ func use(value, other *box, pick bool) (*box, *box) { return Same(value), Chosen
 	if len(calls) != 2 {
 		t.Fatalf("expected two calls, got %d", len(calls))
 	}
-	if argument, ok := provider.ArgumentReturnedUnchanged(calls[0], ssaflow.NewSearchBudget(2000)); !ok || argument != function.Params[0] {
+	if argument, ok := provider.ArgumentReturnedUnchanged(calls[0], proofs.NewSearchBudget(2000)); !ok || argument != function.Params[0] {
 		t.Errorf("Same: resolved (%v, %v), want the first parameter", argument, ok)
 	}
-	if argument, ok := provider.ArgumentReturnedUnchanged(calls[1], ssaflow.NewSearchBudget(2000)); ok {
+	if argument, ok := provider.ArgumentReturnedUnchanged(calls[1], proofs.NewSearchBudget(2000)); ok {
 		t.Errorf("Chosen: resolved %v, want no identity", argument)
 	}
 }

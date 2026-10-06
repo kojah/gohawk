@@ -3,7 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -22,7 +22,7 @@ func forever(c chan int) { for { go signal(c) } }
 	// A loop with an unknown count launches one or more identical workers:
 	// one representative, incomplete until a consumer opts in.
 	for _, name := range []string{"dynamic", "conditional", "five"} {
-		got := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		got := NewEngine().Root(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 		if got.Complete() || got.Reason != ReasonReplicatedWorkers || len(got.Workers) != 1 || !got.Workers[0].Replicated {
 			t.Errorf("%s = %+v, want one replicated worker", name, got)
 		}
@@ -31,13 +31,13 @@ func forever(c chan int) { for { go signal(c) } }
 		}
 	}
 	for _, name := range []string{"captured", "fresh", "forever"} {
-		got := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		got := NewEngine().Root(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 		if got.Complete() || len(got.Workers) != 0 {
 			t.Errorf("%s retained unsupported loop effects: %+v", name, got)
 		}
 	}
 	for name, count := range map[string]int{"two": 2, "zero": 0} {
-		got := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		got := NewEngine().Root(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 		if !got.Complete() || len(got.Workers) != count {
 			t.Errorf("%s = %+v, want %d children", name, got, count)
 		}
@@ -82,7 +82,7 @@ func Carried(chans []chan int) {
 }
 `)
 	engine := NewEngine()
-	budget := func() *ssaflow.SearchBudget { return ssaflow.NewSearchBudget(4000) }
+	budget := func() *proofs.SearchBudget { return proofs.NewSearchBudget(4000) }
 	for _, name := range []string{"Around", "Nested"} {
 		if got := engine.Root(pkg.Func(name), budget()); got.Completeness() != CompleteWithEffects || !kinds(got, Close) {
 			t.Errorf("%s = %+v, want the close alone", name, got)

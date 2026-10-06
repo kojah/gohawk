@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -62,7 +63,7 @@ func TestFixedCaptureTiming(t *testing.T) {
 			if !proof.Proven() || bound != test.bound {
 				t.Fatalf("binding=%+v want bound=%v", proof, test.bound)
 			}
-			checkFixedBindingCutoffs(t, func(budget *ssaflow.SearchBudget) ssaflow.FixedArgumentsProof {
+			checkFixedBindingCutoffs(t, func(budget *proofs.SearchBudget) ssaflow.FixedArgumentsProof {
 				return ssaflow.ProveFixedArgumentsWithin(ssaflow.InstructionCall(call), closure, body, known, budget)
 			}, proof)
 		})
@@ -72,7 +73,7 @@ func TestFixedCaptureTiming(t *testing.T) {
 func TestFixedCaptureOrderingCutoff(t *testing.T) {
 	source := `package captureorder
  func effect(){}
- func padded(){done:=true;` + strings.Repeat("println();", ssaflow.QueryBudget+1) + `defer func(){if done{effect()}}()}
+ func padded(){done:=true;` + strings.Repeat("println();", proofs.QueryBudget+1) + `defer func(){if done{effect()}}()}
  `
 	fn := ssaflowtest.BuildPackage(t, "captureorder", source).Func("padded")
 	defers := ssaflow.InstructionsOf[*ssa.Defer](fn)
@@ -81,14 +82,14 @@ func TestFixedCaptureOrderingCutoff(t *testing.T) {
 	}
 	call := defers[0]
 	body, closure := ssaflow.DirectCallee(ssaflow.InstructionCall(call))
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
+	child := pool.Within(proofs.QueryBudget)
 	proof := ssaflow.ProveFixedArgumentsWithin(ssaflow.InstructionCall(call), closure, body, nil, child)
-	budgetUnknown := proof.State == ssaflow.EvidenceUnknown && proof.Reason == ssaflow.EvidenceBudgetExhausted
+	budgetUnknown := proof.State == proofs.EvidenceUnknown && proof.Reason == proofs.EvidenceBudgetExhausted
 	if !budgetUnknown || proof.Values != nil || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("ordering cutoff=%+v child=%v parent=%v", proof, child.Exhausted(), pool.Exhausted())
 	}
-	fresh := ssaflow.ProveFixedArgumentsWithin(ssaflow.InstructionCall(call), closure, body, nil, pool.Within(2*ssaflow.SummaryBudget))
+	fresh := ssaflow.ProveFixedArgumentsWithin(ssaflow.InstructionCall(call), closure, body, nil, pool.Within(2*proofs.SummaryBudget))
 	if !fresh.Proven() || len(fresh.Values) != 1 || fresh.Values[body.FreeVars[0]] != ssaflow.OutcomeTrue {
 		t.Fatalf("fresh ordering=%+v", fresh)
 	}

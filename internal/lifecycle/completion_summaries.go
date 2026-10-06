@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -34,10 +35,10 @@ type completionAnswer struct {
 	paths completionPaths
 }
 
-func (answer completionAnswer) proof(method string) ssaflow.CompletionProof {
-	return ssaflow.CompletionProof{
-		Proof: ssaflow.Proof{
-			State: ssaflow.EvidenceProven, Reason: answer.launch.reason(), Method: method, Provenance: ssaflow.EvidenceFromLocalSSA,
+func (answer completionAnswer) proof(method string) proofs.CompletionProof {
+	return proofs.CompletionProof{
+		Proof: proofs.Proof{
+			State: proofs.EvidenceProven, Reason: answer.launch.reason(), Method: method, Provenance: proofs.EvidenceFromLocalSSA,
 		},
 		Path: answer.paths.path, PathKnown: answer.paths.known(),
 	}

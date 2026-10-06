@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -12,7 +12,7 @@ import (
 func TestLockCallerInventoryScopeAndUses(t *testing.T) {
 	pkg := lockCallerPackage(t)
 	functions := []*ssa.Function{nil, pkg.Func("caller"), pkg.Func("many")}
-	inventory := collectLockCallers(pkg.Func("init"), functions, ssaflow.NewSearchBudget(callerSetBudget))
+	inventory := collectLockCallers(pkg.Func("init"), functions, proofs.NewSearchBudget(callerSetBudget))
 	var dump strings.Builder
 	for _, name := range []string{"init", "caller"} {
 		if _, err := pkg.Func(name).WriteTo(&dump); err != nil {
@@ -48,7 +48,7 @@ func TestLockCallerCutoffDiscardsPrefix(t *testing.T) {
 	complete := collectLockCallers(pkg.Func("init"), functions, nil)
 	finished := false
 	for limit := range 1000 {
-		pool := ssaflow.NewSearchBudget(callerSetBudget)
+		pool := proofs.NewSearchBudget(callerSetBudget)
 		child := pool.Within(limit)
 		inventory := collectLockCallers(pkg.Func("init"), functions, child)
 		if inventory != nil {

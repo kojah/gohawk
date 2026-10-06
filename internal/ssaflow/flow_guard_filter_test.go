@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 func TestGuardFilteringPreservesEvidenceAndOwnership(t *testing.T) {
@@ -43,22 +45,22 @@ func TestGuardFilteringPreservesEvidenceAndOwnership(t *testing.T) {
 func TestGuardFilteringChargesEveryEntry(t *testing.T) {
 	guards := PathGuards{{Identity: "keep:0"}, {Identity: "drop"}, {Identity: "keep:1"}}
 	for allowance := range 4 {
-		budget := NewSearchBudget(allowance)
+		budget := proofs.NewSearchBudget(allowance)
 		got := guards.withoutIdentityWithin("drop", budget)
 		if allowance < len(guards) {
 			if got != nil || !budget.Exhausted() {
 				t.Fatalf("allowance %d published partial guards: %v", allowance, got)
 			}
-		} else if len(got) != 2 || budget.Exhausted() || budget.remaining != 0 {
+		} else if len(got) != 2 || budget.Exhausted() || budget.Remaining() != 0 {
 			t.Fatal("exact allowance did not charge retained and removed entries")
 		}
 	}
-	pool := NewSearchBudget(2)
+	pool := proofs.NewSearchBudget(2)
 	child := pool.Within(3)
-	if got := guards.withoutIdentityWithin("drop", child); got != nil || !child.PoolExhausted() || child.remaining != 1 {
+	if got := guards.withoutIdentityWithin("drop", child); got != nil || !child.PoolExhausted() || child.Remaining() != 1 {
 		t.Fatal("pool cutoff published partial evidence or changed child charges")
 	}
-	zero := NewSearchBudget(0)
+	zero := proofs.NewSearchBudget(0)
 	if got := PathGuards(nil).withoutIdentityWithin("drop", zero); got != nil || zero.Exhausted() {
 		t.Fatal("empty filtering spent the budget")
 	}

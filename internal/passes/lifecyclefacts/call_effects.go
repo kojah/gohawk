@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"strconv"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
@@ -17,9 +18,9 @@ import (
 // construction costs remain separate. Nil selects an independent default allowance
 // through the same authoritative trace path.
 func (evidence *LifecycleEvidence) CallEffectsWithin(
-	instruction ssa.Instruction, target ssa.Value, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, target ssa.Value, budget *proofs.SearchBudget,
 ) ssaflow.CallEffectProof {
-	queryBudget := budget.Within(ssaflow.QueryBudget).Observed(evidence.probe.Observer())
+	queryBudget := budget.Within(proofs.QueryBudget).Observed(evidence.probe.Observer())
 	proof := ssaflow.NewCallEffects(queryBudget).Call(instruction, target)
 	if !evidence.probe.Enabled() {
 		return proof

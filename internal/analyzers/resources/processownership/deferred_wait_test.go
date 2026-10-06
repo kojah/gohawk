@@ -3,6 +3,7 @@ package processownership
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -18,18 +19,18 @@ func replaced(cmd *exec.Cmd) {defer func(){cmd.Process=nil;if cmd.Process != nil
 `)
 	for _, test := range []struct {
 		name string
-		want ssaflow.EvidenceState
+		want proofs.EvidenceState
 	}{
-		{"exact", ssaflow.EvidenceProven},
-		{"conditional", ssaflow.EvidenceDisproven},
-		{"guarded", ssaflow.EvidenceUnknown},
-		{"replaced", ssaflow.EvidenceDisproven},
+		{"exact", proofs.EvidenceProven},
+		{"conditional", proofs.EvidenceDisproven},
+		{"guarded", proofs.EvidenceUnknown},
+		{"replaced", proofs.EvidenceDisproven},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
 			deferred := ssaflow.InstructionsOf[*ssa.Defer](fn)[0]
 			command := fn.Params[0]
-			pool := ssaflow.NewSearchBudget(processPoolBudget)
+			pool := proofs.NewSearchBudget(processPoolBudget)
 			for limit := range 1000 {
 				budget := pool.Within(limit)
 				got := deferredClosureWaitsForCommand(deferred, command, budget)
@@ -39,7 +40,7 @@ func replaced(cmd *exec.Cmd) {defer func(){cmd.Process=nil;if cmd.Process != nil
 					}
 					return
 				}
-				if got != ssaflow.EvidenceUnknown || pool.Exhausted() {
+				if got != proofs.EvidenceUnknown || pool.Exhausted() {
 					t.Fatalf("cut limit %d: state=%v pool exhausted=%v", limit, got, pool.Exhausted())
 				}
 				fresh := pool.Within(processQueryBudget)
@@ -53,12 +54,12 @@ func replaced(cmd *exec.Cmd) {defer func(){cmd.Process=nil;if cmd.Process != nil
 	fn := pkg.Func("exact")
 	deferred := ssaflow.InstructionsOf[*ssa.Defer](fn)[0]
 	callback := fn.AnonFuncs[0]
-	search := deferredWaitSearch{function: callback, budget: ssaflow.NewSearchBudget(0)}
-	if result := search.coverage(callback.FreeVars[0], callback.FreeVars[0]); result.State != ssaflow.EvidenceUnknown || !search.budget.Exhausted() {
+	search := deferredWaitSearch{function: callback, budget: proofs.NewSearchBudget(0)}
+	if result := search.coverage(callback.FreeVars[0], callback.FreeVars[0]); result.State != proofs.EvidenceUnknown || !search.budget.Exhausted() {
 		t.Fatalf("coverage bypassed allowance: %+v", result)
 	}
-	proof := &commandProof{pool: ssaflow.NewSearchBudget(0)}
-	if state := processOwnershipAction(proof, deferred, fn.Params[0]); state != ssaflow.EvidenceUnknown {
+	proof := &commandProof{pool: proofs.NewSearchBudget(0)}
+	if state := processOwnershipAction(proof, deferred, fn.Params[0]); state != proofs.EvidenceUnknown {
 		t.Fatalf("classifier bypassed candidate allowance: %v", state)
 	}
 }

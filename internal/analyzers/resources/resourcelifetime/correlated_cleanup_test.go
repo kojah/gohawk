@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -27,12 +28,12 @@ func TestCorrelatedCleanupAllowance(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			query, _ := correlatedCleanupInputs(t, pkg.Func(test.name))
-			prove := func(budget *ssaflow.SearchBudget) resourceProof {
+			prove := func(budget *proofs.SearchBudget) resourceProof {
 				fresh, selected := correlatedCleanupInputs(t, pkg.Func(test.name))
 				return fresh.provePairedErrorCleanupWithin(selected, selected.Common(), budget)
 			}
 			baseline := prove(nil)
-			if baseline.Proven() != test.want || baseline.State == ssaflow.EvidenceUnknown {
+			if baseline.Proven() != test.want || baseline.State == proofs.EvidenceUnknown {
 				t.Fatalf("proof=%+v; SSA:\n%s", baseline, carriedSSA(t, query.function))
 			}
 			if test.want && baseline.Reason != resourceReasonPairedErrorHelperCleanup {
@@ -45,16 +46,16 @@ func TestCorrelatedCleanupAllowance(t *testing.T) {
 
 func TestCorrelatedCleanupChildAndFresh(t *testing.T) {
 	query, call := correlatedCleanupInputs(t, correlatedCleanupFixture(t).Func("tested"))
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	cut := query.provePairedErrorCleanupWithin(call, call.Common(), pool.Within(1))
-	if cut.State != ssaflow.EvidenceUnknown || cut.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+	if cut.State != proofs.EvidenceUnknown || cut.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 		t.Fatalf("cut=%+v, parent exhausted=%v", cut, pool.Exhausted())
 	}
 	fresh := query.provePairedErrorCleanupWithin(call, call.Common(), pool.Within(releaseSearchBudget))
 	if !fresh.Proven() {
 		t.Fatalf("fresh=%+v", fresh)
 	}
-	if got := query.provePairedErrorCleanupWithin(call, nil, ssaflow.NewSearchBudget(0)); got.State != ssaflow.EvidenceDisproven {
+	if got := query.provePairedErrorCleanupWithin(call, nil, proofs.NewSearchBudget(0)); got.State != proofs.EvidenceDisproven {
 		t.Fatalf("noncall=%+v", got)
 	}
 }
@@ -63,19 +64,19 @@ func TestCorrelatedCleanupFlow(t *testing.T) {
 	pkg := correlatedCleanupFixture(t)
 	for _, test := range []struct {
 		name string
-		want ssaflow.EvidenceState
+		want proofs.EvidenceState
 	}{
-		{"paired", ssaflow.EvidenceUnknown},
-		{"tested", ssaflow.EvidenceUnknown},
-		{"readOnly", ssaflow.EvidenceProven},
-		{"flagOnly", ssaflow.EvidenceProven},
-		{"uncompared", ssaflow.EvidenceProven},
-		{"testedBefore", ssaflow.EvidenceProven},
+		{"paired", proofs.EvidenceUnknown},
+		{"tested", proofs.EvidenceUnknown},
+		{"readOnly", proofs.EvidenceProven},
+		{"flagOnly", proofs.EvidenceProven},
+		{"uncompared", proofs.EvidenceProven},
+		{"testedBefore", proofs.EvidenceProven},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			query, _ := correlatedCleanupInputs(t, pkg.Func(test.name))
 			got := evaluateResourceFlow(nil, query.evidence, query.acquisition, query.resource, query.contract)
-			if got.state != test.want || (got.leak != nil) != (test.want == ssaflow.EvidenceProven) {
+			if got.state != test.want || (got.leak != nil) != (test.want == proofs.EvidenceProven) {
 				t.Fatalf("flow=%+v, want=%v; SSA:\n%s", got, test.want, carriedSSA(t, query.function))
 			}
 		})

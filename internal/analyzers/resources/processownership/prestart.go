@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -13,14 +14,14 @@ import (
 // inferred from shortened discovery. Argument/result visits share its allowance;
 // heap, type and symbol-query internals retain their independent costs.
 type processStartInstructions struct {
-	ssaflow.Proof
+	proofs.Proof
 	instructions []ssa.Instruction
 	owners       []ssa.Value
 }
 
-func collectProcessStartInstructions(start *ssa.Call, command ssa.Value, budget *ssaflow.SearchBudget) processStartInstructions {
+func collectProcessStartInstructions(start *ssa.Call, command ssa.Value, budget *proofs.SearchBudget) processStartInstructions {
 	if start == nil || start.Block() == nil || start.Parent() == nil {
-		return processStartInstructions{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+		return processStartInstructions{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	}
 	var before []ssa.Instruction
 	for instruction := range ssaflow.InstructionsStrictlyDominatingWithin(start, budget) {
@@ -28,10 +29,10 @@ func collectProcessStartInstructions(start *ssa.Call, command ssa.Value, budget 
 	}
 	owners := processOwnersRegisteredBefore(before, command, budget)
 	if budget.Exhausted() {
-		return processStartInstructions{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}}
+		return processStartInstructions{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}}
 	}
 	return processStartInstructions{
-		Proof:        ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk},
+		Proof:        proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk},
 		instructions: before, owners: owners,
 	}
 }
@@ -71,16 +72,16 @@ func processOwnerDominatesStart(
 			if abandoned(result) {
 				return true
 			}
-			if result.Proven() && result.Reason == ssaflow.EvidenceDeferredCompletion {
+			if result.Proven() && result.Reason == proofs.EvidenceDeferredCompletion {
 				watcher := laterProcessOwnerWatcher(function, start, owners, proof.budget())
-				return watcher.State != ssaflow.EvidenceDisproven
+				return watcher.State != proofs.EvidenceDisproven
 			}
 		}
 	}
 	return false
 }
 
-func laterProcessOwnerWatcher(function *ssa.Function, start *ssa.Call, owners []ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func laterProcessOwnerWatcher(function *ssa.Function, start *ssa.Call, owners []ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		spawn, ok := instruction.(*ssa.Go)
 		if !ok || spawn.Pos() <= start.Pos() {
@@ -92,43 +93,43 @@ func laterProcessOwnerWatcher(function *ssa.Function, start *ssa.Call, owners []
 		}
 		for _, owner := range owners {
 			result := lifecycle.ProveMayContainValueWithin(closure, owner, budget)
-			if result.Proven() || result.Reason == ssaflow.EvidenceBudgetExhausted {
+			if result.Proven() || result.Reason == proofs.EvidenceBudgetExhausted {
 				return result
 			}
 		}
 	}
 	if budget.Exhausted() {
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+	return proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 }
 
 // An interrupted reachability query leaves ownership unknown; it must not
 // become a guarantee that the successful Start branch has no normal return.
-func successfulStartCannotReturn(start *ssa.Call, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func successfulStartCannotReturn(start *ssa.Call, budget *proofs.SearchBudget) proofs.Proof {
 	block := start.Block()
 	for _, successor := range block.Succs {
 		if !budget.Spend() {
-			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+			return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 		}
 		success, known := ssaflow.SuccessBranchWithin(block, successor, start, budget)
 		if budget.Exhausted() || budget.PoolExhausted() {
-			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+			return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 		}
 		if known && success {
 			result := ssaflow.ProveNormalReturnWithin(successor, nil, budget).Proof
 			switch result.State {
-			case ssaflow.EvidenceProven:
-				result.State = ssaflow.EvidenceDisproven
-			case ssaflow.EvidenceDisproven:
-				result.State = ssaflow.EvidenceProven
-			case ssaflow.EvidenceUnknown:
+			case proofs.EvidenceProven:
+				result.State = proofs.EvidenceDisproven
+			case proofs.EvidenceDisproven:
+				result.State = proofs.EvidenceProven
+			case proofs.EvidenceUnknown:
 				return result
 			}
 			return result
 		}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+	return proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 }
 
 // Registering command cleanup before Start is sufficient only on a dominating
@@ -140,7 +141,7 @@ func processOwnershipDominatesStart(
 	command ssa.Value,
 ) bool {
 	for _, instruction := range before {
-		if handoff := possiblePreStartResultlessHandoff(proof, instruction, command); handoff.State == ssaflow.EvidenceUnknown {
+		if handoff := possiblePreStartResultlessHandoff(proof, instruction, command); handoff.State == proofs.EvidenceUnknown {
 			return true
 		}
 		completion := lifecycle.CompletionRequest{
@@ -161,7 +162,7 @@ func processOwnershipDominatesStart(
 			Transfer:    &transfer,
 		})
 		if abandoned(result) ||
-			result.Proven() && (result.Reason == ssaflow.EvidenceDeferredCompletion || result.Reason == ssaflow.EvidenceCapturedByClosure) {
+			result.Proven() && (result.Reason == proofs.EvidenceDeferredCompletion || result.Reason == proofs.EvidenceCapturedByClosure) {
 			return true
 		}
 	}
@@ -172,8 +173,8 @@ func processOwnershipDominatesStart(
 // retain or asynchronously expose the command. Such effects leave ownership
 // unknown; ordinary reads and configuration writes do not transfer it. Calls
 // with reference results retain the existing wrapper-owner proof above.
-func possiblePreStartResultlessHandoff(proof *commandProof, instruction ssa.Instruction, command ssa.Value) ssaflow.Proof {
-	missing := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+func possiblePreStartResultlessHandoff(proof *commandProof, instruction ssa.Instruction, command ssa.Value) proofs.Proof {
+	missing := proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 	call, ok := instruction.(*ssa.Call)
 	if !ok || heapmodel.CanHoldReference(call.Type()) {
 		return missing
@@ -181,21 +182,21 @@ func possiblePreStartResultlessHandoff(proof *commandProof, instruction ssa.Inst
 	budget := proof.budget()
 	for _, argument := range call.Common().Args {
 		if !budget.Spend() {
-			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+			return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 		}
 		if !heapmodel.MayAlias(argument, command) {
 			continue
 		}
 		effects := proof.evidence.CallEffectsWithin(call, argument, budget)
 		if !effects.Proven() || effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
-			effects.State = ssaflow.EvidenceUnknown
+			effects.State = proofs.EvidenceUnknown
 			return effects.Proof
 		}
 	}
 	return missing
 }
 
-func processOwnersRegisteredBefore(before []ssa.Instruction, command ssa.Value, budget *ssaflow.SearchBudget) []ssa.Value {
+func processOwnersRegisteredBefore(before []ssa.Instruction, command ssa.Value, budget *proofs.SearchBudget) []ssa.Value {
 	var owners []ssa.Value
 	for _, instruction := range before {
 		if !budget.Spend() {
@@ -231,7 +232,7 @@ func processOwnersRegisteredBefore(before []ssa.Instruction, command ssa.Value, 
 
 // Result projections preserve the same owner candidate at each tuple position.
 // Interrupted reference discovery discards the caller's accumulated owner set.
-func appendRegisteredOwnerResults(owners []ssa.Value, call *ssa.Call, budget *ssaflow.SearchBudget) []ssa.Value {
+func appendRegisteredOwnerResults(owners []ssa.Value, call *ssa.Call, budget *proofs.SearchBudget) []ssa.Value {
 	references := call.Referrers()
 	if references == nil {
 		return owners
@@ -255,10 +256,10 @@ func proveProcessStart(proof *commandProof, function *ssa.Function, start *ssa.C
 	prefix := collectProcessStartInstructions(start, command, proof.budget())
 	if !prefix.Proven() {
 		reason := reasonPreStartEvidenceUnavailable
-		if prefix.Reason == ssaflow.EvidenceBudgetExhausted {
+		if prefix.Reason == proofs.EvidenceBudgetExhausted {
 			reason = reasonPreStartCutoff
 		}
-		return processDecision{ssaflow.EvidenceUnknown, reason}
+		return processDecision{proofs.EvidenceUnknown, reason}
 	}
 	owners := prefix.owners
 	// A helper returning *exec.Cmd may already have registered cleanup
@@ -267,12 +268,12 @@ func proveProcessStart(proof *commandProof, function *ssa.Function, start *ssa.C
 	// command construction and returns the started command in binaryIO:
 	// https://github.com/containerd/containerd/blob/716cbaf51212adb5e80ca1c30b644bfeb9c9d779/cmd/containerd-shim-runc-v2/process/io.go#L288-L330
 	if commandReturnedByHelper(command) {
-		return processDecision{ssaflow.EvidenceUnknown, reasonHelperOwnershipUnknown}
+		return processDecision{proofs.EvidenceUnknown, reasonHelperOwnershipUnknown}
 	}
 	// Caller retains a parameter command after this helper returns, so
 	// helper-local Start does not transfer caller's Wait responsibility.
 	if heapmodel.MayAliasAny(command, parameterValues(function.Params)) || ssaflow.ExternallyOwnedValue(command) {
-		return processDecision{ssaflow.EvidenceUnknown, reasonCallerCommandOwnershipUnknown}
+		return processDecision{proofs.EvidenceUnknown, reasonCallerCommandOwnershipUnknown}
 	}
 	// A command loaded from an element of an aggregate is shared with
 	// every other reader of that aggregate, which may wait on it through
@@ -280,7 +281,7 @@ func proveProcessStart(proof *commandProof, function *ssa.Function, start *ssa.C
 	// worker commands from one loop over a slice and waits in another:
 	// https://github.com/cocoonstack/cocoon/blob/51ff88bcf8f175a2d82b162d9bf9f65604a607b5/cmd/storebench/main.go#L123-L138
 	if ssaflow.ElementOfAggregate(command) {
-		return processDecision{ssaflow.EvidenceUnknown, reasonAggregateCommandOwnershipUnknown}
+		return processDecision{proofs.EvidenceUnknown, reasonAggregateCommandOwnershipUnknown}
 	}
 	// Cleanup may be registered before Start. This is common when a
 	// constructor builds a teardown closure first, then starts the
@@ -288,19 +289,19 @@ func proveProcessStart(proof *commandProof, function *ssa.Function, start *ssa.C
 	if processOwnershipDominatesStart(proof, prefix.instructions, command) ||
 		processOwnerDominatesStart(proof, function, start, owners, prefix.instructions) ||
 		commandStoredExternallyBeforeStart(prefix.instructions, command) {
-		return processDecision{ssaflow.EvidenceUnknown, reasonPreStartOwnershipUnknown}
+		return processDecision{proofs.EvidenceUnknown, reasonPreStartOwnershipUnknown}
 	}
 	returns := successfulStartCannotReturn(start, proof.budget())
-	if returns.Reason == ssaflow.EvidenceBudgetExhausted {
-		return processDecision{ssaflow.EvidenceUnknown, reasonPreStartCutoff}
+	if returns.Reason == proofs.EvidenceBudgetExhausted {
+		return processDecision{proofs.EvidenceUnknown, reasonPreStartCutoff}
 	}
-	if returns.State == ssaflow.EvidenceProven {
-		return processDecision{ssaflow.EvidenceDisproven, reasonSuccessfulStartCannotReturn}
+	if returns.State == proofs.EvidenceProven {
+		return processDecision{proofs.EvidenceDisproven, reasonSuccessfulStartCannotReturn}
 	}
-	if returns.State == ssaflow.EvidenceUnknown {
-		return processDecision{ssaflow.EvidenceUnknown, reasonPreStartEvidenceUnavailable}
+	if returns.State == proofs.EvidenceUnknown {
+		return processDecision{proofs.EvidenceUnknown, reasonPreStartEvidenceUnavailable}
 	}
-	return processDecision{ssaflow.EvidenceProven, reasonLocalWaitObligation}
+	return processDecision{proofs.EvidenceProven, reasonLocalWaitObligation}
 }
 
 // commandStoredExternallyBeforeStart reports whether the command was stored

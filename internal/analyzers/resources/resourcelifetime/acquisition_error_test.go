@@ -3,7 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -31,7 +31,7 @@ func TestAcquisitionErrorAllowance(t *testing.T) {
 			} {
 				t.Run(test.name+map[bool]string{true: "HTTP", false: "ordinary"}[test.http], func(t *testing.T) {
 					call, resource, errValue := acquiredResourceInputs(t, pkg.Func(test.name))
-					checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+					checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 						return proveAcquisitionErrorWithin(call, resource, errValue, test.http, budget)
 					}, test.want)
 				})
@@ -42,9 +42,9 @@ func TestAcquisitionErrorAllowance(t *testing.T) {
 
 func TestAcquisitionErrorChildCutoff(t *testing.T) {
 	call, resource, errValue := acquiredResourceInputs(t, acquisitionErrorFixture(t, "github.com/stretchr/testify/assert").Func("pair"))
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	proof := proveAcquisitionErrorWithin(call, resource, errValue, true, pool.Within(2))
-	if proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+	if proof.State != proofs.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 		t.Fatalf("assertion cutoff=%+v, parent exhausted %v", proof, pool.Exhausted())
 	}
 	if fresh := proveAcquisitionErrorWithin(call, resource, errValue, true, pool.Within(releaseSearchBudget)); !fresh.Proven() {
@@ -54,8 +54,8 @@ func TestAcquisitionErrorChildCutoff(t *testing.T) {
 
 func TestAcquisitionErrorCensusDiscardsPartial(t *testing.T) {
 	call, resource, errValue := acquiredResourceInputs(t, acquisitionErrorFixture(t, "github.com/stretchr/testify/assert").Func("pair"))
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		errors, nils := acquisitionErrorAssertionsWithin(call, resource, errValue, budget)
 		if resourceFlowExhausted(budget) {
 			if errors != nil || nils != nil {
@@ -80,10 +80,10 @@ func TestAcquisitionErrorFlow(t *testing.T) {
 			evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
 			proof := evaluateResourceFlow(nil, evidence, call, resource, resourceContract{cleanup: []string{"Close"}})
 			if name == "exact" {
-				if proof.state != ssaflow.EvidenceDisproven || proof.reason != resourceReasonReleaseProven || proof.leak != nil {
+				if proof.state != proofs.EvidenceDisproven || proof.reason != resourceReasonReleaseProven || proof.leak != nil {
 					t.Fatalf("fatal error assertion=%+v", proof)
 				}
-			} else if proof.state != ssaflow.EvidenceProven || proof.leak == nil {
+			} else if proof.state != proofs.EvidenceProven || proof.leak == nil {
 				t.Fatalf("ordinary leak lost=%+v", proof)
 			}
 		})

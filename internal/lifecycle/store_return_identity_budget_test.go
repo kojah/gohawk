@@ -3,7 +3,7 @@ package lifecycle
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -30,7 +30,7 @@ func recovered(p *int) *int { defer func() { recover() }(); return p }
 					t.Log(instruction.String())
 				}
 			}
-			fresh := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+			fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 			proof := ProveReturnedParameterWithin(function, function.Params[0], 0, fresh)
 			if proof.Proven() != test.want || fresh.Exhausted() {
 				t.Fatalf("fresh proof = %+v, want proven %v", proof, test.want)
@@ -42,23 +42,23 @@ func recovered(p *int) *int { defer func() { recover() }(); return p }
 				return
 			}
 			completed := false
-			for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-				cut := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.QueryBudget; limit++ {
+				cut := proofs.NewSearchBudget(limit)
 				got := ProveReturnedParameterWithin(function, function.Params[0], 0, cut)
 				if got.Proven() {
 					completed = true
 					break
 				}
-				if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted || !cut.Exhausted() {
+				if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted || !cut.Exhausted() {
 					t.Fatalf("allowance %d admitted incomplete proof: %+v", limit, got)
 				}
 			}
 			if !completed {
 				t.Fatal("no complete allowance found")
 			}
-			pool := ssaflow.NewSearchBudget(0)
-			got := ProveReturnedParameterWithin(function, function.Params[0], 0, pool.Within(ssaflow.QueryBudget))
-			if got.Proven() || got.Reason != ssaflow.EvidenceBudgetExhausted || !pool.Exhausted() {
+			pool := proofs.NewSearchBudget(0)
+			got := ProveReturnedParameterWithin(function, function.Params[0], 0, pool.Within(proofs.QueryBudget))
+			if got.Proven() || got.Reason != proofs.EvidenceBudgetExhausted || !pool.Exhausted() {
 				t.Fatal("exhausted pool admitted identity")
 			}
 		})

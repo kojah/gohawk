@@ -1,6 +1,7 @@
 package heapmodel
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -30,7 +31,7 @@ func CapturedBindingMatches(binding, target ssa.Value) bool {
 
 // CapturedBindingMatchesWithin shares alias dispatch and store-referrer visits
 // with budget. Graph and alias internals remain separate; cutoff is unavailable.
-func CapturedBindingMatchesWithin(binding, target ssa.Value, budget *ssaflow.SearchBudget) bool {
+func CapturedBindingMatchesWithin(binding, target ssa.Value, budget *proofs.SearchBudget) bool {
 	if !budget.Spend() {
 		return false
 	}
@@ -74,7 +75,7 @@ func MayAliasAny(value ssa.Value, candidates []ssa.Value) bool {
 // MayAliasAnyWithin charges candidate visits and alias dispatch to budget.
 // Graph construction and alias-query internals remain independent costs.
 // Cutoff supplies no alias evidence; callers must retain its availability.
-func MayAliasAnyWithin(value ssa.Value, candidates []ssa.Value, budget *ssaflow.SearchBudget) bool {
+func MayAliasAnyWithin(value ssa.Value, candidates []ssa.Value, budget *proofs.SearchBudget) bool {
 	for _, candidate := range candidates {
 		if !budget.Spend() {
 			return false
@@ -88,7 +89,7 @@ func MayAliasAnyWithin(value ssa.Value, candidates []ssa.Value, budget *ssaflow.
 
 // ReturnedMayAliasAnyWithin shares result and candidate visits with budget.
 // Exhaustion cannot establish either a transfer or absence of one.
-func ReturnedMayAliasAnyWithin(returned *ssa.Return, candidates []ssa.Value, budget *ssaflow.SearchBudget) bool {
+func ReturnedMayAliasAnyWithin(returned *ssa.Return, candidates []ssa.Value, budget *proofs.SearchBudget) bool {
 	for _, result := range returned.Results {
 		if !budget.Spend() {
 			return false

@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -30,7 +31,7 @@ func appendUniqueString(values []string, candidate string) []string {
 // missing-release, including changed guards, rather than assume either stable
 // contents or a leak; direct mutex parameters and Boolean guards stay precise.
 // https://github.com/devld/go-drive/blob/91c3ac7253642bf58629d6a87cf7ab718f2d3827/common/utils/path_tree.go#L133-L141
-func optionalLoadedGuard(instruction ssa.Instruction, identity string, budget *ssaflow.SearchBudget) bool {
+func optionalLoadedGuard(instruction ssa.Instruction, identity string, budget *proofs.SearchBudget) bool {
 	block := instruction.Block()
 	if len(block.Preds) != 1 {
 		return false
@@ -144,7 +145,7 @@ func mutexAction(instruction ssa.Instruction) (mutexOperation, string, ssa.Value
 	return mutexActionWithin(instruction, nil)
 }
 
-func mutexActionWithin(instruction ssa.Instruction, budget *ssaflow.SearchBudget) (mutexOperation, string, ssa.Value, bool) {
+func mutexActionWithin(instruction ssa.Instruction, budget *proofs.SearchBudget) (mutexOperation, string, ssa.Value, bool) {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return 0, "", nil, false
@@ -173,7 +174,7 @@ type mutexReceiverIdentity struct {
 
 // Concrete receiver selection computes identity once per reaching leaf. The
 // agreement key and final action carry that same proof; neither redoes storage.
-func concreteMutexIdentityWithin(value ssa.Value, budget *ssaflow.SearchBudget) (mutexReceiverIdentity, bool) {
+func concreteMutexIdentityWithin(value ssa.Value, budget *proofs.SearchBudget) (mutexReceiverIdentity, bool) {
 	walk := ssaflow.NewReachingWalk(ssaflow.TransparentChangeInterface | ssaflow.TransparentMakeInterface).Within(budget)
 	leaf := func(_ ssaflow.ReachingWalk, candidate ssa.Value) (mutexReceiverIdentity, bool) {
 		if !syntax.NamedType(candidate.Type(), "sync", "Mutex") && !syntax.NamedType(candidate.Type(), "sync", "RWMutex") {
@@ -185,7 +186,7 @@ func concreteMutexIdentityWithin(value ssa.Value, budget *ssaflow.SearchBudget) 
 	return ssaflow.ResolveReachingValue(walk, value, leaf, func(receiver mutexReceiverIdentity) string { return receiver.identity })
 }
 
-func appendLockValue(values []ssa.Value, candidate ssa.Value, budget *ssaflow.SearchBudget) []ssa.Value {
+func appendLockValue(values []ssa.Value, candidate ssa.Value, budget *proofs.SearchBudget) []ssa.Value {
 	candidateIdentity := lockIdentityWithin(candidate, budget)
 	for _, value := range values {
 		if !budget.Spend() {

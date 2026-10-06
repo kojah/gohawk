@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -144,7 +145,7 @@ func TestUnmodifiedNonEmptyAccessPathAtBoundaries(t *testing.T) {
 				t.Fatal("missing cleanup call")
 			}
 			argument := ssaflow.InstructionCall(cleanupCall).Args[0]
-			if got := NewStorage(ssaflow.NewSearchBudget(1000)).Projection(argument, root, cleanupCall).Proven(); got != test.want {
+			if got := NewStorage(proofs.NewSearchBudget(1000)).Projection(argument, root, cleanupCall).Proven(); got != test.want {
 				t.Fatalf("UnmodifiedNonEmptyAccessPathAt() = %t, want %t", got, test.want)
 			}
 		})

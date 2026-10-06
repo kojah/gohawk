@@ -2,6 +2,7 @@ package lifecyclefacts
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -39,7 +40,7 @@ func newCallbackInference(pass *analysis.Pass, completed Summaries) *callbackInf
 	return callbacks
 }
 
-func (callbacks *callbackInference) computeInvocations(function *ssa.Function, budget *ssaflow.SearchBudget) Fact {
+func (callbacks *callbackInference) computeInvocations(function *ssa.Function, budget *proofs.SearchBudget) Fact {
 	fact := Fact{signature: function.Signature}
 	for index, parameter := range function.Params {
 		if index < 64 && ownershipCapableType(parameter.Type()) {
@@ -52,7 +53,7 @@ func (callbacks *callbackInference) computeInvocations(function *ssa.Function, b
 // invocationDischarges proves invocation on every normal return separately
 // from synchronous invocation. An asynchronous call supports only the former.
 func (callbacks *callbackInference) invocationDischarges(
-	function *ssa.Function, index int, parameter ssa.Value, budget *ssaflow.SearchBudget,
+	function *ssa.Function, index int, parameter ssa.Value, budget *proofs.SearchBudget,
 ) []Discharge {
 	var discharges []Discharge
 	for _, method := range []string{InvokeMethod, SynchronousInvokeMethod} {
@@ -66,7 +67,7 @@ func (callbacks *callbackInference) invocationDischarges(
 }
 
 func (callbacks *callbackInference) invokesParameter(
-	instruction ssa.Instruction, parameter ssa.Value, method string, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, parameter ssa.Value, method string, budget *proofs.SearchBudget,
 ) bool {
 	if !budget.Spend() {
 		return false
@@ -85,7 +86,7 @@ func (callbacks *callbackInference) invokesParameter(
 // fact reads imported or completed declaration evidence before asking the
 // shared engine for a visible sibling's invocation-only summary. Recursive or
 // exhausted queries make no claim and cannot leave a partial cached fact.
-func (callbacks *callbackInference) fact(instruction ssa.Instruction, budget *ssaflow.SearchBudget) (Fact, bool) {
+func (callbacks *callbackInference) fact(instruction ssa.Instruction, budget *proofs.SearchBudget) (Fact, bool) {
 	if fact, ok := importFact(callbacks.pass, instruction); ok {
 		return fact, true
 	}

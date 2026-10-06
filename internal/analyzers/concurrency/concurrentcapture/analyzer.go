@@ -9,6 +9,7 @@ import (
 	"go/version"
 
 	"github.com/kojah/gohawk/internal/check"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -145,7 +146,7 @@ func reportCapturedMutations(
 			probe.Decision(analysisTrace.Step{
 				Reason: proof.reason.String(), Outcome: analysisTrace.DiagnosticOutcome(proof.state), Pos: identifier.Pos(),
 			})
-			if proof.state != ssaflow.EvidenceProven {
+			if proof.state != proofs.EvidenceProven {
 				continue
 			}
 			reported[object] = true

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -29,7 +30,7 @@ func TestOwnershipEffectsAllowance(t *testing.T) {
 			fn := pkg.Func(test.name)
 			query := aggregateEscapeAnalysis(fn)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				if test.wrap {
 					return query.provePossibleWrapperWithin(call, 0, false, budget)
 				}
@@ -45,7 +46,7 @@ func TestOwnershipEffectsChildCutoff(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			fn := pkg.Func(name)
 			query := aggregateEscapeAnalysis(fn)
-			budget := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+			budget := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 			var proof resourceProof
 			switch name {
@@ -57,7 +58,7 @@ func TestOwnershipEffectsChildCutoff(t *testing.T) {
 				stores := ssaflow.InstructionsOf[*ssa.Store](fn)
 				proof = query.proveWrapperStoredOnForeignOwnerWithin(stores[len(stores)-1], budget)
 			}
-			if proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || resourceFlowExhausted(budget) {
+			if proof.State != proofs.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || resourceFlowExhausted(budget) {
 				t.Fatalf("ownership effect child cutoff = %+v, caller exhausted %v; SSA:\n%s", proof, resourceFlowExhausted(budget), carriedSSA(t, fn))
 			}
 		})
@@ -70,7 +71,7 @@ func TestOwnershipEffectsClassifierCutoff(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			fn := pkg.Func(name)
 			query := aggregateEscapeAnalysis(fn)
-			query.pool = ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+			query.pool = proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 			classify := func(query *resourceAnalysis, fn *ssa.Function) (resourceLifetimeReason, bool) {
 				if name == "longAggregate" {
 					call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
@@ -89,7 +90,7 @@ func TestOwnershipEffectsClassifierCutoff(t *testing.T) {
 			}
 			short := pkg.Func(shortName)
 			fresh := aggregateEscapeAnalysis(short)
-			fresh.pool = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+			fresh.pool = proofs.NewSearchBudget(proofs.SummaryBudget)
 			if reason, opaque := classify(fresh, short); opaque {
 				t.Fatalf("fresh short-helper classifier = %v/%v", reason, opaque)
 			}
@@ -120,7 +121,7 @@ func wrapperBorrowed(p *resource) *owner { return wrapRead(&holder{p}) }
 func wrapperRetained(p *resource) *owner { return wrapRetain(&holder{p}) }
 func wrapperUnavailable(p *resource) *owner { return wrapUnknown(&holder{p}) }
 func slow(h *holder) {
-` + strings.Repeat("read(h)\n", ssaflow.QueryBudget+100) + `}
+` + strings.Repeat("read(h)\n", proofs.QueryBudget+100) + `}
 func wrapSlow(h *holder) *owner { slow(h); return &owner{} }
 func longAggregate(p *resource) { slow(&holder{p}) }
 func longWrapper(p *resource) *owner { return wrapSlow(&holder{p}) }

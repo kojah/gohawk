@@ -3,7 +3,7 @@ package resultfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -28,11 +28,11 @@ func Conditional(flag bool) { if flag { defer os.Exit(0) } }
 			limit += len(block.Instrs)
 		}
 		engine := NewEngine()
-		cut := ssaflow.NewSearchBudget(limit)
+		cut := proofs.NewSearchBudget(limit)
 		if got := engine.Function(function, cut); got.Available || got.NeverReturns() || !cut.Exhausted() {
 			t.Fatalf("%s admitted an incomplete termination summary: %+v", test.name, got)
 		}
-		if got := engine.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget)); !got.Available || got.NeverReturns() != test.never {
+		if got := engine.Function(function, proofs.NewSearchBudget(proofs.SummaryBudget)); !got.Available || got.NeverReturns() != test.never {
 			t.Fatalf("%s cutoff poisoned fresh inference: %+v", test.name, got)
 		}
 	}
@@ -41,7 +41,7 @@ func Conditional(flag bool) { if flag { defer os.Exit(0) } }
 		if function.Recover == nil {
 			t.Fatal("expected actual SSA recovery entry for deferred execution")
 		}
-		if got := NewEngine().Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget)); !got.Available || got.NeverReturns() {
+		if got := NewEngine().Function(function, proofs.NewSearchBudget(proofs.SummaryBudget)); !got.Available || got.NeverReturns() {
 			t.Fatal("recovery entry must retain the existing no-termination-claim boundary")
 		}
 	}

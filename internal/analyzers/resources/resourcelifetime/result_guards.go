@@ -1,6 +1,7 @@
 package resourcelifetime
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -25,7 +26,7 @@ func (analysis *resourceAnalysis) successorPolicy() ssaflow.SuccessorPolicy {
 // path acquires owes nothing. Only a proven prune removes a path: unknown
 // results keep every edge, and an exhausted budget keeps the acquisition.
 // https://github.com/gan-of-culture/get-sauce/blob/d726f56e7424bde4ff31e5329f37018343956103/request/request.go#L308-L318
-func (analysis *resourceAnalysis) acquisitionReachable(budget *ssaflow.SearchBudget) bool {
+func (analysis *resourceAnalysis) acquisitionReachable(budget *proofs.SearchBudget) bool {
 	type position struct{ block, predecessor *ssa.BasicBlock }
 	type positionKey struct{ block, predecessor int }
 	target := analysis.acquisition.Block()

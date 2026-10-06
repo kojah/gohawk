@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,27 +15,27 @@ func TestInstructionOrderAndIndexBudget(t *testing.T) {
 `)
 	calls := InstructionsOf[*ssa.Call](pkg.Func("subject"))
 	for _, before := range calls {
-		zero := NewSearchBudget(0)
+		zero := proofs.NewSearchBudget(0)
 		if InstructionIndexWithin(before, zero) != -1 || !zero.Exhausted() {
 			t.Fatal("initial position cutoff must remain unavailable")
 		}
-		fresh := NewSearchBudget(QueryBudget)
+		fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 		if InstructionIndexWithin(before, fresh) != InstructionIndex(before) || fresh.Exhausted() {
 			t.Fatal("fresh index must preserve actual SSA position")
 		}
 		for _, after := range calls {
-			zero := NewSearchBudget(0)
+			zero := proofs.NewSearchBudget(0)
 			if InstructionDominatesWithin(before, after, zero) || !zero.Exhausted() {
 				t.Fatal("same/cross-block dominance must charge before evidence")
 			}
-			fresh := NewSearchBudget(QueryBudget)
+			fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 			if InstructionDominatesWithin(before, after, fresh) != InstructionDominates(before, after) || fresh.Exhausted() {
 				t.Fatal("fresh dominance changed direction or block order")
 			}
 		}
 	}
-	pool := NewSearchBudget(1)
-	shared := pool.Within(QueryBudget)
+	pool := proofs.NewSearchBudget(1)
+	shared := pool.Within(proofs.QueryBudget)
 	if InstructionDominatesWithin(calls[0], calls[1], shared) || !shared.PoolExhausted() {
 		t.Fatal("both same-block positions must share the candidate pool")
 	}
@@ -48,7 +49,7 @@ func TestObligationInitialLookupCutoff(t *testing.T) {
 	calls := InstructionsOf[*ssa.Call](pkg.Func("subject"))
 	for _, action := range []ObligationAction{ObligationNone, ObligationExact} {
 		classified := 0
-		flow := ObligationFlow{Start: calls[2], Budget: NewSearchBudget(2), Instruction: func(ssa.Instruction) ObligationAction {
+		flow := ObligationFlow{Start: calls[2], Budget: proofs.NewSearchBudget(2), Instruction: func(ssa.Instruction) ObligationAction {
 			classified++
 			return action
 		}}
@@ -56,7 +57,7 @@ func TestObligationInitialLookupCutoff(t *testing.T) {
 		if outcome != ObligationUncertain || witness != nil || classified != 0 || !flow.Budget.Exhausted() {
 			t.Fatal("incomplete setup cannot classify, honor or violate an obligation")
 		}
-		flow.Budget = NewSearchBudget(QueryBudget)
+		flow.Budget = proofs.NewSearchBudget(proofs.QueryBudget)
 		got, witness := EvaluateObligationWitness(flow)
 		want := ObligationHonored
 		if action == ObligationNone {

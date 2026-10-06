@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -31,22 +32,22 @@ func odd(flag bool) bool { return !flag }
 		function := pkg.Func(test.name)
 		branch := InstructionsOf[*ssa.If](function)[0]
 		fixed := FixedValues{function.Params[0]: test.outcome}
-		fresh := NewSearchBudget(QueryBudget)
+		fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 		holds, known := fixed.HoldsWithin(branch.Cond, fresh)
 		if !known || holds != test.holds || fresh.Exhausted() {
 			t.Fatalf("%s condition %s: holds=%t known=%t exhausted=%t", test.name, branch.Cond, holds, known, fresh.Exhausted())
 		}
-		for limit := range QueryBudget - fresh.remaining {
-			cut := NewSearchBudget(limit)
+		for limit := range proofs.QueryBudget - fresh.Remaining() {
+			cut := proofs.NewSearchBudget(limit)
 			if _, known := fixed.HoldsWithin(branch.Cond, cut); known || !cut.Exhausted() {
 				t.Fatal("an interrupted condition cannot decide a branch")
 			}
 		}
-		cut := NewSearchBudget(0)
+		cut := proofs.NewSearchBudget(0)
 		if got := fixed.NarrowWithin(branch.Block().Succs, branch.Block(), cut); !slices.Equal(got, branch.Block().Succs) || !cut.Exhausted() {
 			t.Fatal("interrupted narrowing must keep the primitive's edges unpruned")
 		}
-		got := fixed.NarrowWithin(branch.Block().Succs, branch.Block(), NewSearchBudget(QueryBudget))
+		got := fixed.NarrowWithin(branch.Block().Succs, branch.Block(), proofs.NewSearchBudget(proofs.QueryBudget))
 		if !slices.Equal(got, fixed.Narrow(branch.Block().Succs, branch.Block())) {
 			t.Fatal("fresh bound filtering must preserve default edges")
 		}
@@ -57,12 +58,12 @@ func odd(flag bool) bool { return !flag }
 		t.Fatal("expected an actual returned negation")
 	}
 	fixed := FixedValues{odd.Params[0]: OutcomeTrue}
-	fresh := NewSearchBudget(QueryBudget)
+	fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 	if holds, known := fixed.HoldsWithin(condition, fresh); holds || !known || fresh.Exhausted() {
 		t.Fatal("a fresh odd negation must invert its exact binding")
 	}
-	for limit := range QueryBudget - fresh.remaining {
-		cut := NewSearchBudget(limit)
+	for limit := range proofs.QueryBudget - fresh.Remaining() {
+		cut := proofs.NewSearchBudget(limit)
 		if _, known := fixed.HoldsWithin(condition, cut); known || !cut.Exhausted() {
 			t.Fatal("interrupted negation cannot establish bound truth")
 		}
@@ -78,12 +79,12 @@ func mixed(flag bool) *int { var p *int; if flag { p = new(int) }; return p }
 `)
 	for _, name := range []string{"converted", "boxed", "mixed"} {
 		value := InstructionsOf[*ssa.Return](pkg.Func(name))[0].Results[0]
-		fresh := NewSearchBudget(QueryBudget)
+		fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 		if got := DefinitelyNilWithin(value, fresh); got != (name == "converted") || fresh.Exhausted() {
 			t.Fatal("nil-fold allowance must preserve boxing and phi policy")
 		}
-		for limit := range QueryBudget - fresh.remaining {
-			cut := NewSearchBudget(limit)
+		for limit := range proofs.QueryBudget - fresh.Remaining() {
+			cut := proofs.NewSearchBudget(limit)
 			if DefinitelyNilWithin(value, cut) || !cut.Exhausted() {
 				t.Fatal("an interrupted nil fold cannot supply definite nilness")
 			}
@@ -108,7 +109,7 @@ func unmatched(p any) { if _, ok := p.(int); ok { println(1) } }
 		if name == "asserted" || name == "unmatched" {
 			concrete = types.NewPointer(pkg.Pkg.Scope().Lookup("item").Type())
 		}
-		fresh := NewSearchBudget(QueryBudget)
+		fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 		got := assumedSuccessorsWithin(branch.Block().Succs, branch.Block(), function.Params[0], concrete, fresh)
 		want := branch.Block().Succs[:1]
 		if name == "foreign" || name == "unmatched" {
@@ -117,8 +118,8 @@ func unmatched(p any) { if _, ok := p.(int); ok { println(1) } }
 		if !slices.Equal(got, want) || fresh.Exhausted() {
 			t.Fatal("fresh assumption must require exact root/field/assertion identity")
 		}
-		for limit := range QueryBudget - fresh.remaining {
-			cut := NewSearchBudget(limit)
+		for limit := range proofs.QueryBudget - fresh.Remaining() {
+			cut := proofs.NewSearchBudget(limit)
 			if got := assumedSuccessorsWithin(branch.Block().Succs, branch.Block(), function.Params[0], concrete, cut); got != nil || !cut.Exhausted() {
 				t.Fatal("an interrupted assumption cannot supply pruned successors")
 			}
@@ -141,11 +142,12 @@ func assumed(p *int) { if p != nil { println(1) } }
 			} else {
 				policy.NonNil = function.Params[0]
 			}
-			cut := NewSearchBudget(0)
+			cut := proofs.NewSearchBudget(0)
 			if got := policy.SuccessorsWithin(branch.Block(), nil, cut); got != nil || !cut.Exhausted() {
 				t.Fatal("successor policy cannot consume uncharged bound/assumption evidence")
 			}
-			if got := policy.SuccessorsWithin(branch.Block(), nil, NewSearchBudget(QueryBudget)); !slices.Equal(got, policy.Successors(branch.Block(), nil)) {
+			freshBudget := proofs.NewSearchBudget(proofs.QueryBudget)
+			if got := policy.SuccessorsWithin(branch.Block(), nil, freshBudget); !slices.Equal(got, policy.Successors(branch.Block(), nil)) {
 				t.Fatal("fresh successor policy must preserve default filtering")
 			}
 		})
@@ -162,7 +164,7 @@ func assumed(p *int) { marker(); if p != nil { cleanup() } }
 	for _, name := range []string{"bound", "assumed"} {
 		function := pkg.Func(name)
 		flow := ObligationFlow{
-			Start: InstructionsOf[*ssa.Call](function)[0], Budget: NewSearchBudget(QueryBudget),
+			Start: InstructionsOf[*ssa.Call](function)[0], Budget: proofs.NewSearchBudget(proofs.QueryBudget),
 			Successors: func(block, _ *ssa.BasicBlock) []*ssa.BasicBlock { return block.Succs },
 			Instruction: func(instruction ssa.Instruction) ObligationAction {
 				if call, ok := instruction.(*ssa.Call); ok && call.Common().StaticCallee() == pkg.Func("cleanup") {
@@ -179,9 +181,9 @@ func assumed(p *int) { marker(); if p != nil { cleanup() } }
 		if got, witness := EvaluateObligationWitness(flow); got != ObligationHonored || witness != nil || flow.Budget.Exhausted() {
 			t.Fatal("fresh assumption must preserve exact return coverage")
 		}
-		used := QueryBudget - flow.Budget.remaining
+		used := proofs.QueryBudget - flow.Budget.Remaining()
 		for limit := range used {
-			flow.Budget = NewSearchBudget(limit)
+			flow.Budget = proofs.NewSearchBudget(limit)
 			if got, witness := EvaluateObligationWitness(flow); got != ObligationUncertain || witness != nil || !flow.Budget.Exhausted() {
 				t.Fatalf("%s limit %d retained incomplete coverage or a witness", name, limit)
 			}

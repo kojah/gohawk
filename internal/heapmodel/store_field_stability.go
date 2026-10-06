@@ -3,6 +3,7 @@ package heapmodel
 import (
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -17,23 +18,23 @@ func (storage *Storage) StableFieldContent(address ssa.Value, observation ssa.In
 		func(root ssa.Value) bool { _, fresh := root.(*ssa.Alloc); return fresh })
 	location, local := storage.location(address)
 	if !known || path.Depth == 0 || !local || observation == nil || path.Root.Parent() != observation.Parent() {
-		return storage.unknown(ssaflow.EvidenceStorageNotLocal, observation)
+		return storage.unknown(proofs.EvidenceStorageNotLocal, observation)
 	}
 	var stores []*ssa.Store
 	if blocked, ok := storage.collectField(path, &stores); !ok {
-		return storage.unknown(ssaflow.EvidenceStorageAddressEscapes, blocked)
+		return storage.unknown(proofs.EvidenceStorageAddressEscapes, blocked)
 	}
 	for _, store := range stores {
 		written, exact := storage.location(store.Addr)
 		if !exact || !slotBeneath(location.path, written.path) {
-			return storage.unknown(ssaflow.EvidenceStoragePartialWrite, store)
+			return storage.unknown(proofs.EvidenceStoragePartialWrite, store)
 		}
 		follows := StoreMayFollowWithin(location.root, observation, store, storage.budget)
 		if storage.budget.Exhausted() || storage.budget.PoolExhausted() {
-			return storage.unknown(ssaflow.EvidenceBudgetExhausted, store)
+			return storage.unknown(proofs.EvidenceBudgetExhausted, store)
 		}
 		if store == observation || follows || ssaflow.BlockInCycle(store.Block()) {
-			return storage.unknown(ssaflow.EvidenceStorageWriteAfterObservation, store)
+			return storage.unknown(proofs.EvidenceStorageWriteAfterObservation, store)
 		}
 	}
 	return storage.reachingContent(location, observation, stores)

@@ -3,6 +3,7 @@ package ssaflow_test
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -63,7 +64,7 @@ func counted(items []int) (total int) {
 		function := pkg.Func(name)
 		found := false
 		for _, block := range function.Blocks {
-			loop, ok := ssaflow.RangeElementLoop(block, ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+			loop, ok := ssaflow.RangeElementLoop(block, proofs.NewSearchBudget(proofs.QueryBudget))
 			if !ok {
 				continue
 			}
@@ -153,8 +154,8 @@ func checkAppendedValuesAllowance(t *testing.T, call *ssa.Call) {
 	t.Helper()
 	want, explicit := ssaflow.AppendedValues(call)
 	completed := false
-	for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.QueryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		got, ok := ssaflow.AppendedValuesWithin(call, budget)
 		if budget.Exhausted() || limit == 0 {
 			if ok || len(got) != 0 {

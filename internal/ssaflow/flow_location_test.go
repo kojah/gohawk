@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -42,7 +43,7 @@ func TestFlowLocationKeepsDistinctPathsAndPositions(t *testing.T) {
 	}
 	// The queue visit fits, but the guarded key does not. Its empty rendering
 	// must not be admitted as an unguarded location or expanded by the walk.
-	cut := NewSearchBudget(1)
+	cut := proofs.NewSearchBudget(1)
 	expanded = 0
 	WalkStatesWithin([]int{0}, func(index int) FlowLocationKey {
 		return FlowLocationKeyWithin(block, nil, index, trueGuards, cut)

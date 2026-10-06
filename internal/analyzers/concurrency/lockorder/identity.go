@@ -4,6 +4,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,7 +17,7 @@ func lockIdentityOf(value ssa.Value) string {
 
 // lockIdentityWithin shares reaching and observation-time storage with the
 // enclosing request. Cutoff supplies no identity, never a fallback slot name.
-func lockIdentityWithin(value ssa.Value, budget *ssaflow.SearchBudget) string {
+func lockIdentityWithin(value ssa.Value, budget *proofs.SearchBudget) string {
 	identity := lockIdentity(ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(budget), value, budget)
 	if budget.Exhausted() || budget.PoolExhausted() {
 		return ""
@@ -24,7 +25,7 @@ func lockIdentityWithin(value ssa.Value, budget *ssaflow.SearchBudget) string {
 	return identity
 }
 
-func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value, budget *ssaflow.SearchBudget) string {
+func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value, budget *proofs.SearchBudget) string {
 	if value == nil || !walk.Mark(value) {
 		return ""
 	}
@@ -41,7 +42,7 @@ func lockIdentity(walk ssaflow.ReachingWalk, value ssa.Value, budget *ssaflow.Se
 	return lockIdentityLeaf(walk, value, budget)
 }
 
-func lockIdentityLeaf(walk ssaflow.ReachingWalk, value ssa.Value, budget *ssaflow.SearchBudget) string {
+func lockIdentityLeaf(walk ssaflow.ReachingWalk, value ssa.Value, budget *proofs.SearchBudget) string {
 	switch typed := value.(type) {
 	case *ssa.Call:
 		owner, field := mutexGetter(typed)
@@ -121,7 +122,7 @@ func mutexGetter(call *ssa.Call) (ssa.Value, *types.Var) { //nolint:ireturn // T
 	return call.Common().Args[0], structField(field.X.Type(), field.Field)
 }
 
-func fieldLockIdentity(walk ssaflow.ReachingWalk, fieldAddress *ssa.FieldAddr, budget *ssaflow.SearchBudget) string {
+func fieldLockIdentity(walk ssaflow.ReachingWalk, fieldAddress *ssa.FieldAddr, budget *proofs.SearchBudget) string {
 	field := structField(fieldAddress.X.Type(), fieldAddress.Field)
 	if field == nil {
 		return ""
@@ -136,7 +137,7 @@ func fieldLockIdentity(walk ssaflow.ReachingWalk, fieldAddress *ssa.FieldAddr, b
 	return ""
 }
 
-func projectedFieldLockIdentity(walk ssaflow.ReachingWalk, value ssa.Value, budget *ssaflow.SearchBudget) string {
+func projectedFieldLockIdentity(walk ssaflow.ReachingWalk, value ssa.Value, budget *proofs.SearchBudget) string {
 	switch field := value.(type) {
 	case *ssa.FieldAddr:
 		return fieldLockIdentity(walk, field, budget)
@@ -151,7 +152,7 @@ func projectedFieldLockIdentity(walk ssaflow.ReachingWalk, value ssa.Value, budg
 // or capture identifies those copies as the same field. Partial/conflicting
 // writes leave the read unresolved, so they cannot equate different locks.
 // https://github.com/tikv/client-go/blob/b9fc0b7719d3ea62bd9904cd31fbd27715ff08bc/txnkv/transaction/pessimistic.go#L489-L518
-func copiedFieldLockIdentity(walk ssaflow.ReachingWalk, fieldValue *ssa.Field, budget *ssaflow.SearchBudget) string {
+func copiedFieldLockIdentity(walk ssaflow.ReachingWalk, fieldValue *ssa.Field, budget *proofs.SearchBudget) string {
 	field := structField(fieldValue.X.Type(), fieldValue.Field)
 	if field == nil {
 		return ""
@@ -175,7 +176,7 @@ func copiedFieldLockIdentity(walk ssaflow.ReachingWalk, fieldValue *ssa.Field, b
 // affect another caller after return. This says nothing about recursive
 // acquisition before return, which is still checked.
 // https://github.com/alajmo/sake/blob/86986df901293db0f7d1e548ef34c849bb1f709d/core/run/exec.go#L1070-L1084
-func privateMutexOnly(value ssa.Value, budget *ssaflow.SearchBudget) bool {
+func privateMutexOnly(value ssa.Value, budget *proofs.SearchBudget) bool {
 	allocation, ok := value.(*ssa.Alloc)
 	if !ok || allocation.Referrers() == nil {
 		return false
@@ -198,7 +199,7 @@ func privateMutexOnly(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 	return true
 }
 
-func indexedLockIdentity(walk ssaflow.ReachingWalk, ownerValue, indexValue ssa.Value, budget *ssaflow.SearchBudget) string {
+func indexedLockIdentity(walk ssaflow.ReachingWalk, ownerValue, indexValue ssa.Value, budget *proofs.SearchBudget) string {
 	owner := lockIdentity(walk, ownerValue, budget)
 	index := lockIdentity(walk, indexValue, budget)
 	if owner == "" || index == "" {

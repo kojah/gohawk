@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -25,7 +26,7 @@ func newHTTPWriterEffects() *httpWriterEffects {
 	return effects
 }
 
-func (effects *httpWriterEffects) headerOnly(writer *ssa.Parameter, budget *ssaflow.SearchBudget) bool {
+func (effects *httpWriterEffects) headerOnly(writer *ssa.Parameter, budget *proofs.SearchBudget) bool {
 	return effects.writers.Summarize(writer, writer.Parent(), budget, func() bool {
 		for instruction := range ssaflow.InstructionsWithin(writer.Parent(), budget) {
 			for _, operand := range instruction.Operands(nil) {
@@ -41,7 +42,7 @@ func (effects *httpWriterEffects) headerOnly(writer *ssa.Parameter, budget *ssaf
 	}, func(ssaflow.SummaryUnavailable, bool) bool { return false })
 }
 
-func (effects *httpWriterEffects) writerUse(instruction ssa.Instruction, writer ssa.Value, budget *ssaflow.SearchBudget) bool {
+func (effects *httpWriterEffects) writerUse(instruction ssa.Instruction, writer ssa.Value, budget *proofs.SearchBudget) bool {
 	if _, ok := instruction.(*ssa.ChangeInterface); ok {
 		return true
 	}
@@ -92,7 +93,7 @@ func (effects *httpWriterEffects) writerUse(instruction ssa.Instruction, writer 
 	return found
 }
 
-func benignHTTPHeaders(header *ssa.Call, budget *ssaflow.SearchBudget) bool {
+func benignHTTPHeaders(header *ssa.Call, budget *proofs.SearchBudget) bool {
 	if header.Referrers() == nil {
 		return false
 	}

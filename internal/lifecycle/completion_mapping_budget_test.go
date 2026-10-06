@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -20,14 +21,14 @@ func TestCompletionMappingCutoffDiscardsPrefix(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			fn := pkg.Func(name)
 			callee, target, call := mappingBudgetCase(t, fn)
-			full := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+			full := proofs.NewSearchBudget(proofs.QueryBudget)
 			baseline := newCompletionSearch("Close", CoverageEveryReturn, full).mappedLocals(callee, target, call)
 			if full.Exhausted() || len(baseline) != 2 {
 				t.Fatalf("baseline locals=%+v, exhausted=%v", baseline, full.Exhausted())
 			}
 			sawCut := false
 			for allowance := 1; allowance < 100; allowance++ {
-				budget := ssaflow.NewSearchBudget(allowance)
+				budget := proofs.NewSearchBudget(allowance)
 				locals := newCompletionSearch("Close", CoverageEveryReturn, budget).mappedLocals(callee, target, call)
 				if budget.Exhausted() {
 					sawCut = true
@@ -82,11 +83,11 @@ func TestMappingChildCutoffInvalidatesMemo(t *testing.T) {
  type node struct {child *node}
  func(*node)Close(){}
  func take(*node){}
- func deep(p *node){take(p.`+strings.Repeat("child.", ssaflow.QueryBudget)+`child)}
+ func deep(p *node){take(p.`+strings.Repeat("child.", proofs.QueryBudget)+`child)}
  `)
 	fn := pkg.Func("deep")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-	search := newCompletionSearch("Close", CoverageEveryReturn, ssaflow.NewSearchBudget(100*ssaflow.QueryBudget))
+	search := newCompletionSearch("Close", CoverageEveryReturn, proofs.NewSearchBudget(100*proofs.QueryBudget))
 	key := completionKey{instruction: call, target: fn.Params[0]}
 	attempts := 0
 	for range 2 {

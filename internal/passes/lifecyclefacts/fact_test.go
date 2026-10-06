@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -54,19 +55,19 @@ func caller(value *closer) { helper(value) }
 		},
 	}
 	proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
-	if !proof.Proven() || proof.Provenance != ssaflow.EvidenceFromImportedFact || proof.SummaryReason != reasonLifecycleSummary {
+	if !proof.Proven() || proof.Provenance != proofs.EvidenceFromImportedFact || proof.SummaryReason != reasonLifecycleSummary {
 		t.Fatalf("imported proof = %#v, want lifecycle-summary provenance", proof)
 	}
 
 	pass.ResultOf[Analyzer] = Summaries{callee: {}}
 	rejected := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
-	if rejected.State != ssaflow.EvidenceDisproven || rejected.Provenance != ssaflow.EvidenceFromImportedFact {
+	if rejected.State != proofs.EvidenceDisproven || rejected.Provenance != proofs.EvidenceFromImportedFact {
 		t.Fatalf("empty summary proof = %#v, want imported disproof", rejected)
 	}
 
 	pass.ResultOf[Analyzer] = Summaries{}
 	unknown := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
-	if unknown.State != ssaflow.EvidenceUnknown || unknown.Reason != ssaflow.EvidenceUnavailable {
+	if unknown.State != proofs.EvidenceUnknown || unknown.Reason != proofs.EvidenceUnavailable {
 		t.Fatalf("missing summary proof = %#v, want unknown", unknown)
 	}
 }
@@ -115,7 +116,7 @@ func reassigned() {
 	}
 	projected := prove(t, "accepted", true)
 	if !projected.Proven() || projected.SummaryReason != reasonLifecycleSummaryProjectedArgument ||
-		projected.Provenance != ssaflow.EvidenceFromImportedFact {
+		projected.Provenance != proofs.EvidenceFromImportedFact {
 		t.Fatalf("projected imported proof = %#v, want strict projected lifecycle summary", projected)
 	}
 	reassigned := prove(t, "reassigned", true)

@@ -7,8 +7,7 @@ import (
 	"go/types"
 	"strconv"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
-
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -66,7 +65,7 @@ type FactConstant struct {
 }
 
 // exportAlternatives publishes every path alternative, or none.
-func exportAlternatives(function *ssa.Function, paths []Summary, budget *ssaflow.SearchBudget) (Fact, bool) {
+func exportAlternatives(function *ssa.Function, paths []Summary, budget *proofs.SearchBudget) (Fact, bool) {
 	fact := Fact{Version: factVersion}
 	internal := map[string]int{}
 	for _, path := range paths {
@@ -97,7 +96,7 @@ func exportAlternatives(function *ssa.Function, paths []Summary, budget *ssaflow
 	return fact, true
 }
 
-func exportCondition(function *ssa.Function, condition Condition, internal map[string]int, budget *ssaflow.SearchBudget) (FactCondition, bool) {
+func exportCondition(function *ssa.Function, condition Condition, internal map[string]int, budget *proofs.SearchBudget) (FactCondition, bool) {
 	if !budget.Spend() {
 		return FactCondition{}, false
 	}

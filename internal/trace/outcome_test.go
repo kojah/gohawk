@@ -3,16 +3,16 @@ package trace
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 func TestDiagnosticOutcomePolarity(t *testing.T) {
-	expected := map[ssaflow.EvidenceState]Outcome{
-		ssaflow.EvidenceProven:    OutcomeRejected,
-		ssaflow.EvidenceDisproven: OutcomeAccepted,
+	expected := map[proofs.EvidenceState]Outcome{
+		proofs.EvidenceProven:    OutcomeRejected,
+		proofs.EvidenceDisproven: OutcomeAccepted,
 	}
 	for value := range 256 {
-		state := ssaflow.EvidenceState(value)
+		state := proofs.EvidenceState(value)
 		want, known := expected[state]
 		if !known {
 			want = OutcomeUnknown

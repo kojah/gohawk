@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -13,20 +14,20 @@ import (
 // independent costs.
 
 func (analysis *resourceAnalysis) carriedPayload(value ssa.Value, reason resourceLifetimeReason) (resourceLifetimeReason, bool) {
-	proof := analysis.proveCarriedValueWithin(value, analysis.budget(ssaflow.SummaryBudget))
-	if proof.State == ssaflow.EvidenceUnknown {
+	proof := analysis.proveCarriedValueWithin(value, analysis.budget(proofs.SummaryBudget))
+	if proof.State == proofs.EvidenceUnknown {
 		return proof.Reason, true
 	}
 	return reason, proof.Proven()
 }
 
-func (analysis *resourceAnalysis) proveCarriedArgumentsWithin(common *ssa.CallCommon, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveCarriedArgumentsWithin(common *ssa.CallCommon, budget *proofs.SearchBudget) resourceProof {
 	for _, argument := range common.Args {
 		if !budget.Spend() {
 			return carriedValueProof(false, resourceReasonUntouched, budget)
 		}
 		proof := analysis.proveCarriedValueWithin(argument, budget)
-		if proof.State != ssaflow.EvidenceDisproven {
+		if proof.State != proofs.EvidenceDisproven {
 			return proof
 		}
 	}
@@ -36,19 +37,19 @@ func (analysis *resourceAnalysis) proveCarriedArgumentsWithin(common *ssa.CallCo
 // A struct literal wrapping a type-asserted response body and passed to a
 // function value may carry the resource; kandev's SPDY handoff is such a case:
 // https://github.com/kdlbs/kandev/blob/17da0aafe33df01828e21fc79cc9dd156dc088dc/apps/backend/internal/agent/kubernetes/portforward.go#L464-L491
-func (analysis *resourceAnalysis) proveCarriedValueWithin(value ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveCarriedValueWithin(value ssa.Value, budget *proofs.SearchBudget) resourceProof {
 	direct := analysis.proveCarriedDirectlyWithin(value, budget)
-	if direct.State != ssaflow.EvidenceDisproven {
+	if direct.State != proofs.EvidenceDisproven {
 		return direct
 	}
 	within := analysis.proveNestedCarryWithin(value, budget)
-	if within.State != ssaflow.EvidenceDisproven {
+	if within.State != proofs.EvidenceDisproven {
 		return within
 	}
 	return analysis.provePossibleWrapperWithin(value, 0, false, budget)
 }
 
-func (analysis *resourceAnalysis) proveCarriedDirectlyWithin(value ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveCarriedDirectlyWithin(value ssa.Value, budget *proofs.SearchBudget) resourceProof {
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
@@ -63,22 +64,22 @@ func (analysis *resourceAnalysis) proveCarriedDirectlyWithin(value ssa.Value, bu
 	storageBudget := analysis.directStorageBudget(budget)
 	same := heapmodel.NewStorage(storageBudget).Same(value, analysis.resource)
 	if budget != nil && resourceFlowExhausted(storageBudget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	return carriedValueProof(same.Proven(), resourceReasonDirectMayCarry, budget)
 }
 
-func (analysis *resourceAnalysis) directStorageBudget(budget *ssaflow.SearchBudget) *ssaflow.SearchBudget {
+func (analysis *resourceAnalysis) directStorageBudget(budget *proofs.SearchBudget) *proofs.SearchBudget {
 	if budget == nil {
-		return analysis.budget(ssaflow.QueryBudget)
+		return analysis.budget(proofs.QueryBudget)
 	}
-	return budget.Within(ssaflow.QueryBudget)
+	return budget.Within(proofs.QueryBudget)
 }
 
-func (analysis *resourceAnalysis) proveNestedCarryWithin(value ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveNestedCarryWithin(value ssa.Value, budget *proofs.SearchBudget) resourceProof {
 	contained := lifecycle.ProveMayContainValueWithin(value, analysis.resource, budget)
-	if contained.State == ssaflow.EvidenceUnknown {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	if contained.State == proofs.EvidenceUnknown {
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	if contained.Proven() {
 		return carriedValueProof(true, resourceReasonAggregateMayCarry, budget)
@@ -100,12 +101,12 @@ func (analysis *resourceAnalysis) proveNestedCarryWithin(value ssa.Value, budget
 	return carriedValueProof(found, resourceReasonAggregateMayCarry, budget)
 }
 
-func carriedValueProof(found bool, reason resourceLifetimeReason, budget *ssaflow.SearchBudget) resourceProof {
+func carriedValueProof(found bool, reason resourceLifetimeReason, budget *proofs.SearchBudget) resourceProof {
 	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	if found {
-		return resourceProof{State: ssaflow.EvidenceProven, Reason: reason}
+		return resourceProof{State: proofs.EvidenceProven, Reason: reason}
 	}
-	return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}
+	return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonUntouched}
 }

@@ -3,6 +3,7 @@ package lifecycle_test
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
@@ -26,7 +27,7 @@ func TestSummaryCompositionVisitsIndependentBodies(t *testing.T) {
 		return visits
 	}
 	for range 2 {
-		got := memo.Compose("call-site question", ssaflow.NewSearchBudget(10), compute,
+		got := memo.Compose("call-site question", proofs.NewSearchBudget(10), compute,
 			func(ssaflow.SummaryUnavailable, int) int { return -1 })
 		if got != 3 || visits != 3 {
 			t.Errorf("answer=%d visits=%d, want 3 and 3", got, visits)
@@ -44,7 +45,7 @@ func TestSummaryCompositionRecursiveAlternativeInvalidatesQuestion(t *testing.T)
 	memo := ssaflow.NewCallGraphMemo[string, int]()
 	unavailable := func(ssaflow.SummaryUnavailable, int) int { return -1 }
 	visits := 0
-	budget := ssaflow.NewSearchBudget(10)
+	budget := proofs.NewSearchBudget(10)
 	for range 2 {
 		got := memo.Compose("multiple callees", budget, func() int {
 			memo.WithFunction(pkg.Func("first"), func() {
@@ -73,7 +74,7 @@ func TestSummaryCompositionRecursiveAlternativeInvalidatesQuestion(t *testing.T)
 func TestSummaryCompositionPolicyTruncationInvalidatesParents(t *testing.T) {
 	memo := ssaflow.NewCallGraphMemo[int, int]()
 	unavailable := func(ssaflow.SummaryUnavailable, int) int { return -1 }
-	budget := ssaflow.NewSearchBudget(10)
+	budget := proofs.NewSearchBudget(10)
 	memo.Compose(1, budget, func() int {
 		return memo.Compose(2, budget, func() int {
 			memo.Incomplete()

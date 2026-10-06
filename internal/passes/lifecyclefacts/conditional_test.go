@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -63,9 +64,9 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 	caller := pkg.Func("Caller")
 	branch := ssaflow.InstructionsOf[*ssa.If](caller)[0].Block()
 	evidence := NewLifecycleEvidence(pass, "test", "test")
-	request := lifecycle.CompletionRequest{Target: caller.Params[0], Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000)}
+	request := lifecycle.CompletionRequest{Target: caller.Params[0], Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(1000)}
 	if proof := evidence.CompletionOnEdge(branch, branch.Succs[0], request); !proof.Proven() ||
-		proof.Provenance != ssaflow.EvidenceFromImportedFact || proof.SummaryReason != reasonConditionalSummary {
+		proof.Provenance != proofs.EvidenceFromImportedFact || proof.SummaryReason != reasonConditionalSummary {
 		t.Fatalf("imported true edge: %+v", proof)
 	}
 	if proof := evidence.CompletionOnEdge(branch, branch.Succs[1], request); proof.Proven() {

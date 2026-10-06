@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -41,17 +42,17 @@ func later(p, other *int) { o := &holder{}; observe(o); fill(o,p) }
 					t.Fatalf("default containment = %v, want %v", baseline, test.want)
 				}
 				completed := false
-				for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-					pool := ssaflow.NewSearchBudget(limit)
-					budget := pool.Within(ssaflow.SummaryBudget)
+				for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+					pool := proofs.NewSearchBudget(limit)
+					budget := pool.Within(proofs.SummaryBudget)
 					got := ProveMayContainValueAtWithin(owner, fn.Params[0], at, budget)
 					if budget.Exhausted() || budget.PoolExhausted() {
-						if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted {
+						if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted {
 							t.Fatalf("allowance %d retained interrupted containment: %+v", limit, got)
 						}
 						continue
 					}
-					if limit == 0 || got.State == ssaflow.EvidenceUnknown || got.Proven() != baseline {
+					if limit == 0 || got.State == proofs.EvidenceUnknown || got.Proven() != baseline {
 						t.Fatalf("complete containment = %+v, want %v", got, baseline)
 					}
 					completed = true

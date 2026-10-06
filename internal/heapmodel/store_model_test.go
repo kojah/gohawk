@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -69,11 +70,11 @@ func probe(a,b *int, pick bool, idx int) { `+test.body+` }
 `)
 			call := heapObservation(t, pkg.Func("probe"))
 			args := call.Common().Args
-			proof := NewStorage(ssaflow.NewSearchBudget(1000)).Same(args[0], args[1])
+			proof := NewStorage(proofs.NewSearchBudget(1000)).Same(args[0], args[1])
 			if proof.Proven() != test.want {
 				t.Fatalf("Same() = %+v, want proven %t", proof, test.want)
 			}
-			if proof := NewStorage(ssaflow.NewSearchBudget(0)).Resolve(args[0]); proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+			if proof := NewStorage(proofs.NewSearchBudget(0)).Resolve(args[0]); proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted {
 				t.Fatalf("exhaustion = %+v", proof)
 			}
 		})
@@ -104,7 +105,7 @@ func probe(a,b *int, pick bool) { `+test.body+` }
 				if ssaflow.CallName(call.Common()) != "inspect" {
 					continue
 				}
-				proof := NewStorage(ssaflow.NewSearchBudget(1000)).StableContent(call.Common().Args[0], call)
+				proof := NewStorage(proofs.NewSearchBudget(1000)).StableContent(call.Common().Args[0], call)
 				if proof.Proven() != test.want {
 					t.Fatalf("StableContent() = %+v, want proven %t", proof, test.want)
 				}
@@ -134,7 +135,7 @@ func probe(a box,b *int) { `+test.body+` }
 `)
 			call := heapObservation(t, pkg.Func("probe"))
 			args := call.Common().Args
-			proof := NewStorage(ssaflow.NewSearchBudget(1000)).Same(args[0], args[1])
+			proof := NewStorage(proofs.NewSearchBudget(1000)).Same(args[0], args[1])
 			if proof.Proven() != test.want {
 				t.Fatalf("Same() = %+v, want proven %t", proof, test.want)
 			}

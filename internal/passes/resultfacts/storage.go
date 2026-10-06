@@ -4,6 +4,7 @@ import (
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,7 +15,7 @@ import (
 // heapmodel owns mutation, escape, and reaching-write uncertainty.
 type storedResultQuery struct {
 	engine  *Engine
-	budget  *ssaflow.SearchBudget
+	budget  *proofs.SearchBudget
 	storage *heapmodel.Storage
 }
 

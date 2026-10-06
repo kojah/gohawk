@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -29,7 +30,7 @@ type releaseAttempt struct {
 	// source names the evidence consulted: the completion search, or the
 	// helper's complete summarized lock sequence.
 	source string
-	reason ssaflow.EvidenceReason
+	reason proofs.EvidenceReason
 	// possible records that the call releases the lock on some path.
 	possible bool
 }
@@ -97,7 +98,7 @@ func newReleaseAttempts() *releaseAttempts {
 // revisits instructions in several states, so a repeated question is kept
 // once.
 func (attempts *releaseAttempts) record(
-	identity string, instruction ssa.Instruction, lock ssa.Value, proof ssaflow.CompletionProof, possible bool,
+	identity string, instruction ssa.Instruction, lock ssa.Value, proof proofs.CompletionProof, possible bool,
 ) {
 	if attempts == nil || !receivesLock(instruction, lock) {
 		return
@@ -142,7 +143,7 @@ func (attempts *releaseAttempts) recordSummarized(instruction ssa.Instruction, e
 		}
 		attempts.add(effect.identity, releaseAttempt{
 			position: instruction.Pos(), instruction: instruction.String(), source: "summary",
-			reason: ssaflow.EvidenceNotFound, possible: true,
+			reason: proofs.EvidenceNotFound, possible: true,
 		})
 	}
 }

@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -147,49 +148,49 @@ func onceCalledNow(value *closer) {
 var completionCases = []struct {
 	function string
 	proven   bool
-	reason   ssaflow.EvidenceReason
+	reason   proofs.EvidenceReason
 	coverage CompletionCoverage
 	unknown  bool
 }{
-	{function: "deferredLiteral", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
-	{function: "deferredHelper", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
+	{function: "deferredLiteral", proven: true, reason: proofs.EvidenceDeferredCompletion},
+	{function: "deferredHelper", proven: true, reason: proofs.EvidenceDeferredCompletion},
 	{function: "deferredConditional"},
-	{function: "deferredConditional", proven: true, reason: ssaflow.EvidenceDeferredCompletion, coverage: CoverageAnywhere},
+	{function: "deferredConditional", proven: true, reason: proofs.EvidenceDeferredCompletion, coverage: CoverageAnywhere},
 	{function: "deferredOtherReceiver"},
 	{function: "deferredReassignedAfter"},
-	{function: "deferredReassignedBefore", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
-	{function: "deferredInsideLoop", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
-	{function: "deferredAssignedInBranches", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
-	{function: "deferredClearedAfterUse", proven: true, reason: ssaflow.EvidenceDeferredCompletion, coverage: CoverageAnywhere},
+	{function: "deferredReassignedBefore", proven: true, reason: proofs.EvidenceDeferredCompletion},
+	{function: "deferredInsideLoop", proven: true, reason: proofs.EvidenceDeferredCompletion},
+	{function: "deferredAssignedInBranches", proven: true, reason: proofs.EvidenceDeferredCompletion},
+	{function: "deferredClearedAfterUse", proven: true, reason: proofs.EvidenceDeferredCompletion, coverage: CoverageAnywhere},
 	{function: "deferredClearedAfterUse"},
-	{function: "deferredStoredCallback", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
-	{function: "deferredOnceCallback", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
+	{function: "deferredStoredCallback", proven: true, reason: proofs.EvidenceDeferredCompletion},
+	{function: "deferredOnceCallback", proven: true, reason: proofs.EvidenceDeferredCompletion},
 	{function: "deferredPhiCallback"},
-	{function: "deferredPhiBothCallbacks", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
-	{function: "deferredProjection", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
-	{function: "deferredProjectionLiteral", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
+	{function: "deferredPhiBothCallbacks", proven: true, reason: proofs.EvidenceDeferredCompletion},
+	{function: "deferredProjection", proven: true, reason: proofs.EvidenceDeferredCompletion},
+	{function: "deferredProjectionLiteral", proven: true, reason: proofs.EvidenceDeferredCompletion},
 	{function: "deferredProjectionOther"},
-	{function: "deferredOwnerCapture", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
-	{function: "deferredBoundCallback", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
+	{function: "deferredOwnerCapture", proven: true, reason: proofs.EvidenceDeferredCompletion},
+	{function: "deferredBoundCallback", proven: true, reason: proofs.EvidenceDeferredCompletion},
 	{function: "deferredBoundConditional"},
-	{function: "calledHelper", proven: true, reason: ssaflow.EvidenceCalledCompletion},
-	{function: "calledOwner", proven: true, reason: ssaflow.EvidenceCalledCompletion},
+	{function: "calledHelper", proven: true, reason: proofs.EvidenceCalledCompletion},
+	{function: "calledOwner", proven: true, reason: proofs.EvidenceCalledCompletion},
 	{function: "calledConditional"},
-	{function: "calledChain", proven: true, reason: ssaflow.EvidenceCalledCompletion},
-	{function: "calledDeferringHelper", proven: true, reason: ssaflow.EvidenceCalledCompletion},
-	{function: "calledLiteral", proven: true, reason: ssaflow.EvidenceCalledCompletion},
-	{function: "calledStarter", proven: true, reason: ssaflow.EvidenceCalledCompletion},
-	{function: "calledRegistrar", proven: true, reason: ssaflow.EvidenceCalledCompletion},
+	{function: "calledChain", proven: true, reason: proofs.EvidenceCalledCompletion},
+	{function: "calledDeferringHelper", proven: true, reason: proofs.EvidenceCalledCompletion},
+	{function: "calledLiteral", proven: true, reason: proofs.EvidenceCalledCompletion},
+	{function: "calledStarter", proven: true, reason: proofs.EvidenceCalledCompletion},
+	{function: "calledRegistrar", proven: true, reason: proofs.EvidenceCalledCompletion},
 	{function: "calledOpaque"},
-	{function: "calledStartedCallback", proven: true, reason: ssaflow.EvidenceCalledCompletion},
+	{function: "calledStartedCallback", proven: true, reason: proofs.EvidenceCalledCompletion},
 	{function: "calledStoredCallback"},
-	{function: "startedLiteral", proven: true, reason: ssaflow.EvidenceStartedCompletion},
-	{function: "startedGroup", proven: true, reason: ssaflow.EvidenceStartedCompletion},
-	{function: "registeredCleanup", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
+	{function: "startedLiteral", proven: true, reason: proofs.EvidenceStartedCompletion},
+	{function: "startedGroup", proven: true, reason: proofs.EvidenceStartedCompletion},
+	{function: "registeredCleanup", proven: true, reason: proofs.EvidenceDeferredCompletion},
 	// A literal that captures the variable holding itself must terminate the
 	// search; the deferred call still completes the target on every return.
-	{function: "recursiveLiteral", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
-	{function: "selfCapturingCallback", proven: true, reason: ssaflow.EvidenceDeferredCompletion},
+	{function: "recursiveLiteral", proven: true, reason: proofs.EvidenceDeferredCompletion},
+	{function: "selfCapturingCallback", proven: true, reason: proofs.EvidenceDeferredCompletion},
 	{function: "onceCalledNow", unknown: true},
 }
 
@@ -218,7 +219,7 @@ func TestCompletionBoundaries(t *testing.T) {
 				Coverage:    test.coverage,
 			})
 			if test.unknown {
-				if proof.State != ssaflow.EvidenceUnknown {
+				if proof.State != proofs.EvidenceUnknown {
 					t.Fatalf("ProveCompletion() = %#v, want unknown", proof)
 				}
 				return

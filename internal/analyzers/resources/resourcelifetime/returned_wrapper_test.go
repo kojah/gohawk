@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"github.com/kojah/gohawk/internal/summaries"
@@ -35,12 +36,12 @@ func TestReturnedWrapperOpacityAllowance(t *testing.T) {
 			if baseline.Proven() != test.proven || baseline.Position != test.position {
 				t.Fatalf("default opacity = %+v, want %v/position %d", baseline, test.proven, test.position)
 			}
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				pool := ssaflow.NewSearchBudget(limit)
-				budget := pool.Within(ssaflow.SummaryBudget)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				pool := proofs.NewSearchBudget(limit)
+				budget := pool.Within(proofs.SummaryBudget)
 				got := query.proveReturnedWrapperWithin(returned, budget)
 				if resourceFlowExhausted(budget) {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || got.Position != -1 {
+					if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || got.Position != -1 {
 						t.Fatalf("allowance %d retained interrupted wrapper: %+v", limit, got)
 					}
 					continue
@@ -63,7 +64,7 @@ func TestReturnedWrapperOpacityRetryAndReuse(t *testing.T) {
 			evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
 			query := &resourceAnalysis{
 				function: fn, resource: fn.Params[0], summaries: provider, evidence: evidence,
-				pool: ssaflow.NewSearchBudget(0),
+				pool: proofs.NewSearchBudget(0),
 			}
 			returned := ssaflow.InstructionsOf[*ssa.Return](fn)[0]
 			if reason, opaque := query.opaqueConsumption(returned); !opaque || reason != resourceReasonBudgetExhausted {
@@ -72,7 +73,7 @@ func TestReturnedWrapperOpacityRetryAndReuse(t *testing.T) {
 			if len(query.wrappers) != 0 {
 				t.Fatal("interrupted wrapper proof was memoized")
 			}
-			query.pool = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+			query.pool = proofs.NewSearchBudget(proofs.SummaryBudget)
 			reason, opaque := query.opaqueConsumption(returned)
 			if opaque != (name != "discarded") || (opaque && reason != resourceReasonReturnedWrapperRetains) {
 				t.Fatalf("fresh classification = %v/%v", reason, opaque)
@@ -80,9 +81,9 @@ func TestReturnedWrapperOpacityRetryAndReuse(t *testing.T) {
 			if len(query.wrappers) != 1 {
 				t.Fatal("completed wrapper proof was not memoized")
 			}
-			budget := ssaflow.NewSearchBudget(0)
+			budget := proofs.NewSearchBudget(0)
 			got := query.returnedWrapperWithin(returned, budget)
-			if got.State == ssaflow.EvidenceUnknown || budget.Exhausted() {
+			if got.State == proofs.EvidenceUnknown || budget.Exhausted() {
 				t.Fatalf("completed result repeated work: %+v", got)
 			}
 		})
@@ -96,22 +97,22 @@ type bundle struct{}
 var sink int
 func wide(p *resource, input int) *bundle {
  n := 0
-`+strings.Repeat("n ^= input\n", ssaflow.SummaryBudget+10)+`sink = n; return nil
+`+strings.Repeat("n ^= input\n", proofs.SummaryBudget+10)+`sink = n; return nil
 }
 `)
 	fn := pkg.Func("wide")
-	if count := len(ssaflow.InstructionsOf[*ssa.BinOp](fn)); count <= ssaflow.SummaryBudget {
+	if count := len(ssaflow.InstructionsOf[*ssa.BinOp](fn)); count <= proofs.SummaryBudget {
 		t.Fatalf("fixture has only %d SSA operations", count)
 	}
 	query := &resourceAnalysis{function: fn, resource: fn.Params[0]}
 	returned := ssaflow.InstructionsOf[*ssa.Return](fn)[0]
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
-	budget := pool.Within(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
+	budget := pool.Within(proofs.SummaryBudget)
 	got := query.proveReturnedWrapperWithin(returned, budget)
-	if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || !budget.Exhausted() || pool.Exhausted() {
+	if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || !budget.Exhausted() || pool.Exhausted() {
 		t.Fatalf("instruction census lost local cutoff: %+v, child/parent exhausted %v/%v", got, budget.Exhausted(), pool.Exhausted())
 	}
-	if fresh := query.proveReturnedWrapperWithin(returned, ssaflow.NewSearchBudget(10*ssaflow.SummaryBudget)); fresh.State != ssaflow.EvidenceDisproven {
+	if fresh := query.proveReturnedWrapperWithin(returned, proofs.NewSearchBudget(10*proofs.SummaryBudget)); fresh.State != proofs.EvidenceDisproven {
 		t.Fatalf("fresh census failed to recover: %+v", fresh)
 	}
 }

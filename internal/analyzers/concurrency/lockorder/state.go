@@ -11,6 +11,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -28,7 +29,7 @@ type lockReturnState struct {
 	definite []string
 }
 
-func lockStateKey(state lockFlowState, budget *ssaflow.SearchBudget) string {
+func lockStateKey(state lockFlowState, budget *proofs.SearchBudget) string {
 	for _, values := range [][]string{state.readHeld, state.deferred} {
 		for range values {
 			if !budget.Spend() {
@@ -92,7 +93,7 @@ func lockStateKey(state lockFlowState, budget *ssaflow.SearchBudget) string {
 // A loop phase can retain a literal while a lock is held and become unknown
 // after release. This tracks that exact value, not arithmetic or loop counts:
 // https://github.com/tidwall/uhaha/blob/5ea77162763891837176b90e111fcac74678143e/uhaha.go#L4173-L4217
-func lockPhiConstants(state lockFlowState, budget *ssaflow.SearchBudget) []lockScalarConstant {
+func lockPhiConstants(state lockFlowState, budget *proofs.SearchBudget) []lockScalarConstant {
 	const maxConstants = 4
 	for range state.constants {
 		if !budget.Spend() {
@@ -165,7 +166,7 @@ func constantFalse(value ssa.Value) bool {
 // uncertainty rather than infeasibility, and never excludes a path on it.
 // Exceeding the guard limit forgets the new fact, never excludes a path.
 // https://github.com/yandex-cloud/geesefs/blob/dd847771b29b26f3246edaf3227acbc430f4548d/core/file.go#L1901-L1972
-func extendLockConstraints(constraints ssaflow.PathGuards, block *ssa.BasicBlock, truth bool, budget *ssaflow.SearchBudget) (ssaflow.PathGuards, bool) {
+func extendLockConstraints(constraints ssaflow.PathGuards, block *ssa.BasicBlock, truth bool, budget *proofs.SearchBudget) (ssaflow.PathGuards, bool) {
 	if len(block.Succs) != 2 {
 		return constraints, true
 	}
@@ -177,7 +178,7 @@ func extendLockConstraints(constraints ssaflow.PathGuards, block *ssa.BasicBlock
 	return next, contradiction != ssaflow.GuardStableContradiction
 }
 
-func guardConflicts(held []string, guards map[string]lockGuard, condition string, value bool, budget *ssaflow.SearchBudget) bool {
+func guardConflicts(held []string, guards map[string]lockGuard, condition string, value bool, budget *proofs.SearchBudget) bool {
 	for _, identity := range held {
 		if !budget.Spend() {
 			return false
@@ -190,7 +191,7 @@ func guardConflicts(held []string, guards map[string]lockGuard, condition string
 	return false
 }
 
-func blockCondition(block *ssa.BasicBlock, budget *ssaflow.SearchBudget) (string, bool) {
+func blockCondition(block *ssa.BasicBlock, budget *proofs.SearchBudget) (string, bool) {
 	if len(block.Instrs) == 0 {
 		return "", false
 	}
@@ -201,7 +202,7 @@ func blockCondition(block *ssa.BasicBlock, budget *ssaflow.SearchBudget) (string
 	return conditionIdentity(branch.Cond, budget)
 }
 
-func conditionIdentity(value ssa.Value, budget *ssaflow.SearchBudget) (string, bool) {
+func conditionIdentity(value ssa.Value, budget *proofs.SearchBudget) (string, bool) {
 	if !budget.Spend() {
 		return "", false
 	}

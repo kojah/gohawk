@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -52,9 +53,9 @@ func TestResponseBodyAggregateHandoff(t *testing.T) {
 			}
 			analysis := resourceAnalysis{function: function, resource: resource, contract: resourceContract{family: resourceFamilyHTTP}}
 			proof := analysis.responseBodyAggregateHandoff(sends[0].X, sends[0])
-			want := ssaflow.EvidenceDisproven
+			want := proofs.EvidenceDisproven
 			if test.unknown {
-				want = ssaflow.EvidenceUnknown
+				want = proofs.EvidenceUnknown
 			}
 			if proof.State != want || test.unknown && proof.Reason != resourceReasonResponseBodyAggregateHandoff {
 				t.Fatalf("body handoff = %+v, want state %v", proof, want)

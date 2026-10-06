@@ -9,6 +9,7 @@ import (
 	"golang.org/x/tools/go/ssa"
 
 	"github.com/kojah/gohawk/internal/analyzertest"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis/analysistest"
 )
 
@@ -39,21 +40,21 @@ func TestReadLockFieldEvidenceAvailability(t *testing.T) {
 	}
 	functions := []*ssa.Function{method("state", "reset"), method("state", "called"), method("state", "loaded"), method("other", "reset")}
 	stores := ssaflow.InstructionsOf[*ssa.Store](method("state", "inspect"))
-	pool := ssaflow.NewSearchBudget(lockStateWorkBudget)
+	pool := proofs.NewSearchBudget(lockStateWorkBudget)
 	fields := collectReadLockFieldEvidence(functions, pool)
-	if fields.unavailable || fields.guard(stores[0]).state != ssaflow.EvidenceUnknown || (fields.guard(stores[1]).state == ssaflow.EvidenceUnknown) {
+	if fields.unavailable || fields.guard(stores[0]).state != proofs.EvidenceUnknown || (fields.guard(stores[1]).state == proofs.EvidenceUnknown) {
 		t.Fatalf("field-specific evidence = %+v", fields)
 	}
-	otherOnly := collectReadLockFieldEvidence(functions[3:], ssaflow.NewSearchBudget(lockStateWorkBudget))
-	if otherOnly.guard(stores[0]).state == ssaflow.EvidenceUnknown {
+	otherOnly := collectReadLockFieldEvidence(functions[3:], proofs.NewSearchBudget(lockStateWorkBudget))
+	if otherOnly.guard(stores[0]).state == proofs.EvidenceUnknown {
 		t.Fatal("same field spelling on another type supplies evidence")
 	}
 	cut := collectReadLockFieldEvidence(functions, pool.Within(0))
-	if !cut.unavailable || cut.guard(stores[0]).state != ssaflow.EvidenceUnknown || cut.guard(stores[1]).state != ssaflow.EvidenceUnknown {
+	if !cut.unavailable || cut.guard(stores[0]).state != proofs.EvidenceUnknown || cut.guard(stores[1]).state != proofs.EvidenceUnknown {
 		t.Fatal("cutoff supplied negative field evidence")
 	}
 	fresh := collectReadLockFieldEvidence(functions, pool.Within(lockStateWorkBudget))
-	if fresh.unavailable || fresh.guard(stores[0]).state != ssaflow.EvidenceUnknown || (fresh.guard(stores[1]).state == ssaflow.EvidenceUnknown) {
+	if fresh.unavailable || fresh.guard(stores[0]).state != proofs.EvidenceUnknown || (fresh.guard(stores[1]).state == proofs.EvidenceUnknown) {
 		t.Fatal("fresh allowance failed to recover field-specific evidence")
 	}
 }

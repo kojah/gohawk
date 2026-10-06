@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -36,10 +37,10 @@ func TestGuardFormatsPreserveBytesAndBudget(t *testing.T) {
 		t.Fatal("resolved loaded guard was not memoized")
 	}
 	for allowance := range 16 {
-		original, cached := NewSearchBudget(allowance), NewSearchBudget(allowance)
+		original, cached := proofs.NewSearchBudget(allowance), proofs.NewSearchBudget(allowance)
 		left, ln, ls, lo := guardConditionWithin(condition, original)
 		right, rn, rs, ro := guardConditionWithFormats(condition, cached, &formats)
-		if left != right || ln != rn || ls != rs || lo != ro || original.remaining != cached.remaining || original.Exhausted() != cached.Exhausted() {
+		if left != right || ln != rn || ls != rs || lo != ro || original.Remaining() != cached.Remaining() || original.Exhausted() != cached.Exhausted() {
 			t.Fatalf("warm memo changed local allowance %d", allowance)
 		}
 	}
@@ -50,11 +51,11 @@ func TestGuardFormatsPreserveSharedBudget(t *testing.T) {
 	var formats guardFormats
 	_, _, _, _ = guardConditionWithFormats(condition, nil, &formats)
 	for allowance := range 16 {
-		poolA, poolB := NewSearchBudget(allowance), NewSearchBudget(allowance)
+		poolA, poolB := proofs.NewSearchBudget(allowance), proofs.NewSearchBudget(allowance)
 		childA, childB := poolA.Within(16), poolB.Within(16)
 		left, ln, ls, lo := guardConditionWithin(condition, childA)
 		right, rn, rs, ro := guardConditionWithFormats(condition, childB, &formats)
-		if left != right || ln != rn || ls != rs || lo != ro || childA.remaining != childB.remaining || poolA.remaining != poolB.remaining ||
+		if left != right || ln != rn || ls != rs || lo != ro || childA.Remaining() != childB.Remaining() || poolA.Remaining() != poolB.Remaining() ||
 			childA.Exhausted() != childB.Exhausted() || childA.PoolExhausted() != childB.PoolExhausted() {
 			t.Fatalf("warm memo changed shared allowance %d", allowance)
 		}

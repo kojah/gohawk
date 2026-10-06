@@ -1,6 +1,7 @@
 package cancellationownership
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -33,7 +34,7 @@ type cancellationOwner struct {
 // constructor owner. A request-local cutoff is retained only by this classifier;
 // a fresh cancellation proof creates a new classifier and can search again.
 type cancellationOwnerProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Owner *cancellationOwner
 }
 
@@ -60,11 +61,11 @@ func (classifier *cancellationClassifier) ownerReturnLabel(returned *ssa.Return)
 
 // proveCancellationOwnerWithin establishes the narrow constructor-owner contract.
 // Interrupted censuses discard every hold and remain unavailable, not ownerless.
-func proveCancellationOwnerWithin(cancel ssa.Value, budget *ssaflow.SearchBudget) (proof cancellationOwnerProof) {
-	proof.Proof = ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+func proveCancellationOwnerWithin(cancel ssa.Value, budget *proofs.SearchBudget) (proof cancellationOwnerProof) {
+	proof.Proof = proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 	defer func() {
 		if budget.Exhausted() || budget.PoolExhausted() {
-			proof = cancellationOwnerProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}}
+			proof = cancellationOwnerProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 		}
 	}()
 	if !budget.Spend() || cancel == nil || cancel.Referrers() == nil {
@@ -94,14 +95,14 @@ func proveCancellationOwnerWithin(cancel ssa.Value, budget *ssaflow.SearchBudget
 		return proof
 	}
 	proof.Owner = &cancellationOwner{holds: holds}
-	proof.Proof = ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceOwnerStoredInField}
+	proof.Proof = proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceOwnerStoredInField}
 	return proof
 }
 
 // ownerField returns the owner field a store of the cancel reaches: the field
 // address the cancel is stored into, or the one a capturing closure is stored
 // into. carried reports that the store itself only moves the cancel there.
-func ownerField(store *ssa.Store, cancel ssa.Value, holds map[ssa.Instruction]bool, budget *ssaflow.SearchBudget) (*ssa.FieldAddr, bool) {
+func ownerField(store *ssa.Store, cancel ssa.Value, holds map[ssa.Instruction]bool, budget *proofs.SearchBudget) (*ssa.FieldAddr, bool) {
 	if field, ok := store.Addr.(*ssa.FieldAddr); ok {
 		// The field address must serve only this store, so no other write
 		// through it can replace the cancel before the owner is returned.
@@ -126,7 +127,7 @@ func ownerField(store *ssa.Store, cancel ssa.Value, holds map[ssa.Instruction]bo
 // call something else. The closure itself must have no use but being stored
 // into one owner field, or the cancel could be run or kept elsewhere.
 func closureOwnerField(
-	store *ssa.Store, cell *ssa.Alloc, cancel ssa.Value, holds map[ssa.Instruction]bool, budget *ssaflow.SearchBudget,
+	store *ssa.Store, cell *ssa.Alloc, cancel ssa.Value, holds map[ssa.Instruction]bool, budget *proofs.SearchBudget,
 ) (*ssa.FieldAddr, bool) {
 	var closure *ssa.MakeClosure
 	for user := range ssaflow.ReferrersWithin(cell, budget) {
@@ -173,7 +174,7 @@ func closureOwnerField(
 // the owner: writing or reading another field does not touch the cancel. A
 // use of the cancel's own field, such as a load that is later called, stays
 // with the ordinary classification.
-func ownerUsesVisible(alloc *ssa.Alloc, cancelField *ssa.FieldAddr, holds map[ssa.Instruction]bool, budget *ssaflow.SearchBudget) bool {
+func ownerUsesVisible(alloc *ssa.Alloc, cancelField *ssa.FieldAddr, holds map[ssa.Instruction]bool, budget *proofs.SearchBudget) bool {
 	for user := range ssaflow.ReferrersWithin(alloc, budget) {
 		switch typed := user.(type) {
 		case *ssa.FieldAddr:
@@ -211,6 +212,6 @@ func plainFieldAccess(access ssa.Instruction, field *ssa.FieldAddr) bool {
 	return false
 }
 
-func onlyUseWithin(value ssa.Value, user ssa.Instruction, budget *ssaflow.SearchBudget) bool {
+func onlyUseWithin(value ssa.Value, user ssa.Instruction, budget *proofs.SearchBudget) bool {
 	return budget.Spend() && value.Referrers() != nil && len(*value.Referrers()) == 1 && (*value.Referrers())[0] == user
 }

@@ -1,4 +1,4 @@
-package ssaflow
+package proof
 
 import (
 	"go/token"
@@ -59,6 +59,14 @@ func NewSearchBudget(limit int) *SearchBudget {
 		budget.site = budgetSite()
 	}
 	return budget
+}
+
+// Remaining reports the unspent local allowance for cost accounting. It does
+// not establish query availability: an enclosing pool may already be exhausted
+// while this budget still has local allowance. Spend retains that decision.
+// Call only for nonnil budgets; a nil budget represents unbounded work.
+func (budget *SearchBudget) Remaining() int {
+	return budget.remaining
 }
 
 // Spend charges one instruction and reports whether the walk may continue. A
@@ -148,7 +156,7 @@ func budgetSite() string {
 	for {
 		frame, more := frames.Next()
 		name := frame.Function
-		if !strings.HasSuffix(name, "ssaflow.NewSearchBudget") && !strings.HasSuffix(name, "ssaflow.(*SearchBudget).Within") {
+		if !strings.HasSuffix(name, "proof.NewSearchBudget") && !strings.HasSuffix(name, "proof.(*SearchBudget).Within") {
 			return strings.TrimPrefix(name, "github.com/kojah/gohawk/internal/")
 		}
 		if !more {

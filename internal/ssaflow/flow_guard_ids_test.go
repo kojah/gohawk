@@ -3,6 +3,8 @@ package ssaflow
 import (
 	"strings"
 	"testing"
+
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 func TestGuardIDsPreserveByteEqualityAndCutoff(t *testing.T) {
@@ -17,11 +19,11 @@ func TestGuardIDsPreserveByteEqualityAndCutoff(t *testing.T) {
 		t.Fatal("interleaved keys lost distinctness or identity")
 	}
 	before := len(ids.known)
-	cut := NewSearchBudget(1)
+	cut := proofs.NewSearchBudget(1)
 	if got := ids.within(left, cut); got != 0 || !cut.Exhausted() || len(ids.known) != before {
 		t.Fatal("cutoff published or interned a partial key")
 	}
-	if ids.within(nil, NewSearchBudget(0)) != 0 {
+	if ids.within(nil, proofs.NewSearchBudget(0)) != 0 {
 		t.Fatal("empty guard key must retain the zero ID")
 	}
 }
@@ -32,13 +34,13 @@ func TestGuardIDsPreserveLocalAndSharedCharges(t *testing.T) {
 	warm := ids.within(guards, nil)
 	for allowance := range 4 {
 		for _, pooled := range []bool{false, true} {
-			original, cached := NewSearchBudget(allowance), NewSearchBudget(allowance)
+			original, cached := proofs.NewSearchBudget(allowance), proofs.NewSearchBudget(allowance)
 			left, right := original, cached
 			if pooled {
 				left, right = original.Within(4), cached.Within(4)
 			}
 			encoded, id := guards.KeyWithin(left), ids.within(guards, right)
-			if left.remaining != right.remaining || original.remaining != cached.remaining ||
+			if left.Remaining() != right.Remaining() || original.Remaining() != cached.Remaining() ||
 				left.Exhausted() != right.Exhausted() || left.PoolExhausted() != right.PoolExhausted() {
 				t.Fatalf("interning changed allowance %d, pooled=%v", allowance, pooled)
 			}

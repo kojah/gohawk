@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -200,7 +200,7 @@ type regionGraph struct {
 	history map[slot]pointees
 	// order is the reverse postorder the fixpoint used.
 	order  []*ssa.BasicBlock
-	budget *ssaflow.SearchBudget
+	budget *proofs.SearchBudget
 	nilR   *region
 	unkR   *region
 	// ids number instructions and blocks so stamps are stable.
@@ -320,7 +320,7 @@ func buildRegionGraph(function *ssa.Function) *regionGraph {
 		views:     map[ssa.Value]sliceView{},
 		entry:     map[*ssa.BasicBlock]*regionState{},
 		history:   map[slot]pointees{},
-		budget:    ssaflow.NewSearchBudget(regionBuildBudget),
+		budget:    proofs.NewSearchBudget(regionBuildBudget),
 		ids:       map[ssa.Instruction]int{},
 		recorded:  map[ssa.Instruction]int{},
 		consulted: map[*ssa.Function]int{},

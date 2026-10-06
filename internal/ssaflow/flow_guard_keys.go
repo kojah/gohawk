@@ -1,9 +1,13 @@
 package ssaflow
 
-// Guard keys retain their existing byte grammar and equality, including any
-// delimiter collisions. A walk reuses a bounded window of rendered guard lists;
-// it still charges every guard before publishing that key. Stable is absent
-// from both the encoded key and this representation.
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+	// Guard keys retain their existing byte grammar and equality, including any
+	// delimiter collisions. A walk reuses a bounded window of rendered guard lists;
+	// it still charges every guard before publishing that key. Stable is absent
+	// from both the encoded key and this representation.
+)
+
 type guardKeyPart struct {
 	identity string
 	value    bool
@@ -30,7 +34,7 @@ type guardKeys struct {
 	next    int
 }
 
-func (keys *guardKeys) keyWithin(guards PathGuards, budget *SearchBudget) string {
+func (keys *guardKeys) keyWithin(guards PathGuards, budget *proofs.SearchBudget) string {
 	if keys == nil || len(guards) > GuardLimit {
 		return guards.KeyWithin(budget)
 	}

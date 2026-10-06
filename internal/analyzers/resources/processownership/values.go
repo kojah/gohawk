@@ -5,6 +5,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -156,7 +157,7 @@ func successfulCommandMerge(start *ssa.Call, command ssa.Value) *ssa.Phi {
 }
 
 type processGuardProof struct {
-	State  ssaflow.EvidenceState
+	State  proofs.EvidenceState
 	Reason processReason
 	NonNil ssa.Value
 }
@@ -170,7 +171,7 @@ type processGuardProof struct {
 // https://github.com/stacktower-io/stacktower/blob/69ff07430089898cc79af381f6e0c3a927a7d149/internal/cli/auth_device.go#L118-L124
 func proveImmediateProcessGuard(start *ssa.Call, command ssa.Value) processGuardProof {
 	if ssaflow.InstructionIndex(start) != len(start.Block().Instrs)-3 {
-		return processGuardProof{State: ssaflow.EvidenceDisproven}
+		return processGuardProof{State: proofs.EvidenceDisproven}
 	}
 	for _, guard := range start.Block().Succs {
 		if len(guard.Preds) != 1 || guard.Preds[0] != start.Block() || len(guard.Instrs) != 4 {
@@ -187,9 +188,9 @@ func proveImmediateProcessGuard(start *ssa.Call, command ssa.Value) processGuard
 		if ssaflow.DefinitelyNil(value) {
 			value = comparison.Y
 		}
-		return processGuardProof{State: ssaflow.EvidenceProven, Reason: reasonSuccessfulStartProcessNonNil, NonNil: value}
+		return processGuardProof{State: proofs.EvidenceProven, Reason: reasonSuccessfulStartProcessNonNil, NonNil: value}
 	}
-	return processGuardProof{State: ssaflow.EvidenceDisproven}
+	return processGuardProof{State: proofs.EvidenceDisproven}
 }
 
 // immediateProcessNilComparison matches a block that only reads the command's

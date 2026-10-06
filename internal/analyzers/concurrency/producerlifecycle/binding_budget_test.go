@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -22,12 +23,12 @@ func TestNonReceivingBindingAllowance(t *testing.T) {
 	fn := pkg.Func("subject")
 	launch := ssaflow.InstructionsOf[*ssa.Go](fn)[0]
 	t.Log(launch.String())
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	cut := pool.Within(32)
-	if proof := nonReceivingUses(launch, fn.Params[0], cut); proof.State != ssaflow.EvidenceUnknown || !cut.Exhausted() || pool.Exhausted() {
+	if proof := nonReceivingUses(launch, fn.Params[0], cut); proof.State != proofs.EvidenceUnknown || !cut.Exhausted() || pool.Exhausted() {
 		t.Fatalf("partial bindings=%+v exhausted=%v/%v", proof, cut.Exhausted(), pool.Exhausted())
 	}
-	fresh := pool.Within(ssaflow.SummaryBudget)
+	fresh := pool.Within(proofs.SummaryBudget)
 	if proof := nonReceivingUses(launch, fn.Params[0], fresh); !proof.Proven() || proof.Reason != reasonWorkerChannelUsesComplete || fresh.Exhausted() {
 		t.Fatalf("fresh bindings=%+v exhausted=%v", proof, fresh.Exhausted())
 	}

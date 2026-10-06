@@ -3,6 +3,7 @@ package resourcemodel
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -44,7 +45,7 @@ func Caller(rows, other *sql.Rows) bool {
 	if ConditionalRelease(call, caller.Params[0], "Close", false, predicate, nil) {
 		t.Fatal("conditional release without a budget was treated as proven")
 	}
-	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+	budget := proofs.NewSearchBudget(proofs.QueryBudget)
 	for index, path := range []string{"field:0", "field:1"} {
 		relation := ProveRelation(owner, caller.Params[index], call, budget)
 		if !relation.Proven() || !relation.Relation.At([]string{path}) {

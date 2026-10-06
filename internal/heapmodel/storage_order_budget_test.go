@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -51,12 +52,12 @@ func TestStoreFollowingKeepsFreshAllocationBoundary(t *testing.T) {
 
 func checkStoreFollowingAllowance(t *testing.T, cell ssa.Value, call *ssa.Call, last *ssa.Store, want bool) {
 	t.Helper()
-	cut := ssaflow.NewSearchBudget(1)
+	cut := proofs.NewSearchBudget(1)
 	if StoreMayFollowWithin(cell, call, last, cut) || !cut.Exhausted() {
 		t.Fatal("store-order query bypassed caller allowance")
 	}
-	for limit := 1; limit <= ssaflow.QueryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 1; limit <= proofs.QueryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		follows := StoreMayFollowWithin(cell, call, last, budget)
 		if budget.Exhausted() {
 			if follows {
@@ -74,8 +75,8 @@ func checkStoreFollowingAllowance(t *testing.T, cell ssa.Value, call *ssa.Call, 
 
 func checkStableContentsAllowance(t *testing.T, cell ssa.Value, call *ssa.Call, want bool) {
 	t.Helper()
-	for limit := 1; limit <= 10*ssaflow.QueryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 1; limit <= 10*proofs.QueryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		proof := NewStorage(budget).StableContent(cell, call)
 		if budget.Exhausted() {
 			if proof.Proven() {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -21,14 +22,14 @@ type resourceStorageProof struct {
 func (analysis *resourceAnalysis) resourceStorage(instruction ssa.Instruction) resourceStorageProof {
 	store, ok := instruction.(*ssa.Store)
 	if !ok {
-		return resourceStorageProof{resourceProof: resourceProof{State: ssaflow.EvidenceDisproven}}
+		return resourceStorageProof{resourceProof: resourceProof{State: proofs.EvidenceDisproven}}
 	}
 	if proof, known := analysis.stores[store]; known {
 		return proof
 	}
-	proof := proveResourceStorage(store, analysis.resource, analysis.budget(ssaflow.SummaryBudget))
+	proof := proveResourceStorage(store, analysis.resource, analysis.budget(proofs.SummaryBudget))
 	// An interrupted answer cannot poison a later query with fresh allowance.
-	if proof.State == ssaflow.EvidenceUnknown && proof.Reason == resourceReasonBudgetExhausted {
+	if proof.State == proofs.EvidenceUnknown && proof.Reason == resourceReasonBudgetExhausted {
 		return proof
 	}
 	if analysis.stores == nil {
@@ -44,8 +45,8 @@ func (analysis *resourceAnalysis) resourceStorage(instruction ssa.Instruction) r
 // and containment share budget; destination-origin and graph internals remain
 // independent costs. Default owner collection keeps its existing allowance.
 // https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/internal/admin/repository/sql_store.go#L73-L99
-func proveResourceStorage(instruction ssa.Instruction, resource ssa.Value, budget *ssaflow.SearchBudget) resourceStorageProof {
-	missing := resourceStorageProof{resourceProof: resourceProof{State: ssaflow.EvidenceDisproven}}
+func proveResourceStorage(instruction ssa.Instruction, resource ssa.Value, budget *proofs.SearchBudget) resourceStorageProof {
+	missing := resourceStorageProof{resourceProof: resourceProof{State: proofs.EvidenceDisproven}}
 	store, ok := instruction.(*ssa.Store)
 	if !ok {
 		return missing
@@ -56,7 +57,7 @@ func proveResourceStorage(instruction ssa.Instruction, resource ssa.Value, budge
 		derived = contains.Proven()
 	}
 	if resourceFlowExhausted(budget) {
-		return resourceStorageProof{resourceProof: resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
+		return resourceStorageProof{resourceProof: resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
 	}
 	if !derived {
 		return missing
@@ -68,14 +69,14 @@ func proveResourceStorage(instruction ssa.Instruction, resource ssa.Value, budge
 	return proveStorageDestination(store, owner, budget)
 }
 
-func proveStorageDestination(store *ssa.Store, owner ssa.Value, budget *ssaflow.SearchBudget) resourceStorageProof {
-	proof := resourceStorageProof{resourceProof: resourceProof{State: ssaflow.EvidenceDisproven}, Owner: owner}
+func proveStorageDestination(store *ssa.Store, owner ssa.Value, budget *proofs.SearchBudget) resourceStorageProof {
+	proof := resourceStorageProof{resourceProof: resourceProof{State: proofs.EvidenceDisproven}, Owner: owner}
 	if !budget.Spend() {
-		proof.State, proof.Reason = ssaflow.EvidenceUnknown, resourceReasonBudgetExhausted
+		proof.State, proof.Reason = proofs.EvidenceUnknown, resourceReasonBudgetExhausted
 		return proof
 	}
 	if ssaflow.ExternallyOwnedValue(owner) {
-		proof.State, proof.Reason = ssaflow.EvidenceProven, resourceReasonSettled
+		proof.State, proof.Reason = proofs.EvidenceProven, resourceReasonSettled
 		return proof
 	}
 	// A store through a pointer the caller supplied lands in caller-owned
@@ -86,14 +87,14 @@ func proveStorageDestination(store *ssa.Store, owner ssa.Value, budget *ssaflow.
 		return proof
 	}
 	if !budget.Spend() {
-		proof.State, proof.Reason = ssaflow.EvidenceUnknown, resourceReasonBudgetExhausted
+		proof.State, proof.Reason = proofs.EvidenceUnknown, resourceReasonBudgetExhausted
 		return proof
 	}
 	object, known := heapmodel.ExclusiveAt(store.Addr, store)
 	if !known {
-		proof.State, proof.Reason = ssaflow.EvidenceUnknown, resourceReasonIndirectDestinationUnknown
+		proof.State, proof.Reason = proofs.EvidenceUnknown, resourceReasonIndirectDestinationUnknown
 	} else if !object.Local {
-		proof.State, proof.Reason = ssaflow.EvidenceProven, resourceReasonSettled
+		proof.State, proof.Reason = proofs.EvidenceProven, resourceReasonSettled
 	}
 	return proof
 }

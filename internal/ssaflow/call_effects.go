@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"slices"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -24,7 +25,7 @@ const (
 // proof never establishes the absence of mutation or escape. Retention includes
 // returns and conservative local spills; it never proves ownership transfer.
 type CallEffectProof struct {
-	Proof
+	proofs.Proof
 	Effects CallEffect
 }
 
@@ -39,16 +40,16 @@ func (proof CallEffectProof) PreservesStorage() bool {
 // Bodies must be available. Opaque/dynamic calls, recursion and budget exhaustion
 // are unknown, never inferred pure from missing lifecycle-summary bits.
 type CallEffects struct {
-	budget *SearchBudget
+	budget *proofs.SearchBudget
 	memo   *CallGraphMemo[ssa.Value, CallEffect]
 	fields *CallGraphMemo[EmbeddedFieldPath, CallEffect]
 }
 
 // NewCallEffects constructs a query with a shared instruction budget. A nil
 // budget receives the same bounded 1000-step default as local storage queries.
-func NewCallEffects(budget *SearchBudget) *CallEffects {
+func NewCallEffects(budget *proofs.SearchBudget) *CallEffects {
 	if budget == nil {
-		budget = NewSearchBudget(QueryBudget)
+		budget = proofs.NewSearchBudget(proofs.QueryBudget)
 	}
 	return &CallEffects{budget: budget, memo: NewCallGraphMemo[ssa.Value, CallEffect]()}
 }
@@ -68,12 +69,12 @@ func (query *CallEffects) Call(instruction ssa.Instruction, value ssa.Value) Cal
 }
 
 func (query *CallEffects) proof(effects CallEffect) CallEffectProof {
-	proof := Proof{State: EvidenceProven, Reason: EvidenceCallEffectsKnown, Provenance: EvidenceFromLocalSSA}
+	proof := proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceCallEffectsKnown, Provenance: proofs.EvidenceFromLocalSSA}
 	if effects&effectUnknown != 0 {
-		proof.State, proof.Reason = EvidenceUnknown, EvidenceUnavailable
+		proof.State, proof.Reason = proofs.EvidenceUnknown, proofs.EvidenceUnavailable
 	}
 	if query.budget == nil || query.budget.Exhausted() || query.budget.PoolExhausted() {
-		proof.State, proof.Reason = EvidenceUnknown, EvidenceBudgetExhausted
+		proof.State, proof.Reason = proofs.EvidenceUnknown, proofs.EvidenceBudgetExhausted
 	}
 	return CallEffectProof{Proof: proof, Effects: effects & ^effectUnknown}
 }

@@ -1,6 +1,8 @@
 package resourcelifetime
 
-import "github.com/kojah/gohawk/internal/ssaflow"
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+)
 
 // resourceLifetimeReason owns resource evidence and policy classifications.
 // Rendering is deliberately separate from the flow and proof decisions.
@@ -206,19 +208,19 @@ func (reason resourceLifetimeReason) String() string {
 // resourceProof records analyzer-owned evidence. It does not inject resource
 // API contracts into the shared SSA reason domain.
 type resourceProof struct {
-	State      ssaflow.EvidenceState
+	State      proofs.EvidenceState
 	Reason     resourceLifetimeReason
-	Provenance ssaflow.EvidenceProvenance
+	Provenance proofs.EvidenceProvenance
 }
 
-func (proof resourceProof) Proven() bool { return proof.State == ssaflow.EvidenceProven }
+func (proof resourceProof) Proven() bool { return proof.State == proofs.EvidenceProven }
 
 // within discards query evidence if its child allowance or shared pool ran out.
 // Apply it after the authoritative query; an early witness is not a completed
 // proof when later work was cut. Available proofs keep their domain meaning.
-func (proof resourceProof) within(budget *ssaflow.SearchBudget) resourceProof {
+func (proof resourceProof) within(budget *proofs.SearchBudget) resourceProof {
 	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	return proof
 }

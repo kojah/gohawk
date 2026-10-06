@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,7 +15,7 @@ import (
 // and stable-guard evidence the state holds. Infeasibility here is always
 // a proof about the branch, never a guess about a mutable field.
 
-func lockSuccessorStates(pass *analysis.Pass, state lockFlowState, budget *ssaflow.SearchBudget) []lockFlowState {
+func lockSuccessorStates(pass *analysis.Pass, state lockFlowState, budget *proofs.SearchBudget) []lockFlowState {
 	block := state.block
 	states := make([]lockFlowState, 0, len(block.Succs))
 	// A local release flag can merge true and false after only one branch

@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -47,17 +48,17 @@ func unrelated(p *int) *owner { return new(owner) }
 				}
 			}
 			completed := false
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				pool := ssaflow.NewSearchBudget(limit)
-				budget := pool.Within(ssaflow.SummaryBudget)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				pool := proofs.NewSearchBudget(limit)
+				budget := pool.Within(proofs.SummaryBudget)
 				got := ProveReturnedOwnershipWithin(returned, fn.Params[0], nil, budget)
 				if budget.Exhausted() || budget.PoolExhausted() {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted {
+					if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted {
 						t.Fatalf("cutoff %d admitted %+v", limit, got)
 					}
 					continue
 				}
-				if limit == 0 || got.Proven() != test.owns || got.State == ssaflow.EvidenceUnknown {
+				if limit == 0 || got.Proven() != test.owns || got.State == proofs.EvidenceUnknown {
 					t.Fatalf("completed query = %+v, want ownership %t", got, test.owns)
 				}
 				completed = true
@@ -78,9 +79,9 @@ func returned(p *int) *owner { return opaque(p) }
 `)
 	fn := pkg.Func("returned")
 	returned := ssaflow.InstructionsOf[*ssa.Return](fn)[0]
-	pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
-	budget := pool.Within(ssaflow.SummaryBudget)
-	sibling := pool.Within(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
+	budget := pool.Within(proofs.SummaryBudget)
+	sibling := pool.Within(proofs.SummaryBudget)
 	called := false
 	hook := func(*ssa.Function, int) bool {
 		called = true
@@ -89,10 +90,10 @@ func returned(p *int) *owner { return opaque(p) }
 		return true
 	}
 	got := ProveReturnedOwnershipWithin(returned, fn.Params[0], hook, budget)
-	if !called || got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted {
+	if !called || got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted {
 		t.Fatalf("callback cutoff = %+v, called %t", got, called)
 	}
-	fresh := ProveReturnedOwnershipWithin(returned, fn.Params[0], func(*ssa.Function, int) bool { return true }, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	fresh := ProveReturnedOwnershipWithin(returned, fn.Params[0], func(*ssa.Function, int) bool { return true }, proofs.NewSearchBudget(proofs.SummaryBudget))
 	if !fresh.Proven() {
 		t.Fatal("fresh query failed to recover summary ownership")
 	}

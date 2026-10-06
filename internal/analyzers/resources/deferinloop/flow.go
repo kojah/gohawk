@@ -12,6 +12,7 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -34,7 +35,7 @@ type deferFlowState struct {
 // means a definitely live resource reaches the next iteration; unknown never
 // claims cleanup. The witness retains the selected evidence position.
 type deferLifetimeProof struct {
-	state    ssaflow.EvidenceState
+	state    proofs.EvidenceState
 	reason   deferReason
 	witness  ssa.Instruction
 	backedge *ssa.BasicBlock
@@ -53,7 +54,7 @@ func proveDeferLifetime(
 ) deferLifetimeProof {
 	index := ssaflow.InstructionIndex(deferred)
 	if index < 0 {
-		return deferLifetimeProof{state: ssaflow.EvidenceUnknown, reason: reasonDeferLocationUnknown, witness: deferred}
+		return deferLifetimeProof{state: proofs.EvidenceUnknown, reason: reasonDeferLocationUnknown, witness: deferred}
 	}
 	// A resource retained before its defer is no more iteration-local than one
 	// retained afterward. In particular append lowers to an indexed store
@@ -62,10 +63,10 @@ func proveDeferLifetime(
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](deferred.Parent()) {
 		retains := func(value ssa.Value) bool { return opaqueResourceUse(store, value) }
 		if ssaflow.InstructionDominates(store, deferred) && slices.ContainsFunc(obligation.values(), retains) {
-			return deferLifetimeProof{state: ssaflow.EvidenceUnknown, reason: reasonRetainedBeforeDefer, witness: store}
+			return deferLifetimeProof{state: proofs.EvidenceUnknown, reason: reasonRetainedBeforeDefer, witness: store}
 		}
 	}
-	proof := deferLifetimeProof{state: ssaflow.EvidenceDisproven, reason: reasonNoLiveBackedge, witness: deferred}
+	proof := deferLifetimeProof{state: proofs.EvidenceDisproven, reason: reasonNoLiveBackedge, witness: deferred}
 	unknownAtBackedge := false
 	initial := []deferFlowState{{block: deferred.Block(), index: index + 1, status: resourceLive}}
 	ssaflow.WalkStates(initial, func(state deferFlowState) deferFlowState { return state }, func(state deferFlowState) ([]deferFlowState, bool) {
@@ -73,7 +74,7 @@ func proveDeferLifetime(
 		// A branch a callee's proven result rules out is not a path to the
 		// backedge; feasibility only removes successors, it never adds one.
 		feasible := ssaflow.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
-			return knowledge.FeasibleSuccessors(block, predecessor, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+			return knowledge.FeasibleSuccessors(block, predecessor, proofs.NewSearchBudget(proofs.SummaryBudget))
 		}}.Successors(state.block, state.predecessor)
 		successors := make([]deferFlowState, 0, len(feasible))
 		for _, successor := range feasible {
@@ -81,7 +82,7 @@ func proveDeferLifetime(
 			if successor.Dominates(deferred.Block()) {
 				if status == resourceLive {
 					proof = deferLifetimeProof{
-						state: ssaflow.EvidenceProven, reason: reasonLiveAtBackedge, witness: deferred, backedge: state.block,
+						state: proofs.EvidenceProven, reason: reasonLiveAtBackedge, witness: deferred, backedge: state.block,
 					}
 					return nil, false
 				}
@@ -102,8 +103,8 @@ func proveDeferLifetime(
 	})
 	// An opaque path cannot erase a separate definitely-live witness. Only
 	// when no live path wins does unknown backedge evidence suppress the proof.
-	if proof.state != ssaflow.EvidenceProven && unknownAtBackedge {
-		proof.state, proof.reason = ssaflow.EvidenceUnknown, reasonLifetimeUnknownAtBackedge
+	if proof.state != proofs.EvidenceProven && unknownAtBackedge {
+		proof.state, proof.reason = proofs.EvidenceUnknown, reasonLifetimeUnknownAtBackedge
 	}
 	return proof
 }

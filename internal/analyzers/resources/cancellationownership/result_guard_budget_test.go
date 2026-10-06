@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/lifecycle"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -76,12 +77,12 @@ func TestCancellationResultGuardReturnCutoff(t *testing.T) {
 			if !ssaflow.InstructionDominates(query.guards[0].Defer, returned) {
 				continue
 			}
-			query.pool = ssaflow.NewSearchBudget(0)
+			query.pool = proofs.NewSearchBudget(0)
 			label, ok := query.resultGuardedReturn(returned)
 			if !ok || label.action != cancellationActionUnknown {
 				t.Fatalf("cut=%+v/%v", label, ok)
 			}
-			query.pool = ssaflow.NewSearchBudget(cancellationPoolBudget)
+			query.pool = proofs.NewSearchBudget(cancellationPoolBudget)
 			label, ok = query.resultGuardedReturn(returned)
 			if name == "released" && (!ok || label.action != cancellationActionRelease) {
 				t.Fatalf("fresh release=%+v/%v", label, ok)

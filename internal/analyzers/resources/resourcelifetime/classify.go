@@ -11,6 +11,7 @@ import (
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -63,7 +64,7 @@ type resourceAnalysis struct {
 	actions       map[ssa.Instruction]resourceAction
 	// pool is this acquisition's total across every query its proof asks;
 	// see budget.
-	pool *ssaflow.SearchBudget
+	pool *proofs.SearchBudget
 	// stores reuses one destination proof between release and opacity labels.
 	stores map[*ssa.Store]resourceStorageProof
 	// wrappers shares return classification evidence with owner disposition.
@@ -83,9 +84,9 @@ const resourcePoolBudget = 4 * releaseSearchBudget
 // give-ups inside it reach the probe, so a trace of the acquisition shows
 // where shared storage, summary, or completion evidence ran out, and these
 // queries stay bounded together.
-func (analysis *resourceAnalysis) budget(limit int) *ssaflow.SearchBudget {
+func (analysis *resourceAnalysis) budget(limit int) *proofs.SearchBudget {
 	if analysis.pool == nil {
-		analysis.pool = ssaflow.NewSearchBudget(resourcePoolBudget).Observed(analysis.probe.Observer())
+		analysis.pool = proofs.NewSearchBudget(resourcePoolBudget).Observed(analysis.probe.Observer())
 	}
 	return analysis.pool.Within(limit)
 }
@@ -114,8 +115,8 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	if analysis.compressionOutputAbandoned(instruction) {
 		return actionUnknown, resourceReasonCompressionOutputMayBeAbandoned
 	}
-	parent := proveSQLParentCleanupWithin(analysis.acquisition, instruction, analysis.budget(ssaflow.SummaryBudget))
-	if parent.State != ssaflow.EvidenceDisproven {
+	parent := proveSQLParentCleanupWithin(analysis.acquisition, instruction, analysis.budget(proofs.SummaryBudget))
+	if parent.State != proofs.EvidenceDisproven {
 		return actionUnknown, parent.Reason
 	}
 	if cancelsTransactionContext(analysis.acquisition, instruction) {
@@ -126,16 +127,16 @@ func (analysis *resourceAnalysis) classify(instruction ssa.Instruction) (resourc
 	}
 	common := ssaflow.InstructionCall(instruction)
 	ambiguous := analysis.proveAmbiguousCleanupWithin(instruction, common, analysis.budget(releaseSearchBudget))
-	if ambiguous.State != ssaflow.EvidenceDisproven {
+	if ambiguous.State != proofs.EvidenceDisproven {
 		return actionUnknown, ambiguous.Reason
 	}
 
 	paired := analysis.provePairedErrorCleanupWithin(instruction, common, analysis.budget(releaseSearchBudget))
-	if paired.State != ssaflow.EvidenceDisproven {
+	if paired.State != proofs.EvidenceDisproven {
 		return actionUnknown, paired.Reason
 	}
-	loopRelease := analysis.proveImportedLoopReleaseWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
-	if loopRelease.State != ssaflow.EvidenceDisproven {
+	loopRelease := analysis.proveImportedLoopReleaseWithin(instruction, common, analysis.budget(proofs.SummaryBudget))
+	if loopRelease.State != proofs.EvidenceDisproven {
 		return actionUnknown, loopRelease.Reason
 	}
 	if boundary, opaque := analysis.opaqueConsumption(instruction); opaque {
@@ -153,9 +154,9 @@ func releaseLabel(proof lifecyclefacts.Proof) (resourceAction, resourceLifetimeR
 		return actionSettled, resourceReasonSettled
 	}
 	switch proof.Reason {
-	case ssaflow.EvidenceBudgetExhausted:
+	case proofs.EvidenceBudgetExhausted:
 		return actionUnknown, resourceReasonBudgetExhausted
-	case ssaflow.EvidenceCompletionInCycle:
+	case proofs.EvidenceCompletionInCycle:
 		return actionUnknown, resourceReasonHelperCleanupInLoop
 	default:
 		return actionNone, resourceReasonNone
@@ -191,11 +192,11 @@ func (analysis *resourceAnalysis) compressionOutputAbandoned(instruction ssa.Ins
 func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction) (resourceLifetimeReason, bool) {
 	switch typed := instruction.(type) {
 	case *ssa.Return:
-		proof := analysis.returnedWrapperWithin(typed, analysis.budget(ssaflow.SummaryBudget))
-		return proof.Reason, proof.State != ssaflow.EvidenceDisproven
+		proof := analysis.returnedWrapperWithin(typed, analysis.budget(proofs.SummaryBudget))
+		return proof.Reason, proof.State != proofs.EvidenceDisproven
 	case *ssa.Store:
 		proof := analysis.resourceStorage(typed)
-		if proof.State == ssaflow.EvidenceUnknown {
+		if proof.State == proofs.EvidenceUnknown {
 			return proof.Reason, true
 		}
 		// An owner selected from a collection may already be retained elsewhere.
@@ -206,10 +207,10 @@ func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction)
 		if field && owner != nil && ssaflow.ElementOfAggregate(owner) {
 			return resourceReasonStoredOnCollectionOwner, true
 		}
-		wrapper := analysis.proveWrapperStoredOnForeignOwnerWithin(typed, analysis.budget(ssaflow.SummaryBudget))
-		return wrapper.Reason, wrapper.State != ssaflow.EvidenceDisproven
+		wrapper := analysis.proveWrapperStoredOnForeignOwnerWithin(typed, analysis.budget(proofs.SummaryBudget))
+		return wrapper.Reason, wrapper.State != proofs.EvidenceDisproven
 	case *ssa.Send:
-		if proof := analysis.responseBodyAggregateHandoff(typed.X, typed); proof.State == ssaflow.EvidenceUnknown {
+		if proof := analysis.responseBodyAggregateHandoff(typed.X, typed); proof.State == proofs.EvidenceUnknown {
 			return proof.Reason, true
 		}
 		return analysis.carriedPayload(typed.X, resourceReasonSentToChannel)
@@ -218,7 +219,7 @@ func (analysis *resourceAnalysis) opaqueConsumption(instruction ssa.Instruction)
 	case *ssa.Select:
 		for _, state := range typed.States {
 			if state.Send != nil {
-				if proof := analysis.responseBodyAggregateHandoff(state.Send, typed); proof.State == ssaflow.EvidenceUnknown {
+				if proof := analysis.responseBodyAggregateHandoff(state.Send, typed); proof.State == proofs.EvidenceUnknown {
 					return proof.Reason, true
 				}
 			}
@@ -239,13 +240,13 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	if common == nil {
 		return resourceReasonNone, false
 	}
-	carriedProof := analysis.proveCarriedArgumentsWithin(common, analysis.budget(ssaflow.SummaryBudget))
-	if carriedProof.State == ssaflow.EvidenceUnknown {
+	carriedProof := analysis.proveCarriedArgumentsWithin(common, analysis.budget(proofs.SummaryBudget))
+	if carriedProof.State == proofs.EvidenceUnknown {
 		return carriedProof.Reason, true
 	}
 	carried := carriedProof.Proven()
-	callback := analysis.provePossiblyRetainedCallbackWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
-	if callback.State != ssaflow.EvidenceDisproven {
+	callback := analysis.provePossiblyRetainedCallbackWithin(instruction, common, analysis.budget(proofs.SummaryBudget))
+	if callback.State != proofs.EvidenceDisproven {
 		return callback.Reason, true
 	}
 	// A helper may expose the exact resource asynchronously without itself
@@ -253,8 +254,8 @@ func (analysis *resourceAnalysis) opaqueCall(instruction ssa.Instruction, common
 	// preserving an address does not prove that a resource loaded through it
 	// stays owned here: the lifecycle-specific rules below still decide that.
 	if carried {
-		exposure := analysis.proveAsynchronousExposureWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
-		if exposure.State != ssaflow.EvidenceDisproven {
+		exposure := analysis.proveAsynchronousExposureWithin(instruction, common, analysis.budget(proofs.SummaryBudget))
+		if exposure.State != proofs.EvidenceDisproven {
 			return exposure.Reason, true
 		}
 	}
@@ -284,8 +285,8 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// A callee proven to store a constructor chain over the resource takes it,
 	// whether the chain derives from the resource directly or holds it inside
 	// an aggregate; see proveChainKeptWithin.
-	chain := analysis.proveChainKeptWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
-	if chain.State != ssaflow.EvidenceDisproven {
+	chain := analysis.proveChainKeptWithin(instruction, common, analysis.budget(proofs.SummaryBudget))
+	if chain.State != proofs.EvidenceDisproven {
 		return chain.Reason, true
 	}
 	if !carried {
@@ -295,8 +296,8 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// can outlive this call even when the helper returns nothing. A read-only
 	// helper is not an ownership handoff and must keep the obligation live.
 	// https://github.com/goshs-labs/goshs/blob/c65ca19696e87cd5ec2206b2a488c5f5f5b621db/smbserver/session.go#L135-L137
-	escape := analysis.proveAggregateOwnerEscapeWithin(instruction, common, analysis.budget(ssaflow.SummaryBudget))
-	if escape.State != ssaflow.EvidenceDisproven {
+	escape := analysis.proveAggregateOwnerEscapeWithin(instruction, common, analysis.budget(proofs.SummaryBudget))
+	if escape.State != proofs.EvidenceDisproven {
 		return escape.Reason, true
 	}
 	// A resource that reaches the callee only inside an aggregate argument is
@@ -308,13 +309,13 @@ func (analysis *resourceAnalysis) opaqueFunctionCall(instruction ssa.Instruction
 	// resource left behind in its argument is still leaked. oss-rebuild wraps a
 	// zip reader in an fs.FS wrapper and returns the loader's result:
 	// https://github.com/google/oss-rebuild/blob/9ce0528dd68bf209b52cc9fdc90bd63742cbb3a0/pkg/sysgraph/sgstorage/loader.go#L173-L179
-	aggregate := analysis.proveCarriedAggregateArgumentsWithin(common, analysis.budget(ssaflow.SummaryBudget))
-	if aggregate.State == ssaflow.EvidenceUnknown {
+	aggregate := analysis.proveCarriedAggregateArgumentsWithin(common, analysis.budget(proofs.SummaryBudget))
+	if aggregate.State == proofs.EvidenceUnknown {
 		return aggregate.Reason, true
 	}
 	if aggregate.Proven() {
-		publication := proveCallResultMayTransferWithin(instruction, analysis.budget(ssaflow.SummaryBudget))
-		if publication.State == ssaflow.EvidenceUnknown {
+		publication := proveCallResultMayTransferWithin(instruction, analysis.budget(proofs.SummaryBudget))
+		if publication.State == proofs.EvidenceUnknown {
 			return publication.Reason, true
 		}
 		if publication.Proven() {

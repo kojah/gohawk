@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -18,41 +19,41 @@ type workerReceiveKey struct {
 }
 
 type workerReceiveSearch struct {
-	memo    *ssaflow.CallGraphMemo[workerReceiveKey, ssaflow.Proof]
-	budget  *ssaflow.SearchBudget
+	memo    *ssaflow.CallGraphMemo[workerReceiveKey, proofs.Proof]
+	budget  *proofs.SearchBudget
 	matches func(*ssa.Function, ssa.Value, ssa.Value) bool
 }
 
-func newWorkerReceiveSearch(budget *ssaflow.SearchBudget, matches func(*ssa.Function, ssa.Value, ssa.Value) bool) *workerReceiveSearch {
+func newWorkerReceiveSearch(budget *proofs.SearchBudget, matches func(*ssa.Function, ssa.Value, ssa.Value) bool) *workerReceiveSearch {
 	return &workerReceiveSearch{
-		memo: ssaflow.NewCallGraphMemo[workerReceiveKey, ssaflow.Proof](), budget: budget, matches: matches,
+		memo: ssaflow.NewCallGraphMemo[workerReceiveKey, proofs.Proof](), budget: budget, matches: matches,
 	}
 }
 
-func (search *workerReceiveSearch) prove(function *ssa.Function, local ssa.Value) ssaflow.Proof {
+func (search *workerReceiveSearch) prove(function *ssa.Function, local ssa.Value) proofs.Proof {
 	if local == nil {
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
+		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}
 	}
-	return search.memo.Summarize(workerReceiveKey{function, local}, function, search.budget, func() ssaflow.Proof {
+	return search.memo.Summarize(workerReceiveKey{function, local}, function, search.budget, func() proofs.Proof {
 		return search.search(function, local)
-	}, func(reason ssaflow.SummaryUnavailable, _ ssaflow.Proof) ssaflow.Proof {
-		why := ssaflow.EvidenceSummaryBodyUnavailable
+	}, func(reason ssaflow.SummaryUnavailable, _ proofs.Proof) proofs.Proof {
+		why := proofs.EvidenceSummaryBodyUnavailable
 		switch reason {
 		case ssaflow.SummaryRecursive:
-			why = ssaflow.EvidenceSummaryRecursive
+			why = proofs.EvidenceSummaryRecursive
 		case ssaflow.SummaryBudgetExhausted:
-			why = ssaflow.EvidenceBudgetExhausted
+			why = proofs.EvidenceBudgetExhausted
 		case ssaflow.SummaryBodyUnavailable:
 		}
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: why}
+		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: why}
 	})
 }
 
-func (search *workerReceiveSearch) search(function *ssa.Function, local ssa.Value) ssaflow.Proof {
-	result := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound, Provenance: ssaflow.EvidenceFromLocalSSA}
+func (search *workerReceiveSearch) search(function *ssa.Function, local ssa.Value) proofs.Proof {
+	result := proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound, Provenance: proofs.EvidenceFromLocalSSA}
 	for instruction := range ssaflow.InstructionsWithin(function, search.budget) {
 		if receivesFromWithin(instruction, func(channel ssa.Value) bool { return search.matches(function, local, channel) }, search.budget) {
-			return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
+			return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA}
 		}
 		common := ssaflow.InstructionCall(instruction)
 		if common == nil {
@@ -62,20 +63,20 @@ func (search *workerReceiveSearch) search(function *ssa.Function, local ssa.Valu
 		if proof.Proven() {
 			return proof
 		}
-		if proof.State == ssaflow.EvidenceUnknown {
+		if proof.State == proofs.EvidenceUnknown {
 			result = proof
 		}
 	}
 	// Iterator cutoff preserves the same unavailable result as a body query;
 	// no incomplete negative answer may enter the memo.
 	if search.budget.Exhausted() {
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 	}
 	return result
 }
 
-func (search *workerReceiveSearch) throughCall(common *ssa.CallCommon, local ssa.Value) ssaflow.Proof {
-	result := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+func (search *workerReceiveSearch) throughCall(common *ssa.CallCommon, local ssa.Value) proofs.Proof {
+	result := proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 	derives := func(value ssa.Value) bool { return heapmodel.ValueDerivesFrom(value, local) }
 	callee, closure := ssaflow.DirectCallee(common)
 	for binding := range ssaflow.CallBindingsWithin(common, callee, closure, search.budget) {
@@ -86,12 +87,12 @@ func (search *workerReceiveSearch) throughCall(common *ssa.CallCommon, local ssa
 		if proof.Proven() {
 			return proof
 		}
-		if proof.State == ssaflow.EvidenceUnknown {
+		if proof.State == proofs.EvidenceUnknown {
 			result = proof
 		}
 	}
 	if search.budget.Exhausted() {
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 	}
 	if callee == nil {
 		carried := slices.ContainsFunc(common.Args, func(argument ssa.Value) bool {
@@ -100,10 +101,10 @@ func (search *workerReceiveSearch) throughCall(common *ssa.CallCommon, local ssa
 			return !search.budget.Spend() || derives(argument)
 		})
 		if search.budget.Exhausted() {
-			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+			return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 		}
 		if carried {
-			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceSummaryBodyUnavailable}
+			return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceSummaryBodyUnavailable}
 		}
 	}
 	return result

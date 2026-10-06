@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
@@ -81,26 +82,26 @@ func checkFreshResultProofs(t *testing.T, engine *Engine, functions []*ssa.Funct
 	t.Helper()
 	for _, function := range functions {
 		if function.Name() == "HeavyFold" {
-			got := engine.Function(function, ssaflow.NewSearchBudget(4*ssaflow.SummaryBudget))
+			got := engine.Function(function, proofs.NewSearchBudget(4*proofs.SummaryBudget))
 			if !got.Available || got.Result(0) != AlwaysNonNil {
 				t.Error("publication cutoff poisoned fresh folded result inference")
 			}
 		}
 		if function.Name() == "HeavyPredicate" {
-			got := engine.Function(function, ssaflow.NewSearchBudget(4*ssaflow.SummaryBudget))
+			got := engine.Function(function, proofs.NewSearchBudget(4*proofs.SummaryBudget))
 			if !got.Available || !got.Implies(ssaflow.ParameterNil(0), 0, ssaflow.OutcomeFalse) {
 				t.Error("publication cutoff poisoned fresh conditional inference")
 			}
 		}
 		if function.Name() == "HeavyIdentity" {
-			got := engine.Function(function, ssaflow.NewSearchBudget(4*ssaflow.SummaryBudget))
+			got := engine.Function(function, proofs.NewSearchBudget(4*proofs.SummaryBudget))
 			parameter, proven := got.ReturnedParameter(0)
 			if !got.Available || !proven || parameter != 0 {
 				t.Error("publication cutoff poisoned fresh returned-parameter inference")
 			}
 		}
 		if function.Name() == "Heavy" {
-			got := engine.Function(function, ssaflow.NewSearchBudget(2*ssaflow.SummaryBudget))
+			got := engine.Function(function, proofs.NewSearchBudget(2*proofs.SummaryBudget))
 			if !got.Available || !got.NeverReturns() {
 				t.Error("publication cutoff must not poison a fresh complete summary")
 			}

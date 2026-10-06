@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
@@ -281,7 +282,7 @@ func releasesField(pass *analysis.Pass, instruction ssa.Instruction, receiver ss
 			}
 		}
 		proof := lifecycle.ProveCompletion(lifecycle.CompletionRequest{
-			Instruction: instruction, Target: load, Methods: cleanup, Budget: ssaflow.NewSearchBudget(ssaflow.SummaryBudget),
+			Instruction: instruction, Target: load, Methods: cleanup, Budget: proofs.NewSearchBudget(proofs.SummaryBudget),
 		})
 		// An abandoned search counts as a release here, because both readers
 		// of ReleasedFields take a clear bit as a positive claim: the
@@ -289,7 +290,7 @@ func releasesField(pass *analysis.Pass, instruction ssa.Instruction, receiver ss
 		// caller must still release, and the cleanup contract withholds
 		// credit from a caller of this method. Guessing "released" can only
 		// hide a diagnostic; guessing "not released" can invent one.
-		if proof.Proven() || proof.Reason == ssaflow.EvidenceBudgetExhausted {
+		if proof.Proven() || proof.Reason == proofs.EvidenceBudgetExhausted {
 			return true
 		}
 		if imported, ok := importFact(pass, instruction); ok {
@@ -381,8 +382,8 @@ func (evidence *LifecycleEvidence) OwnedResult(call *ssa.Call) ([]string, int, b
 	if len(cleanup) == 0 {
 		reason = reasonOwnedResultUnreleasable
 	}
-	evidence.emit(EvidenceRequest{Instruction: call, Target: call}, Proof{Proof: ssaflow.Proof{
-		State: ssaflow.EvidenceProven, Provenance: ssaflow.EvidenceFromImportedFact,
+	evidence.emit(EvidenceRequest{Instruction: call, Target: call}, Proof{Proof: proofs.Proof{
+		State: proofs.EvidenceProven, Provenance: proofs.EvidenceFromImportedFact,
 	}, SummaryReason: reason})
 	return cleanup, index, len(cleanup) > 0
 }

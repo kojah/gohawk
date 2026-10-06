@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -13,7 +14,7 @@ import (
 // initialization at an earlier capture or observation; use WrittenOnceCellAtWithin
 // when that execution boundary matters. Nested census work shares budget;
 // cutoff discards the stored value. Nil budget retains the unbounded query.
-func WrittenOnceCellWithin(cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bool) {
+func WrittenOnceCellWithin(cell *ssa.Alloc, budget *proofs.SearchBudget) (ssa.Value, bool) {
 	store, ok := writtenOnceStoreWithin(cell, budget)
 	if !ok {
 		return nil, false
@@ -25,7 +26,7 @@ func WrittenOnceCellWithin(cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bo
 // dominates observation. This proves initialization at the caller-selected
 // instruction, not a universal capture or invocation policy. The census and
 // ordering share budget; callers retain availability before using rejection.
-func WrittenOnceCellAtWithin(cell *ssa.Alloc, observation ssa.Instruction, budget *SearchBudget) (ssa.Value, bool) {
+func WrittenOnceCellAtWithin(cell *ssa.Alloc, observation ssa.Instruction, budget *proofs.SearchBudget) (ssa.Value, bool) {
 	store, ok := writtenOnceStoreWithin(cell, budget)
 	if !ok || !InstructionDominatesWithin(store, observation, budget) {
 		return nil, false
@@ -36,7 +37,7 @@ func WrittenOnceCellAtWithin(cell *ssa.Alloc, observation ssa.Instruction, budge
 // Keep the exact store with the once-written identity evidence so consumers
 // that need execution order can apply their own observation boundary. The
 // identity-only API does not promise that a read occurs after this store.
-func writtenOnceStoreWithin(cell *ssa.Alloc, budget *SearchBudget) (*ssa.Store, bool) {
+func writtenOnceStoreWithin(cell *ssa.Alloc, budget *proofs.SearchBudget) (*ssa.Store, bool) {
 	if !budget.Spend() || cell.Referrers() == nil {
 		return nil, false
 	}
@@ -69,7 +70,7 @@ func writtenOnceStoreWithin(cell *ssa.Alloc, budget *SearchBudget) (*ssa.Store, 
 
 // capturedReadOnlyWithin reports whether closure, and every closure nested in it
 // that captures the same cell, only reads cell.
-func capturedReadOnlyWithin(closure *ssa.MakeClosure, cell ssa.Value, budget *SearchBudget) bool {
+func capturedReadOnlyWithin(closure *ssa.MakeClosure, cell ssa.Value, budget *proofs.SearchBudget) bool {
 	function, ok := closure.Fn.(*ssa.Function)
 	if !ok || !budget.Spend() {
 		return false

@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -41,9 +42,9 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 				}
 				evidence.ForCandidate(start.Pos())
 				probe := analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos())
-				proof := &commandProof{evidence: evidence, pool: ssaflow.NewSearchBudget(processPoolBudget).Observed(probe.Observer())}
+				proof := &commandProof{evidence: evidence, pool: proofs.NewSearchBudget(processPoolBudget).Observed(probe.Observer())}
 				decision := proveProcessStart(proof, function, start, command)
-				if decision.state != ssaflow.EvidenceProven {
+				if decision.state != proofs.EvidenceProven {
 					emitProcessDecision(pass, function, start, command, decision)
 					continue
 				}
@@ -69,7 +70,7 @@ func reportStartedCommand(pass *analysis.Pass, proof *commandProof, function *ss
 	result := proveProcessReturns(pass, proof, function, start, command)
 	command = result.command
 	emitProcessDecision(pass, function, start, command, result.decision)
-	if result.decision.state != ssaflow.EvidenceProven {
+	if result.decision.state != proofs.EvidenceProven {
 		return
 	}
 	subject := "the command"

@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -32,16 +33,16 @@ func opaque(value, other *resource, dst *holder) {
 `)
 	for _, test := range []struct {
 		name  string
-		state ssaflow.EvidenceState
+		state proofs.EvidenceState
 		owner bool
 	}{
-		{"foreign", ssaflow.EvidenceProven, true},
-		{"local", ssaflow.EvidenceDisproven, true},
-		{"unrelated", ssaflow.EvidenceDisproven, false},
-		{"contained", ssaflow.EvidenceProven, true},
-		{"indirect", ssaflow.EvidenceProven, true},
-		{"replaced", ssaflow.EvidenceDisproven, true},
-		{"opaque", ssaflow.EvidenceUnknown, true},
+		{"foreign", proofs.EvidenceProven, true},
+		{"local", proofs.EvidenceDisproven, true},
+		{"unrelated", proofs.EvidenceDisproven, false},
+		{"contained", proofs.EvidenceProven, true},
+		{"indirect", proofs.EvidenceProven, true},
+		{"replaced", proofs.EvidenceDisproven, true},
+		{"opaque", proofs.EvidenceUnknown, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
@@ -51,12 +52,12 @@ func opaque(value, other *resource, dst *holder) {
 			if baseline.State != test.state || (baseline.Owner != nil) != test.owner {
 				t.Fatalf("default storage = %+v, want %v/owner %v", baseline, test.state, test.owner)
 			}
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				pool := ssaflow.NewSearchBudget(limit)
-				budget := pool.Within(ssaflow.SummaryBudget)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				pool := proofs.NewSearchBudget(limit)
+				budget := pool.Within(proofs.SummaryBudget)
 				got := proveResourceStorage(store, fn.Params[0], budget)
 				if resourceFlowExhausted(budget) {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
+					if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
 						t.Fatalf("allowance %d retained interrupted storage: %+v", limit, got)
 					}
 					continue
@@ -83,7 +84,7 @@ func foreign(value *resource, dst *holder) { dst.value = value }
 	evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
 	query := &resourceAnalysis{
 		function: fn, resource: fn.Params[0], summaries: provider, evidence: evidence,
-		pool: ssaflow.NewSearchBudget(0),
+		pool: proofs.NewSearchBudget(0),
 	}
 	if action, reason := query.releasesOrdinaryResource(store); action != actionUnknown || reason != resourceReasonBudgetExhausted {
 		t.Fatalf("interrupted release = %v/%v", action, reason)
@@ -91,7 +92,7 @@ func foreign(value *resource, dst *holder) { dst.value = value }
 	if len(query.stores) != 0 {
 		t.Fatal("interrupted storage proof was memoized")
 	}
-	query.pool = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	query.pool = proofs.NewSearchBudget(proofs.SummaryBudget)
 	if action, reason := query.releasesOrdinaryResource(store); action != actionSettled || reason != resourceReasonSettled {
 		t.Fatalf("fresh release = %v/%v", action, reason)
 	}
@@ -100,7 +101,7 @@ func foreign(value *resource, dst *holder) { dst.value = value }
 	}
 	// Reuse needs no second containment/destination query. An empty replacement
 	// pool exposes any repeated work through its exhaustion marker.
-	query.pool = ssaflow.NewSearchBudget(0)
+	query.pool = proofs.NewSearchBudget(0)
 	if got := query.resourceStorage(store); !got.Proven() || query.pool.Exhausted() {
 		t.Fatalf("completed proof repeated work: %+v, exhausted %v", got, query.pool.Exhausted())
 	}

@@ -1,11 +1,14 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+	"golang.org/x/tools/go/ssa"
+	// StructurallyIdentical proves value identity from the value graph alone:
+	// one SSA value seen through wrappers, a phi whose alternatives all agree,
+	// or equal address selections. Distinct loads stay unknown here, even from
+	// the same address.
+)
 
-// StructurallyIdentical proves value identity from the value graph alone:
-// one SSA value seen through wrappers, a phi whose alternatives all agree,
-// or equal address selections. Distinct loads stay unknown here, even from
-// the same address.
 func StructurallyIdentical(left, right ssa.Value) bool {
 	return StructurallyIdenticalWithin(left, right, nil)
 }
@@ -13,7 +16,7 @@ func StructurallyIdentical(left, right ssa.Value) bool {
 // StructurallyIdenticalWithin charges structural comparisons and reaching-value
 // visits to budget. A cutoff supplies no identity evidence; false remains
 // unproved, never inequality. A nil budget retains the default structural policy.
-func StructurallyIdenticalWithin(left, right ssa.Value, budget *SearchBudget) bool {
+func StructurallyIdenticalWithin(left, right ssa.Value, budget *proofs.SearchBudget) bool {
 	if !budget.Spend() {
 		return false
 	}
@@ -50,19 +53,21 @@ func StructurallyIdenticalWithin(left, right ssa.Value, budget *SearchBudget) bo
 // ProveIdentityWithin shares budget across structural identity, both path
 // searches and step comparison. Exhaustion is an unknown proof with the budget
 // reason, never differing paths. Roots must already be established as equivalent.
-func ProveIdentityWithin(left, right AccessPath, budget *SearchBudget) IdentityProof {
-	unknown := func() IdentityProof {
-		reason := EvidenceUnavailable
+func ProveIdentityWithin(left, right AccessPath, budget *proofs.SearchBudget) proofs.IdentityProof {
+	unknown := func() proofs.IdentityProof {
+		reason := proofs.EvidenceUnavailable
 		if budget.Exhausted() {
-			reason = EvidenceBudgetExhausted
+			reason = proofs.EvidenceBudgetExhausted
 		}
-		return IdentityProof{Proof{State: EvidenceUnknown, Reason: reason}}
+		return proofs.IdentityProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: reason}}
 	}
 	if left.Value == nil || right.Value == nil {
 		return unknown()
 	}
 	if StructurallyIdenticalWithin(left.Value, right.Value, budget) {
-		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameValue, Provenance: EvidenceFromLocalSSA}}
+		return proofs.IdentityProof{Proof: proofs.Proof{
+			State: proofs.EvidenceProven, Reason: proofs.EvidenceSameValue, Provenance: proofs.EvidenceFromLocalSSA,
+		}}
 	}
 	if budget.Exhausted() {
 		return unknown()
@@ -76,10 +81,12 @@ func ProveIdentityWithin(left, right AccessPath, budget *SearchBudget) IdentityP
 		return unknown()
 	}
 	if sameAccessPathSteps(leftPath, rightPath, budget) {
-		return IdentityProof{Proof{State: EvidenceProven, Reason: EvidenceSameAccessPath, Provenance: EvidenceFromLocalSSA}}
+		return proofs.IdentityProof{Proof: proofs.Proof{
+			State: proofs.EvidenceProven, Reason: proofs.EvidenceSameAccessPath, Provenance: proofs.EvidenceFromLocalSSA,
+		}}
 	}
 	if budget.Exhausted() {
 		return unknown()
 	}
-	return IdentityProof{Proof{State: EvidenceDisproven, Reason: EvidenceNotFound, Provenance: EvidenceFromLocalSSA}}
+	return proofs.IdentityProof{Proof: proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound, Provenance: proofs.EvidenceFromLocalSSA}}
 }

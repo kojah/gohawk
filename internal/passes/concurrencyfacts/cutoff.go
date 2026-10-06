@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"strconv"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -116,7 +116,7 @@ func (engine *Engine) instantiatedCutoff(result Summary, call ssa.CallInstructio
 // It never reruns inference. A nil observer does no formatting or allocation.
 // Positions and SSA text are developer-local evidence, not serialized facts.
 // The call chain runs from the leaf outward and is explicitly marked if cut.
-func (summary Summary) ObserveCutoff(observer ssaflow.Observer) {
+func (summary Summary) ObserveCutoff(observer proofs.Observer) {
 	if observer == nil || summary.cutoff == nil || summary.Reason == ReasonNone {
 		return
 	}

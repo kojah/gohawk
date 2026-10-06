@@ -3,7 +3,7 @@ package goroutineownership
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -22,14 +22,14 @@ func enabled(done chan int){publish(done)}
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
-			pool := ssaflow.NewSearchBudget(spawnPoolBudget)
+			pool := proofs.NewSearchBudget(spawnPoolBudget)
 			child := pool.Within(test.parentLimit)
 			got := workerHandsOffOutputChannelWithin(fn, child)
 			t.Logf("%s: publishes=%v child exhausted=%v pool exhausted=%v", test.name, got, child.Exhausted(), pool.Exhausted())
 			if !child.Exhausted() || pool.Exhausted() || got {
 				t.Fatalf("unfinished publication query=%v, exhausted=%v/%v", got, child.Exhausted(), pool.Exhausted())
 			}
-			fresh := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+			fresh := proofs.NewSearchBudget(proofs.SummaryBudget)
 			if got := workerHandsOffOutputChannelWithin(fn, fresh); got != test.publishes || fresh.Exhausted() {
 				t.Fatalf("fresh publication query=%v, exhausted=%v", got, fresh.Exhausted())
 			}

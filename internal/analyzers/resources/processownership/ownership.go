@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -11,7 +12,7 @@ import (
 
 // processQueryBudget bounds one completion, transfer, or handoff question
 // the proof asks; exhaustion is unknown evidence, never a wait or a leak.
-const processQueryBudget = ssaflow.QueryBudget
+const processQueryBudget = proofs.QueryBudget
 
 // processPoolBudget shares one allowance across the candidate's completion,
 // transfer, discovery and reachability requests. A hundred query allowances
@@ -23,13 +24,13 @@ const processPoolBudget = 100 * processQueryBudget
 // lifecycle evidence its questions go through and the pool they draw on.
 type commandProof struct {
 	evidence *lifecyclefacts.LifecycleEvidence
-	pool     *ssaflow.SearchBudget
-	actions  map[commandActionKey]ssaflow.EvidenceState
+	pool     *proofs.SearchBudget
+	actions  map[commandActionKey]proofs.EvidenceState
 }
 
 // budget draws one query's allowance from the candidate's pool so the
 // give-ups inside it reach the trace and its requests share one allowance.
-func (proof *commandProof) budget() *ssaflow.SearchBudget {
+func (proof *commandProof) budget() *proofs.SearchBudget {
 	return proof.pool.Within(processQueryBudget)
 }
 
@@ -38,14 +39,14 @@ func (proof *commandProof) budget() *ssaflow.SearchBudget {
 // leaves ownership possibly registered, after Start it leaves the action
 // unknown, and neither is a reason to report.
 func abandoned(result lifecyclefacts.Proof) bool {
-	return result.Reason == ssaflow.EvidenceBudgetExhausted
+	return result.Reason == proofs.EvidenceBudgetExhausted
 }
 
-func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
-	if handoff := provePossibleWaitHandoff(instruction, command, proof.budget()); handoff.State == ssaflow.EvidenceUnknown {
-		return ssaflow.EvidenceUnknown
+func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, command ssa.Value) proofs.EvidenceState {
+	if handoff := provePossibleWaitHandoff(instruction, command, proof.budget()); handoff.State == proofs.EvidenceUnknown {
+		return proofs.EvidenceUnknown
 	}
-	if deferred := deferredClosureWaitsForCommand(instruction, command, proof.budget()); deferred != ssaflow.EvidenceDisproven {
+	if deferred := deferredClosureWaitsForCommand(instruction, command, proof.budget()); deferred != proofs.EvidenceDisproven {
 		return deferred
 	}
 	common := ssaflow.InstructionCall(instruction)
@@ -92,10 +93,10 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 		})
 		return ownership.Proven()
 	}
-	handle := ssaflow.EvidenceDisproven
+	handle := proofs.EvidenceDisproven
 	handles := func() bool {
 		handle = processHandleOwnershipAction(proof, instruction, command)
-		return handle == ssaflow.EvidenceProven
+		return handle == proofs.EvidenceProven
 	}
 	if waitsForCommand(instruction, command) ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
@@ -104,12 +105,12 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 		storesProcessHandleInExternalField(instruction, command) ||
 		handles() ||
 		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit")) {
-		return ssaflow.EvidenceProven
+		return proofs.EvidenceProven
 	}
-	if abandoned(ownership) || handle == ssaflow.EvidenceUnknown {
-		return ssaflow.EvidenceUnknown
+	if abandoned(ownership) || handle == proofs.EvidenceUnknown {
+		return proofs.EvidenceUnknown
 	}
-	return ssaflow.EvidenceDisproven
+	return proofs.EvidenceDisproven
 }
 
 func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa.Value) bool {
@@ -125,29 +126,29 @@ func storesProcessHandleInExternalField(instruction ssa.Instruction, command ssa
 	return ok && ssaflow.ExternallyOwnedValue(field.X)
 }
 
-func processHandleOwnershipAction(proof *commandProof, instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
+func processHandleOwnershipAction(proof *commandProof, instruction ssa.Instruction, command ssa.Value) proofs.EvidenceState {
 	if returned, ok := instruction.(*ssa.Return); ok && !returnsProcessHandle(returned, command) {
 		// A returned aggregate can keep the started child's lower-level handle
 		// without keeping exec.Cmd. Containment is a possible ownership handoff,
 		// not proof that the owner will Wait; PID-only projections do not qualify.
 		// https://github.com/criyle/go-sandbox/blob/6a60e40be9d0cefb656c4ae12415c5fd040df954/container/environment_linux.go#L266-L280
-		if owner := proveReturnedProcessOwner(returned, command, proof.budget()); owner.State != ssaflow.EvidenceDisproven {
-			return ssaflow.EvidenceUnknown
+		if owner := proveReturnedProcessOwner(returned, command, proof.budget()); owner.State != proofs.EvidenceDisproven {
+			return proofs.EvidenceUnknown
 		}
-		return ssaflow.EvidenceDisproven
+		return proofs.EvidenceDisproven
 	}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
-		return ssaflow.EvidenceDisproven
+		return proofs.EvidenceDisproven
 	}
 	// A helper handed the lower-level handle can reap the child without ever
 	// seeing exec.Cmd. Bind its Wait or returned-owner summary to that exact
 	// argument; incomplete searches remain unknown rather than absence of cleanup.
-	state := ssaflow.EvidenceDisproven
+	state := proofs.EvidenceDisproven
 	arguments := proof.budget()
 	for _, argument := range common.Args {
 		if !arguments.Spend() {
-			return ssaflow.EvidenceUnknown
+			return proofs.EvidenceUnknown
 		}
 		if !osProcessDerivedFromCommand(argument, command) {
 			continue
@@ -167,10 +168,10 @@ func processHandleOwnershipAction(proof *commandProof, instruction ssa.Instructi
 			},
 		})
 		if result.Proven() {
-			return ssaflow.EvidenceProven
+			return proofs.EvidenceProven
 		}
 		if abandoned(result) {
-			state = ssaflow.EvidenceUnknown
+			state = proofs.EvidenceUnknown
 		}
 	}
 	return state

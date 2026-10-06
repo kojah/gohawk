@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"slices"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -21,12 +22,12 @@ type FlowLocationKey struct {
 // budget. Block indexes are function-local, so keys must not be shared between
 // functions. Guard cutoff makes the key unavailable; WalkStatesWithin checks
 // that allowance before admitting it. A nil budget preserves guard rendering.
-func FlowLocationKeyWithin(block, predecessor *ssa.BasicBlock, index int, guards PathGuards, budget *SearchBudget) FlowLocationKey {
+func FlowLocationKeyWithin(block, predecessor *ssa.BasicBlock, index int, guards PathGuards, budget *proofs.SearchBudget) FlowLocationKey {
 	return flowLocationKeyWithMemo(block, predecessor, index, guards, budget, nil)
 }
 
 func flowLocationKeyWithMemo(
-	block, predecessor *ssa.BasicBlock, index int, guards PathGuards, budget *SearchBudget, keys *guardKeys,
+	block, predecessor *ssa.BasicBlock, index int, guards PathGuards, budget *proofs.SearchBudget, keys *guardKeys,
 ) FlowLocationKey {
 	predecessorIndex := -1
 	if predecessor != nil {
@@ -51,7 +52,7 @@ func WalkStates[S any, K comparable](initial []S, key func(S) K, step func(S) ([
 // admitting a partial key or successor list. Callers retain cutoff availability;
 // a nil budget preserves default expansion and early-stop policy.
 // The initial and callback successor slices remain owned by their callers.
-func WalkStatesWithin[S any, K comparable](initial []S, key func(S) K, step func(S) ([]S, bool), budget *SearchBudget) {
+func WalkStatesWithin[S any, K comparable](initial []S, key func(S) K, step func(S) ([]S, bool), budget *proofs.SearchBudget) {
 	queue := slices.Clone(initial)
 	head := 0
 	expanded := map[K]bool{}
@@ -99,7 +100,7 @@ func InstructionsReachableAfter(start ssa.Instruction) []ssa.Instruction {
 // InstructionsReachableAfterWithin charges the instruction and successor
 // census to budget. A partial result is usable only with its availability:
 // exhaustion never proves that an instruction cannot follow start.
-func InstructionsReachableAfterWithin(start ssa.Instruction, budget *SearchBudget) []ssa.Instruction {
+func InstructionsReachableAfterWithin(start ssa.Instruction, budget *proofs.SearchBudget) []ssa.Instruction {
 	if start == nil || start.Block() == nil {
 		return nil
 	}

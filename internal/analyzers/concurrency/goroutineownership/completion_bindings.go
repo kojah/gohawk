@@ -4,6 +4,7 @@ import (
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -23,7 +24,7 @@ func signalSuppliedAtCall(
 	function *ssa.Function,
 	closure *ssa.MakeClosure,
 	channel ssa.Value,
-	budget *ssaflow.SearchBudget,
+	budget *proofs.SearchBudget,
 ) ssa.Value { //nolint:ireturn // Completion signals retain their concrete SSA value types.
 	if supplied := completionValueAtCall(spawn, function, closure, channel, budget); supplied != nil {
 		return supplied
@@ -40,7 +41,7 @@ func signalSuppliedAtCall(
 // Captured cells must stay read-only in the worker and stable in its caller;
 // the first initializer is not a guarantee about a later asynchronous load.
 func completionValueAtCall(
-	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *ssaflow.SearchBudget,
+	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *proofs.SearchBudget,
 ) ssa.Value { //nolint:ireturn // Completion handles retain their concrete SSA value types.
 	storage := heapmodel.NewStorage(budget)
 	for _, captured := range []bool{true, false} {
@@ -86,7 +87,7 @@ func aggregateRoot(value ssa.Value) ssa.Value { //nolint:ireturn // Roots retain
 	return aggregateRootWithin(value, nil)
 }
 
-func aggregateRootWithin(value ssa.Value, budget *ssaflow.SearchBudget) ssa.Value { //nolint:ireturn // Roots retain their concrete SSA forms.
+func aggregateRootWithin(value ssa.Value, budget *proofs.SearchBudget) ssa.Value { //nolint:ireturn // Roots retain their concrete SSA forms.
 	for {
 		if !budget.Spend() {
 			return nil

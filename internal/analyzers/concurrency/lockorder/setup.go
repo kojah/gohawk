@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -26,11 +27,11 @@ type lockFunctionSetup struct {
 }
 
 type lockSetupProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	setup *lockFunctionSetup
 }
 
-func buildLockSetup(pass *analysis.Pass, function *ssa.Function, budget *ssaflow.SearchBudget) lockSetupProof {
+func buildLockSetup(pass *analysis.Pass, function *ssa.Function, budget *proofs.SearchBudget) lockSetupProof {
 	setup := &lockFunctionSetup{direct: map[ssa.Instruction]mutexEffect{}, summaries: map[ssa.Instruction][]mutexEffect{}}
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		setup.instructions = append(setup.instructions, instruction)
@@ -66,19 +67,19 @@ func buildLockSetup(pass *analysis.Pass, function *ssa.Function, budget *ssaflow
 	if budget.Exhausted() {
 		return unavailableLockSetup()
 	}
-	return lockSetupProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk}, setup: setup}
+	return lockSetupProof{Proof: proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk}, setup: setup}
 }
 
 func unavailableLockSetup() lockSetupProof {
-	return lockSetupProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}}
+	return lockSetupProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}}
 }
 
-func (setup *lockFunctionSetup) summarize(pass *analysis.Pass, pool *ssaflow.SearchBudget) bool {
+func (setup *lockFunctionSetup) summarize(pass *analysis.Pass, pool *proofs.SearchBudget) bool {
 	engine, _ := summaryKnowledge.Provider(pass).Concurrency()
 	if engine == nil {
 		return true
 	}
-	budget := pool.Within(ssaflow.SummaryBudget)
+	budget := pool.Within(proofs.SummaryBudget)
 	for _, call := range setup.calls {
 		if !pool.Spend() {
 			return false
@@ -109,7 +110,7 @@ func (setup *lockFunctionSetup) summarize(pass *analysis.Pass, pool *ssaflow.Sea
 	return true
 }
 
-func (setup *lockFunctionSetup) collectMetadata(budget *ssaflow.SearchBudget) {
+func (setup *lockFunctionSetup) collectMetadata(budget *proofs.SearchBudget) {
 	type firstAction struct {
 		operation mutexOperation
 		position  token.Pos

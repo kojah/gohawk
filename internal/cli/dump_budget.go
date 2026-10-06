@@ -11,8 +11,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
-
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"
 )
@@ -47,7 +46,7 @@ func printBudget(arguments []string, output, errorsOutput io.Writer) error {
 	exhaustions := map[exhaustionKey]int{}
 	var running exhaustionKey
 	restore := labelRuns(analyzers, func(analyzer, pkg string) { running.analyzer, running.pkg = analyzer, pkg })
-	stop := ssaflow.RecordExhaustions(func(exhaustion ssaflow.Exhaustion) {
+	stop := proofs.RecordExhaustions(func(exhaustion proofs.Exhaustion) {
 		running.Exhaustion = exhaustion
 		exhaustions[running]++
 	})
@@ -70,7 +69,7 @@ func printBudget(arguments []string, output, errorsOutput io.Writer) error {
 
 type exhaustionKey struct {
 	analyzer, pkg string
-	ssaflow.Exhaustion
+	proofs.Exhaustion
 }
 
 // labelRuns wraps the Run of every analyzer the selection needs, passes

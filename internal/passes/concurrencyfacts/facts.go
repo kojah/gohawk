@@ -13,6 +13,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -92,7 +93,7 @@ func run(pass *analysis.Pass) (any, error) {
 		}
 		probe := trace.For(pass, "concurrencyfacts", "", function.Pos())
 		probe.Candidate(trace.Step{Reason: ReasonSummarizing.String(), Outcome: trace.OutcomeObserved})
-		fact, ok := engine.exportFunction(function, ssaflow.NewSearchBudget(exportBudget))
+		fact, ok := engine.exportFunction(function, proofs.NewSearchBudget(exportBudget))
 		outcome, reason := trace.OutcomeUnknown, ReasonExportUnknown
 		if ok {
 			pass.ExportObjectFact(object, &publishedFact{factcodec.Wrap(fact)})
@@ -106,7 +107,7 @@ func run(pass *analysis.Pass) (any, error) {
 // exportFunction publishes the linear summary, or the path alternatives of a
 // function whose branches differ. The linear cache stays separate so a path
 // query never widens what linear consumers see.
-func (engine *Engine) exportFunction(function *ssa.Function, budget *ssaflow.SearchBudget) (Fact, bool) {
+func (engine *Engine) exportFunction(function *ssa.Function, budget *proofs.SearchBudget) (Fact, bool) {
 	result := engine.linear.Function(function, budget)
 	if fact, ok := exportSummary(function, result, budget); ok || result.Reason != ReasonBranchEffectsDiffer {
 		return fact, ok
@@ -124,7 +125,7 @@ func (engine *Engine) exportFunction(function *ssa.Function, budget *ssaflow.Sea
 // merely by crossing a package boundary. Local origins cannot be exported.
 // publishableShape reports whether a summary is one linear sequence a fact
 // can carry: no paths, pending defers, or replicated workers, within limits.
-func publishableShape(result Summary, budget *ssaflow.SearchBudget) bool {
+func publishableShape(result Summary, budget *proofs.SearchBudget) bool {
 	if !budget.Spend() || !composableLinear(result) || len(result.Paths) != 0 ||
 		len(result.Workers) > maxWorkers || len(result.deferred) != 0 {
 		return false
@@ -139,7 +140,7 @@ func publishableShape(result Summary, budget *ssaflow.SearchBudget) bool {
 	return count <= maxOperations
 }
 
-func exportSummary(function *ssa.Function, result Summary, budget *ssaflow.SearchBudget) (fact Fact, ok bool) {
+func exportSummary(function *ssa.Function, result Summary, budget *proofs.SearchBudget) (fact Fact, ok bool) {
 	fact = Fact{Version: factVersion}
 	// Publication is exhaustive. A later failure cannot retain earlier effects
 	// or cancellation requirements, including when inference came from cache.
@@ -183,7 +184,7 @@ func exportSummary(function *ssa.Function, result Summary, budget *ssaflow.Searc
 	return fact, true
 }
 
-func exportEffect(function *ssa.Function, operation Operation, budget *ssaflow.SearchBudget) (Effect, bool) {
+func exportEffect(function *ssa.Function, operation Operation, budget *proofs.SearchBudget) (Effect, bool) {
 	if !budget.Spend() {
 		return Effect{}, false
 	}

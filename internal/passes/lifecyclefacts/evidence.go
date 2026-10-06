@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -64,7 +65,7 @@ type EvidenceRequest struct {
 	Target      ssa.Value
 	Completion  *lifecycle.CompletionRequest
 	Transfer    *lifecycle.OwnershipTransferRequest
-	Local       *ssaflow.Proof
+	Local       *proofs.Proof
 	SelectMask  func(Fact) ParameterMask
 	// StrictImportedProjection lets one analyzer map a summary parameter to an
 	// exact, stable field/index path beneath its target. Ordinary fact matching
@@ -117,19 +118,19 @@ func (evidence *LifecycleEvidence) importedProof(request EvidenceRequest) (Proof
 		if receiver != nil && (ssaflow.ExternallyOwnedValue(receiver) || lifecycle.ValueHasTransferUse(receiver)) {
 			return importedProof(reasonReceiverStoreTransfer, requestedMethod(request)), true
 		}
-		return Proof{Proof: ssaflow.Proof{
-			State: ssaflow.EvidenceDisproven, Provenance: ssaflow.EvidenceFromImportedFact,
+		return Proof{Proof: proofs.Proof{
+			State: proofs.EvidenceDisproven, Provenance: proofs.EvidenceFromImportedFact,
 		}, SummaryReason: reasonReceiverDoesNotEscape}, true
 	}
 
 	importedRequested := request.SelectMask != nil || request.ReceiverStore
 	if importedRequested && !summarized {
-		return Proof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}, true
+		return Proof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}, true
 	}
 	if importedRequested && summarized {
-		return Proof{Proof: ssaflow.Proof{
-			State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound,
-			Provenance: ssaflow.EvidenceFromImportedFact,
+		return Proof{Proof: proofs.Proof{
+			State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound,
+			Provenance: proofs.EvidenceFromImportedFact,
 		}}, true
 	}
 	return Proof{}, false
@@ -163,7 +164,7 @@ func (evidence *LifecycleEvidence) selectedMaskProof(request EvidenceRequest, fa
 	if factArgumentMatches(request.Instruction, request.Target, mask, heapmodel.MayAlias) {
 		// The summary is known, but which value receives its guarantee is
 		// not. This is neither completion nor evidence of missing cleanup.
-		return Proof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}, true
+		return Proof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}, true
 	}
 	return Proof{}, false
 }
@@ -193,7 +194,7 @@ func (evidence *LifecycleEvidence) argumentCaseCompletes(request EvidenceRequest
 }
 
 func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) Proof {
-	proof := Proof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+	proof := Proof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	if request.Local != nil {
 		proof.Proof = *request.Local
 		if proof.Proven() {
@@ -234,13 +235,13 @@ func (evidence *LifecycleEvidence) localProof(request EvidenceRequest) Proof {
 // abandonedSearch reports whether a local walk gave up before deciding: it ran
 // out of budget, or found its only completion inside a loop.
 func abandonedSearch(proof Proof) bool {
-	return proof.Reason == ssaflow.EvidenceBudgetExhausted || proof.Reason == ssaflow.EvidenceCompletionInCycle
+	return proof.Reason == proofs.EvidenceBudgetExhausted || proof.Reason == proofs.EvidenceCompletionInCycle
 }
 
 func importedProof(reason Reason, method string) Proof {
-	return Proof{Proof: ssaflow.Proof{
-		State: ssaflow.EvidenceProven, Method: method,
-		Provenance: ssaflow.EvidenceFromImportedFact,
+	return Proof{Proof: proofs.Proof{
+		State: proofs.EvidenceProven, Method: method,
+		Provenance: proofs.EvidenceFromImportedFact,
 	}, SummaryReason: reason}
 }
 
@@ -280,11 +281,11 @@ func (evidence *LifecycleEvidence) emit(request EvidenceRequest, proof Proof) {
 	}
 	outcome := analysisTrace.OutcomeUnknown
 	switch proof.State {
-	case ssaflow.EvidenceProven:
+	case proofs.EvidenceProven:
 		outcome = analysisTrace.OutcomeAccepted
-	case ssaflow.EvidenceDisproven:
+	case proofs.EvidenceDisproven:
 		outcome = analysisTrace.OutcomeRejected
-	case ssaflow.EvidenceUnknown:
+	case proofs.EvidenceUnknown:
 	}
 	details := evidenceDetails(request.Instruction, request.Target)
 	details["question"] = request.question()

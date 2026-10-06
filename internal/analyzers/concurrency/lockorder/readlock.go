@@ -10,6 +10,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -44,7 +45,7 @@ func reportReadLockWrites(
 ) {
 	proof := proveReadLockWrite(instruction, held, readHeld, lockValues, possibleWriters, flow.setup.calls, flow.fieldEvidence, flow.budget)
 	traceLockDiagnostic(flow.pass, check.LockReadLockWrite, instruction.Pos(), proof.lockDiagnosticProof)
-	if proof.state != ssaflow.EvidenceProven {
+	if proof.state != proofs.EvidenceProven {
 		return
 	}
 	// Branch evidence can visit one write repeatedly. Keep proof and tracing
@@ -80,9 +81,9 @@ type readLockWriteProof struct {
 // full owner-query order, while a reportable candidate ends the search.
 func proveReadLockWrite(
 	instruction ssa.Instruction, held, readHeld []string,
-	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer, calls []*ssa.Call, fields readLockFieldEvidence, budget *ssaflow.SearchBudget,
+	lockValues map[string][]ssa.Value, possibleWriters []*ssa.Defer, calls []*ssa.Call, fields readLockFieldEvidence, budget *proofs.SearchBudget,
 ) readLockWriteProof {
-	proof := readLockWriteProof{lockDiagnosticProof: lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}}
+	proof := readLockWriteProof{lockDiagnosticProof: lockDiagnosticProof{proofs.EvidenceDisproven, lockReasonNone}}
 	for _, identity := range readHeld {
 		// A lock the flow already transferred or released is no longer held,
 		// even if it was taken for reading earlier on this path.
@@ -98,14 +99,14 @@ func proveReadLockWrite(
 			// ownership that same-owner matching cannot resolve. This is uncertainty,
 			// not proof that the setter is safe or that it uses a different mutex.
 			// https://github.com/apache/skywalking-rover/blob/e83d5925500a7e63dd55c080a9b1542d6cedaefb/pkg/tools/buffer/buffer.go#L629-L649
-			if guard := fields.guard(instruction); guard.state == ssaflow.EvidenceUnknown {
+			if guard := fields.guard(instruction); guard.state == proofs.EvidenceUnknown {
 				proof = readLockWriteProof{guard, identity}
 				continue
 			}
 			// A fresh wrapper can carry a borrowed map or slice. Exclusivity must
 			// belong to the actual destination, not merely the lock's receiver.
 			if storage, known := heapmodel.ExclusiveAt(readLockWriteDestination(instruction), instruction); known && storage.Local {
-				proof = readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonPrivateWriteStorage}, identity}
+				proof = readLockWriteProof{lockDiagnosticProof{proofs.EvidenceDisproven, lockReasonPrivateWriteStorage}, identity}
 				continue
 			}
 			// A writer guard may be owned by another object. Without guard
@@ -113,18 +114,18 @@ func proveReadLockWrite(
 			// readers serialize this write unknown, not proven safe.
 			// https://github.com/rfjakob/gocryptfs/blob/842af4463989ee6808d397433e9aba8517e49c89/internal/fusefrontend/file.go#L409-L430
 			if writeLockHeld(held, readHeld) {
-				proof = readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonExclusiveWriterUnknown}, identity}
+				proof = readLockWriteProof{lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonExclusiveWriterUnknown}, identity}
 				continue
 			}
 			writer := provePossibleWriterAt(possibleWriters, instruction, calls, budget)
 			if !writer.Known() {
-				return readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}, identity}
+				return readLockWriteProof{lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonLockStateBudgetExhausted}, identity}
 			}
 			if writer.Proven() {
-				proof = readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonImportedWriterGuardUnknown}, identity}
+				proof = readLockWriteProof{lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonImportedWriterGuardUnknown}, identity}
 				continue
 			}
-			return readLockWriteProof{lockDiagnosticProof{ssaflow.EvidenceProven, lockReasonReadLockWrite}, identity}
+			return readLockWriteProof{lockDiagnosticProof{proofs.EvidenceProven, lockReasonReadLockWrite}, identity}
 		}
 	}
 	return proof
@@ -236,7 +237,7 @@ type readLockFieldEvidence struct {
 	unavailable bool
 }
 
-func collectReadLockFieldEvidence(functions []*ssa.Function, budget *ssaflow.SearchBudget) readLockFieldEvidence {
+func collectReadLockFieldEvidence(functions []*ssa.Function, budget *proofs.SearchBudget) readLockFieldEvidence {
 	result := readLockFieldEvidence{unscoped: map[*types.Var]bool{}}
 	for _, function := range functions {
 		if !budget.Spend() {
@@ -285,12 +286,12 @@ func collectReadLockFieldEvidence(functions []*ssa.Function, budget *ssaflow.Sea
 
 func (fields readLockFieldEvidence) guard(instruction ssa.Instruction) lockDiagnosticProof {
 	if fields.unavailable {
-		return lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}
+		return lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonLockStateBudgetExhausted}
 	}
 	if store, ok := instruction.(*ssa.Store); ok && fields.unscoped[storedField(store)] {
-		return lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonFieldGuardUnknown}
+		return lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonFieldGuardUnknown}
 	}
-	return lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}
+	return lockDiagnosticProof{proofs.EvidenceDisproven, lockReasonNone}
 }
 
 func storedField(store *ssa.Store) *types.Var {

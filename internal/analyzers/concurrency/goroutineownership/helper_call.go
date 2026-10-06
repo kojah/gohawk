@@ -2,6 +2,7 @@ package goroutineownership
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,9 +17,9 @@ type helperCallProof struct {
 	reason goroutineOwnershipReason
 }
 
-func (analysis *spawnAnalysis) helperCallResult(action ownershipAction, budget *ssaflow.SearchBudget) helperCallProof {
+func (analysis *spawnAnalysis) helperCallResult(action ownershipAction, budget *proofs.SearchBudget) helperCallProof {
 	if budget.Exhausted() {
-		budget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
+		budget.Observe(proofs.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
 			return map[string]string{"phase": "helper-call"}
 		})
 		return helperCallProof{action: actionUnknown, reason: reasonHelperCallBudgetExhausted}
@@ -69,7 +70,7 @@ func (analysis *spawnAnalysis) helperAction(
 // completion. A completion handle also needs exact binding: containment includes
 // old stores and aggregate projections, which supply only possible shutdown.
 // https://github.com/jech/galene/blob/6d9338e909fdecdd906150e4dda34e10d9869654/rtpconn/webclient.go#L878-L894
-func boundHelperAction(supplied ssa.Value, tracked trackedValue, effect ownershipAction, budget *ssaflow.SearchBudget) ownershipAction {
+func boundHelperAction(supplied ssa.Value, tracked trackedValue, effect ownershipAction, budget *proofs.SearchBudget) ownershipAction {
 	if effect != actionJoin {
 		return effect
 	}

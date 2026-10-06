@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -45,7 +46,7 @@ func TestStateWorklistPreservesOrderBudgetAndInputs(t *testing.T) {
 	for _, allowance := range []int{8, 9} {
 		storage := []int{0, 1, -1, -1, -1, -1}
 		var keyed, expanded []int
-		budget := NewSearchBudget(allowance)
+		budget := proofs.NewSearchBudget(allowance)
 		WalkStatesWithin(storage[:2], func(state int) int {
 			keyed = append(keyed, state)
 			return state
@@ -102,7 +103,7 @@ func BenchmarkPathGuardKey(b *testing.B) {
 }
 
 func TestPathGuardKeyBytesAndBudget(t *testing.T) {
-	zero := NewSearchBudget(0)
+	zero := proofs.NewSearchBudget(0)
 	if got := PathGuards(nil).KeyWithin(zero); got != "" || zero.Exhausted() {
 		t.Fatal("an empty key must not spend the visit allowance")
 	}
@@ -110,19 +111,19 @@ func TestPathGuardKeyBytesAndBudget(t *testing.T) {
 	if got := guards.KeyWithin(nil); got != "value:%;==true;=false" {
 		t.Fatalf("unexpected key %q", got)
 	}
-	if got := guards.KeyWithin(NewSearchBudget(1)); got != "" {
+	if got := guards.KeyWithin(proofs.NewSearchBudget(1)); got != "" {
 		t.Fatalf("partial key escaped cutoff: %q", got)
 	}
-	budget := NewSearchBudget(2)
+	budget := proofs.NewSearchBudget(2)
 	if got := guards.KeyWithin(budget); got != "value:%;==true;=false" || budget.Exhausted() {
 		t.Fatalf("exact-budget key %q unavailable", got)
 	}
-	pool := NewSearchBudget(1)
+	pool := proofs.NewSearchBudget(1)
 	child := pool.Within(2)
 	if got := guards.KeyWithin(child); got != "" || !child.PoolExhausted() {
 		t.Fatalf("partial pool key %q escaped cutoff", got)
 	}
-	pool = NewSearchBudget(2)
+	pool = proofs.NewSearchBudget(2)
 	child = pool.Within(2)
 	if got := guards.KeyWithin(child); got != "value:%;==true;=false" || child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("exact pool key %q unavailable", got)
@@ -155,11 +156,11 @@ func TestReachabilityQueuePreservesRevisitChargesAndSeeds(t *testing.T) {
 	storage := []*ssa.BasicBlock{left, right, sentinel, sentinel}
 	seeds := storage[:2]
 	// Three edges and five queued visits, including two revisits, cost eight.
-	cut := NewSearchBudget(7)
+	cut := proofs.NewSearchBudget(7)
 	if blockReachableFromWithin(seeds, target, cut) || !cut.Exhausted() {
 		t.Fatal("a partial visit allowance established reachability")
 	}
-	exact := NewSearchBudget(8)
+	exact := proofs.NewSearchBudget(8)
 	if !blockReachableFromWithin(seeds, target, exact) || exact.Exhausted() {
 		t.Fatal("the exact visit allowance lost reachability")
 	}

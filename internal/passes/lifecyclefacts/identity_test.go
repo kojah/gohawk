@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
-	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 )
 
@@ -51,7 +51,7 @@ func forward(a, b func(), pick bool) {
 	proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
 		Instruction: call, Target: fn.Params[0], SelectMask: func(fact Fact) ParameterMask { return fact.InvokedParameters() },
 	})
-	if proof.State != ssaflow.EvidenceUnknown {
+	if proof.State != proofs.EvidenceUnknown {
 		t.Errorf("ambiguous imported callback proof = %#v, want unknown", proof)
 	}
 }
@@ -123,11 +123,11 @@ func run(c *command, n int) { helper(c, n) }
 	proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
 		Instruction: call, Target: target,
 		Completion: &lifecycle.CompletionRequest{
-			Instruction: call, Target: target, Methods: []string{"Wait"}, Budget: ssaflow.NewSearchBudget(1),
+			Instruction: call, Target: target, Methods: []string{"Wait"}, Budget: proofs.NewSearchBudget(1),
 		},
 		Transfer: &lifecycle.OwnershipTransferRequest{Instruction: call, Value: target, Modes: lifecycle.TransferStoredInGlobal},
 	})
-	if proof.State == ssaflow.EvidenceDisproven || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+	if proof.State == proofs.EvidenceDisproven || proof.Reason != proofs.EvidenceBudgetExhausted {
 		t.Errorf("abandoned completion = %#v, want an undecided budget-exhausted proof", proof)
 	}
 }

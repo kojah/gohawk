@@ -1,6 +1,7 @@
 package heapmodel
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -32,7 +33,7 @@ func ValueDerivesFrom(value, source ssa.Value) bool {
 // ValueDerivesFromWithin shares derivation visits with budget. Alias dispatch
 // is charged, but graph construction and alias-query internals remain separate
 // costs. Exhaustion is unavailable, never evidence that source is absent.
-func ValueDerivesFromWithin(value, source ssa.Value, budget *ssaflow.SearchBudget) bool {
+func ValueDerivesFromWithin(value, source ssa.Value, budget *proofs.SearchBudget) bool {
 	return ssaflow.DerivesFromWithin(value, source, func(left, right ssa.Value) bool {
 		return budget.Spend() && MayAlias(left, right)
 	}, budget)

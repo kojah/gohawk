@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -175,7 +176,7 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 		return mappedLocal{local: parameter, supplied: argument, kind: localCallback}, true
 	}
 	projection := heapmodel.ProveStrictProjectionPathWithin(argument, target, search.budget)
-	if projection.Reason == ssaflow.EvidenceBudgetExhausted {
+	if projection.Reason == proofs.EvidenceBudgetExhausted {
 		search.memo.Incomplete()
 		*search.incomplete = true
 		return mappedLocal{}, false
@@ -195,7 +196,7 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 	switch {
 	case ProveMayContainValueWithin(argument, target, search.budget).Proven():
 		stored := heapmodel.ProveStoredPathWithin(argument, target, invocation, search.budget)
-		if stored.Reason == ssaflow.EvidenceBudgetExhausted {
+		if stored.Reason == proofs.EvidenceBudgetExhausted {
 			search.memo.Incomplete()
 			*search.incomplete = true
 			return mappedLocal{}, false
@@ -212,7 +213,7 @@ func (search *completionSearch) argumentLocal(parameter, argument, target ssa.Va
 // otherwise. The target is storage beneath the owner, not its stored value;
 // a matching cleanup must select the same path, never a sibling field.
 // https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L286-L299
-func sameValueStorageOwner(target, argument ssa.Value, budget *ssaflow.SearchBudget) ssa.Value { //nolint:ireturn // SSA values keep their concrete forms.
+func sameValueStorageOwner(target, argument ssa.Value, budget *proofs.SearchBudget) ssa.Value { //nolint:ireturn // SSA values keep their concrete forms.
 	switch target.(type) {
 	case *ssa.FieldAddr, *ssa.IndexAddr:
 		if ssaflow.ValueIsAccessPathFromWithin(target, argument, budget) {
@@ -249,12 +250,12 @@ func sameValueStorageOwner(target, argument ssa.Value, budget *ssaflow.SearchBud
 // receiverProof keeps a possible aggregate cleanup separate from an exact
 // receiver match. Only the latter can supply a must-complete action.
 type receiverProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Possible bool
 }
 
 // receives proves whether a call receiver stands for the caller's target.
-func (local mappedLocal) receives(receiver, target ssa.Value, budget *ssaflow.SearchBudget) receiverProof {
+func (local mappedLocal) receives(receiver, target ssa.Value, budget *proofs.SearchBudget) receiverProof {
 	if receiver == nil {
 		return receiverMatchProof(false)
 	}
@@ -270,7 +271,7 @@ func (local mappedLocal) receives(receiver, target ssa.Value, budget *ssaflow.Se
 				// Possible cleanup remains uncertainty, including a loop's
 				// dynamic element. It must never become a must-complete action.
 				if heapmodel.ValueDerivesFromWithin(receiver, local.local, budget) {
-					return receiverProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}, Possible: true}
+					return receiverProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}, Possible: true}
 				}
 				return receiverMatchProof(false)
 			}
@@ -293,14 +294,14 @@ func (local mappedLocal) receives(receiver, target ssa.Value, budget *ssaflow.Se
 }
 
 func receiverMatchProof(matches bool) receiverProof {
-	state, reason := ssaflow.EvidenceDisproven, ssaflow.EvidenceUnavailable
+	state, reason := proofs.EvidenceDisproven, proofs.EvidenceUnavailable
 	if matches {
-		state, reason = ssaflow.EvidenceProven, ssaflow.EvidenceCalledCompletion
+		state, reason = proofs.EvidenceProven, proofs.EvidenceCalledCompletion
 	}
-	return receiverProof{Proof: ssaflow.Proof{State: state, Reason: reason}}
+	return receiverProof{Proof: proofs.Proof{State: state, Reason: reason}}
 }
 
-func exactCleanupReceiver(receiver, parameter ssa.Value, budget *ssaflow.SearchBudget) bool {
+func exactCleanupReceiver(receiver, parameter ssa.Value, budget *proofs.SearchBudget) bool {
 	if receiver == nil || parameter == nil || !budget.Spend() {
 		return false
 	}
@@ -316,7 +317,7 @@ func exactCleanupReceiver(receiver, parameter ssa.Value, budget *ssaflow.SearchB
 // An independent storage child cutoff cannot become a cached negative mapping.
 func (search *completionSearch) deferredBindingValue(binding, target ssa.Value, invocation ssa.Instruction) heapmodel.StoredValue {
 	stored := deferredBindingValue(binding, target, invocation, search.budget)
-	if stored.Reason == ssaflow.EvidenceBudgetExhausted {
+	if stored.Reason == proofs.EvidenceBudgetExhausted {
 		search.memo.Incomplete()
 		*search.incomplete = true
 	}

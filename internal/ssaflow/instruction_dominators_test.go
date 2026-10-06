@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -39,7 +40,7 @@ func TestStrictDominatingInstructions(t *testing.T) {
 
 func checkDominatingAllowance(t *testing.T, pivot ssa.Instruction, want []ssa.Instruction) {
 	t.Helper()
-	pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 	for limit := range 1000 {
 		child := pool.Within(limit)
 		got := slices.Collect(ssaflow.InstructionsStrictlyDominatingWithin(pivot, child))
@@ -52,7 +53,7 @@ func checkDominatingAllowance(t *testing.T, pivot ssa.Instruction, want []ssa.In
 		if pool.Exhausted() || len(got) > len(want) || !slices.Equal(got, want[:len(got)]) {
 			t.Fatal("cutoff changed prefix or exhausted parent")
 		}
-		fresh := slices.Collect(ssaflow.InstructionsStrictlyDominatingWithin(pivot, pool.Within(ssaflow.SummaryBudget)))
+		fresh := slices.Collect(ssaflow.InstructionsStrictlyDominatingWithin(pivot, pool.Within(proofs.SummaryBudget)))
 		if !slices.Equal(fresh, want) {
 			t.Fatal("fresh child did not recover")
 		}

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -15,18 +16,18 @@ func subject(a, b bool) bool { condition := a && b; if condition { return true }
 `)
 	phi := InstructionsOf[*ssa.Phi](pkg.Func("subject"))[0]
 	for predecessor, operand := range PhiIncoming(phi) {
-		fresh := NewSearchBudget(QueryBudget)
+		fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 		if got := BranchValueWithin(phi, phi.Block(), predecessor, fresh); got != operand || fresh.Exhausted() {
 			t.Fatal("fresh selection must preserve the actual incoming operand")
 		}
-		for limit := range QueryBudget - fresh.remaining {
-			cut := NewSearchBudget(limit)
+		for limit := range proofs.QueryBudget - fresh.Remaining() {
+			cut := proofs.NewSearchBudget(limit)
 			if got := BranchValueWithin(phi, phi.Block(), predecessor, cut); got != nil || !cut.Exhausted() {
 				t.Fatal("interrupted phi selection must supply no operand")
 			}
 		}
 	}
-	if got := BranchValueWithin(phi, pkg.Func("subject").Blocks[0], phi.Block().Preds[0], NewSearchBudget(QueryBudget)); got != phi {
+	if got := BranchValueWithin(phi, pkg.Func("subject").Blocks[0], phi.Block().Preds[0], proofs.NewSearchBudget(proofs.QueryBudget)); got != phi {
 		t.Fatal("a historical phi must not select a different block's incoming path")
 	}
 }
@@ -59,21 +60,22 @@ func compared() { if count() > 0 { println(1) } }
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			branch := InstructionsOf[*ssa.If](pkg.Func(test.name))[0]
-			fresh := NewSearchBudget(QueryBudget)
+			fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 			holds, known := BranchBoolWithin(branch.Cond, branch.Block(), nil, fresh)
 			if known != test.known || known && !holds || fresh.Exhausted() {
 				t.Fatal("fresh evidence must preserve literal-only return policy")
 			}
-			for limit := range QueryBudget - fresh.remaining {
-				cut := NewSearchBudget(limit)
+			for limit := range proofs.QueryBudget - fresh.Remaining() {
+				cut := proofs.NewSearchBudget(limit)
 				if _, known := BranchBoolWithin(branch.Cond, branch.Block(), nil, cut); known || !cut.Exhausted() {
 					t.Fatal("interrupted helper/comparison evidence cannot decide a branch")
 				}
 			}
-			if got := FeasibleSuccessorsWithin(branch.Block(), nil, NewSearchBudget(QueryBudget)); !slices.Equal(got, FeasibleSuccessors(branch.Block(), nil)) {
+			freshBudget := proofs.NewSearchBudget(proofs.QueryBudget)
+			if got := FeasibleSuccessorsWithin(branch.Block(), nil, freshBudget); !slices.Equal(got, FeasibleSuccessors(branch.Block(), nil)) {
 				t.Fatal("fresh feasibility must retain default successors")
 			}
-			cut := NewSearchBudget(0)
+			cut := proofs.NewSearchBudget(0)
 			if got := FeasibleSuccessorsWithin(branch.Block(), nil, cut); !slices.Equal(got, branch.Block().Succs) || !cut.Exhausted() {
 				t.Fatal("cutoff must retain all successors without pruning")
 			}
@@ -95,7 +97,7 @@ func second() { if oversized() { marker() } }
 		known bool
 	}{{"first", true}, {"second", false}} {
 		branch := InstructionsOf[*ssa.If](pkg.Func(test.name))[0]
-		budget := NewSearchBudget(QueryBudget)
+		budget := proofs.NewSearchBudget(proofs.QueryBudget)
 		_, known := BranchBoolWithin(branch.Cond, branch.Block(), nil, budget)
 		if known != test.known || budget.Exhausted() {
 			t.Fatal("the independent helper cap must not exhaust the caller allowance")
@@ -112,12 +114,12 @@ func subject() { if helper() { cleanup() } }
 `
 	pkg := ssaflowtest.BuildPackage(t, "literal", source)
 	function := pkg.Func("subject")
-	budget := NewSearchBudget(QueryBudget)
+	budget := proofs.NewSearchBudget(proofs.QueryBudget)
 	flow := ObligationFlow{Budget: budget, Instruction: func(instruction ssa.Instruction) ObligationAction {
 		if _, ok := instruction.(*ssa.If); ok {
 			// The helper is within its own cap but exceeds the caller's
 			// remaining allowance. No classifier answer is interrupted here.
-			for budget.remaining > 32 {
+			for budget.Remaining() > 32 {
 				budget.Spend()
 			}
 		}
@@ -129,7 +131,7 @@ func subject() { if helper() { cleanup() } }
 	if got := EvaluateObligationFromEntry(function, flow); got != ObligationUncertain || !budget.Exhausted() {
 		t.Fatal("interrupted helper feasibility cannot prove honored coverage")
 	}
-	flow.Budget = NewSearchBudget(QueryBudget)
+	flow.Budget = proofs.NewSearchBudget(proofs.QueryBudget)
 	flow.Instruction = func(instruction ssa.Instruction) ObligationAction {
 		if call, ok := instruction.(*ssa.Call); ok && call.Common().StaticCallee() == pkg.Func("cleanup") {
 			return ObligationExact

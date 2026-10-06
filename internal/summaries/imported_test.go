@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
@@ -32,7 +33,7 @@ func TestBrokerLocalAndImportedParity(t *testing.T) {
 					}
 				}
 				if function.Name() == "Lock" {
-					bound, available := provider.ConcurrencyAtCall(call, ssaflow.NewSearchBudget(2000))
+					bound, available := provider.ConcurrencyAtCall(call, proofs.NewSearchBudget(2000))
 					if available != Available || !bound.Complete() || len(bound.Operations) != 2 {
 						t.Fatalf("bound effects: %+v", bound)
 					}
@@ -62,7 +63,7 @@ func assertBrokerDeclaration(t *testing.T, view Function, name string) {
 			t.Fatalf("lifecycle declaration: %+v (%v)", fact, available)
 		}
 	case "Result":
-		fact, available := view.Results(ssaflow.NewSearchBudget(2000))
+		fact, available := view.Results(proofs.NewSearchBudget(2000))
 		if available != Available || fact.Result(0) != resultfacts.AlwaysNil {
 			t.Fatalf("result declaration: %+v (%v)", fact, available)
 		}

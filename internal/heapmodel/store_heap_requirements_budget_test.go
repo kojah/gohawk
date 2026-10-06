@@ -3,6 +3,7 @@ package heapmodel
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	. "github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -55,10 +56,10 @@ func exactEverywhere(flag bool) { if flag { mark(); return }; mark() }
 		common := InstructionCall(instruction)
 		return common != nil && CallName(common) == "mark"
 	}
-	if onEveryReturn(function, NewSearchBudget(0), calls) {
+	if onEveryReturn(function, proofs.NewSearchBudget(0), calls) {
 		t.Fatal("an exhausted path search established a requirement")
 	}
-	if !onEveryReturn(function, NewSearchBudget(100), calls) {
+	if !onEveryReturn(function, proofs.NewSearchBudget(100), calls) {
 		t.Fatal("a bounded search missed calls on every return")
 	}
 }

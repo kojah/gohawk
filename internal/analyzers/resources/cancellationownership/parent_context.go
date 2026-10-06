@@ -2,6 +2,7 @@ package cancellationownership
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -12,7 +13,7 @@ import (
 // Signal registrations still require their own stop function; cancellation of
 // their parent does not unregister them. Wrapped and merged parents stay opaque.
 // https://github.com/crazy-max/diun/blob/269cb27295944aeacfe549d24ab7ac483e600aa9/internal/notif/apprise/client.go#L91-L94
-func parentCancellationClassifier(call *ssa.Call, observer ssaflow.Observer) *cancellationClassifier {
+func parentCancellationClassifier(call *ssa.Call, observer proofs.Observer) *cancellationClassifier {
 	contract, ok := cancellationContractFor(call.Common())
 	if !ok || contract.packagePath != "context" || len(call.Common().Args) == 0 {
 		return nil
@@ -22,7 +23,7 @@ func parentCancellationClassifier(call *ssa.Call, observer ssaflow.Observer) *ca
 	// same source variable may subsequently hold the child instead of its parent.
 	// https://github.com/werf/nelm/blob/6393382d695e65d8d8f744cf590337fe62a83eef/pkg/action/release_install.go#L179-L190
 	parentValue := call.Common().Args[0]
-	if resolved := heapmodel.NewStorage(ssaflow.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Resolve(parentValue); resolved.Proven() {
+	if resolved := heapmodel.NewStorage(proofs.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Resolve(parentValue); resolved.Proven() {
 		parentValue = resolved.Value
 	}
 	parent, ok := parentValue.(*ssa.Extract)

@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -112,15 +112,15 @@ func probe(a,b *int, p, q *box, pick bool, idx int, w *box) { `+test.body+` }
 }
 
 // aliasReasons names the rule behind selected answers.
-var aliasReasons = map[string]EvidenceReason{
-	"fieldsOfOneObject":        EvidenceDisjointPaths,
-	"elementsApart":            EvidenceDisjointPaths,
-	"sameFieldTwoObjects":      EvidenceDisjointObjects,
-	"callResults":              EvidenceDisjointObjects,
-	"localAndParameter":        EvidenceUnescapedLocal,
-	"escapedLocalAndParameter": EvidenceUnescapedLocal,
-	"elementAndStar":           EvidenceSharedSlot,
-	"loadsAcrossCall":          EvidenceSharedSlot,
+var aliasReasons = map[string]proofs.EvidenceReason{
+	"fieldsOfOneObject":        proofs.EvidenceDisjointPaths,
+	"elementsApart":            proofs.EvidenceDisjointPaths,
+	"sameFieldTwoObjects":      proofs.EvidenceDisjointObjects,
+	"callResults":              proofs.EvidenceDisjointObjects,
+	"localAndParameter":        proofs.EvidenceUnescapedLocal,
+	"escapedLocalAndParameter": proofs.EvidenceUnescapedLocal,
+	"elementAndStar":           proofs.EvidenceSharedSlot,
+	"loadsAcrossCall":          proofs.EvidenceSharedSlot,
 }
 
 func unwrapInterface(value ssa.Value) ssa.Value { //nolint:ireturn // Test helper over SSA forms.

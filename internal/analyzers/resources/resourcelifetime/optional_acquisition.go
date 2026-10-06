@@ -10,6 +10,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -26,22 +27,22 @@ type optionalAcquisitionProof struct {
 	acquiredSuccessor *ssa.BasicBlock
 }
 
-func proveOptionalAcquisitionWithin(call *ssa.Call, resource, errorValue ssa.Value, budget *ssaflow.SearchBudget) optionalAcquisitionProof {
+func proveOptionalAcquisitionWithin(call *ssa.Call, resource, errorValue ssa.Value, budget *proofs.SearchBudget) optionalAcquisitionProof {
 	if !budget.Spend() {
-		return optionalAcquisitionProof{proof: resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
+		return optionalAcquisitionProof{proof: resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
 	}
 	proof := findOptionalAcquisitionWithin(call, resource, errorValue, budget)
 	// Reachability and phi queries return no match at cutoff. Only the complete
 	// finder may supply a correlation or completed decline; discard every field
 	// of an interrupted candidate before the flow can bind its resource phi.
 	if resourceFlowExhausted(budget) {
-		return optionalAcquisitionProof{proof: resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
+		return optionalAcquisitionProof{proof: resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
 	}
 	return proof
 }
 
-func findOptionalAcquisitionWithin(call *ssa.Call, resource, errorValue ssa.Value, budget *ssaflow.SearchBudget) optionalAcquisitionProof {
-	unmatched := optionalAcquisitionProof{proof: resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}}
+func findOptionalAcquisitionWithin(call *ssa.Call, resource, errorValue ssa.Value, budget *proofs.SearchBudget) optionalAcquisitionProof {
+	unmatched := optionalAcquisitionProof{proof: resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonUntouched}}
 	if call == nil || resource == nil || errorValue == nil || len(call.Block().Succs) != 1 {
 		return unmatched
 	}
@@ -90,9 +91,9 @@ func findOptionalAcquisitionWithin(call *ssa.Call, resource, errorValue ssa.Valu
 	}
 	return optionalAcquisitionProof{
 		proof: resourceProof{
-			State:      ssaflow.EvidenceProven,
+			State:      proofs.EvidenceProven,
 			Reason:     optionalAcquisitionSuccessPhi,
-			Provenance: ssaflow.EvidenceFromLocalSSA,
+			Provenance: proofs.EvidenceFromLocalSSA,
 		},
 		resourcePhi:       resourcePhi,
 		merge:             merge,
@@ -105,7 +106,7 @@ func (proof optionalAcquisitionProof) Proven() bool {
 	return proof.proof.Proven()
 }
 
-func exactOptionalPhiWithin(merge, acquisitionBlock *ssa.BasicBlock, acquired ssa.Value, budget *ssaflow.SearchBudget) *ssa.Phi {
+func exactOptionalPhiWithin(merge, acquisitionBlock *ssa.BasicBlock, acquired ssa.Value, budget *proofs.SearchBudget) *ssa.Phi {
 	var matched *ssa.Phi
 	for _, instruction := range merge.Instrs {
 		if !budget.Spend() {

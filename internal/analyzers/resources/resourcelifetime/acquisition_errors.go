@@ -10,6 +10,7 @@ import (
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -25,14 +26,14 @@ type acquisitionErrorResultProof struct {
 	value ssa.Value
 }
 
-func proveAcquisitionErrorResultWithin(call *ssa.Call, budget *ssaflow.SearchBudget) acquisitionErrorResultProof {
+func proveAcquisitionErrorResultWithin(call *ssa.Call, budget *proofs.SearchBudget) acquisitionErrorResultProof {
 	results, ok := call.Type().(*types.Tuple)
 	if !ok || results.Len() < 2 {
-		return acquisitionErrorResultProof{proof: resourceProof{State: ssaflow.EvidenceDisproven}}
+		return acquisitionErrorResultProof{proof: resourceProof{State: proofs.EvidenceDisproven}}
 	}
 	last := results.Len() - 1
 	if !types.Identical(results.At(last).Type(), types.Universe.Lookup("error").Type()) {
-		return acquisitionErrorResultProof{proof: resourceProof{State: ssaflow.EvidenceDisproven}}
+		return acquisitionErrorResultProof{proof: resourceProof{State: proofs.EvidenceDisproven}}
 	}
 	// The success guard must track the error paired with the acquisition, not
 	// assume it occupies slot one. termios.Pty returns (master, slave, err):
@@ -41,7 +42,7 @@ func proveAcquisitionErrorResultWithin(call *ssa.Call, budget *ssaflow.SearchBud
 	proof := carriedValueProof(value != nil, resourceReasonNone, budget)
 	// An unavailable error lookup cannot activate ownership on the failed
 	// acquisition edge. Only a completed search may supply an absent extract.
-	if proof.State == ssaflow.EvidenceUnknown {
+	if proof.State == proofs.EvidenceUnknown {
 		value = nil
 	}
 	return acquisitionErrorResultProof{proof: proof, value: value}
@@ -56,7 +57,7 @@ type resourceBranchProof struct {
 // interrupted query must not activate ownership or admit a partial edge list.
 func proveResourceSuccessBranch(
 	pass *analysis.Pass, knowledge *summaries.Provider, block, successor *ssa.BasicBlock,
-	errorValue ssa.Value, candidate token.Pos, budget *ssaflow.SearchBudget,
+	errorValue ssa.Value, candidate token.Pos, budget *proofs.SearchBudget,
 ) resourceBranchProof {
 	if !budget.Spend() {
 		return resourceBranchProof{resourceProof: carriedValueProof(false, resourceReasonNone, budget)}
@@ -78,7 +79,7 @@ func proveResourceSuccessBranch(
 	// https://github.com/prometheus/node_exporter/blob/a4e08d1d9a152f67ef781469eade6b0bf431994d/collector/ethtool_linux_test.go#L62-L74
 	// https://github.com/pocketbase/pocketbase/blob/bc8ffed4e7265a70a6e8de76c0b0b48b945e19ef/tools/filesystem/internal/fileblob/fileblob.go#L428-L436
 	proof := resourceAbsentErrorCheck(knowledge, branch.Cond, errorValue, budget)
-	if proof.State == ssaflow.EvidenceUnknown {
+	if proof.State == proofs.EvidenceUnknown {
 		return resourceBranchProof{resourceProof: proof}
 	}
 	if proof.Proven() && successor == block.Succs[0] {
@@ -96,7 +97,7 @@ func proveResourceSuccessBranch(
 	return resourceBranchProof{resourceProof: proof, success: proof.Proven() && success}
 }
 
-func testifyNoErrorSuccessBranch(branch *ssa.If, successor *ssa.BasicBlock, errorValue ssa.Value, budget *ssaflow.SearchBudget) (bool, bool) {
+func testifyNoErrorSuccessBranch(branch *ssa.If, successor *ssa.BasicBlock, errorValue ssa.Value, budget *proofs.SearchBudget) (bool, bool) {
 	call, ok := branch.Cond.(*ssa.Call)
 	if !ok || !ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestifyNoError) || len(call.Common().Args) < 2 ||
 		!heapmodel.MayAliasAnyWithin(call.Common().Args[1], []ssa.Value{errorValue}, budget) {
@@ -111,7 +112,7 @@ func testifyNoErrorSuccessBranch(branch *ssa.If, successor *ssa.BasicBlock, erro
 }
 
 func resourceAbsentErrorCheck(
-	knowledge *summaries.Provider, condition, errorValue ssa.Value, budget *ssaflow.SearchBudget,
+	knowledge *summaries.Provider, condition, errorValue ssa.Value, budget *proofs.SearchBudget,
 ) resourceProof {
 	// Equality to a documented non-nil sentinel excludes successful acquisition.
 	// Require the exact error: an unrelated or derived error can compare equal
@@ -178,17 +179,17 @@ func resourceAbsentErrorCheck(
 // Unknown other branches, rewritten errors, dynamic dispatch and deferred
 // result mutation leave the relation unproven.
 // https://github.com/norwoodj/helm-docs/blob/a5573af096a4b526dcbc3c896c220b1714a0765b/pkg/helm/chart_info.go#L94-L106
-func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, errorValue ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
-	unknown := resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonEvidenceUnavailable}
+func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, errorValue ssa.Value, budget *proofs.SearchBudget) resourceProof {
+	unknown := resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonEvidenceUnavailable}
 	if !budget.Spend() {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	function, closure := ssaflow.DirectCallee(call.Common())
 	if function == nil {
-		captureBudget := budget.Within(ssaflow.QueryBudget)
+		captureBudget := budget.Within(proofs.QueryBudget)
 		function = capturedErrorPredicate(call, captureBudget)
 		if resourceFlowExhausted(captureBudget) {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 	}
 	if function == nil || knowledge == nil || errorValue == nil {
@@ -207,13 +208,13 @@ func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, er
 		if argument != errorValue || closure != nil {
 			continue
 		}
-		summaryBudget := budget.Within(ssaflow.SummaryBudget)
+		summaryBudget := budget.Within(proofs.SummaryBudget)
 		summary, available := knowledge.ForFunction(function).Results(summaryBudget)
 		if resourceFlowExhausted(summaryBudget) {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if available == summaries.Available && !resourceFlowExhausted(budget) && summary.Implies(ssaflow.ParameterNil(index), 0, ssaflow.OutcomeFalse) {
-			return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonErrorPredicateFalseForNil}
+			return resourceProof{State: proofs.EvidenceProven, Reason: resourceReasonErrorPredicateFalseForNil}
 		}
 	}
 	if budget.Exhausted() {
@@ -227,7 +228,7 @@ func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, er
 // opaque cell escape, circular evidence and exhaustion remain unknown. The
 // reaching fold and all storage/effect queries share one work budget.
 // https://github.com/antonmedv/gitmal/blob/83be9ddcf82e8a90ea50a9d54c1ebfc3e22ace16/blob.go#L69-L110
-func capturedErrorPredicate(call *ssa.Call, budget *ssaflow.SearchBudget) *ssa.Function {
+func capturedErrorPredicate(call *ssa.Call, budget *proofs.SearchBudget) *ssa.Function {
 	load, ok := call.Common().Value.(*ssa.UnOp)
 	if !ok || load.Op != token.MUL {
 		return nil
@@ -240,7 +241,7 @@ func capturedErrorPredicate(call *ssa.Call, budget *ssaflow.SearchBudget) *ssa.F
 }
 
 type capturedPredicateQuery struct {
-	budget *ssaflow.SearchBudget
+	budget *proofs.SearchBudget
 	result *ssa.Function
 }
 
@@ -296,7 +297,7 @@ func (query *capturedPredicateQuery) creation(walk ssaflow.ReachingWalk, free *s
 	return false
 }
 
-func errorTypeAssertionSucceeded(condition, errorValue ssa.Value, budget *ssaflow.SearchBudget) bool {
+func errorTypeAssertionSucceeded(condition, errorValue ssa.Value, budget *proofs.SearchBudget) bool {
 	okResult, ok := condition.(*ssa.Extract)
 	if !ok || okResult.Index != 1 {
 		return false
@@ -310,7 +311,7 @@ func errorTypeAssertionSucceeded(condition, errorValue ssa.Value, budget *ssaflo
 // another member when the acquisition succeeded. cute handles its HTTP timeout
 // before the general error check:
 // https://github.com/ozontech/cute/blob/9f4583b9e8d9f5ac5771c15cc6a08c25d22ed2c3/roundtripper.go#L76-L91
-func errorsIsNonNilSentinel(condition, errorValue ssa.Value, budget *ssaflow.SearchBudget) (resourceLifetimeReason, bool) {
+func errorsIsNonNilSentinel(condition, errorValue ssa.Value, budget *proofs.SearchBudget) (resourceLifetimeReason, bool) {
 	call, ok := condition.(*ssa.Call)
 	if !ok {
 		return resourceReasonNone, false
@@ -323,7 +324,7 @@ func errorsIsNonNilSentinel(condition, errorValue ssa.Value, budget *ssaflow.Sea
 	return reason, reason != resourceReasonNone
 }
 
-func isNonNilFilesystemSentinel(value ssa.Value, budget *ssaflow.SearchBudget) bool {
+func isNonNilFilesystemSentinel(value ssa.Value, budget *proofs.SearchBudget) bool {
 	return nonNilErrorSentinelReason(value, budget) == resourceReasonErrorsIsNonNilFilesystemSentinel
 }
 
@@ -331,7 +332,7 @@ func isNonNilFilesystemSentinel(value ssa.Value, budget *ssaflow.SearchBudget) b
 // contracts. A custom error variable, its initializer, and merged targets do
 // not establish non-nilness. Keep the filesystem trace reason stable while
 // giving the context contract its own reason.
-func nonNilErrorSentinelReason(value ssa.Value, budget *ssaflow.SearchBudget) resourceLifetimeReason {
+func nonNilErrorSentinelReason(value ssa.Value, budget *proofs.SearchBudget) resourceLifetimeReason {
 	for budget.Spend() {
 		if inner, ok := ssaflow.UnwrapTransparentValue(
 			value,

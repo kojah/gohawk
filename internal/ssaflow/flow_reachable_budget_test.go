@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -18,8 +19,8 @@ func TestReachableConstantBlocksAllowance(t *testing.T) {
 			fn := pkg.Func(name)
 			constants := FixedValues{fn.Params[0]: outcome}
 			baseline := ReachableBlocksAssumingWithin(fn, constants, nil)
-			for limit := 0; limit <= QueryBudget; limit++ {
-				budget := NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				blocks := ReachableBlocksAssumingWithin(fn, constants, budget)
 				if budget.Exhausted() || limit == 0 {
 					if blocks != nil {

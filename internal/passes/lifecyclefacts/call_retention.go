@@ -2,6 +2,7 @@ package lifecyclefacts
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -23,8 +24,8 @@ func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Inst
 	if !factOwnsExactArgument(instruction, target, fact.Stored()&^fact.ReturnedOwner()) {
 		return false
 	}
-	evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, Proof{Proof: ssaflow.Proof{
-		State: ssaflow.EvidenceProven, Provenance: ssaflow.EvidenceFromImportedFact,
+	evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, Proof{Proof: proofs.Proof{
+		State: proofs.EvidenceProven, Provenance: proofs.EvidenceFromImportedFact,
 	}, SummaryReason: reasonStoredByCallee})
 	return true
 }
@@ -44,8 +45,8 @@ func (evidence *LifecycleEvidence) visibleCalleeRetains(instruction ssa.Instruct
 			!retentions.storedEveryReturn(evidence.pass, function, binding.Local) {
 			continue
 		}
-		evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, Proof{Proof: ssaflow.Proof{
-			State: ssaflow.EvidenceProven, Provenance: ssaflow.EvidenceFromLocalSSA,
+		evidence.emit(EvidenceRequest{Instruction: instruction, Target: target}, Proof{Proof: proofs.Proof{
+			State: proofs.EvidenceProven, Provenance: proofs.EvidenceFromLocalSSA,
 		}, SummaryReason: reasonStoredByCallee})
 		return true
 	}

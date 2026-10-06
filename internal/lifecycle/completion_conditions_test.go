@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -85,7 +86,7 @@ func TestConditionalCompletion(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
 			branch := ssaflow.InstructionsOf[*ssa.If](fn)[0].Block()
-			request := CompletionRequest{Target: fn.Params[0], Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000)}
+			request := CompletionRequest{Target: fn.Params[0], Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(1000)}
 			if test.name == "cancel" {
 				request.Methods, request.InvokeTarget = nil, true
 			}
@@ -105,7 +106,7 @@ func TestConditionalCompletionMemoIsolation(t *testing.T) {
 	pkg := buildTestSSA(t, conditionalCompletionFixture)
 	fn := pkg.Func("good")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-	search := newCompletionSearch("Close", CoverageEveryReturn, ssaflow.NewSearchBudget(1000))
+	search := newCompletionSearch("Close", CoverageEveryReturn, proofs.NewSearchBudget(1000))
 	search.exactTarget = true
 	for _, test := range []struct {
 		kind ssaflow.Outcome
@@ -127,7 +128,7 @@ func TestConditionalCompletionDoesNotBecomeUnconditional(t *testing.T) {
 	pkg := buildTestSSA(t, conditionalCompletionFixture)
 	fn := pkg.Func("good")
 	branch := ssaflow.InstructionsOf[*ssa.If](fn)[0].Block()
-	request := CompletionRequest{Target: fn.Params[0], Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000)}
+	request := CompletionRequest{Target: fn.Params[0], Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(1000)}
 	if proof := ProveCompletionOnEdge(branch, branch.Succs[0], request); !proof.Proven() {
 		t.Fatalf("true edge: %+v", proof)
 	}
@@ -138,8 +139,8 @@ func TestConditionalCompletionDoesNotBecomeUnconditional(t *testing.T) {
 	if proof := ProveCompletion(request); proof.Proven() {
 		t.Fatalf("unconditional: %+v", proof)
 	}
-	request.Budget = ssaflow.NewSearchBudget(1)
-	if proof := ProveCompletionOnEdge(branch, branch.Succs[0], request); proof.State != ssaflow.EvidenceUnknown {
+	request.Budget = proofs.NewSearchBudget(1)
+	if proof := ProveCompletionOnEdge(branch, branch.Succs[0], request); proof.State != proofs.EvidenceUnknown {
 		t.Fatalf("exhausted query: %+v", proof)
 	}
 }

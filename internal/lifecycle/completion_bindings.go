@@ -6,6 +6,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -104,12 +105,12 @@ func (search *completionSearch) boundCallees(instruction ssa.Instruction) ([]com
 // Resolve only immutable values or a cell with proven stable contents.
 // Capturing a cell does not make its contents immutable: reject reassignment
 // and opaque address escape rather than using the value at registration time.
-func resolveCallbackValue(ref callbackValue, budget *ssaflow.SearchBudget) (callbackValue, bool) {
+func resolveCallbackValue(ref callbackValue, budget *proofs.SearchBudget) (callbackValue, bool) {
 	walk := ssaflow.NewReachingWalk(ssaflow.TransparentChangeType | ssaflow.TransparentConvert)
 	return resolveCallbackBinding(walk, ref, budget)
 }
 
-func resolveCallbackBinding(walk ssaflow.ReachingWalk, ref callbackValue, budget *ssaflow.SearchBudget) (callbackValue, bool) {
+func resolveCallbackBinding(walk ssaflow.ReachingWalk, ref callbackValue, budget *proofs.SearchBudget) (callbackValue, bool) {
 	if ref.value == nil || !budget.Spend() || !walk.Mark(ref.value) {
 		return callbackValue{}, false
 	}
@@ -147,7 +148,7 @@ func resolveCallbackBinding(walk ssaflow.ReachingWalk, ref callbackValue, budget
 
 // A projection is resolved only through an unchanged local aggregate. Unknown
 // calls receiving its address can mutate a field without an SSA Store here.
-func callbackAggregate(ref callbackValue, budget *ssaflow.SearchBudget) (callbackValue, bool) {
+func callbackAggregate(ref callbackValue, budget *proofs.SearchBudget) (callbackValue, bool) {
 	for budget.Spend() {
 		if ref.bindings != nil {
 			if next, ok := ref.bindings.values[ref.value]; ok {
@@ -171,7 +172,7 @@ func callbackAggregate(ref callbackValue, budget *ssaflow.SearchBudget) (callbac
 	return callbackValue{}, false
 }
 
-func resolveCallbackField(walk ssaflow.ReachingWalk, ref callbackValue, field *ssa.FieldAddr, budget *ssaflow.SearchBudget) (callbackValue, bool) {
+func resolveCallbackField(walk ssaflow.ReachingWalk, ref callbackValue, field *ssa.FieldAddr, budget *proofs.SearchBudget) (callbackValue, bool) {
 	ref.value = field.X
 	root, ok := callbackAggregate(ref, budget)
 	if !ok || root.value.Referrers() == nil {
@@ -202,7 +203,7 @@ func resolveCallbackField(walk ssaflow.ReachingWalk, ref callbackValue, field *s
 	return resolveCallbackBinding(walk, root, budget)
 }
 
-func resolveCallbackElement(walk ssaflow.ReachingWalk, ref callbackValue, index *ssa.IndexAddr, budget *ssaflow.SearchBudget) (callbackValue, bool) {
+func resolveCallbackElement(walk ssaflow.ReachingWalk, ref callbackValue, index *ssa.IndexAddr, budget *proofs.SearchBudget) (callbackValue, bool) {
 	ref.value = index.X
 	root, ok := callbackAggregate(ref, budget)
 	if !ok || root.value.Referrers() == nil {
@@ -254,10 +255,10 @@ func resolveCallbackElement(walk ssaflow.ReachingWalk, ref callbackValue, index 
 // Selected callback addresses must have stable contents at the same observation
 // and agree on the exact SSA value. Possible aliasing cannot establish which
 // callback runs. Field selection and array coverage remain the callers' policy.
-func stableCallbackContent(previous, address ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) heapmodel.StoredValue {
+func stableCallbackContent(previous, address ssa.Value, observation ssa.Instruction, budget *proofs.SearchBudget) heapmodel.StoredValue {
 	value := heapmodel.NewStorage(budget).StableContent(address, observation)
 	if value.Proven() && previous != nil && previous != value.Value {
-		return heapmodel.StoredValue{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceStoredValuesDiffer}}
+		return heapmodel.StoredValue{Proof: proofs.Proof{Reason: proofs.EvidenceStoredValuesDiffer}}
 	}
 	return value
 }

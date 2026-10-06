@@ -1,11 +1,13 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
-
-// Channel alias discovery follows direction conversions, initialized cell
-// reads, lexical captures and static call arguments. Uses outside those forms
-// remain visible to the consumer; uncertain initialization and interrupted
-// traversal cannot publish an absence-of-use claim.
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+	"golang.org/x/tools/go/ssa"
+	// Channel alias discovery follows direction conversions, initialized cell
+	// reads, lexical captures and static call arguments. Uses outside those forms
+	// remain visible to the consumer; uncertain initialization and interrupted
+	// traversal cannot publish an absence-of-use claim.
+)
 
 // ChannelUse is an instruction consuming a channel value rather than moving
 // it through one of the modeled aliases.
@@ -18,7 +20,7 @@ type ChannelUse struct {
 // Callee parameters may also receive other values at other call sites; this
 // census does not establish an exclusive channel identity or execution path.
 type ChannelValuesProof struct {
-	Proof
+	proofs.Proof
 	Values []ssa.Value
 	Uses   []ChannelUse
 }
@@ -27,8 +29,8 @@ type ChannelValuesProof struct {
 // callees and read-only captures under budget. Unsupported moves remain uses.
 // Reads preceding the unique store are excluded; uncertain read/capture order
 // or budget cutoff publishes neither aliases nor uses. Nil budget is unbounded.
-func ProveChannelValuesWithin(made *ssa.MakeChan, budget *SearchBudget) ChannelValuesProof {
-	unknown := ChannelValuesProof{Proof: Proof{Reason: EvidenceUnavailable}}
+func ProveChannelValuesWithin(made *ssa.MakeChan, budget *proofs.SearchBudget) ChannelValuesProof {
+	unknown := ChannelValuesProof{Proof: proofs.Proof{Reason: proofs.EvidenceUnavailable}}
 	if made == nil {
 		return unknown
 	}
@@ -38,14 +40,14 @@ func ProveChannelValuesWithin(made *ssa.MakeChan, budget *SearchBudget) ChannelV
 	var uses []ChannelUse
 	for len(pending) > 0 {
 		if !budget.Spend() {
-			return ChannelValuesProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+			return ChannelValuesProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 		}
 		value := pending[0]
 		pending = pending[1:]
 		for user := range ReferrersWithin(value, budget) {
 			moved, available := channelMoveWithin(value, user, budget)
 			if budget.Exhausted() || budget.PoolExhausted() {
-				return ChannelValuesProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+				return ChannelValuesProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 			}
 			if !available {
 				return unknown
@@ -56,7 +58,7 @@ func ProveChannelValuesWithin(made *ssa.MakeChan, budget *SearchBudget) ChannelV
 			}
 			for _, target := range moved {
 				if !budget.Spend() {
-					return ChannelValuesProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+					return ChannelValuesProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 				}
 				if target != nil && !member[target] {
 					member[target] = true
@@ -67,14 +69,16 @@ func ProveChannelValuesWithin(made *ssa.MakeChan, budget *SearchBudget) ChannelV
 		}
 	}
 	if budget.Exhausted() || budget.PoolExhausted() {
-		return ChannelValuesProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+		return ChannelValuesProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 	}
-	return ChannelValuesProof{Proof: Proof{State: EvidenceProven, Reason: EvidenceStructuralWalk, Provenance: EvidenceFromLocalSSA}, Values: values, Uses: uses}
+	return ChannelValuesProof{Proof: proofs.Proof{
+		State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA,
+	}, Values: values, Uses: uses}
 }
 
 // A nil move is an opaque use. False availability means the census cannot
 // even establish which reads may carry the channel.
-func channelMoveWithin(value ssa.Value, user ssa.Instruction, budget *SearchBudget) ([]ssa.Value, bool) {
+func channelMoveWithin(value ssa.Value, user ssa.Instruction, budget *proofs.SearchBudget) ([]ssa.Value, bool) {
 	switch typed := user.(type) {
 	case *ssa.ChangeType:
 		return []ssa.Value{typed}, true
@@ -99,7 +103,7 @@ func channelMoveWithin(value ssa.Value, user ssa.Instruction, budget *SearchBudg
 // Captures require initialization before creation; execution after a later
 // store is not inferred from mere registration. Unsupported nested uses keep
 // the store opaque, preserving the bounded lexical traversal policy.
-func cellCopiesWithin(cell *ssa.Alloc, store *ssa.Store, budget *SearchBudget) ([]ssa.Value, bool) {
+func cellCopiesWithin(cell *ssa.Alloc, store *ssa.Store, budget *proofs.SearchBudget) ([]ssa.Value, bool) {
 	var copies []ssa.Value
 	for user := range ReferrersWithin(cell, budget) {
 		switch typed := user.(type) {
@@ -139,7 +143,7 @@ func cellCopiesWithin(cell *ssa.Alloc, store *ssa.Store, budget *SearchBudget) (
 
 // Only static callees with bodies expose parameter uses. Other calls remain
 // opaque uses; metadata alone does not supply a callee-use census.
-func argumentParametersWithin(value ssa.Value, common *ssa.CallCommon, budget *SearchBudget) []ssa.Value {
+func argumentParametersWithin(value ssa.Value, common *ssa.CallCommon, budget *proofs.SearchBudget) []ssa.Value {
 	if common == nil || common.IsInvoke() {
 		return nil
 	}

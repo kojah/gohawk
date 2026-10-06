@@ -74,5 +74,5 @@ func assertReasonMatcher(t *testing.T, source string, want bool, match func(ast.
 }
 
 func reasonTextBoundary(path string) bool {
-	return path == "internal/trace/trace.go" || path == "internal/ssaflow/proof_observer.go"
+	return path == "internal/trace/trace.go" || path == "internal/proof/observer.go"
 }

@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
@@ -89,7 +90,7 @@ func TestBlockReachableWithinAllowance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func("branch")
 			from, target := fn.Blocks[test.from], fn.Blocks[test.target]
-			pool := ssaflow.NewSearchBudget(100)
+			pool := proofs.NewSearchBudget(100)
 			cut := pool.Within(0)
 			if ssaflow.BlockReachableWithin(from, target, cut) || !cut.Exhausted() || pool.Exhausted() {
 				t.Fatal("child cutoff must leave reachability unavailable and parent available")

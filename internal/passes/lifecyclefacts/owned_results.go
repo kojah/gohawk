@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -43,8 +44,8 @@ func (evidence *LifecycleEvidence) OwnedDirectResult(call *ssa.Call) ([]string, 
 		if !ok {
 			return nil, 0, false
 		}
-		evidence.emit(EvidenceRequest{Instruction: call, Target: call}, Proof{Proof: ssaflow.Proof{
-			State: ssaflow.EvidenceProven, Provenance: ssaflow.EvidenceFromImportedFact,
+		evidence.emit(EvidenceRequest{Instruction: call, Target: call}, Proof{Proof: proofs.Proof{
+			State: proofs.EvidenceProven, Provenance: proofs.EvidenceFromImportedFact,
 		}, SummaryReason: reasonOwnedResultContract})
 		return cleanup, index, true
 	}

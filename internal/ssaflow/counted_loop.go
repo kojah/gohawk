@@ -4,6 +4,7 @@ import (
 	"go/constant"
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -37,7 +38,7 @@ func (loop CountedLoop) Proven() bool { return loop.Reason == LoopCountKnown }
 // block and no alternate entry or exit. The consumer supplies its expansion
 // limit and decides whether body effects and iteration-local objects are safe
 // to repeat. This query does not unroll SSA or choose an analysis policy.
-func ProveCountedLoop(header *ssa.BasicBlock, limit int, budget *SearchBudget) CountedLoop {
+func ProveCountedLoop(header *ssa.BasicBlock, limit int, budget *proofs.SearchBudget) CountedLoop {
 	loop, counter, comparison := countedBound(header, limit, budget)
 	if loop.Reason != LoopCountKnown {
 		return loop
@@ -56,7 +57,7 @@ func ProveCountedLoop(header *ssa.BasicBlock, limit int, budget *SearchBudget) C
 // therefore the number of times Body ran on any path that takes Exit. Unlike
 // ProveCountedLoop, the body cannot be replayed as straight-line code, so a
 // consumer may use the count but must reason about the body's paths itself.
-func ProveCountedRegion(header *ssa.BasicBlock, limit int, budget *SearchBudget) CountedLoop {
+func ProveCountedRegion(header *ssa.BasicBlock, limit int, budget *proofs.SearchBudget) CountedLoop {
 	loop, counter, comparison := countedBound(header, limit, budget)
 	if loop.Reason != LoopCountKnown {
 		return loop
@@ -74,7 +75,7 @@ func ProveCountedRegion(header *ssa.BasicBlock, limit int, budget *SearchBudget)
 
 // countedBound reads the header's literal bound. The returned loop carries
 // only the count and reason; the caller checks the body shape it supports.
-func countedBound(header *ssa.BasicBlock, limit int, budget *SearchBudget) (CountedLoop, *ssa.Phi, *ssa.BinOp) {
+func countedBound(header *ssa.BasicBlock, limit int, budget *proofs.SearchBudget) (CountedLoop, *ssa.Phi, *ssa.BinOp) {
 	if !budget.Spend() {
 		return CountedLoop{Reason: LoopBudgetExhausted}, nil, nil
 	}
@@ -93,7 +94,7 @@ func countedBound(header *ssa.BasicBlock, limit int, budget *SearchBudget) (Coun
 	return CountedLoop{Body: header.Succs[0], Exit: header.Succs[1], Count: int(n), Reason: LoopCountKnown}, counter, comparison
 }
 
-func finishCountedLoop(loop CountedLoop, counter *ssa.Phi, comparison *ssa.BinOp, latch *ssa.BasicBlock, budget *SearchBudget) CountedLoop {
+func finishCountedLoop(loop CountedLoop, counter *ssa.Phi, comparison *ssa.BinOp, latch *ssa.BasicBlock, budget *proofs.SearchBudget) CountedLoop {
 	step := inductionStep(counter, latch)
 	if step == nil {
 		return CountedLoop{Reason: LoopShapeUnknown}
@@ -120,7 +121,7 @@ func countedLatch(counter *ssa.Phi) *ssa.BasicBlock {
 // passing the header. The loop is closed when none of them returns or falls
 // through to Exit, and nothing outside enters them except through body. A
 // panic ends the path without taking Exit, so it is allowed.
-func leavesOnlyThroughHeader(header, body *ssa.BasicBlock, budget *SearchBudget) bool {
+func leavesOnlyThroughHeader(header, body *ssa.BasicBlock, budget *proofs.SearchBudget) bool {
 	region := map[*ssa.BasicBlock]bool{body: true}
 	work := []*ssa.BasicBlock{body}
 	for len(work) > 0 {
@@ -174,7 +175,7 @@ func inductionStep(counter *ssa.Phi, latch *ssa.BasicBlock) *ssa.BinOp {
 	return step
 }
 
-func usesOnly(value ssa.Value, budget *SearchBudget, allowed ...ssa.Instruction) bool {
+func usesOnly(value ssa.Value, budget *proofs.SearchBudget, allowed ...ssa.Instruction) bool {
 	if value.Referrers() == nil {
 		return false
 	}

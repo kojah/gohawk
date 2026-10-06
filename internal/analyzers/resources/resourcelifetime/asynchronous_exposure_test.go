@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -44,7 +45,7 @@ func unreadable(p, other *resource) { opaque(p) }
 			fn := pkg.Func(test.name)
 			query := callbackAnalysis(fn, provider)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				return query.proveAsynchronousExposureWithin(call, call.Common(), budget)
 			}, test.want)
 		})
@@ -56,9 +57,9 @@ func TestAsynchronousEffectChildCutoff(t *testing.T) {
 	fn := pkg.Func("caller")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 	query := aggregateEscapeAnalysis(fn)
-	budget := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	budget := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	proof := query.proveAsynchronousExposureWithin(call, call.Common(), budget)
-	if proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || resourceFlowExhausted(budget) {
+	if proof.State != proofs.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || resourceFlowExhausted(budget) {
 		t.Fatalf("effect child cutoff = %+v, caller exhausted %v", proof, resourceFlowExhausted(budget))
 	}
 }
@@ -68,7 +69,7 @@ func TestAsynchronousExposureClassifierCutoff(t *testing.T) {
 	fn := pkg.Func("caller")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 	query := aggregateEscapeAnalysis(fn)
-	query.pool = ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	query.pool = proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	if reason, opaque := query.opaqueCall(call, call.Common()); !opaque || reason != resourceReasonBudgetExhausted {
 		t.Fatalf("effect child-cutoff classifier = %v/%v", reason, opaque)
 	}
@@ -88,7 +89,7 @@ func asyncExposureCapFixture(t *testing.T) *ssa.Package {
 type resource struct { n int }
 func read(p *resource) { _ = p.n }
 func many(p *resource) {
-` + strings.Repeat("read(p)\n", ssaflow.QueryBudget+100) +
+` + strings.Repeat("read(p)\n", proofs.QueryBudget+100) +
 		"}\nfunc caller(p *resource) { many(p) }\nfunc short(p *resource) { read(p) }"
 	return ssaflowtest.BuildPackage(t, "asynccap", source)
 }

@@ -4,7 +4,7 @@ import (
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 )
@@ -14,7 +14,7 @@ import (
 // suppresses it without establishing release or protection of the written field.
 // Each check owns its evidence rules; this file only presents their outcomes.
 type lockDiagnosticProof struct {
-	state  ssaflow.EvidenceState
+	state  proofs.EvidenceState
 	reason lockReason
 }
 

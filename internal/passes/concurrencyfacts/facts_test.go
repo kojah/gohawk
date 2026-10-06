@@ -3,6 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
@@ -23,7 +24,7 @@ func TestImportedEffects(t *testing.T) {
 			for _, function := range functions {
 				switch function.Name() {
 				case "forward", "reverse":
-					result := engine.Function(function, ssaflow.NewSearchBudget(2000))
+					result := engine.Function(function, proofs.NewSearchBudget(2000))
 					if result.Completeness() != CompleteWithEffects || len(result.Operations) != 4 {
 						t.Fatalf("%s: %+v", function, result)
 					}
@@ -38,16 +39,16 @@ func TestImportedEffects(t *testing.T) {
 					}
 					checked++
 				case "spawning":
-					assertImportedWorker(t, function, engine.Function(function, ssaflow.NewSearchBudget(2000)))
+					assertImportedWorker(t, function, engine.Function(function, proofs.NewSearchBudget(2000)))
 					checked++
 				case "opaque", "conditional", "localOnly":
-					result := engine.Function(function, ssaflow.NewSearchBudget(2000))
+					result := engine.Function(function, proofs.NewSearchBudget(2000))
 					if result.Completeness() != Incomplete || result.Complete() || result.Reason == ReasonNone {
 						t.Errorf("%s unexpectedly complete: %+v", function, result)
 					}
 					checked++
 				case "empty":
-					result := engine.Function(function, ssaflow.NewSearchBudget(2000))
+					result := engine.Function(function, proofs.NewSearchBudget(2000))
 					if result.Completeness() != CompleteNoEffects || !result.Complete() || len(result.Operations) != 0 {
 						t.Errorf("complete empty effects lost: %+v", result)
 					}

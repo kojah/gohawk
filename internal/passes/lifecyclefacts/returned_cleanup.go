@@ -5,7 +5,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -29,7 +29,7 @@ type ReturnedCleanupEffect struct {
 }
 
 func summarizeReturnedCleanup(pass *analysis.Pass, function *ssa.Function) *ReturnedCleanupSummary {
-	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	budget := proofs.NewSearchBudget(proofs.SummaryBudget)
 	summary := &ReturnedCleanupSummary{Version: returnedCleanupVersion}
 	results := function.Signature.Results()
 	for callback := range min(results.Len(), 4) {

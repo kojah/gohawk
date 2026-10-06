@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -30,12 +31,12 @@ func incompatible(value *resource) { var boxed any = value; if _, ok := boxed.(*
 			for arm, successor := range block.Succs {
 				wantPresent := test.present == (arm == 0)
 				completed := false
-				for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-					pool := ssaflow.NewSearchBudget(limit)
-					budget := pool.Within(ssaflow.SummaryBudget)
+				for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+					pool := proofs.NewSearchBudget(limit)
+					budget := pool.Within(proofs.SummaryBudget)
 					got := proveResourcePresenceBranch(block, nil, successor, fn.Params[0], budget)
 					if resourceFlowExhausted(budget) {
-						if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted {
+						if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted {
 							t.Fatalf("allowance %d admitted interrupted presence: %+v", limit, got)
 						}
 						continue
@@ -77,7 +78,7 @@ func guarded(value *resource, flag bool) {
 		incoming := ssaflow.BranchValueWithin(branch.Cond, block, predecessor, nil)
 		_, known := incoming.(*ssa.BinOp)
 		for arm, successor := range block.Succs {
-			got := proveResourcePresenceBranch(block, predecessor, successor, fn.Params[0], ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+			got := proveResourcePresenceBranch(block, predecessor, successor, fn.Params[0], proofs.NewSearchBudget(proofs.SummaryBudget))
 			if got.Proven() != known || known && got.Present != (arm == 0) {
 				t.Fatalf("incoming %v, arm %d presence = %+v", incoming, arm, got)
 			}

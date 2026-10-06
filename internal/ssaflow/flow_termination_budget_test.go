@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -22,20 +23,20 @@ func unrelated() { defer marker(); marker() }
 				t.Fatal("expected actual SSA deferred execution")
 			}
 			for _, run := range runs {
-				fresh := NewSearchBudget(QueryBudget)
+				fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 				got := InstructionTerminatesWithin(run, nil, fresh)
 				if got != (name == "unconditional") || got != InstructionTerminatesWith(run, nil) || fresh.Exhausted() {
 					t.Fatal("fresh query must preserve conditional registration and catalog policy")
 				}
-				used := QueryBudget - fresh.remaining
+				used := proofs.QueryBudget - fresh.Remaining()
 				for limit := range used {
-					cut := NewSearchBudget(limit)
+					cut := proofs.NewSearchBudget(limit)
 					if InstructionTerminatesWithin(run, nil, cut) || !cut.Exhausted() {
 						t.Fatalf("limit %d admitted termination or missed interrupted work", limit)
 					}
 				}
-				pool := NewSearchBudget(0)
-				if InstructionTerminatesWithin(run, nil, pool.Within(QueryBudget)) || !pool.Exhausted() {
+				pool := proofs.NewSearchBudget(0)
+				if InstructionTerminatesWithin(run, nil, pool.Within(proofs.QueryBudget)) || !pool.Exhausted() {
 					t.Fatal("candidate-pool cutoff cannot establish termination")
 				}
 			}
@@ -49,12 +50,12 @@ func marker() {}
 func subject() { marker() }
 `)
 	call := InstructionsOf[*ssa.Call](pkg.Func("subject"))[0]
-	zero := NewSearchBudget(0)
+	zero := proofs.NewSearchBudget(0)
 	called := false
 	if InstructionTerminatesWithin(call, func(*ssa.Call) bool { called = true; return true }, zero) || called || !zero.Exhausted() {
 		t.Fatal("call dispatch must spend before consulting a callback")
 	}
-	budget := NewSearchBudget(QueryBudget)
+	budget := proofs.NewSearchBudget(proofs.QueryBudget)
 	if InstructionTerminatesWithin(call, func(*ssa.Call) bool {
 		for budget.Spend() {
 		}
@@ -62,7 +63,7 @@ func subject() { marker() }
 	}, budget) || !budget.Exhausted() {
 		t.Fatal("an interrupted callback cannot establish termination")
 	}
-	if !InstructionTerminatesWithin(call, func(*ssa.Call) bool { return true }, NewSearchBudget(QueryBudget)) {
+	if !InstructionTerminatesWithin(call, func(*ssa.Call) bool { return true }, proofs.NewSearchBudget(proofs.QueryBudget)) {
 		t.Fatal("a fresh callback still establishes termination")
 	}
 }
@@ -74,14 +75,14 @@ func marker() {}
 func subject() { marker(); defer os.Exit(0); marker() }
 `)
 	function := pkg.Func("subject")
-	budget := NewSearchBudget(QueryBudget)
+	budget := proofs.NewSearchBudget(proofs.QueryBudget)
 	called := false
 	flow := ObligationFlow{Budget: budget, Instruction: func(instruction ssa.Instruction) ObligationAction {
 		if _, ok := instruction.(*ssa.RunDefers); ok {
 			called = true
 			// Leave one visit for the nested census, so its next instruction
 			// cuts off without interrupting this classifier's own answer.
-			for budget.remaining > 1 {
+			for budget.Remaining() > 1 {
 				budget.Spend()
 			}
 		}
@@ -90,7 +91,7 @@ func subject() { marker(); defer os.Exit(0); marker() }
 	if got := EvaluateObligationFromEntry(function, flow); got != ObligationUncertain || !called || !budget.Exhausted() {
 		t.Fatal("interrupted deferred termination cannot prove honored coverage")
 	}
-	flow.Budget = NewSearchBudget(QueryBudget)
+	flow.Budget = proofs.NewSearchBudget(proofs.QueryBudget)
 	flow.Instruction = func(ssa.Instruction) ObligationAction { return ObligationNone }
 	if got := EvaluateObligationFromEntry(function, flow); got != ObligationHonored || flow.Budget.Exhausted() {
 		t.Fatal("fresh deferred exit must retain the default honored outcome")

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -25,7 +26,7 @@ func resolveHeapCall(common *ssa.CallCommon, instruction ssa.Instruction) (heapC
 	callee := common.StaticCallee()
 	closure, _ := common.Value.(*ssa.MakeClosure)
 	arguments := common.Args
-	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+	budget := proofs.NewSearchBudget(proofs.QueryBudget)
 	if common.IsInvoke() {
 		dispatch := ssaflow.ResolveInterfaceDispatch(common, instruction.Parent().Prog, budget)
 		if !dispatch.Proven() {
@@ -54,7 +55,7 @@ func resolveHeapCall(common *ssa.CallCommon, instruction ssa.Instruction) (heapC
 }
 
 func bindHeapCaptures(common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure,
-	instruction ssa.Instruction, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, budget *proofs.SearchBudget,
 ) ([]ssa.Value, bool) {
 	if len(callee.FreeVars) == 0 {
 		return nil, true
@@ -89,7 +90,7 @@ func bindHeapCaptures(common *ssa.CallCommon, callee *ssa.Function, closure *ssa
 	return captures, true
 }
 
-func captureOnlyLoaded(value ssa.Value, budget *ssaflow.SearchBudget) bool {
+func captureOnlyLoaded(value ssa.Value, budget *proofs.SearchBudget) bool {
 	if value.Referrers() == nil {
 		return false
 	}

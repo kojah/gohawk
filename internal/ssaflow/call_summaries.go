@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -24,20 +25,20 @@ const (
 )
 
 // evidence names the give-up for observers and proofs.
-func (reason SummaryUnavailable) evidence() EvidenceReason {
+func (reason SummaryUnavailable) evidence() proofs.EvidenceReason {
 	switch reason {
 	case SummaryRecursive:
-		return EvidenceSummaryRecursive
+		return proofs.EvidenceSummaryRecursive
 	case SummaryBudgetExhausted:
-		return EvidenceBudgetExhausted
+		return proofs.EvidenceBudgetExhausted
 	case SummaryBodyUnavailable:
 	}
-	return EvidenceSummaryBodyUnavailable
+	return proofs.EvidenceSummaryBodyUnavailable
 }
 
 // observeUnavailable reports a summary give-up to the budget's observer with
 // the function it concerned. It reports nothing when nobody is listening.
-func observeUnavailable(budget *SearchBudget, reason SummaryUnavailable, function *ssa.Function, at ssa.Instruction) {
+func observeUnavailable(budget *proofs.SearchBudget, reason SummaryUnavailable, function *ssa.Function, at ssa.Instruction) {
 	var position token.Pos
 	if at != nil {
 		position = at.Pos()
@@ -67,7 +68,7 @@ func observeUnavailable(budget *SearchBudget, reason SummaryUnavailable, functio
 // interpret missing witnesses as proof that an effect is absent.
 type FunctionSummaries[Summary any] struct {
 	memo        *CallGraphMemo[*ssa.Function, Summary]
-	compute     func(*ssa.Function, *SearchBudget) Summary
+	compute     func(*ssa.Function, *proofs.SearchBudget) Summary
 	unavailable func(SummaryUnavailable) Summary
 }
 
@@ -77,7 +78,7 @@ type FunctionSummaries[Summary any] struct {
 // and pass that same budget to nested queries and storage proofs. A nil
 // budget is unbounded, following SearchBudget's contract.
 func NewFunctionSummaries[Summary any](
-	compute func(*ssa.Function, *SearchBudget) Summary,
+	compute func(*ssa.Function, *proofs.SearchBudget) Summary,
 	unavailable func(SummaryUnavailable) Summary,
 ) *FunctionSummaries[Summary] {
 	return &FunctionSummaries[Summary]{
@@ -89,7 +90,7 @@ func NewFunctionSummaries[Summary any](
 // reused with a fresh budget; exhaustion during a computation discards its
 // entire answer, including any partial effects. Recursion is not a fixed-point
 // solver: the analyzer's fallback determines what a cut can safely contribute.
-func (summaries *FunctionSummaries[Summary]) Function(function *ssa.Function, budget *SearchBudget) Summary {
+func (summaries *FunctionSummaries[Summary]) Function(function *ssa.Function, budget *proofs.SearchBudget) Summary {
 	return summaries.memo.Summarize(function, function, budget, func() Summary {
 		return summaries.compute(function, budget)
 	}, func(reason SummaryUnavailable, _ Summary) Summary {
@@ -109,7 +110,7 @@ func (summaries *FunctionSummaries[Summary]) Function(function *ssa.Function, bu
 // compute charges budget for its work; nil leaves existing unbounded queries
 // unchanged. Answers are immutable after publication, and use is sequential.
 func (memo *CallGraphMemo[Key, Answer]) Summarize(
-	key Key, function *ssa.Function, budget *SearchBudget,
+	key Key, function *ssa.Function, budget *proofs.SearchBudget,
 	compute func() Answer, unavailable func(SummaryUnavailable, Answer) Answer,
 ) Answer {
 	var empty Answer
@@ -133,7 +134,7 @@ func (memo *CallGraphMemo[Key, Answer]) Summarize(
 // invalidate every dependent answer, while independent completed answers remain
 // reusable. Budget, immutability, and fallback contracts match Summarize.
 func (memo *CallGraphMemo[Key, Answer]) Compose(
-	key Key, budget *SearchBudget, compute func() Answer, unavailable func(SummaryUnavailable, Answer) Answer,
+	key Key, budget *proofs.SearchBudget, compute func() Answer, unavailable func(SummaryUnavailable, Answer) Answer,
 ) Answer {
 	var empty Answer
 	if budget.Exhausted() {
@@ -183,7 +184,7 @@ func (memo *CallGraphMemo[Key, Answer]) Incomplete() {
 // this invocation and never replace the cached symbolic summary.
 func (summaries *FunctionSummaries[Summary]) AtCall(
 	instruction ssa.CallInstruction,
-	budget *SearchBudget,
+	budget *proofs.SearchBudget,
 	bind func(Summary, []CallBinding) Summary,
 ) Summary {
 	function, closure := DirectCallee(instruction.Common())

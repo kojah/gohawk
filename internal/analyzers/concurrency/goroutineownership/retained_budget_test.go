@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -33,7 +34,7 @@ func skipped(skip bool) { o:=new(owner); done:=make(chan int); go func(){close(d
 			call := ssaflow.InstructionsOf[*ssa.Call](function)[0]
 			pass := &analysis.Pass{Fset: pkg.Prog.Fset, Pkg: pkg.Pkg}
 			candidate := newSpawnAnalysis(pass, function, spawn)
-			candidate.pool = ssaflow.NewSearchBudget(0).Observed(candidate.probe.Observer())
+			candidate.pool = proofs.NewSearchBudget(0).Observed(candidate.probe.Observer())
 			action, reason := candidate.callAction(call, call.Common())
 			if action != actionUnknown || reason != reasonRetainedOwnerBudgetExhausted {
 				t.Fatalf("cutoff label = %v/%v", action, reason)
@@ -52,7 +53,7 @@ func skipped(skip bool) { o:=new(owner); done:=make(chan int); go func(){close(d
 				t.Fatalf("flow = %v, want %v", outcome, test.want)
 			}
 			fresh := newSpawnAnalysis(pass, function, spawn)
-			if proof := fresh.closesRetainedWorkerOwner(call, call.Common()); proof.State != ssaflow.EvidenceDisproven {
+			if proof := fresh.closesRetainedWorkerOwner(call, call.Common()); proof.State != proofs.EvidenceDisproven {
 				t.Fatalf("unrelated fresh owner must not suppress: %+v", proof)
 			}
 		})
@@ -86,11 +87,11 @@ func subject() { _,cleanup:=factory(); cleanup() }
 `)
 	calls := ssaflow.InstructionsOf[*ssa.Call](pkg.Func("subject"))
 	factory := calls[0]
-	cutoff := ssaflow.NewSearchBudget(0)
+	cutoff := proofs.NewSearchBudget(0)
 	if targets := factoryCleanupTargets(factory, 1, cutoff); len(targets) != 0 || !cutoff.Exhausted() {
 		t.Fatalf("cutoff targets=%v exhausted=%v", targets, cutoff.Exhausted())
 	}
-	fresh := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+	fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 	if targets := factoryCleanupTargets(factory, 1, fresh); len(targets) == 0 || fresh.Exhausted() {
 		t.Fatalf("fresh targets=%v exhausted=%v", targets, fresh.Exhausted())
 	}
@@ -106,13 +107,13 @@ func subject(ctx context.Context) { done:=make(chan int); go func(){close(done)}
 	done := ssaflow.InstructionsOf[*ssa.Call](function)[0]
 	pass := &analysis.Pass{Fset: pkg.Prog.Fset, Pkg: pkg.Pkg}
 	candidate := newSpawnAnalysis(pass, function, spawn)
-	candidate.pool = ssaflow.NewSearchBudget(0)
+	candidate.pool = proofs.NewSearchBudget(0)
 	proof := candidate.observesOpaqueWorkerContext(done)
-	if proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+	if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted {
 		t.Fatalf("selected context cutoff = %+v", proof)
 	}
 	fresh := newSpawnAnalysis(pass, function, spawn)
-	if proof := fresh.observesOpaqueWorkerContext(done); proof.State != ssaflow.EvidenceDisproven {
+	if proof := fresh.observesOpaqueWorkerContext(done); proof.State != proofs.EvidenceDisproven {
 		t.Fatalf("unrelated context must not supply ownership: %+v", proof)
 	}
 }

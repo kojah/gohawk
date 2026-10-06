@@ -4,6 +4,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -24,8 +25,8 @@ func ReturnsParameterUnchanged(function *ssa.Function, parameter ssa.Value, inde
 // never evidence that no counterexample exists. A nil budget retains default
 // flow policy and the storage engine's own allowance; graph construction and
 // type-system internals have independent costs.
-func ProveReturnedParameterWithin(function *ssa.Function, parameter ssa.Value, index int, budget *ssaflow.SearchBudget) ssaflow.Proof {
-	unknown := ssaflow.Proof{Reason: ssaflow.EvidenceUnavailable}
+func ProveReturnedParameterWithin(function *ssa.Function, parameter ssa.Value, index int, budget *proofs.SearchBudget) proofs.Proof {
+	unknown := proofs.Proof{Reason: proofs.EvidenceUnavailable}
 	if function == nil || len(function.Blocks) == 0 || parameter == nil || index < 0 {
 		return unknown
 	}
@@ -49,11 +50,11 @@ func ProveReturnedParameterWithin(function *ssa.Function, parameter ssa.Value, i
 		},
 	})
 	if budget.Exhausted() || storage.Budget().Exhausted() {
-		unknown.Reason = ssaflow.EvidenceBudgetExhausted
+		unknown.Reason = proofs.EvidenceBudgetExhausted
 		return unknown
 	}
 	if outcome != ssaflow.ObligationHonored {
 		return unknown
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
+	return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA}
 }

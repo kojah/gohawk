@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -21,7 +22,7 @@ import (
 // Only the false edge of the exact SQL receiver qualifies; breaks and Scan
 // errors still leave a live obligation.
 // https://github.com/nkanaev/yarr/blob/bb427710efec1ba2c9b9b4cacde67874a347499b/src/storage/sqlite/item.go#L284
-func proveSQLRowsExhaustionEdge(block, successor *ssa.BasicBlock, resource ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
+func proveSQLRowsExhaustionEdge(block, successor *ssa.BasicBlock, resource ssa.Value, budget *proofs.SearchBudget) resourceProof {
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonNone, budget)
 	}
@@ -63,7 +64,7 @@ func (analysis *resourceAnalysis) releasesResource(instruction ssa.Instruction) 
 // conversion, a chosen value, or a real wrapper is not seen through.
 //
 //nolint:ireturn // SSA values keep their concrete forms.
-func cleanupReceiver(knowledge *summaries.Provider, budget *ssaflow.SearchBudget, common *ssa.CallCommon) ssa.Value {
+func cleanupReceiver(knowledge *summaries.Provider, budget *proofs.SearchBudget, common *ssa.CallCommon) ssa.Value {
 	receiver := ssaflow.CallReceiver(common)
 	if knowledge == nil || receiver == nil {
 		return receiver
@@ -77,13 +78,13 @@ func cleanupReceiver(knowledge *summaries.Provider, budget *ssaflow.SearchBudget
 func (analysis *resourceAnalysis) releasesOrdinaryResource(instruction ssa.Instruction) (resourceAction, resourceLifetimeReason) {
 	evidence, knowledge := analysis.evidence, analysis.summaries
 	resource, owners, methods := analysis.resource, analysis.owners, analysis.contract.cleanup
-	storage := heapmodel.NewStorage(analysis.budget(ssaflow.QueryBudget))
+	storage := heapmodel.NewStorage(analysis.budget(proofs.QueryBudget))
 	settled := func() (resourceAction, resourceLifetimeReason) { return actionSettled, resourceReasonSettled }
 	// Installing a resource in package storage transfers cleanup to that
 	// package's lifecycle, as in Argus's Init/Close logging pair:
 	// https://github.com/drn/argus/blob/9b4bb7e71217e22557f72531909bf803354d3ab4/internal/uxlog/uxlog.go#L21-L39
 	stored := analysis.resourceStorage(instruction)
-	if stored.State == ssaflow.EvidenceUnknown && stored.Reason == resourceReasonBudgetExhausted {
+	if stored.State == proofs.EvidenceUnknown && stored.Reason == resourceReasonBudgetExhausted {
 		return actionUnknown, stored.Reason
 	}
 	if stored.Proven() || instructionSettlesResourceOwnership(evidence, instruction, resource) ||

@@ -3,7 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -27,7 +27,7 @@ func diamonds(a chan int, x, y bool) {
 `)
 	for _, name := range []string{"different", "optional", "reordered", "loop", "opaque", "deferredDifferent"} {
 		t.Run(name, func(t *testing.T) {
-			result := NewEngine().Function(pkg.Func(name), ssaflow.NewSearchBudget(2000))
+			result := NewEngine().Function(pkg.Func(name), proofs.NewSearchBudget(2000))
 			if result.Reason == ReasonNone || len(result.Operations) != 0 {
 				t.Fatalf("incomplete branches produced effects: %+v", result)
 			}
@@ -36,7 +36,7 @@ func diamonds(a chan int, x, y bool) {
 	for name, count := range map[string]int{"same": 2, "early": 1, "deferred": 2, "scalar": 1, "diamonds": 2} {
 		t.Run(name, func(t *testing.T) {
 			function := pkg.Func(name)
-			result := NewEngine().Function(function, ssaflow.NewSearchBudget(2000))
+			result := NewEngine().Function(function, proofs.NewSearchBudget(2000))
 			if result.Reason != ReasonNone || len(result.Operations) != count {
 				t.Fatalf("equivalent effects lost: %+v", result)
 			}
@@ -48,10 +48,10 @@ func diamonds(a chan int, x, y bool) {
 		})
 	}
 	engine := NewEngine()
-	if result := engine.Function(pkg.Func("diamonds"), ssaflow.NewSearchBudget(1)); result.Reason != ReasonBudgetExhausted {
+	if result := engine.Function(pkg.Func("diamonds"), proofs.NewSearchBudget(1)); result.Reason != ReasonBudgetExhausted {
 		t.Fatalf("small branch budget: %+v", result)
 	}
-	if result := engine.Function(pkg.Func("diamonds"), ssaflow.NewSearchBudget(2000)); result.Reason != ReasonNone {
+	if result := engine.Function(pkg.Func("diamonds"), proofs.NewSearchBudget(2000)); result.Reason != ReasonNone {
 		t.Fatalf("budget-shortened branch summary poisoned cache: %+v", result)
 	}
 }
@@ -67,7 +67,7 @@ func Send(ch chan int, fail bool) {
 	ch <- 2
 }
 `)
-	got := NewEngine().Function(pkg.Func("Send"), ssaflow.NewSearchBudget(2000))
+	got := NewEngine().Function(pkg.Func("Send"), proofs.NewSearchBudget(2000))
 	if got.Completeness() != CompleteWithEffects || len(got.Operations) != 1 {
 		t.Fatalf("folded summary = %+v", got)
 	}

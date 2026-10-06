@@ -3,18 +3,19 @@ package ssaflow
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
 
 func TestWalkStatesBudgetBeforeKeyAndRevisits(t *testing.T) {
 	keys, steps := 0, 0
-	zero := NewSearchBudget(0)
+	zero := proofs.NewSearchBudget(0)
 	WalkStatesWithin([]int{0}, func(n int) int { keys++; return n }, func(int) ([]int, bool) { steps++; return nil, true }, zero)
 	if keys != 0 || steps != 0 || !zero.Exhausted() {
 		t.Fatal("queued visits must spend before constructing keys")
 	}
-	fresh := NewSearchBudget(3)
+	fresh := proofs.NewSearchBudget(3)
 	WalkStatesWithin([]int{0}, func(n int) int { return n % 2 }, func(n int) ([]int, bool) {
 		steps++
 		return []int{n + 1}, true
@@ -23,7 +24,7 @@ func TestWalkStatesBudgetBeforeKeyAndRevisits(t *testing.T) {
 		t.Fatal("revisited keys must spend without expanding a third state")
 	}
 	for _, phase := range []string{"key", "step"} {
-		budget := NewSearchBudget(3)
+		budget := proofs.NewSearchBudget(3)
 		keys, steps = 0, 0
 		WalkStatesWithin([]int{0}, func(n int) int {
 			keys++
@@ -62,27 +63,27 @@ func TestGuardStateBudgetKeepsDefaultPolicy(t *testing.T) {
 	}
 	guards := PathGuards{{Identity: identity, Value: true, Stable: false}}
 	store := InstructionsOf[*ssa.Store](function)[0]
-	zero := NewSearchBudget(0)
+	zero := proofs.NewSearchBudget(0)
 	if kept := guards.AfterWithin(store, zero); kept != nil || !zero.Exhausted() {
 		t.Fatal("unknown store identity cannot retain an active guard")
 	}
-	fresh := NewSearchBudget(QueryBudget)
+	fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 	if kept := guards.AfterWithin(store, fresh); len(kept) != 0 || len(guards.After(store)) != 0 || fresh.Exhausted() {
 		t.Fatal("fresh mutation must forget the same guard")
 	}
-	zero = NewSearchBudget(0)
+	zero = proofs.NewSearchBudget(0)
 	if key := guards.KeyWithin(zero); key != "" || !zero.Exhausted() {
 		t.Fatal("partial state-key rendering must be unavailable")
 	}
-	if guards.KeyWithin(NewSearchBudget(QueryBudget)) != guards.KeyWithin(nil) {
+	if guards.KeyWithin(proofs.NewSearchBudget(proofs.QueryBudget)) != guards.KeyWithin(nil) {
 		t.Fatal("fresh guard key must preserve default identity")
 	}
-	zero = NewSearchBudget(0)
+	zero = proofs.NewSearchBudget(0)
 	if edges := (SuccessorPolicy{}).EdgesWithin(branch.Block(), nil, guards, zero); edges != nil || !zero.Exhausted() {
 		t.Fatal("edge census must spend before successor selection")
 	}
 	// Taking the other branch contradicts the loaded guard only uncertainly.
-	_, loaded := guards.ExtendWithin(branch.Block(), branch.Block().Succs[1], nil, NewSearchBudget(QueryBudget))
+	_, loaded := guards.ExtendWithin(branch.Block(), branch.Block().Succs[1], nil, proofs.NewSearchBudget(proofs.QueryBudget))
 	guards[0].Stable = true
 	// Stability comes from the decoded condition, not an asserted held flag.
 	_, sameLoaded := guards.ExtendWithin(branch.Block(), branch.Block().Succs[1], nil, nil)
@@ -95,7 +96,7 @@ func TestGuardStateBudgetKeepsDefaultPolicy(t *testing.T) {
 		t.Fatal("expected an actual stable parameter guard")
 	}
 	stableGuards := PathGuards{{Identity: stableIdentity, Value: true, Stable: true}}
-	_, contradiction := stableGuards.ExtendWithin(stableBranch.Block(), stableBranch.Block().Succs[1], nil, NewSearchBudget(QueryBudget))
+	_, contradiction := stableGuards.ExtendWithin(stableBranch.Block(), stableBranch.Block().Succs[1], nil, proofs.NewSearchBudget(proofs.QueryBudget))
 	if contradiction != GuardStableContradiction {
 		t.Fatal("bounded extension must preserve stable path pruning")
 	}
@@ -110,7 +111,7 @@ func TestObligationRejectsExhaustedCallbacks(t *testing.T) {
 	start := InstructionsOf[*ssa.Call](function)[0]
 	for _, phase := range []string{"instruction", "return", "edge", "successors", "terminator"} {
 		t.Run(phase, func(t *testing.T) {
-			budget := NewSearchBudget(QueryBudget)
+			budget := proofs.NewSearchBudget(proofs.QueryBudget)
 			called := false
 			cut := func() {
 				called = true

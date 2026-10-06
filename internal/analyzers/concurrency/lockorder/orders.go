@@ -17,6 +17,7 @@ import (
 	// witness. Bounded breadth-first searches explain short cycles without
 	// enumerating paths or changing the instance-based recursive-lock check.
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -39,7 +40,7 @@ type lockAcquisition struct {
 	widened  bool
 }
 
-func acquisitionAtWithin(instruction ssa.Instruction, class string, budget *ssaflow.SearchBudget) lockAcquisition {
+func acquisitionAtWithin(instruction ssa.Instruction, class string, budget *proofs.SearchBudget) lockAcquisition {
 	receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
 	resource, _ := lockResourcePath(receiver)
 	instance := lockIdentityWithin(receiver, budget)

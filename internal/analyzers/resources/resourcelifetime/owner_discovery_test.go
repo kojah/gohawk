@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -29,11 +30,11 @@ func opaque(p, other *resource, dest *holder) { *destination() = p }
 			if !baseline.Proven() || len(baseline.Owners) != test.count {
 				t.Fatalf("default owner census = %+v; SSA:\n%s", baseline, carriedSSA(t, fn))
 			}
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := proveLocalResourceOwnersWithin(fn, fn.Params[0], budget)
 				if resourceFlowExhausted(budget) || limit == 0 {
-					if got.Proven() || got.Reason != ssaflow.EvidenceBudgetExhausted || len(got.Owners) != 0 || len(got.Stores) != 0 {
+					if got.Proven() || got.Reason != proofs.EvidenceBudgetExhausted || len(got.Owners) != 0 || len(got.Stores) != 0 {
 						t.Fatalf("interrupted census = %+v", got)
 					}
 					continue
@@ -43,7 +44,7 @@ func opaque(p, other *resource, dest *holder) { *destination() = p }
 				}
 				query := aggregateEscapeAnalysis(fn)
 				query.stores = got.Stores
-				query.pool = ssaflow.NewSearchBudget(0)
+				query.pool = proofs.NewSearchBudget(0)
 				for _, store := range ssaflow.InstructionsOf[*ssa.Store](fn) {
 					if proof := query.resourceStorage(store); proof != got.Stores[store] || resourceFlowExhausted(query.pool) {
 						t.Fatalf("discovered storage disposition repeated work: %+v", proof)
@@ -61,9 +62,9 @@ func TestResourceOwnerDiscoveryChildCutoff(t *testing.T) {
 	fn := pkg.Func("leak")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 	query := &resourceAnalysis{function: fn, resource: call}
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	got := query.discoverResourceOwnersWithin(pool.Within(2))
-	if got.Proven() || got.Reason != ssaflow.EvidenceBudgetExhausted || len(got.Owners) != 0 ||
+	if got.Proven() || got.Reason != proofs.EvidenceBudgetExhausted || len(got.Owners) != 0 ||
 		len(got.Stores) != 0 || resourceFlowExhausted(pool) || len(query.owners) != 0 || len(query.stores) != 0 {
 		t.Fatalf("owner census child cutoff = %+v, parent exhausted %v", got, resourceFlowExhausted(pool))
 	}
@@ -71,7 +72,7 @@ func TestResourceOwnerDiscoveryChildCutoff(t *testing.T) {
 	if !fresh.Proven() || len(query.owners) != 1 || len(query.stores) == 0 {
 		t.Fatalf("fresh discovery failed to commit complete inputs: %+v", fresh)
 	}
-	query.pool = ssaflow.NewSearchBudget(0)
+	query.pool = proofs.NewSearchBudget(0)
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](fn) {
 		if proof := query.resourceStorage(store); proof != fresh.Stores[store] || resourceFlowExhausted(query.pool) {
 			t.Fatalf("committed storage disposition repeated work: %+v", proof)
@@ -88,10 +89,10 @@ func TestResourceOwnerDiscoveryFlow(t *testing.T) {
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 			got := evaluateResourceFlow(nil, evidence, call, call, resourceContract{cleanup: []string{"Close"}})
 			if name == "leak" {
-				if got.state != ssaflow.EvidenceProven || got.leak == nil {
+				if got.state != proofs.EvidenceProven || got.leak == nil {
 					t.Fatalf("undisposed resource lost leak witness = %+v", got)
 				}
-			} else if got.state != ssaflow.EvidenceDisproven || got.leak != nil {
+			} else if got.state != proofs.EvidenceDisproven || got.leak != nil {
 				t.Fatalf("released resource reported = %+v", got)
 			}
 		})

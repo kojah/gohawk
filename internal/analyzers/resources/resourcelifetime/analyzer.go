@@ -11,6 +11,7 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -74,7 +75,7 @@ func checkAcquisition(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvi
 	}
 	result := evaluateResourceFlow(pass, evidence, call, resource, contract)
 	emitResourceDecision(pass, function, call, resource, contract, result)
-	if result.state != ssaflow.EvidenceProven {
+	if result.state != proofs.EvidenceProven {
 		return
 	}
 	acquisition := syntax.ShortPackageName(contract.packagePath) + "." + contract.name

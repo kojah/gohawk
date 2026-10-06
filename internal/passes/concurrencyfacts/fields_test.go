@@ -3,6 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -38,7 +39,7 @@ func changed(cell **Owner, replacement *Owner) *sync.Mutex {
 			if len(calls) != 1 {
 				t.Fatalf("got %d calls, want helper only", len(calls))
 			}
-			result := NewEngine().AtCall(calls[0], ssaflow.NewSearchBudget(2000))
+			result := NewEngine().AtCall(calls[0], proofs.NewSearchBudget(2000))
 			if (result.Reason == ReasonNone) != test.complete {
 				t.Fatalf("binding completeness changed: %+v", result)
 			}

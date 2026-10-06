@@ -3,6 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -24,7 +25,7 @@ func root() {
 }
 `)
 	engine := NewEngine()
-	result := engine.Root(pkg.Func("root"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	result := engine.Root(pkg.Func("root"), proofs.NewSearchBudget(proofs.SummaryBudget))
 	if !result.Complete() || len(result.Workers) != 2 {
 		t.Fatalf("root = %+v", result)
 	}
@@ -51,7 +52,7 @@ func root() {
 
 func assertReceiverWorkerFact(t *testing.T, engine *Engine, function *ssa.Function) {
 	t.Helper()
-	declaration := engine.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	declaration := engine.Function(function, proofs.NewSearchBudget(proofs.SummaryBudget))
 	fact, exported := exportSummary(function, declaration, nil)
 	if !exported || len(fact.Workers) != 1 || len(fact.Workers[0].Effects) != 3 {
 		t.Fatalf("receiver declaration was not exported: %+v (%+v)", fact, declaration)

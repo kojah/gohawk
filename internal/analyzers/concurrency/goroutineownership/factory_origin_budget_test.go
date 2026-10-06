@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -61,27 +62,27 @@ func assertFactoryOriginQuery(t *testing.T, function *ssa.Function, signal, want
 	t.Log(dump.String())
 	value := ssaflow.InstructionsOf[*ssa.Return](function)[0].Results[0]
 	spawn := ssaflow.InstructionsOf[*ssa.Go](function)[0]
-	query := func(budget *ssaflow.SearchBudget) ssaflow.Proof {
+	query := func(budget *proofs.SearchBudget) proofs.Proof {
 		if signal {
 			return helperSignalOrigin(value, spawn, budget)
 		}
 		return opaqueGroupOrigin(value, budget)
 	}
-	fresh := query(ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+	fresh := query(proofs.NewSearchBudget(proofs.QueryBudget))
 	if !fresh.Known() || fresh.Proven() != want {
 		t.Fatalf("fresh origin = %+v, want proven=%v", fresh, want)
 	}
 	for _, limit := range []int{0, 1} {
-		budget := ssaflow.NewSearchBudget(limit)
+		budget := proofs.NewSearchBudget(limit)
 		proof := query(budget)
 		if proof.Known() || !budget.Exhausted() {
 			t.Fatalf("limit %d must stop before completing fold and storage leaf: %+v", limit, proof)
 		}
 	}
 	for limit := range 64 {
-		budget := ssaflow.NewSearchBudget(limit)
+		budget := proofs.NewSearchBudget(limit)
 		proof := query(budget)
-		if budget.Exhausted() && (proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted) {
+		if budget.Exhausted() && (proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted) {
 			t.Fatalf("limit %d returned completed proof after cutoff: %+v", limit, proof)
 		}
 		if proof.Known() && proof.Proven() != want {

@@ -3,6 +3,7 @@ package processownership
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -12,17 +13,17 @@ func TestProgramEntryProcessDecision(t *testing.T) {
 	const body = `cmd:=exec.Command("child");if err:=cmd.Start();err!=nil{return};_=cmd.Process.Kill()`
 	for _, test := range []struct {
 		name, path, source string
-		want               ssaflow.EvidenceState
+		want               proofs.EvidenceState
 	}{
-		{"once", "main", `func main(){` + body + `}`, ssaflow.EvidenceUnknown},
-		{"conditional", "main", `var launch bool;func main(){if launch{` + body + `}}`, ssaflow.EvidenceUnknown},
-		{"loop", "main", `var stop bool;func main(){for{` + body + `;if stop{return}}}`, ssaflow.EvidenceProven},
-		{"referenced", "main", `var entry=main;func main(){` + body + `}`, ssaflow.EvidenceProven},
-		{"called", "main", `func again(){main()};func main(){` + body + `}`, ssaflow.EvidenceProven},
-		{"helper", "main", `func launch(){` + body + `};func main(){launch()}`, ssaflow.EvidenceProven},
-		{"closure", "main", `func main(){launch:=func(){` + body + `};launch()}`, ssaflow.EvidenceProven},
-		{"method", "main", `type app struct{};func(app)main(){` + body + `};func main(){app{}.main()}`, ssaflow.EvidenceProven},
-		{"otherPackage", "worker", `func main(){` + body + `}`, ssaflow.EvidenceProven},
+		{"once", "main", `func main(){` + body + `}`, proofs.EvidenceUnknown},
+		{"conditional", "main", `var launch bool;func main(){if launch{` + body + `}}`, proofs.EvidenceUnknown},
+		{"loop", "main", `var stop bool;func main(){for{` + body + `;if stop{return}}}`, proofs.EvidenceProven},
+		{"referenced", "main", `var entry=main;func main(){` + body + `}`, proofs.EvidenceProven},
+		{"called", "main", `func again(){main()};func main(){` + body + `}`, proofs.EvidenceProven},
+		{"helper", "main", `func launch(){` + body + `};func main(){launch()}`, proofs.EvidenceProven},
+		{"closure", "main", `func main(){launch:=func(){` + body + `};launch()}`, proofs.EvidenceProven},
+		{"method", "main", `type app struct{};func(app)main(){` + body + `};func main(){app{}.main()}`, proofs.EvidenceProven},
+		{"otherPackage", "worker", `func main(){` + body + `}`, proofs.EvidenceProven},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			pkg := ssaflowtest.BuildPackage(t, test.path, "package "+test.path+"\nimport \"os/exec\"\n"+test.source)
@@ -31,11 +32,11 @@ func TestProgramEntryProcessDecision(t *testing.T) {
 			if got.state != test.want {
 				t.Fatalf("decision = %+v, want state %v", got, test.want)
 			}
-			if test.want == ssaflow.EvidenceUnknown && got.reason != reasonProgramLifetimeOwnershipUnknown {
+			if test.want == proofs.EvidenceUnknown && got.reason != reasonProgramLifetimeOwnershipUnknown {
 				t.Fatalf("entry reason = %v", got.reason)
 			}
 			settled := decideProcessReturn(start, command, nil, false, nil)
-			if settled.state != ssaflow.EvidenceDisproven || settled.reason != reasonWaitOwnershipProven {
+			if settled.state != proofs.EvidenceDisproven || settled.reason != reasonWaitOwnershipProven {
 				t.Fatalf("exact settlement changed: %+v", settled)
 			}
 		})

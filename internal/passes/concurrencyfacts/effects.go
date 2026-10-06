@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"slices"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -133,7 +134,7 @@ func (engine *Engine) appendUnOp(result *Summary, instruction *ssa.UnOp) Reason 
 	return ReasonLoadUnknown
 }
 
-func loadEffect(load *ssa.UnOp, budget *ssaflow.SearchBudget) Reason {
+func loadEffect(load *ssa.UnOp, budget *proofs.SearchBudget) Reason {
 	if ssaflow.ChannelType(load) {
 		if path, exact := embeddedPathWithin(load.X, budget); exact && path.Depth > 0 {
 			return ReasonNone
@@ -171,7 +172,7 @@ func (engine *Engine) appendOperation(result *Summary, kind Kind, value ssa.Valu
 	return ReasonNone
 }
 
-func passiveInstruction(instruction ssa.Instruction, root bool, budget *ssaflow.SearchBudget) Reason {
+func passiveInstruction(instruction ssa.Instruction, root bool, budget *proofs.SearchBudget) Reason {
 	if effectFree(instruction, root) {
 		return ReasonNone
 	}

@@ -3,7 +3,7 @@ package lockorder
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -16,7 +16,7 @@ func root() { first.Lock(); leaf(); first.Unlock() }
 `)
 	search := newCalleeLockSearch()
 	root := pkg.Func("root")
-	limited := ssaflow.NewSearchBudget(1)
+	limited := proofs.NewSearchBudget(1)
 	if got := search.summaries.Function(root, limited); len(got.acquires) != 0 || !limited.Exhausted() {
 		t.Fatalf("budget-shortened summary retained witnesses: %+v, exhausted=%v", got, limited.Exhausted())
 	}
@@ -27,7 +27,7 @@ func root() { first.Lock(); leaf(); first.Unlock() }
 	if len(got.acquires[1].calls) != 1 {
 		t.Errorf("nested acquisition lost call-site provenance: %+v", got.acquires[1])
 	}
-	if cached := search.summaries.Function(root, ssaflow.NewSearchBudget(0)); len(cached.acquires) != 2 {
+	if cached := search.summaries.Function(root, proofs.NewSearchBudget(0)); len(cached.acquires) != 2 {
 		t.Errorf("complete acquisition summary was not cached: %+v", cached)
 	}
 }

@@ -41,7 +41,7 @@ access; recursion and budget handling are owned by FunctionSummaries.
 [Source](../../../../internal/passes/resultfacts/results.go)
 
 ```go
-func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
+func (engine *Engine) Function(function *ssa.Function, budget *proofs.SearchBudget) Summary
 ```
 
 Function returns local or imported, context-independent result guarantees.

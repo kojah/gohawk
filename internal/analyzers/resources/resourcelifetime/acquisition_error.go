@@ -2,6 +2,7 @@ package resourcelifetime
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -10,7 +11,7 @@ import (
 // Census, ordering and argument provenance share one allowance; partial
 // evidence cannot establish that the successful resource path is unavailable.
 
-func proveAcquisitionErrorWithin(acquisition *ssa.Call, resource, errorValue ssa.Value, httpResponse bool, budget *ssaflow.SearchBudget) resourceProof {
+func proveAcquisitionErrorWithin(acquisition *ssa.Call, resource, errorValue ssa.Value, httpResponse bool, budget *proofs.SearchBudget) resourceProof {
 	// Test assertions can prove the owned-resource path infeasible even though
 	// the assertion package expresses that fact outside the CFG.
 	// https://github.com/siemens/wfx/blob/392dde941e73ce9560df2c42b2d480eb528bfc96/cmd/wfx/cmd/root/root_test.go#L154-L157
@@ -37,7 +38,7 @@ func proveAcquisitionErrorWithin(acquisition *ssa.Call, resource, errorValue ssa
 func acquisitionErrorAssertionsWithin(
 	acquisition *ssa.Call,
 	resource, errorValue ssa.Value,
-	budget *ssaflow.SearchBudget,
+	budget *proofs.SearchBudget,
 ) ([]ssa.Instruction, []ssa.Instruction) {
 	var errorAssertions, nilAssertions []ssa.Instruction
 	for instruction := range ssaflow.InstructionsWithin(acquisition.Parent(), budget) {
@@ -79,7 +80,7 @@ func acquisitionErrorAssertionsWithin(
 	return errorAssertions, nilAssertions
 }
 
-func errorAssertionDominatesNilWithin(assertedError ssa.Instruction, nilAssertions []ssa.Instruction, budget *ssaflow.SearchBudget) bool {
+func errorAssertionDominatesNilWithin(assertedError ssa.Instruction, nilAssertions []ssa.Instruction, budget *proofs.SearchBudget) bool {
 	for _, assertedNil := range nilAssertions {
 		if ssaflow.InstructionDominatesWithin(assertedError, assertedNil, budget) {
 			return true

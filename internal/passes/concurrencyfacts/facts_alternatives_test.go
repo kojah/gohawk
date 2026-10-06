@@ -3,6 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
@@ -70,7 +71,7 @@ func TestImportedAlternatives(t *testing.T) {
 					if function.Name() == "pickTwice" {
 						assertImportedAlternativeCopy(t, engine, function)
 					}
-					check(t, function, engine.Function(function, ssaflow.NewSearchBudget(4000)))
+					check(t, function, engine.Function(function, proofs.NewSearchBudget(4000)))
 				}
 			}
 			if checked != 3 {
@@ -87,7 +88,7 @@ func TestImportedAlternatives(t *testing.T) {
 func assertImportedAlternativeCopy(t *testing.T, engine *Engine, caller *ssa.Function) {
 	t.Helper()
 	call := ssaflow.InstructionsOf[*ssa.Call](caller)[0]
-	bound := engine.AtCall(call, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	bound := engine.AtCall(call, proofs.NewSearchBudget(proofs.SummaryBudget))
 	if len(bound.Paths) != 2 || len(bound.Paths[0].Operations) != 1 || len(bound.Paths[0].Conditions) != 1 {
 		t.Errorf("imported Pick binding = %+v", bound)
 		return
@@ -97,7 +98,7 @@ func assertImportedAlternativeCopy(t *testing.T, engine *Engine, caller *ssa.Fun
 	bound.Paths[0].Operations[0].Resource.Value = nil
 	bound.Paths[0].Conditions[0].Holds = !condition.Holds
 	bound.Paths[0].Operations = nil
-	fresh := engine.AtCall(call, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	fresh := engine.AtCall(call, proofs.NewSearchBudget(proofs.SummaryBudget))
 	if len(fresh.Paths) != 2 || len(fresh.Paths[0].Operations) != 1 || len(fresh.Paths[0].Conditions) != 1 ||
 		fresh.Paths[0].Operations[0].Resource != operation.Resource || fresh.Paths[0].Conditions[0].Holds != condition.Holds {
 		t.Errorf("bound mutation changed imported evidence: %+v", fresh)

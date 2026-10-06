@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -24,14 +25,14 @@ func scalarResult(value, other *resource) int { return scalar(value) }
 	for _, test := range []struct {
 		name  string
 		owner bool
-		want  ssaflow.EvidenceState
+		want  proofs.EvidenceState
 	}{
-		{"direct", false, ssaflow.EvidenceDisproven},
-		{"nested", false, ssaflow.EvidenceDisproven},
-		{"unrelated", false, ssaflow.EvidenceProven},
-		{"unrelated", true, ssaflow.EvidenceDisproven},
-		{"derived", false, ssaflow.EvidenceDisproven},
-		{"scalarResult", false, ssaflow.EvidenceProven},
+		{"direct", false, proofs.EvidenceDisproven},
+		{"nested", false, proofs.EvidenceDisproven},
+		{"unrelated", false, proofs.EvidenceProven},
+		{"unrelated", true, proofs.EvidenceDisproven},
+		{"derived", false, proofs.EvidenceDisproven},
+		{"scalarResult", false, proofs.EvidenceProven},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
@@ -46,17 +47,17 @@ func scalarResult(value, other *resource) int { return scalar(value) }
 				analysis.owners = []ssa.Value{fn.Params[1]}
 			}
 			completed := false
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				analysis.pool = ssaflow.NewSearchBudget(limit)
-				budget := analysis.budget(ssaflow.SummaryBudget)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				analysis.pool = proofs.NewSearchBudget(limit)
+				budget := analysis.budget(proofs.SummaryBudget)
 				got := analysis.proveResourceReturn(returned, budget)
 				if resourceFlowExhausted(budget) {
-					if got.state != ssaflow.EvidenceUnknown || got.reason != resourceReasonBudgetExhausted || got.leak != nil {
+					if got.state != proofs.EvidenceUnknown || got.reason != resourceReasonBudgetExhausted || got.leak != nil {
 						t.Fatalf("allowance %d admitted interrupted return: %+v", limit, got)
 					}
 					continue
 				}
-				if limit == 0 || got.state != test.want || (got.leak != nil) != (test.want == ssaflow.EvidenceProven) {
+				if limit == 0 || got.state != test.want || (got.leak != nil) != (test.want == proofs.EvidenceProven) {
 					t.Fatalf("complete return proof = %+v at allowance %d", got, limit)
 				}
 				completed = true

@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -130,7 +131,7 @@ func TestDirectCallbackBindings(t *testing.T) {
 			calls := ssaflow.InstructionsOf[*ssa.Call](fn)
 			proof := ProveCompletion(CompletionRequest{
 				Instruction: calls[len(calls)-1], Target: fn.Params[0],
-				Methods: []string{test.method}, Budget: ssaflow.NewSearchBudget(1000),
+				Methods: []string{test.method}, Budget: proofs.NewSearchBudget(1000),
 			})
 			if proof.Proven() != test.proven {
 				t.Fatalf("proof = %+v, want proven %v", proof, test.proven)
@@ -153,7 +154,7 @@ func BenchmarkCallbackBindings(b *testing.B) {
 			for b.Loop() {
 				proof := ProveCompletion(CompletionRequest{
 					Instruction: call, Target: fn.Params[0],
-					Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000),
+					Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(1000),
 				})
 				if !proof.Proven() {
 					b.Fatalf("proof = %+v", proof)
@@ -168,9 +169,9 @@ func TestUnresolvedCallbackIsUnknown(t *testing.T) {
 	fn := pkg.Func("opaque")
 	proof := ProveCompletion(CompletionRequest{
 		Instruction: findLaunch(t, fn), Target: fn.Params[0],
-		Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000),
+		Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(1000),
 	})
-	if proof.State != ssaflow.EvidenceUnknown {
+	if proof.State != proofs.EvidenceUnknown {
 		t.Fatalf("unresolved callback = %+v", proof)
 	}
 }
@@ -180,9 +181,9 @@ func TestCallbackBindingsBudget(t *testing.T) {
 	fn := pkg.Func("forwarded")
 	proof := ProveCompletion(CompletionRequest{
 		Instruction: findLaunch(t, fn), Target: fn.Params[0],
-		Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1),
+		Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(1),
 	})
-	if proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+	if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted {
 		t.Fatalf("exhausted callback search = %+v", proof)
 	}
 }

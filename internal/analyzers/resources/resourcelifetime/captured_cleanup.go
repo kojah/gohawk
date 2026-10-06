@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -21,24 +22,24 @@ func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction,
 	// boundary rather than treating an unresolved release as a transparent call.
 	// https://github.com/anton48/vk-turn-proxy-ios/blob/001caf2ae24ecd07b021d7ca7b14a98a006bff65/third_party/speedtest-go/speedtest/server.go#L262-L285
 	if deferred, ok := instruction.(*ssa.Defer); ok {
-		proof := analysis.proveCapturedCellCleanupWithin(deferred, analysis.budget(ssaflow.SummaryBudget))
-		if proof.State != ssaflow.EvidenceDisproven {
+		proof := analysis.proveCapturedCellCleanupWithin(deferred, analysis.budget(proofs.SummaryBudget))
+		if proof.State != proofs.EvidenceDisproven {
 			return proof.Reason, true
 		}
 	}
-	if proof := analysis.proveGuardedCapturedBodyWithin(instruction, closure, analysis.budget(1000)); proof.State == ssaflow.EvidenceUnknown {
+	if proof := analysis.proveGuardedCapturedBodyWithin(instruction, closure, analysis.budget(1000)); proof.State == proofs.EvidenceUnknown {
 		return proof.Reason, true
 	}
 	// A captured aggregate can be populated after closure creation. The
 	// closure observes its fields when called, so an unresolved cleanup of
 	// that owner is unknown rather than proof that the acquisition leaks.
 	// https://github.com/Autumn-27/ARTEX/blob/bf7f414477832b77d2152539c0723dc691086522/traffic/traffic.go#L1129-L1176
-	if owner := analysis.proveCapturedAggregateOwnerWithin(closure, analysis.budget(ssaflow.SummaryBudget)); owner.State != ssaflow.EvidenceDisproven {
+	if owner := analysis.proveCapturedAggregateOwnerWithin(closure, analysis.budget(proofs.SummaryBudget)); owner.State != proofs.EvidenceDisproven {
 		return owner.Reason, true
 	}
 	if !carried {
-		capture := analysis.proveClosureCarryWithin(closure, analysis.budget(ssaflow.SummaryBudget))
-		if capture.State == ssaflow.EvidenceUnknown {
+		capture := analysis.proveClosureCarryWithin(closure, analysis.budget(proofs.SummaryBudget))
+		if capture.State == proofs.EvidenceUnknown {
 			return capture.Reason, true
 		}
 		if !capture.Proven() {
@@ -74,7 +75,7 @@ func (analysis *resourceAnalysis) opaqueClosureCall(instruction ssa.Instruction,
 // A capture can refer to a discovered aggregate owner even when the resource
 // is assigned after closure creation. Possible matching supplies uncertainty,
 // never cleanup. An interrupted owner or binding census cannot reject it.
-func (analysis *resourceAnalysis) proveCapturedAggregateOwnerWithin(closure *ssa.MakeClosure, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveCapturedAggregateOwnerWithin(closure *ssa.MakeClosure, budget *proofs.SearchBudget) resourceProof {
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
@@ -114,14 +115,14 @@ type priorCleanupProof struct {
 // the cell at cleanup time, not its registration-time value. Mutable guards
 // prevent proving release, so this is unknown rather than a settled resource.
 // https://github.com/james-6-23/codex2api/blob/4f96afe95bb16132347f4ab74e63b0b1fa0f778b/admin/handler_test.go#L1398-L1447
-func (analysis *resourceAnalysis) provePriorCleanupWithin(acquisition *ssa.Call, budget *ssaflow.SearchBudget) priorCleanupProof {
+func (analysis *resourceAnalysis) provePriorCleanupWithin(acquisition *ssa.Call, budget *proofs.SearchBudget) priorCleanupProof {
 	for instruction := range ssaflow.InstructionsWithin(analysis.function, budget) {
 		deferred, ok := instruction.(*ssa.Defer)
 		if !ok || !ssaflow.InstructionDominates(deferred, acquisition) {
 			continue
 		}
 		proof := analysis.provePriorDeferredWithin(acquisition, deferred, budget)
-		if proof.State == ssaflow.EvidenceUnknown {
+		if proof.State == proofs.EvidenceUnknown {
 			return priorCleanupProof{resourceProof: proof}
 		}
 		if proof.Proven() {
@@ -142,7 +143,7 @@ func (analysis *resourceAnalysis) provePriorCleanupWithin(acquisition *ssa.Call,
 		}
 		for _, argument := range call.Common().Args {
 			proof := analysis.proveCarriedClosureWithin(argument, budget)
-			if proof.State == ssaflow.EvidenceUnknown {
+			if proof.State == proofs.EvidenceUnknown {
 				return priorCleanupProof{resourceProof: proof}
 			}
 			if proof.Proven() {
@@ -157,16 +158,16 @@ func (analysis *resourceAnalysis) provePriorCleanupWithin(acquisition *ssa.Call,
 
 // Preserve captured-cell, SQL parent and paired-context reason precedence.
 // Each witness supplies possible cleanup; none is an exact release guarantee.
-func (analysis *resourceAnalysis) provePriorDeferredWithin(acquisition *ssa.Call, deferred *ssa.Defer, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) provePriorDeferredWithin(acquisition *ssa.Call, deferred *ssa.Defer, budget *proofs.SearchBudget) resourceProof {
 	proof := analysis.proveCapturedCellCleanupWithin(deferred, budget)
-	if proof.State == ssaflow.EvidenceUnknown {
+	if proof.State == proofs.EvidenceUnknown {
 		return proof
 	}
 	if proof.Proven() {
 		return carriedValueProof(true, resourceReasonPriorDeferMayCleanCapturedCell, budget)
 	}
 	parent := proveSQLParentCleanupWithin(acquisition, deferred, budget)
-	if parent.State != ssaflow.EvidenceDisproven {
+	if parent.State != proofs.EvidenceDisproven {
 		return parent
 	}
 	return carriedValueProof(cancelsTransactionContext(acquisition, deferred), resourceReasonTransactionContextCanceled, budget)
@@ -178,7 +179,7 @@ func (analysis *resourceAnalysis) provePriorDeferredWithin(acquisition *ssa.Call
 // not prove which stored value will be closed. Read-only captures and by-value
 // deferred arguments do not qualify. Overwritten-cell leaks may be missed.
 // https://github.com/wind-c/comqtt/blob/11282b91abb06d5169b857a2c38fad5d54502050/plugin/auth/http/http.go#L89-L127
-func (analysis *resourceAnalysis) proveCapturedCellCleanupWithin(deferred *ssa.Defer, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveCapturedCellCleanupWithin(deferred *ssa.Defer, budget *proofs.SearchBudget) resourceProof {
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}

@@ -6,7 +6,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -31,7 +31,7 @@ func (flow lockFlowContext) reportMissingReleases(
 		position := flow.acquiredAt[identity]
 		proof := flow.proveMissingRelease(function, heldAt, callers, identity, returns, query)
 		traceLockDiagnostic(flow.pass, check.LockMissingRelease, position, proof)
-		if proof.state != ssaflow.EvidenceProven {
+		if proof.state != proofs.EvidenceProven {
 			continue
 		}
 		// Naming and related evidence are identical for every uncovered return.
@@ -65,12 +65,12 @@ func (flow lockFlowContext) proveMissingRelease(
 	function *ssa.Function, heldAt map[*ssa.Return]lockReturnState, callers conditionalCallerSet,
 	identity string, returns []token.Pos, query lockReturnQueries,
 ) lockDiagnosticProof {
-	unknown := lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLockStateBudgetExhausted}
+	unknown := lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonLockStateBudgetExhausted}
 	if !query.budget.Spend() {
 		return unknown
 	}
 	if flow.uncertainGuards[identity] {
-		return lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonLoadedAcquisitionGuardUnknown}
+		return lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonLoadedAcquisitionGuardUnknown}
 	}
 	values := flow.lockValues[identity]
 	private := slices.ContainsFunc(values, func(value ssa.Value) bool {
@@ -80,27 +80,27 @@ func (flow lockFlowContext) proveMissingRelease(
 		return unknown
 	}
 	if private {
-		return lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonPrivateMutexOnly}
+		return lockDiagnosticProof{proofs.EvidenceDisproven, lockReasonPrivateMutexOnly}
 	}
 	if !flow.released[identity] {
-		return lockDiagnosticProof{ssaflow.EvidenceUnknown, lockReasonReleaseOwnershipUnknown}
+		return lockDiagnosticProof{proofs.EvidenceUnknown, lockReasonReleaseOwnershipUnknown}
 	}
 	held := query.acquiresForCaller(function, flow.acquisitions[identity], heldAt, identity)
 	if query.budget.Exhausted() {
 		return unknown
 	}
 	if held.proven {
-		return lockDiagnosticProof{ssaflow.EvidenceDisproven, held.reason}
+		return lockDiagnosticProof{proofs.EvidenceDisproven, held.reason}
 	}
 	caller := query.conditionalCallerRelease(function, values, heldAt, identity, callers)
 	if query.budget.Exhausted() {
 		return unknown
 	}
 	if caller.proven {
-		return lockDiagnosticProof{ssaflow.EvidenceDisproven, caller.reason}
+		return lockDiagnosticProof{proofs.EvidenceDisproven, caller.reason}
 	}
 	if len(returns) == 0 {
-		return lockDiagnosticProof{ssaflow.EvidenceDisproven, lockReasonNone}
+		return lockDiagnosticProof{proofs.EvidenceDisproven, lockReasonNone}
 	}
-	return lockDiagnosticProof{ssaflow.EvidenceProven, lockReasonUnreleasedReturn}
+	return lockDiagnosticProof{proofs.EvidenceProven, lockReasonUnreleasedReturn}
 }

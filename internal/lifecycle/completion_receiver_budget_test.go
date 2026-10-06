@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -34,13 +35,13 @@ func TestExactCleanupReceiverAllowance(t *testing.T) {
 				t.Fatal("receiver not found")
 			}
 			if test.want {
-				cut := ssaflow.NewSearchBudget(1)
+				cut := proofs.NewSearchBudget(1)
 				if exactCleanupReceiver(receiver, fn.Params[0], cut) || !cut.Exhausted() {
 					t.Fatal("wrapper traversal bypassed allowance")
 				}
 			}
-			for limit := 1; limit <= ssaflow.QueryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 1; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := exactCleanupReceiver(receiver, fn.Params[0], budget)
 				if budget.Exhausted() {
 					if got {

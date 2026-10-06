@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -135,7 +136,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	censusBudget := analysis.budget()
 	unobserved := analysis.proveUnobservedSignalsWithin(censusBudget)
 	if !unobserved.Known() {
-		if unobserved.Reason == ssaflow.EvidenceBudgetExhausted {
+		if unobserved.Reason == proofs.EvidenceBudgetExhausted {
 			return analysis.lifetimeCutoff(censusBudget, querySignalCensus, reasonSignalCensusUnavailable)
 		}
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonSignalCensusUnavailable}
@@ -246,9 +247,9 @@ func (analysis *spawnAnalysis) callerLifetimeProof() (GoroutineProof, bool) {
 }
 
 func (analysis *spawnAnalysis) lifetimeCutoff(
-	budget *ssaflow.SearchBudget, phase queryPhase, reason goroutineOwnershipReason,
+	budget *proofs.SearchBudget, phase queryPhase, reason goroutineOwnershipReason,
 ) GoroutineProof {
-	budget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
+	budget.Observe(proofs.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
 		return map[string]string{"phase": phase.String()}
 	})
 	return GoroutineProof{Outcome: GoroutineUnknown, Reason: reason}

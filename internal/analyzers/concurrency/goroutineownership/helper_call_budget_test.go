@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/check"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -34,7 +35,7 @@ func TestHelperCallSharesCandidateAllowance(t *testing.T) {
 	query := func(limit int) helperCallProof {
 		candidate := &spawnAnalysis{
 			pass: pass, function: function, spawn: spawn, probe: probe,
-			pool: ssaflow.NewSearchBudget(limit).Observed(probe.Observer()),
+			pool: proofs.NewSearchBudget(limit).Observed(probe.Observer()),
 		}
 		return candidate.helperAction(call.Common(), worker, nil, []trackedValue{{value: target, kind: trackedSignal}})
 	}
@@ -83,7 +84,7 @@ func subject() { done:=make(chan int); go func(){done<-1}(); second(done,done) }
 	target := ssaflow.InstructionsOf[*ssa.MakeChan](function)[0]
 	candidate := &spawnAnalysis{
 		function: function, spawn: ssaflow.InstructionsOf[*ssa.Go](function)[0],
-		pool: ssaflow.NewSearchBudget(spawnPoolBudget),
+		pool: proofs.NewSearchBudget(spawnPoolBudget),
 	}
 	// The first formal has no effect. Its completed answer must not hide the
 	// second formal's exact receive when one memo serves both bindings.

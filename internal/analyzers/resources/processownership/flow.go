@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -30,13 +31,13 @@ func proveProcessReturns(pass *analysis.Pass, proof *commandProof, function *ssa
 	unknown := false
 	owns := func(candidate ssa.Instruction) bool {
 		action := proof.action(candidate, command)
-		if action != ssaflow.EvidenceProven && merged != nil {
-			if mergedAction := proof.action(candidate, merged); mergedAction != ssaflow.EvidenceDisproven {
+		if action != proofs.EvidenceProven && merged != nil {
+			if mergedAction := proof.action(candidate, merged); mergedAction != proofs.EvidenceDisproven {
 				action = mergedAction
 			}
 		}
-		unknown = unknown || action == ssaflow.EvidenceUnknown
-		return action != ssaflow.EvidenceDisproven
+		unknown = unknown || action == proofs.EvidenceUnknown
+		return action != proofs.EvidenceDisproven
 	}
 	probe := analysisTrace.For(pass, "processownership", string(check.ProcessWait), start.Pos())
 	allowReturn := func(returned *ssa.Return) bool {
@@ -70,7 +71,7 @@ func proveProcessReturns(pass *analysis.Pass, proof *commandProof, function *ssa
 	// changed, so this branch fact must not imply stable handle identity or
 	// excuse an additional Boolean condition around the wait or release.
 	assumptions := ssaflow.EntryAssumptions{}
-	if guard := proveImmediateProcessGuard(start, command); guard.State == ssaflow.EvidenceProven {
+	if guard := proveImmediateProcessGuard(start, command); guard.State == proofs.EvidenceProven {
 		assumptions.Constants = ssaflow.FixedValues{guard.NonNil: ssaflow.OutcomeNonNil}
 		emitImmediateProcessGuard(probe, function, guard)
 	}

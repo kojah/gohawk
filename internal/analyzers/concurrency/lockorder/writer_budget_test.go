@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -17,7 +18,7 @@ func TestReadLockWriterWitnessSharesAllowance(t *testing.T) {
 	pass := lockSetupPass(function, concurrencyfacts.NewEngine())
 	reports := 0
 	pass.Report = func(analysis.Diagnostic) { reports++ }
-	setup := buildLockSetup(pass, function, ssaflow.NewSearchBudget(lockStateWorkBudget)).setup
+	setup := buildLockSetup(pass, function, proofs.NewSearchBudget(lockStateWorkBudget)).setup
 	var receiver ssa.Value
 	for _, effect := range setup.direct {
 		if effect.operation == mutexAcquire {
@@ -32,14 +33,14 @@ func TestReadLockWriterWitnessSharesAllowance(t *testing.T) {
 	if len(stores) != 1 {
 		t.Fatal("no single write")
 	}
-	for _, limit := range []int{0, 1, ssaflow.SummaryBudget} {
-		budget := ssaflow.NewSearchBudget(limit)
+	for _, limit := range []int{0, 1, proofs.SummaryBudget} {
+		budget := proofs.NewSearchBudget(limit)
 		flow := lockFlowContext{pass: pass, setup: setup, budget: budget, readLockWrites: map[readLockWriteWitness]bool{}}
 		reportReadLockWrites(flow, stores[0], []string{identity}, []string{identity}, map[string][]ssa.Value{identity: {receiver}}, setup.defers)
 		if limit == 0 && !budget.Exhausted() {
 			t.Fatal("writer witness bypassed zero request allowance")
 		}
-		if limit == ssaflow.SummaryBudget && budget.Exhausted() {
+		if limit == proofs.SummaryBudget && budget.Exhausted() {
 			t.Fatal("complete writer witness exhausted allowance")
 		}
 		if reports != 0 {
@@ -52,12 +53,12 @@ func TestWriterTemporalProofAllowance(t *testing.T) {
 	pkg := writerBudgetPackage(t)
 	for _, test := range []struct {
 		name  string
-		state ssaflow.EvidenceState
+		state proofs.EvidenceState
 	}{
-		{"subject", ssaflow.EvidenceProven},
-		{"released", ssaflow.EvidenceDisproven},
-		{"later", ssaflow.EvidenceDisproven},
-		{"branched", ssaflow.EvidenceProven},
+		{"subject", proofs.EvidenceProven},
+		{"released", proofs.EvidenceDisproven},
+		{"later", proofs.EvidenceDisproven},
+		{"branched", proofs.EvidenceProven},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
@@ -78,17 +79,17 @@ func TestWriterTemporalProofAllowance(t *testing.T) {
 	}
 }
 
-func checkWriterAllowances(t *testing.T, deferred *ssa.Defer, store *ssa.Store, calls []*ssa.Call, baseline ssaflow.Proof) {
+func checkWriterAllowances(t *testing.T, deferred *ssa.Defer, store *ssa.Store, calls []*ssa.Call, baseline proofs.Proof) {
 	t.Helper()
-	for limit := range ssaflow.SummaryBudget {
-		pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	for limit := range proofs.SummaryBudget {
+		pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 		budget := pool.Within(limit)
 		proof := possibleWriterAt(deferred, store, calls, budget)
 		if budget.Exhausted() {
-			if proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted || pool.Exhausted() {
+			if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted || pool.Exhausted() {
 				t.Fatalf("cut%d proof=%+v exhausted=%v/%v", limit, proof, budget.Exhausted(), pool.Exhausted())
 			}
-			if fresh := possibleWriterAt(deferred, store, calls, pool.Within(ssaflow.SummaryBudget)); fresh != baseline {
+			if fresh := possibleWriterAt(deferred, store, calls, pool.Within(proofs.SummaryBudget)); fresh != baseline {
 				t.Fatal("fresh writer query failed")
 			}
 			continue

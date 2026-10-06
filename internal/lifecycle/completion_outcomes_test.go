@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 const completionOutcomeFixture = `package ssaflowtest
@@ -31,18 +31,18 @@ func TestCompletionUnknownReasonPriority(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		limit  int
-		state  ssaflow.EvidenceState
-		reason ssaflow.EvidenceReason
+		state  proofs.EvidenceState
+		reason proofs.EvidenceReason
 		local  bool
 	}{
-		{"callMissing", ssaflow.QueryBudget, ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound, true},
-		{"callOpaque", ssaflow.QueryBudget, ssaflow.EvidenceUnknown, ssaflow.EvidenceUnavailable, false},
-		{"callRecursive", ssaflow.QueryBudget, ssaflow.EvidenceUnknown, ssaflow.EvidenceUnavailable, true},
-		{"callCyclic", ssaflow.QueryBudget, ssaflow.EvidenceUnknown, ssaflow.EvidenceCompletionInCycle, true},
-		{"callMixed", ssaflow.QueryBudget, ssaflow.EvidenceUnknown, ssaflow.EvidenceCompletionInCycle, true},
-		{"callMissing", 1, ssaflow.EvidenceUnknown, ssaflow.EvidenceBudgetExhausted, false},
-		{"callMixed", 1, ssaflow.EvidenceUnknown, ssaflow.EvidenceBudgetExhausted, false},
-		{"callOpaque", 0, ssaflow.EvidenceUnknown, ssaflow.EvidenceBudgetExhausted, false},
+		{"callMissing", proofs.QueryBudget, proofs.EvidenceDisproven, proofs.EvidenceNotFound, true},
+		{"callOpaque", proofs.QueryBudget, proofs.EvidenceUnknown, proofs.EvidenceUnavailable, false},
+		{"callRecursive", proofs.QueryBudget, proofs.EvidenceUnknown, proofs.EvidenceUnavailable, true},
+		{"callCyclic", proofs.QueryBudget, proofs.EvidenceUnknown, proofs.EvidenceCompletionInCycle, true},
+		{"callMixed", proofs.QueryBudget, proofs.EvidenceUnknown, proofs.EvidenceCompletionInCycle, true},
+		{"callMissing", 1, proofs.EvidenceUnknown, proofs.EvidenceBudgetExhausted, false},
+		{"callMixed", 1, proofs.EvidenceUnknown, proofs.EvidenceBudgetExhausted, false},
+		{"callOpaque", 0, proofs.EvidenceUnknown, proofs.EvidenceBudgetExhausted, false},
 	} {
 		fn := pkg.Func(test.name)
 		instruction := findLaunch(t, fn)
@@ -50,18 +50,18 @@ func TestCompletionUnknownReasonPriority(t *testing.T) {
 		var reason string
 		var position token.Pos
 		var details map[string]string
-		budget := ssaflow.NewSearchBudget(test.limit).Observed(func(code string, at token.Pos, data map[string]string) {
+		budget := proofs.NewSearchBudget(test.limit).Observed(func(code string, at token.Pos, data map[string]string) {
 			reason, position, details = code, at, data
 			if at == instruction.Pos() && data["instruction"] == instruction.String() && data["target"] == "r" && data["methods"] == "Close" {
 				finalObservations++
 			}
 		})
 		proof := ProveCompletion(CompletionRequest{Instruction: instruction, Target: fn.Params[0], Methods: []string{"Close"}, Budget: budget})
-		provenance := ssaflow.EvidenceProvenance(0)
+		provenance := proofs.EvidenceProvenance(0)
 		if test.local {
-			provenance = ssaflow.EvidenceFromLocalSSA
+			provenance = proofs.EvidenceFromLocalSSA
 		}
-		want := ssaflow.Proof{State: test.state, Reason: test.reason, Provenance: provenance}
+		want := proofs.Proof{State: test.state, Reason: test.reason, Provenance: provenance}
 		if proof.Proof != want || proof.PathKnown || proof.Path != "" {
 			t.Errorf("%s(limit=%d): got %+v, want %+v", test.name, test.limit, proof, want)
 		}

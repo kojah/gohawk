@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"go/types"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -30,7 +31,7 @@ type ResultGuard struct {
 // Proven means discovery completed, including when Guards is empty; it does
 // not assert completion at any return of the enclosing function.
 type ResultGuardsProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Guards []ResultGuard
 }
 
@@ -38,7 +39,7 @@ type ResultGuardsProof struct {
 // named-result and opposing completion questions. Cutoff discards all guards;
 // completed opaque completion answers retain the ordinary discovery policy.
 func ProveResultGuards(function *ssa.Function, request CompletionRequest) ResultGuardsProof {
-	unknown := ResultGuardsProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}}
+	unknown := ResultGuardsProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 	if !request.Budget.Spend() {
 		return unknown
 	}
@@ -72,7 +73,7 @@ func ProveResultGuards(function *ssa.Function, request CompletionRequest) Result
 		return unknown
 	}
 	return ResultGuardsProof{
-		Proof:  ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA},
+		Proof:  proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA},
 		Guards: guards,
 	}
 }
@@ -81,7 +82,7 @@ func ProveResultGuards(function *ssa.Function, request CompletionRequest) Result
 // order; repeated cells do not repeat the function search. Only a completed
 // census may be reused, and its map says nothing about cleanup coverage.
 func capturedResultCells(
-	function *ssa.Function, closure *ssa.MakeClosure, budget *ssaflow.SearchBudget, named *ssaflow.NamedResultCellsProof,
+	function *ssa.Function, closure *ssa.MakeClosure, budget *proofs.SearchBudget, named *ssaflow.NamedResultCellsProof,
 ) []*ssa.Alloc {
 	var cells []*ssa.Alloc
 	for _, binding := range closure.Bindings {
@@ -116,8 +117,8 @@ func (guard ResultGuard) turnsOnResult(request CompletionRequest) bool {
 		}
 		one := guard.Completes(request, ssaflow.FixedValues{cell: first})
 		other := guard.Completes(request, ssaflow.FixedValues{cell: second})
-		if one == ssaflow.EvidenceProven && other == ssaflow.EvidenceDisproven ||
-			one == ssaflow.EvidenceDisproven && other == ssaflow.EvidenceProven {
+		if one == proofs.EvidenceProven && other == proofs.EvidenceDisproven ||
+			one == proofs.EvidenceDisproven && other == proofs.EvidenceProven {
 			return true
 		}
 	}
@@ -142,7 +143,7 @@ func opposingOutcomes(cell *ssa.Alloc) (ssaflow.Outcome, ssaflow.Outcome) {
 
 // Completes asks whether the deferred literal completes the target on every
 // one of its returns, given what its captured named results hold.
-func (guard ResultGuard) Completes(request CompletionRequest, fixed ssaflow.FixedValues) ssaflow.EvidenceState {
+func (guard ResultGuard) Completes(request CompletionRequest, fixed ssaflow.FixedValues) proofs.EvidenceState {
 	request.Instruction, request.Coverage, request.Constants = guard.Defer, CoverageEveryReturn, fixed
 	return ProveCompletion(request).State
 }
@@ -156,22 +157,22 @@ func (guard ResultGuard) Completes(request CompletionRequest, fixed ssaflow.Fixe
 // may not publish an outcome after exhausting that allowance.
 func (guard ResultGuard) CompletesAtReturn(
 	request CompletionRequest, returned *ssa.Return, outcomeOf func(ssa.Value) (ssaflow.Outcome, bool),
-) ssaflow.EvidenceState {
+) proofs.EvidenceState {
 	fixed := ssaflow.FixedValues{}
 	for _, cell := range guard.Cells {
 		if !request.Budget.Spend() {
-			return ssaflow.EvidenceUnknown
+			return proofs.EvidenceUnknown
 		}
 		value, ok := ssaflow.ValueAtReturnWithin(returned, cell, request.Budget)
 		if !ok {
-			return ssaflow.EvidenceUnknown
+			return proofs.EvidenceUnknown
 		}
 		if !request.Budget.Spend() {
-			return ssaflow.EvidenceUnknown
+			return proofs.EvidenceUnknown
 		}
 		outcome, ok := outcomeOf(value)
 		if !ok || request.Budget.Exhausted() || request.Budget.PoolExhausted() {
-			return ssaflow.EvidenceUnknown
+			return proofs.EvidenceUnknown
 		}
 		fixed[cell] = outcome
 	}
@@ -181,15 +182,15 @@ func (guard ResultGuard) CompletesAtReturn(
 // ProveReachesReturn distinguishes a defer registered on every path to
 // returned from one that may reach it or is disconnected. Interrupted order
 // or reachability searches remain unknown, never evidence of disconnection.
-func (guard ResultGuard) ProveReachesReturn(returned *ssa.Return, budget *ssaflow.SearchBudget) ssaflow.Proof {
-	state := ssaflow.EvidenceDisproven
+func (guard ResultGuard) ProveReachesReturn(returned *ssa.Return, budget *proofs.SearchBudget) proofs.Proof {
+	state := proofs.EvidenceDisproven
 	if ssaflow.InstructionDominatesWithin(guard.Defer, returned, budget) {
-		state = ssaflow.EvidenceProven
+		state = proofs.EvidenceProven
 	} else if ssaflow.InstructionMayFollowWithin(guard.Defer, returned, budget) {
-		state = ssaflow.EvidenceUnknown
+		state = proofs.EvidenceUnknown
 	}
 	if budget.Exhausted() || budget.PoolExhausted() {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	}
-	return ssaflow.Proof{State: state, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
+	return proofs.Proof{State: state, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA}
 }

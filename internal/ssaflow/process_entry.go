@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"go/types"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -65,7 +66,7 @@ func refersTo(function, target *ssa.Function) bool {
 // The supplied allowance owns body/operand and CFG searches; package metadata
 // enumeration retains DeclaredFunctions' existing independent cost. This says
 // nothing about cleanup or whether entry eventually returns.
-func RunsOnceThroughPrivateEntryCallsWithin(instruction ssa.Instruction, budget *SearchBudget) bool {
+func RunsOnceThroughPrivateEntryCallsWithin(instruction ssa.Instruction, budget *proofs.SearchBudget) bool {
 	function := instruction.Parent()
 	if function == nil || function.Pkg == nil || function.Pkg.Pkg.Name() != "main" {
 		return false

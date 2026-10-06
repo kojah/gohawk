@@ -3,6 +3,7 @@ package processownership
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -17,8 +18,8 @@ import (
 // A started worker with no normal return also remains opaque when it contains
 // a positive Wait witness: every-return completion deliberately excludes it.
 // https://github.com/la5nta/pat/blob/2e6a8d14baf0268f4e2aa4d01784a54ca935cf52/internal/prehook/prehook.go#L109-L114
-func provePossibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
-	missing := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+func provePossibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
+	missing := proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return missing
@@ -32,14 +33,14 @@ func provePossibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, bu
 		receiver := ssaflow.CallReceiver(common)
 		_, merged := receiver.(*ssa.Phi)
 		if merged && heapmodel.MayAlias(receiver, command) && !heapmodel.NewStorage(nil).Same(receiver, command).Proven() {
-			return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnknownPointee}
+			return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnknownPointee}
 		}
 		return missing
 	}
 	callee, _ := ssaflow.DirectCallee(common)
 	if _, spawned := instruction.(*ssa.Go); spawned && callee != nil && len(callee.Blocks) != 0 {
 		returns := ssaflow.ProveNormalReturnWithin(callee.Blocks[0], nil, budget)
-		if returns.Reason == ssaflow.EvidenceBudgetExhausted {
+		if returns.Reason == proofs.EvidenceBudgetExhausted {
 			return returns.Proof
 		}
 		if returns.Proven() {
@@ -49,8 +50,8 @@ func provePossibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, bu
 			Instruction: instruction, Target: command, Methods: []string{"Wait"},
 			Coverage: lifecycle.CoverageAnywhere, Budget: budget,
 		})
-		if completion.Proven() || completion.Reason == ssaflow.EvidenceBudgetExhausted {
-			completion.State = ssaflow.EvidenceUnknown
+		if completion.Proven() || completion.Reason == proofs.EvidenceBudgetExhausted {
+			completion.State = proofs.EvidenceUnknown
 			return completion.Proof
 		}
 		return missing
@@ -62,11 +63,11 @@ func provePossibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, bu
 	// called synchronously or launched. The launch does not make their missing
 	// invocation guarantee evidence that the captured command stays local.
 	// https://github.com/unstablebuild/rune/blob/3e2165f8983280542c985947378dfa740a397d03/internal/workspace/file_scheme.go#L458-L467
-	if result := provePossibleCallbackCapture(common.Value, command, budget); result.State == ssaflow.EvidenceUnknown {
+	if result := provePossibleCallbackCapture(common.Value, command, budget); result.State == proofs.EvidenceUnknown {
 		return result
 	}
 	for _, argument := range common.Args {
-		if result := provePossibleCallbackCapture(argument, command, budget); result.State == ssaflow.EvidenceUnknown {
+		if result := provePossibleCallbackCapture(argument, command, budget); result.State == proofs.EvidenceUnknown {
 			return result
 		}
 	}
@@ -75,10 +76,10 @@ func provePossibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, bu
 
 // A possible capture makes Wait participation unknown. The shared query proves
 // only the structural capture, never invocation, joining or exact reaping.
-func provePossibleCallbackCapture(value, command ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func provePossibleCallbackCapture(value, command ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
 	proof := lifecycle.ProvePossibleClosureCaptureWithin(value, command, budget)
 	if proof.Proven() {
-		proof.State = ssaflow.EvidenceUnknown
+		proof.State = proofs.EvidenceUnknown
 	}
 	return proof
 }

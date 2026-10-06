@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"strings"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -11,8 +12,8 @@ import (
 // Its zero value is ready to use and is intentionally not safe for concurrent
 // use; each analyzer function owns its evidence.
 type LocalEvidence struct {
-	completions map[completionEvidenceKey]ssaflow.CompletionProof
-	transfers   map[transferEvidenceKey]ssaflow.OwnershipTransferProof
+	completions map[completionEvidenceKey]proofs.CompletionProof
+	transfers   map[transferEvidenceKey]proofs.OwnershipTransferProof
 	returned    ReturnedCleanupLookup
 }
 
@@ -40,7 +41,7 @@ type transferEvidenceKey struct {
 	modes       OwnershipTransferMode
 }
 
-func (evidence *LocalEvidence) Completion(request CompletionRequest) ssaflow.CompletionProof {
+func (evidence *LocalEvidence) Completion(request CompletionRequest) proofs.CompletionProof {
 	// Lookup policies may differ between requests. Their identities are not
 	// comparable; retain only the per-query summary cache in this case.
 	if request.Summarized != nil || request.CallContract != nil || request.ReturnedSummaries != nil || len(request.Constants) != 0 {
@@ -65,11 +66,11 @@ func (evidence *LocalEvidence) Completion(request CompletionRequest) ssaflow.Com
 	proof := ProveCompletion(request)
 	// A cutoff describes this request's allowance, not the callee's behavior.
 	// Retaining it would prevent a later query with fresh allowance from deciding.
-	if proof.Reason == ssaflow.EvidenceBudgetExhausted || request.Budget.Exhausted() || request.Budget.PoolExhausted() {
+	if proof.Reason == proofs.EvidenceBudgetExhausted || request.Budget.Exhausted() || request.Budget.PoolExhausted() {
 		return proof
 	}
 	if evidence.completions == nil {
-		evidence.completions = make(map[completionEvidenceKey]ssaflow.CompletionProof)
+		evidence.completions = make(map[completionEvidenceKey]proofs.CompletionProof)
 	}
 	evidence.completions[key] = proof
 	return proof

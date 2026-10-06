@@ -3,7 +3,7 @@ package heapmodel
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -38,7 +38,7 @@ func opaque()
 	if !graph.available || graph.buildReason != GraphBuildComplete {
 		t.Fatal("complete graph was not classified")
 	}
-	graph.budget = ssaflow.NewSearchBudget(1)
+	graph.budget = proofs.NewSearchBudget(1)
 	reason, detail := graph.fixpoint()
 	if reason != GraphBuildBudgetExhausted || detail != "" {
 		t.Fatalf("budget: reason=%s detail=%q", reason, detail)

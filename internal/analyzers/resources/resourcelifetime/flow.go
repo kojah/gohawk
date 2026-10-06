@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -35,12 +36,12 @@ func evaluateResourceFlow(
 	}
 	evidence.ForCandidate(call.Pos())
 	probe := analysisTrace.For(pass, "resourcelifetime", string(check.ResourceRelease), call.Pos())
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget).Observed(probe.Observer())
+	pool := proofs.NewSearchBudget(resourcePoolBudget).Observed(probe.Observer())
 	// The paired error restricts the edges on which acquisition creates an
 	// obligation. A shortened lookup must stop here, before missing evidence
 	// can activate ownership on a failed acquisition edge.
 	errorResult := proveAcquisitionErrorResultWithin(call, pool.Within(releaseSearchBudget))
-	if errorResult.proof.State == ssaflow.EvidenceUnknown {
+	if errorResult.proof.State == proofs.EvidenceUnknown {
 		return unknownResourceLifetime(errorResult.proof.Reason)
 	}
 	errorValue := errorResult.value
@@ -48,14 +49,14 @@ func evaluateResourceFlow(
 		return unknownResourceLifetime(reason)
 	}
 	canceled := proveAcquisitionContextCanceledWithin(call, pool.Within(releaseSearchBudget))
-	if canceled.State == ssaflow.EvidenceUnknown {
+	if canceled.State == proofs.EvidenceUnknown {
 		return unknownResourceLifetime(canceled.Reason)
 	}
 	if canceled.Proven() {
 		return acceptedResourceLifetime(resourceReasonCanceledAcquisition)
 	}
 	assertedError := proveAcquisitionErrorWithin(call, resource, errorValue, contract.packagePath == "net/http", pool.Within(releaseSearchBudget))
-	if assertedError.State == ssaflow.EvidenceUnknown {
+	if assertedError.State == proofs.EvidenceUnknown {
 		return unknownResourceLifetime(assertedError.Reason)
 	}
 	if assertedError.Proven() {
@@ -65,7 +66,7 @@ func evaluateResourceFlow(
 	// the same diamond edge. Only a complete correlation may replace the
 	// resource input used by owner discovery and the subsequent path proof.
 	optionalAcquisition := proveOptionalAcquisitionWithin(call, resource, errorValue, pool.Within(releaseSearchBudget))
-	if optionalAcquisition.proof.State == ssaflow.EvidenceUnknown {
+	if optionalAcquisition.proof.State == proofs.EvidenceUnknown {
 		return unknownResourceLifetime(optionalAcquisition.proof.Reason)
 	}
 	if optionalAcquisition.Proven() {
@@ -79,12 +80,12 @@ func evaluateResourceFlow(
 		probe: probe, pool: pool,
 	}
 	setup := analysis.prepareResourceFlow()
-	if setup.State == ssaflow.EvidenceUnknown {
+	if setup.State == proofs.EvidenceUnknown {
 		return unknownResourceLifetime(setup.Reason)
 	}
 
 	flow := analysis.proveResourceFlow(errorValue)
-	if flow.state != ssaflow.EvidenceProven {
+	if flow.state != proofs.EvidenceProven {
 		return flow
 	}
 	// DB-prepared driver statements belong to pooled connections, whose
@@ -135,7 +136,7 @@ func (analysis *resourceAnalysis) emitAction(instruction ssa.Instruction, action
 // traces the decision: the collection, or the use of it that declined the
 // model and left the append unknown.
 func (analysis *resourceAnalysis) localCollection() *localCollection {
-	decision := findLocalCollection(analysis.evidence, analysis.resource, analysis.contract.cleanup, analysis.budget(ssaflow.QueryBudget))
+	decision := findLocalCollection(analysis.evidence, analysis.resource, analysis.contract.cleanup, analysis.budget(proofs.QueryBudget))
 	if !analysis.probe.Enabled() || decision.collection == nil && decision.declinedAt == nil {
 		return decision.collection
 	}
@@ -192,7 +193,7 @@ func (analysis *resourceAnalysis) traceUncertainEdge(block, successor *ssa.Basic
 // reclaims qualify: a compressor's Close flushes buffered data, a transaction
 // must commit, and an inferred owner's Close is not known to be free of such
 // effects, so all of those are still reported.
-func processExitReclaims(call *ssa.Call, contract resourceContract, budget *ssaflow.SearchBudget) bool {
+func processExitReclaims(call *ssa.Call, contract resourceContract, budget *proofs.SearchBudget) bool {
 	switch contract.family {
 	case resourceFamilyOS, resourceFamilyHTTP:
 	case resourceFamilySQL:

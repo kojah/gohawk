@@ -29,7 +29,7 @@ when its contents are read; writing only whole values is not sufficient.
 [Source](../../../../internal/heapmodel/store_access_paths.go)
 
 ```go
-func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *ssaflow.SearchBudget) ([]string, bool)
+func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *proofs.SearchBudget) ([]string, bool)
 ```
 
 AccessPathFromParameterWithin shares direct path, spill-store and whole-cell
@@ -44,7 +44,7 @@ cannot name the original parameter. Nil retains the default storage allowance.
 ```go
 type AliasDecision struct {
 	Value, Target	ssa.Value
-	Reason		ssaflow.EvidenceReason
+	Reason		proofs.EvidenceReason
 }
 ```
 
@@ -167,7 +167,7 @@ installed without depending on referrer iteration order.
 [Source](../../../../internal/heapmodel/store_alias.go)
 
 ```go
-func CapturedBindingMatchesWithin(binding, target ssa.Value, budget *ssaflow.SearchBudget) bool
+func CapturedBindingMatchesWithin(binding, target ssa.Value, budget *proofs.SearchBudget) bool
 ```
 
 CapturedBindingMatchesWithin shares alias dispatch and store-referrer visits
@@ -220,7 +220,7 @@ target from one whose every possible occupant contains it indirectly.
 [Source](../../../../internal/heapmodel/store_deferred_cells.go)
 
 ```go
-func DeferredCellRelationWithin(cell *ssa.Alloc, target ssa.Value, invocation ssa.Instruction, budget *ssaflow.SearchBudget) (DeferredCellMatch, bool)
+func DeferredCellRelationWithin(cell *ssa.Alloc, target ssa.Value, invocation ssa.Instruction, budget *proofs.SearchBudget) (DeferredCellMatch, bool)
 ```
 
 DeferredCellRelationWithin reads the cell when deferred calls execute. Known is
@@ -821,7 +821,7 @@ MayAliasAny reports whether value may alias any candidate; see MayAlias.
 [Source](../../../../internal/heapmodel/store_alias.go)
 
 ```go
-func MayAliasAnyWithin(value ssa.Value, candidates []ssa.Value, budget *ssaflow.SearchBudget) bool
+func MayAliasAnyWithin(value ssa.Value, candidates []ssa.Value, budget *proofs.SearchBudget) bool
 ```
 
 MayAliasAnyWithin charges candidate visits and alias dispatch to budget.
@@ -833,7 +833,7 @@ Cutoff supplies no alias evidence; callers must retain its availability.
 [Source](../../../../internal/heapmodel/store_model.go)
 
 ```go
-func NewStorage(budget *ssaflow.SearchBudget) *Storage
+func NewStorage(budget *proofs.SearchBudget) *Storage
 ```
 
 NewStorage creates a bounded storage query using the caller's search budget.
@@ -867,7 +867,7 @@ function has no normal return to project.
 
 ```go
 type ProjectionPathProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Path	[]string
 }
 ```
@@ -881,7 +881,7 @@ no Path; that cannot publish an exact field cleanup contract.
 [Source](../../../../internal/heapmodel/query.go)
 
 ```go
-func ProveMayAlias(value, target ssa.Value) ssaflow.AliasProof
+func ProveMayAlias(value, target ssa.Value) proofs.AliasProof
 ```
 
 ProveMayAlias asks one function's graph whether two values may name the
@@ -892,7 +892,7 @@ same object. An unavailable graph falls back to the structural value walk.
 [Source](../../../../internal/heapmodel/store_access_paths.go)
 
 ```go
-func ProveStoredPathWithin(root, target ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) StoredPathProof
+func ProveStoredPathWithin(root, target ssa.Value, observation ssa.Instruction, budget *proofs.SearchBudget) StoredPathProof
 ```
 
 ProveStoredPathWithin shares graph dispatch, selection/referrer visits and
@@ -905,7 +905,7 @@ internals remain separate costs. Nil retains the default storage allowance.
 [Source](../../../../internal/heapmodel/store_projection.go)
 
 ```go
-func ProveStrictProjectionPathWithin(value, root ssa.Value, budget *ssaflow.SearchBudget) ProjectionPathProof
+func ProveStrictProjectionPathWithin(value, root ssa.Value, budget *proofs.SearchBudget) ProjectionPathProof
 ```
 
 ProveStrictProjectionPathWithin shares path and stored-value visits with
@@ -973,7 +973,7 @@ origin; a stale entry, carried around a loop's back edge, is marked.
 [Source](../../../../internal/heapmodel/store_alias.go)
 
 ```go
-func ReturnedMayAliasAnyWithin(returned *ssa.Return, candidates []ssa.Value, budget *ssaflow.SearchBudget) bool
+func ReturnedMayAliasAnyWithin(returned *ssa.Return, candidates []ssa.Value, budget *proofs.SearchBudget) bool
 ```
 
 ReturnedMayAliasAnyWithin shares result and candidate visits with budget.
@@ -995,7 +995,7 @@ exactly path.
 [Source](../../../../internal/heapmodel/store_access_paths.go)
 
 ```go
-func SelectionsOfWithin(root ssa.Value, path []string, budget *ssaflow.SearchBudget) []ssa.Value
+func SelectionsOfWithin(root ssa.Value, path []string, budget *proofs.SearchBudget) []ssa.Value
 ```
 
 SelectionsOfWithin shares path, address and referrer visits with budget.
@@ -1006,7 +1006,7 @@ Cutoff returns no selections and cannot establish that a path is absent.
 [Source](../../../../internal/heapmodel/store_stability.go)
 
 ```go
-func SliceOnlyObserved(use, observation ssa.Instruction, budget *ssaflow.SearchBudget) bool
+func SliceOnlyObserved(use, observation ssa.Instruction, budget *proofs.SearchBudget) bool
 ```
 
 SliceOnlyObserved reports whether use constructs a slice whose only consumers
@@ -1042,7 +1042,7 @@ Each query owns its budget; no state is shared between analyzed functions.
 [Source](../../../../internal/heapmodel/store_model.go)
 
 ```go
-func (storage *Storage) Budget() *ssaflow.SearchBudget
+func (storage *Storage) Budget() *proofs.SearchBudget
 ```
 
 Budget returns the budget this storage query spends, so a caller can hand
@@ -1079,7 +1079,7 @@ trigger graph construction for every opaque return load in a dependency.
 [Source](../../../../internal/heapmodel/store_projection.go)
 
 ```go
-func (storage *Storage) Projection(value, root ssa.Value, observation ssa.Instruction) ssaflow.IdentityProof
+func (storage *Storage) Projection(value, root ssa.Value, observation ssa.Instruction) proofs.IdentityProof
 ```
 
 Projection proves that value is a strict, non-empty
@@ -1103,7 +1103,7 @@ This preserves a saved value when its original cell is subsequently changed.
 [Source](../../../../internal/heapmodel/store_model.go)
 
 ```go
-func (storage *Storage) Same(left, right ssa.Value) ssaflow.IdentityProof
+func (storage *Storage) Same(left, right ssa.Value) proofs.IdentityProof
 ```
 
 Same proves equality after resolving local loads. Failure means unknown,
@@ -1147,7 +1147,7 @@ address or write it. This says nothing about mutation of the loaded object.
 [Source](../../../../internal/heapmodel/storage_order.go)
 
 ```go
-func StoreMayFollowWithin(address ssa.Value, observation ssa.Instruction, store *ssa.Store, budget *ssaflow.SearchBudget) bool
+func StoreMayFollowWithin(address ssa.Value, observation ssa.Instruction, store *ssa.Store, budget *proofs.SearchBudget) bool
 ```
 
 StoreMayFollowWithin reports whether the store can run after the observation on
@@ -1166,7 +1166,7 @@ a store absent. Re-entering a loop allocation still denotes a fresh cell.
 
 ```go
 type StoredPathProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Path	[]string
 }
 ```
@@ -1180,7 +1180,7 @@ an unavailable search. Possible containment does not establish this relation.
 
 ```go
 type StoredValue struct {
-	ssaflow.Proof
+	proofs.Proof
 
 	Value	ssa.Value
 }
@@ -1264,7 +1264,7 @@ analyzer must keep such a replaced resource reportable.
 [Source](../../../../internal/heapmodel/store_derivation.go)
 
 ```go
-func ValueDerivesFromWithin(value, source ssa.Value, budget *ssaflow.SearchBudget) bool
+func ValueDerivesFromWithin(value, source ssa.Value, budget *proofs.SearchBudget) bool
 ```
 
 ValueDerivesFromWithin shares derivation visits with budget. Alias dispatch

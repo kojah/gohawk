@@ -93,7 +93,7 @@ at the public query boundary; each query must supply its own work budget.
 [Source](../../../../internal/passes/concurrencyfacts/engine.go)
 
 ```go
-func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBudget) Summary
+func (engine *Engine) AtCall(call ssa.CallInstruction, budget *proofs.SearchBudget) Summary
 ```
 
 AtCall binds complete local or imported effects to the caller's exact values.
@@ -103,7 +103,7 @@ AtCall binds complete local or imported effects to the caller's exact values.
 [Source](../../../../internal/passes/concurrencyfacts/conditions.go)
 
 ```go
-func (engine *Engine) CondMutex(reference Reference, budget *ssaflow.SearchBudget) (Reference, bool)
+func (engine *Engine) CondMutex(reference Reference, budget *proofs.SearchBudget) (Reference, bool)
 ```
 
 CondMutex resolves the exact Mutex supplied to a NewCond allocation. It does
@@ -115,7 +115,7 @@ which rejects condition-field access, mutation and opaque publication.
 [Source](../../../../internal/passes/concurrencyfacts/engine.go)
 
 ```go
-func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
+func (engine *Engine) Function(function *ssa.Function, budget *proofs.SearchBudget) Summary
 ```
 
 Function summarizes a visible body, including bounded child templates.
@@ -125,7 +125,7 @@ Function summarizes a visible body, including bounded child templates.
 [Source](../../../../internal/passes/concurrencyfacts/engine.go)
 
 ```go
-func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
+func (engine *Engine) Root(function *ssa.Function, budget *proofs.SearchBudget) Summary
 ```
 
 Root collects a caller and at most maxWorkers children under one shared work budget.
@@ -601,7 +601,7 @@ the same fields the builder writes, so it cannot disagree with Reason.
 [Source](../../../../internal/passes/concurrencyfacts/cutoff.go)
 
 ```go
-func (summary Summary) ObserveCutoff(observer ssaflow.Observer)
+func (summary Summary) ObserveCutoff(observer proofs.Observer)
 ```
 
 ObserveCutoff emits the retained summary cutoff through a candidate's observer.

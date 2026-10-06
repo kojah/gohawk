@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -14,14 +15,14 @@ import (
 func TestLockStateKeyAvailability(t *testing.T) {
 	state := lockBudgetState(t)
 	want := lockStateKey(state, nil)
-	limited := ssaflow.NewSearchBudget(1)
+	limited := proofs.NewSearchBudget(1)
 	if key := lockStateKey(state, limited); key != "" || !limited.Exhausted() {
 		t.Fatal("partial key exposed")
 	}
 
 	finished := false
 	for limit := range 64 {
-		pool := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+		pool := proofs.NewSearchBudget(proofs.QueryBudget)
 		child := pool.Within(limit)
 		expanded := 0
 		ssaflow.WalkStatesWithin([]lockFlowState{state}, func(next lockFlowState) string { return lockStateKey(next, child) },
@@ -33,7 +34,7 @@ func TestLockStateKeyAvailability(t *testing.T) {
 		if expanded != 0 || pool.Exhausted() {
 			t.Fatalf("cut%d expanded=%d pool exhausted=%v", limit, expanded, pool.Exhausted())
 		}
-		if got := lockStateKey(state, pool.Within(ssaflow.QueryBudget)); got != want {
+		if got := lockStateKey(state, pool.Within(proofs.QueryBudget)); got != want {
 			t.Fatalf("fresh key %q want %q", got, want)
 		}
 	}
@@ -45,13 +46,13 @@ func TestLockStateKeyAvailability(t *testing.T) {
 func TestLockStateCopyAvailability(t *testing.T) {
 	state := lockBudgetState(t)
 	want := lockStateKey(state, nil)
-	limited := ssaflow.NewSearchBudget(1)
+	limited := proofs.NewSearchBudget(1)
 	if _, ok := cloneLockStateWithin(state, limited); ok || !limited.Exhausted() {
 		t.Fatal("partial copy exposed")
 	}
 	finished := false
 	for limit := range 64 {
-		pool := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+		pool := proofs.NewSearchBudget(proofs.QueryBudget)
 		child := pool.Within(limit)
 		copied, ok := cloneLockStateWithin(state, child)
 		if ok {
@@ -61,7 +62,7 @@ func TestLockStateCopyAvailability(t *testing.T) {
 		if !child.Exhausted() || !reflect.DeepEqual(copied, lockFlowState{}) || pool.Exhausted() {
 			t.Fatalf("partial copy at%d: %+v", limit, copied)
 		}
-		fresh, ok := cloneLockStateWithin(state, pool.Within(ssaflow.QueryBudget))
+		fresh, ok := cloneLockStateWithin(state, pool.Within(proofs.QueryBudget))
 		if !ok || !reflect.DeepEqual(fresh, state) {
 			t.Fatalf("fresh copy at%d differs", limit)
 		}
@@ -69,7 +70,7 @@ func TestLockStateCopyAvailability(t *testing.T) {
 	if !finished {
 		t.Fatal("copy never completed")
 	}
-	copied, ok := cloneLockStateWithin(state, ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+	copied, ok := cloneLockStateWithin(state, proofs.NewSearchBudget(proofs.QueryBudget))
 	if !ok {
 		t.Fatal("copy unavailable")
 	}
@@ -84,12 +85,12 @@ func TestLockStateCopyAvailability(t *testing.T) {
 func TestLockPhiAndCycleQueriesShareAllowance(t *testing.T) {
 	state := lockBudgetState(t)
 	expected := lockPhiConstants(state, nil)
-	pool := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(proofs.QueryBudget)
 	child := pool.Within(1)
 	if got := lockPhiConstants(state, child); len(got) != 0 || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("cut phi retained %+v", got)
 	}
-	if got := lockPhiConstants(state, pool.Within(ssaflow.QueryBudget)); !reflect.DeepEqual(got, expected) {
+	if got := lockPhiConstants(state, pool.Within(proofs.QueryBudget)); !reflect.DeepEqual(got, expected) {
 		t.Fatalf("fresh phi differs: %+v want %+v", got, expected)
 	}
 	pkg := ssaflowtest.BuildPackage(t, "conditions", `package conditions
@@ -103,7 +104,7 @@ func TestLockPhiAndCycleQueriesShareAllowance(t *testing.T) {
 		if identity, known := conditionIdentity(value, child); known || identity != "" || !child.Exhausted() {
 			t.Fatalf("cut cycle query %s became stable: %q/%v", name, identity, known)
 		}
-		_, known := conditionIdentity(value, pool.Within(ssaflow.QueryBudget))
+		_, known := conditionIdentity(value, pool.Within(proofs.QueryBudget))
 		if known != (name == "once") || pool.Exhausted() {
 			t.Fatalf("fresh %s known=%v", name, known)
 		}

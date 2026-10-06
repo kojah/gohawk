@@ -3,7 +3,7 @@ package lifecyclefacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 func TestReasonCodes(t *testing.T) {
@@ -41,13 +41,13 @@ func TestReasonCodes(t *testing.T) {
 }
 
 func TestProofKeepsSummaryAndLocalEvidenceSeparate(t *testing.T) {
-	local := Proof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}}
+	local := Proof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 	if local.Known() || local.SummaryReason != reasonNone || local.traceReason() != "budget-exhausted" {
 		t.Fatalf("local cutoff changed: %+v", local)
 	}
 	imported := importedProof(reasonLifecycleSummary, "Close")
-	if !imported.Proven() || imported.Reason != ssaflow.EvidenceNone || imported.SummaryReason != reasonLifecycleSummary ||
-		imported.Method != "Close" || imported.Provenance != ssaflow.EvidenceFromImportedFact || imported.traceReason() != "lifecycle-summary" {
+	if !imported.Proven() || imported.Reason != proofs.EvidenceNone || imported.SummaryReason != reasonLifecycleSummary ||
+		imported.Method != "Close" || imported.Provenance != proofs.EvidenceFromImportedFact || imported.traceReason() != "lifecycle-summary" {
 		t.Fatalf("summary proof changed: %+v", imported)
 	}
 	if (Proof{}).Known() || (Proof{}).traceReason() != "" {

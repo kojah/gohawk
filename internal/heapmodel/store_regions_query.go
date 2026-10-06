@@ -1,6 +1,7 @@
 package heapmodel
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -28,35 +29,35 @@ func (graph *regionGraph) pointsToUnlocked(value ssa.Value) (pointees, bool) {
 // result tuple, keeps the structural answer: it is not unknown, it is not a
 // pointer. A value with no pointees is unknown and may alias anything. A
 // disjointness answer is recorded on the graph.
-func (graph *regionGraph) aliasProof(left, right ssa.Value) ssaflow.AliasProof {
+func (graph *regionGraph) aliasProof(left, right ssa.Value) proofs.AliasProof {
 	defer graph.lock()()
 	if !tracked(left.Type()) || !tracked(right.Type()) || left == right {
-		return ssaflow.AliasProof{
-			Aliases: ssaflow.StructurallySame(left, right), Reason: ssaflow.EvidenceStructuralWalk,
-			Provenance: ssaflow.EvidenceFromLocalSSA,
+		return proofs.AliasProof{
+			Aliases: ssaflow.StructurallySame(left, right), Reason: proofs.EvidenceStructuralWalk,
+			Provenance: proofs.EvidenceFromLocalSSA,
 		}
 	}
 	a, okA := graph.pointsToUnlocked(left)
 	b, okB := graph.pointsToUnlocked(right)
 	if !okA || !okB {
-		return ssaflow.AliasProof{Aliases: true, Reason: ssaflow.EvidenceUnknownPointee, Provenance: ssaflow.EvidenceFromLocalSSA}
+		return proofs.AliasProof{Aliases: true, Reason: proofs.EvidenceUnknownPointee, Provenance: proofs.EvidenceFromLocalSSA}
 	}
-	reason := ssaflow.EvidenceDisjointObjects
+	reason := proofs.EvidenceDisjointObjects
 	for x := range a {
 		for y := range b {
 			if graph.slotsMayAlias(x, y, aliasDepth) {
-				return ssaflow.AliasProof{Aliases: true, Reason: ssaflow.EvidenceSharedSlot, Provenance: ssaflow.EvidenceFromLocalSSA}
+				return proofs.AliasProof{Aliases: true, Reason: proofs.EvidenceSharedSlot, Provenance: proofs.EvidenceFromLocalSSA}
 			}
 			switch {
 			case x.region == y.region:
-				reason = ssaflow.EvidenceDisjointPaths
-			case reason == ssaflow.EvidenceDisjointObjects && (x.region.kind == regionSite) != (y.region.kind == regionSite):
-				reason = ssaflow.EvidenceUnescapedLocal
+				reason = proofs.EvidenceDisjointPaths
+			case reason == proofs.EvidenceDisjointObjects && (x.region.kind == regionSite) != (y.region.kind == regionSite):
+				reason = proofs.EvidenceUnescapedLocal
 			}
 		}
 	}
 	graph.disjoint = append(graph.disjoint, AliasDecision{Value: left, Target: right, Reason: reason})
-	return ssaflow.AliasProof{Aliases: false, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}
+	return proofs.AliasProof{Aliases: false, Reason: reason, Provenance: proofs.EvidenceFromLocalSSA}
 }
 
 // aliasDepth bounds the placeholder chase: a placeholder may have been
@@ -186,7 +187,7 @@ func (graph *regionGraph) contentAtUnlocked(address ssa.Value, at ssa.Instructio
 // everContained reports whether some slot beneath the object was ever given
 // one of the target's objects: the aggregate held the target at some point,
 // possibly in another iteration of a loop.
-func (graph *regionGraph) everContainedUnlocked(object slot, target pointees, budget *ssaflow.SearchBudget) bool {
+func (graph *regionGraph) everContainedUnlocked(object slot, target pointees, budget *proofs.SearchBudget) bool {
 	if !budget.Spend() {
 		return false
 	}
@@ -322,7 +323,7 @@ func (graph *regionGraph) pointsTo(value ssa.Value) (pointees, bool) {
 
 // everContainedWithin is everContainedUnlocked for a caller outside the graph's
 // own queries.
-func (graph *regionGraph) everContainedWithin(object slot, target pointees, budget *ssaflow.SearchBudget) bool {
+func (graph *regionGraph) everContainedWithin(object slot, target pointees, budget *proofs.SearchBudget) bool {
 	defer graph.lock()()
 	return graph.everContainedUnlocked(object, target, budget)
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -24,7 +25,7 @@ func TestLockReturnRetentionAndMerge(t *testing.T) {
 		values := map[string][]ssa.Value{identity: {value}}
 		heldAt := map[*ssa.Return]lockReturnState{}
 		unreleased := map[string][]token.Pos{}
-		query := lockReturnQueries{budget: ssaflow.NewSearchBudget(ssaflow.SummaryBudget)}
+		query := lockReturnQueries{budget: proofs.NewSearchBudget(proofs.SummaryBudget)}
 		incoming := []string{identity}
 		query.recordUnreleasedLocks(returned, incoming, nil, values, unreleased, heldAt)
 		if query.budget.Exhausted() || len(unreleased[identity]) != boolCount(name == "keep") {
@@ -52,9 +53,9 @@ func TestLockReturnOwnerAndHandoffCutoff(t *testing.T) {
 	pkg := lockRetentionPackage(t)
 	for _, name := range []string{"padded", "handoff"} {
 		fn := pkg.Func(name)
-		pool := ssaflow.NewSearchBudget(lockStateWorkBudget)
+		pool := proofs.NewSearchBudget(lockStateWorkBudget)
 		child := pool.Within(30)
-		ask := func(budget *ssaflow.SearchBudget) bool {
+		ask := func(budget *proofs.SearchBudget) bool {
 			if name == "handoff" {
 				call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 				return handedUnlockCallback(call, fn.Params[0], budget)
@@ -68,7 +69,7 @@ func TestLockReturnOwnerAndHandoffCutoff(t *testing.T) {
 		}
 		// Both padded callback bodies now charge numeric capture mapping too;
 		// retain their padding and small cutoff with separate recovery allowance.
-		fresh := pool.Within(2 * ssaflow.SummaryBudget)
+		fresh := pool.Within(2 * proofs.SummaryBudget)
 		if !ask(fresh) {
 			t.Fatalf("%s fresh capability query fails, exhausted=%v/%v", name, fresh.Exhausted(), pool.Exhausted())
 		}
@@ -77,7 +78,7 @@ func TestLockReturnOwnerAndHandoffCutoff(t *testing.T) {
 
 func TestLockReturnMergeCutoffDiscardsMasks(t *testing.T) {
 	for _, seen := range []bool{false, true} {
-		pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+		pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 		child := pool.Within(1)
 		query := lockReturnQueries{budget: child}
 		previous := lockReturnState{possible: []string{"first"}, definite: []string{"first"}}
@@ -85,7 +86,7 @@ func TestLockReturnMergeCutoffDiscardsMasks(t *testing.T) {
 		if !child.Exhausted() || pool.Exhausted() || len(merged.possible) != 0 || len(merged.definite) != 0 {
 			t.Fatalf("seen=%v partial merge: %+v exhausted=%v/%v", seen, merged, child.Exhausted(), pool.Exhausted())
 		}
-		fresh := lockReturnQueries{budget: pool.Within(ssaflow.SummaryBudget)}
+		fresh := lockReturnQueries{budget: pool.Within(proofs.SummaryBudget)}
 		merged = fresh.mergeReturnState(previous, []string{"first", "second"}, seen)
 		if !slices.Equal(merged.possible, []string{"first", "second"}) || len(merged.definite) != 2-boolCount(seen) {
 			t.Fatalf("seen=%v fresh merge: %+v", seen, merged)

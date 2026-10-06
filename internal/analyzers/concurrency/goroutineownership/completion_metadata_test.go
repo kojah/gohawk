@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -24,12 +25,12 @@ func TestCompletionCapturePrecedesArgumentMetadata(t *testing.T) {
 	owner := closure.Bindings[0]
 	// The capture is exact without consulting any of the unrelated parameters.
 	// A fixed allowance must not be spent preparing their metadata first.
-	budget := ssaflow.NewSearchBudget(32)
+	budget := proofs.NewSearchBudget(32)
 	if got := completionValueAtCall(spawn, worker, closure, worker.FreeVars[0], budget); got != owner || budget.Exhausted() {
 		t.Fatalf("capture binding = %v, exhausted=%v; want %v", got, budget.Exhausted(), owner)
 	}
 	for limit := range 32 {
-		budget := ssaflow.NewSearchBudget(limit)
+		budget := proofs.NewSearchBudget(limit)
 		got := completionValueAtCall(spawn, worker, closure, worker.FreeVars[0], budget)
 		if budget.Exhausted() && got != nil {
 			t.Fatalf("limit %d published capture after cutoff: %v", limit, got)

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -72,7 +73,7 @@ func TestFixedArgumentBindingAllowance(t *testing.T) {
 			if !baseline.Proven() || len(baseline.Values) != test.count {
 				t.Fatalf("default=%+v want%d bindings", baseline, test.count)
 			}
-			checkFixedBindingCutoffs(t, func(budget *ssaflow.SearchBudget) ssaflow.FixedArgumentsProof {
+			checkFixedBindingCutoffs(t, func(budget *proofs.SearchBudget) ssaflow.FixedArgumentsProof {
 				return ssaflow.ProveFixedArgumentsWithin(ssaflow.InstructionCall(call), closure, callee, known, budget)
 			}, baseline)
 		})
@@ -91,14 +92,14 @@ func fixedBindingCall(t *testing.T, fn *ssa.Function) ssa.Instruction {
 	return nil
 }
 
-func checkFixedBindingCutoffs(t *testing.T, prove func(*ssaflow.SearchBudget) ssaflow.FixedArgumentsProof, want ssaflow.FixedArgumentsProof) {
+func checkFixedBindingCutoffs(t *testing.T, prove func(*proofs.SearchBudget) ssaflow.FixedArgumentsProof, want ssaflow.FixedArgumentsProof) {
 	t.Helper()
 	completed := false
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		got := prove(budget)
 		if budget.Exhausted() || limit == 0 {
-			if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted || got.Values != nil {
+			if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted || got.Values != nil {
 				t.Fatalf("cut%d published%+v", limit, got)
 			}
 			continue
@@ -112,12 +113,12 @@ func checkFixedBindingCutoffs(t *testing.T, prove func(*ssaflow.SearchBudget) ss
 	if !completed {
 		t.Fatal("binding never completed")
 	}
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	child := pool.Within(0)
-	if got := prove(child); got.State != ssaflow.EvidenceUnknown || got.Values != nil || pool.Exhausted() {
+	if got := prove(child); got.State != proofs.EvidenceUnknown || got.Values != nil || pool.Exhausted() {
 		t.Fatalf("child=%+v", got)
 	}
-	if got := prove(pool.Within(ssaflow.SummaryBudget)); !reflect.DeepEqual(got, want) {
+	if got := prove(pool.Within(proofs.SummaryBudget)); !reflect.DeepEqual(got, want) {
 		t.Fatalf("fresh=%+v want%+v", got, want)
 	}
 }
@@ -125,19 +126,19 @@ func checkFixedBindingCutoffs(t *testing.T, prove func(*ssaflow.SearchBudget) ss
 func TestFixedArgumentPartialCensusDiscarded(t *testing.T) {
 	source := `package partialbinding
  func effect(){}
- func slow(yes bool,p *int){` + strings.Repeat("println(p);", ssaflow.QueryBudget+1) + `if p==nil && yes{effect()}}
+ func slow(yes bool,p *int){` + strings.Repeat("println(p);", proofs.QueryBudget+1) + `if p==nil && yes{effect()}}
  func caller(){slow(true,nil)}
  `
 	fn := ssaflowtest.BuildPackage(t, "partialbinding", source).Func("caller")
 	call := fixedBindingCall(t, fn)
 	callee, closure := ssaflow.DirectCallee(ssaflow.InstructionCall(call))
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
+	child := pool.Within(proofs.QueryBudget)
 	proof := ssaflow.ProveFixedArgumentsWithin(ssaflow.InstructionCall(call), closure, callee, nil, child)
-	if proof.State != ssaflow.EvidenceUnknown || proof.Values != nil || !child.Exhausted() || pool.Exhausted() {
+	if proof.State != proofs.EvidenceUnknown || proof.Values != nil || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("partial=%+v", proof)
 	}
-	fresh := ssaflow.ProveFixedArgumentsWithin(ssaflow.InstructionCall(call), closure, callee, nil, pool.Within(2*ssaflow.SummaryBudget))
+	fresh := ssaflow.ProveFixedArgumentsWithin(ssaflow.InstructionCall(call), closure, callee, nil, pool.Within(2*proofs.SummaryBudget))
 	expectedOutcomes := fresh.Values[callee.Params[0]] == ssaflow.OutcomeTrue && fresh.Values[callee.Params[1]] == ssaflow.OutcomeNil
 	if !fresh.Proven() || len(fresh.Values) != 2 || !expectedOutcomes {
 		t.Fatalf("fresh=%+v", fresh)
@@ -145,7 +146,7 @@ func TestFixedArgumentPartialCensusDiscarded(t *testing.T) {
 }
 
 func TestFixedArgumentMetadataCensus(t *testing.T) {
-	budget := ssaflow.NewSearchBudget(0)
+	budget := proofs.NewSearchBudget(0)
 	proof := ssaflow.ProveFixedArgumentsWithin(nil, nil, nil, nil, budget)
 	if !proof.Proven() || proof.Values != nil || budget.Exhausted() || proof.Provenance != 0 {
 		t.Fatalf("metadata=%+v", proof)
@@ -164,7 +165,7 @@ func TestFixedNestedCaptureBindings(t *testing.T) {
 	if !want.Proven() || len(want.Values) != 1 || want.Values[nested.FreeVars[0]] != ssaflow.OutcomeFalse {
 		t.Fatalf("forwarded capture=%+v", want)
 	}
-	checkFixedBindingCutoffs(t, func(budget *ssaflow.SearchBudget) ssaflow.FixedArgumentsProof {
+	checkFixedBindingCutoffs(t, func(budget *proofs.SearchBudget) ssaflow.FixedArgumentsProof {
 		return ssaflow.ProveFixedArgumentsWithin(ssaflow.InstructionCall(inner), nestedClosure, nested, first.Values, budget)
 	}, want)
 }

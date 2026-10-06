@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
@@ -49,7 +50,7 @@ func (analysis *spawnAnalysis) summarizedJoin(instruction ssa.Instruction) helpe
 	// An interrupted summary cannot establish absent completion. Keep the
 	// uncertainty on this instruction so unrelated return paths remain open.
 	if budget.Exhausted() {
-		budget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
+		budget.Observe(proofs.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
 			return map[string]string{"phase": "summary-join"}
 		})
 		return helperCallProof{action: actionUnknown, reason: reasonSummaryJoinBudgetExhausted}
@@ -60,7 +61,7 @@ func (analysis *spawnAnalysis) summarizedJoin(instruction ssa.Instruction) helpe
 // A returned waiter can honor an already-established group obligation. A
 // shutdown callback is not a join: only Wait on this exact settling group
 // counts, and launching the waiter asynchronously never joins the parent.
-func (analysis *spawnAnalysis) returnedGroupJoin(instruction ssa.Instruction, target ssa.Value, budget *ssaflow.SearchBudget) bool {
+func (analysis *spawnAnalysis) returnedGroupJoin(instruction ssa.Instruction, target ssa.Value, budget *proofs.SearchBudget) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil || common.StaticCallee() != nil || common.IsInvoke() {
 		return false
@@ -77,7 +78,7 @@ func (analysis *spawnAnalysis) returnedGroupJoin(instruction ssa.Instruction, ta
 
 func proveSummaryJoin(
 	engine *concurrencyfacts.Engine, instruction ssa.Instruction, target ssa.Value,
-	kind trackedKind, budget *ssaflow.SearchBudget,
+	kind trackedKind, budget *proofs.SearchBudget,
 ) summaryJoinProof {
 	if engine == nil || kind == trackedOwner {
 		return summaryJoinProof{reason: summaryJoinConcurrencyJoinNotApplicable}

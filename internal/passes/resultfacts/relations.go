@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -66,7 +67,7 @@ func errorOutcome(index int, outcome ssaflow.Outcome) ssaflow.CallCondition {
 	return ssaflow.CallCondition{Result: index, Outcome: outcome}
 }
 
-func (engine *Engine) relations(function *ssa.Function, budget *ssaflow.SearchBudget) ([]ResultCase, []ReturnedParameter) {
+func (engine *Engine) relations(function *ssa.Function, budget *proofs.SearchBudget) ([]ResultCase, []ReturnedParameter) {
 	var cases []ResultCase
 	var returned []ReturnedParameter
 	results := function.Signature.Results()
@@ -126,7 +127,7 @@ var pairedNilness = []pairedCase{
 // spilled cell may have been reassigned.
 // https://github.com/norwoodj/helm-docs/blob/a5573af096a4b526dcbc3c896c220b1714a0765b/pkg/helm/chart_info.go#L94-L106
 func (engine *Engine) parameterRelation(
-	function *ssa.Function, result int, parameter *ssa.Parameter, assumeNil bool, expected Guarantee, budget *ssaflow.SearchBudget,
+	function *ssa.Function, result int, parameter *ssa.Parameter, assumeNil bool, expected Guarantee, budget *proofs.SearchBudget,
 ) bool {
 	assumed := ssaflow.FixedValues{parameter: ssaflow.OutcomeNonNil}
 	if assumeNil {
@@ -158,7 +159,7 @@ func (engine *Engine) parameterRelation(
 // assumedValue resolves a Boolean result under the assumed nilness of the
 // exact parameter: a comparison of that parameter with nil is decided by the
 // assumption, and anything else falls back to the unconditional guarantee.
-func (engine *Engine) assumedValue(value ssa.Value, assumed ssaflow.FixedValues, budget *ssaflow.SearchBudget) Guarantee {
+func (engine *Engine) assumedValue(value ssa.Value, assumed ssaflow.FixedValues, budget *proofs.SearchBudget) Guarantee {
 	result, ok := ssaflow.ResolveReachingValue(
 		ssaflow.NewReachingWalk(ssaflow.TransparentChangeType).Within(budget), value,
 		func(_ ssaflow.ReachingWalk, leaf ssa.Value) (Guarantee, bool) {
@@ -188,7 +189,7 @@ func (engine *Engine) assumedValue(value ssa.Value, assumed ssaflow.FixedValues,
 // both positions from one call inherits that callee's relation. A return
 // whose error nilness is unknown proves nothing, and at least one return
 // must witness the assumed side.
-func (engine *Engine) resultRelation(function *ssa.Function, result, operand int, kind pairedCase, budget *ssaflow.SearchBudget) bool {
+func (engine *Engine) resultRelation(function *ssa.Function, result, operand int, kind pairedCase, budget *proofs.SearchBudget) bool {
 	witness := false
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		returned, ok := instruction.(*ssa.Return)
@@ -207,7 +208,7 @@ func (engine *Engine) resultRelation(function *ssa.Function, result, operand int
 // returnHolds judges one return: whether it keeps the relation, and whether it
 // witnesses it rather than holding only vacuously, as a return whose error is
 // nil does for a claim about non-nil errors.
-func (engine *Engine) returnHolds(resultValue, errorValue ssa.Value, kind pairedCase, budget *ssaflow.SearchBudget) (bool, bool) {
+func (engine *Engine) returnHolds(resultValue, errorValue ssa.Value, kind pairedCase, budget *proofs.SearchBudget) (bool, bool) {
 	switch engine.value(errorValue, budget) {
 	case AlwaysNil:
 		if kind.errorOutcome == ssaflow.OutcomeNil {
@@ -244,7 +245,7 @@ func resultSatisfies(guarantee Guarantee, kind pairedCase) bool {
 
 // forwardedPair resolves a return that passes two results of one call
 // through unchanged, so the callee's relation between them carries over.
-func forwardedPair(resultValue, errorValue ssa.Value, budget *ssaflow.SearchBudget) (*ssa.Function, int, int, bool) {
+func forwardedPair(resultValue, errorValue ssa.Value, budget *proofs.SearchBudget) (*ssa.Function, int, int, bool) {
 	// Source-slot decoding is constant work, with no wrapper or referrer walk.
 	// Charge the dispatch once and stop before requesting a callee summary.
 	if !budget.Spend() {

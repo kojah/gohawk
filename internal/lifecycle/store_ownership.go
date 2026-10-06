@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -54,13 +55,13 @@ func MayContainValue(owner, value ssa.Value) bool {
 // ProveMayContainValueWithin shares value, aggregate and capture traversal with
 // budget. Graph construction, graph-query and type internals remain separate.
 // Cutoff is unknown; a negative means no modeled containment, not actual absence.
-func ProveMayContainValueWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func ProveMayContainValueWithin(owner, value ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
 	return proveContainmentWithin(owner, value, budget, func() bool { return heapmodel.Contains(owner, value) })
 }
 
-func proveContainmentWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget, graphContains func() bool) ssaflow.Proof {
+func proveContainmentWithin(owner, value ssa.Value, budget *proofs.SearchBudget, graphContains func() bool) proofs.Proof {
 	if !budget.Spend() {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	}
 	found := false
 	if heapmodel.CanHoldReference(owner.Type()) {
@@ -74,13 +75,13 @@ func proveContainmentWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget
 		}
 	}
 	if budget.Exhausted() || budget.PoolExhausted() {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	}
-	state, reason := ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
+	state, reason := proofs.EvidenceDisproven, proofs.EvidenceNotFound
 	if found {
-		state, reason = ssaflow.EvidenceProven, ssaflow.EvidenceStructuralWalk
+		state, reason = proofs.EvidenceProven, proofs.EvidenceStructuralWalk
 	}
-	return ssaflow.Proof{State: state, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}
+	return proofs.Proof{State: state, Reason: reason, Provenance: proofs.EvidenceFromLocalSSA}
 }
 
 // ProveMayContainValueAtWithin asks structural may-containment with its graph
@@ -90,7 +91,7 @@ func proveContainmentWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget
 // graph construction, graph-query and type internals remain independent. Cutoff
 // is unknown; a completed negative means no modeled relation, including when
 // the graph cannot answer. A nil budget retains the existing default policy.
-func ProveMayContainValueAtWithin(owner, value ssa.Value, at ssa.Instruction, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func ProveMayContainValueAtWithin(owner, value ssa.Value, at ssa.Instruction, budget *proofs.SearchBudget) proofs.Proof {
 	return proveContainmentWithin(owner, value, budget, func() bool {
 		contained, known := heapmodel.ContainsAt(owner, value, at)
 		return known && contained
@@ -99,7 +100,7 @@ func ProveMayContainValueAtWithin(owner, value ssa.Value, at ssa.Instruction, bu
 
 func valueOwnsValue(owner, value ssa.Value) bool { return valueOwnsValueWithin(owner, value, nil) }
 
-func valueOwnsValueWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget) bool {
+func valueOwnsValueWithin(owner, value ssa.Value, budget *proofs.SearchBudget) bool {
 	found := false
 	ssaflow.WalkStatesWithin([]ssa.Value{owner}, func(owner ssa.Value) ssa.Value { return owner }, func(owner ssa.Value) ([]ssa.Value, bool) {
 		if owner == nil {
@@ -131,7 +132,7 @@ func valueOwnsValueWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget) 
 
 // Capture identity and cell contents are shared mechanics. The caller chooses
 // whether to follow only nested callbacks or also owning aggregates.
-func closureBindingsOwnValueWithin(closure *ssa.MakeClosure, value ssa.Value, budget *ssaflow.SearchBudget, owns func(ssa.Value) bool) bool {
+func closureBindingsOwnValueWithin(closure *ssa.MakeClosure, value ssa.Value, budget *proofs.SearchBudget, owns func(ssa.Value) bool) bool {
 	for _, binding := range closure.Bindings {
 		if !budget.Spend() {
 			return false
@@ -148,9 +149,9 @@ func closureBindingsOwnValueWithin(closure *ssa.MakeClosure, value ssa.Value, bu
 // and loads remain opaque. A positive capture is not proof of invocation or
 // cleanup. Cutoff is unknown, and a negative means no modeled capture.
 // Graph construction and graph queries retain their independent bounds.
-func ProvePossibleClosureCaptureWithin(callback, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func ProvePossibleClosureCaptureWithin(callback, target ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
 	if budget == nil {
-		budget = ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+		budget = proofs.NewSearchBudget(proofs.QueryBudget)
 	}
 	captured := ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(budget).Any(callback, func(_ ssaflow.ReachingWalk, leaf ssa.Value) bool {
 		if _, closure := leaf.(*ssa.MakeClosure); !closure {
@@ -159,10 +160,10 @@ func ProvePossibleClosureCaptureWithin(callback, target ssa.Value, budget *ssafl
 		return ProveMayContainValueWithin(leaf, target, budget).Proven()
 	})
 	if budget.Exhausted() {
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 	}
 	if captured {
-		return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceCapturedByClosure}
+		return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceCapturedByClosure}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+	return proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 }

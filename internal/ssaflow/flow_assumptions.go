@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"go/types"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -17,7 +18,7 @@ import (
 // known, that a comma-ok assertion of a type that concrete type satisfies
 // succeeds.
 func assumedSuccessorsWithin(
-	successors []*ssa.BasicBlock, block *ssa.BasicBlock, value ssa.Value, concrete types.Type, budget *SearchBudget,
+	successors []*ssa.BasicBlock, block *ssa.BasicBlock, value ssa.Value, concrete types.Type, budget *proofs.SearchBudget,
 ) []*ssa.BasicBlock {
 	if value == nil || len(block.Succs) != 2 || len(block.Instrs) == 0 {
 		return successors
@@ -71,7 +72,7 @@ func assumedSuccessorsWithin(
 	return keepSuccessorWithin(successors, nonNil, budget)
 }
 
-func assumedNilPairWithin(operand, other, value ssa.Value, budget *SearchBudget) bool {
+func assumedNilPairWithin(operand, other, value ssa.Value, budget *proofs.SearchBudget) bool {
 	if !assumedNonNilWithin(operand, value, budget) || budget.Exhausted() {
 		return false
 	}
@@ -80,7 +81,7 @@ func assumedNilPairWithin(operand, other, value ssa.Value, budget *SearchBudget)
 
 // assertionHoldsWithin reports whether condition is the ok result of a comma-ok
 // assertion of the assumed value to a type its concrete type satisfies.
-func assertionHoldsWithin(condition, value ssa.Value, concrete types.Type, budget *SearchBudget) bool {
+func assertionHoldsWithin(condition, value ssa.Value, concrete types.Type, budget *proofs.SearchBudget) bool {
 	okResult, ok := condition.(*ssa.Extract)
 	if !ok || okResult.Index != 1 {
 		return false
@@ -97,7 +98,7 @@ func assertionHoldsWithin(condition, value ssa.Value, concrete types.Type, budge
 
 // assumedNonNilWithin reports whether operand is the assumed value itself or a
 // field loaded directly from it.
-func assumedNonNilWithin(operand, value ssa.Value, budget *SearchBudget) bool {
+func assumedNonNilWithin(operand, value ssa.Value, budget *proofs.SearchBudget) bool {
 	if StructurallyIdenticalWithin(operand, value, budget) {
 		return true
 	}

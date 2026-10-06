@@ -1,6 +1,7 @@
 package heapmodel
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,7 +15,7 @@ import (
 // Dispatch, instruction indexing and queued CFG visits share budget.
 // Cutoff supplies no ordering evidence: false cannot prove
 // a store absent. Re-entering a loop allocation still denotes a fresh cell.
-func StoreMayFollowWithin(address ssa.Value, observation ssa.Instruction, store *ssa.Store, budget *ssaflow.SearchBudget) bool {
+func StoreMayFollowWithin(address ssa.Value, observation ssa.Instruction, store *ssa.Store, budget *proofs.SearchBudget) bool {
 	if !budget.Spend() {
 		return false
 	}

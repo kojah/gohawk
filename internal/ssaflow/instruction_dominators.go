@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"iter"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -12,7 +13,7 @@ import (
 // visits share budget; a cutoff cannot prove absent dominating instructions.
 // Callers needing a complete census must discard its prefix at cutoff. Breaking
 // on a positive witness avoids later work. Nil budget retains unbounded policy.
-func InstructionsStrictlyDominatingWithin(at ssa.Instruction, budget *SearchBudget) iter.Seq[ssa.Instruction] {
+func InstructionsStrictlyDominatingWithin(at ssa.Instruction, budget *proofs.SearchBudget) iter.Seq[ssa.Instruction] {
 	return func(yield func(ssa.Instruction) bool) {
 		if at == nil || at.Block() == nil || at.Parent() == nil {
 			return

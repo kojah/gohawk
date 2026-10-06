@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -46,7 +47,7 @@ func TestPrivateEntryChain(t *testing.T) {
 			if call == nil {
 				t.Fatal("missing acquisition")
 			}
-			if got := ssaflow.RunsOnceThroughPrivateEntryCallsWithin(call, ssaflow.NewSearchBudget(20000)); got != test.want {
+			if got := ssaflow.RunsOnceThroughPrivateEntryCallsWithin(call, proofs.NewSearchBudget(20000)); got != test.want {
 				t.Errorf("got %v want %v", got, test.want)
 			}
 		})
@@ -59,7 +60,7 @@ func TestPrivateEntryChainCutoff(t *testing.T) {
 	call := ssaflow.InstructionsOf[*ssa.Call](pkg.Func("leaf"))[0]
 	finished := false
 	for limit := range 1000 {
-		pool := ssaflow.NewSearchBudget(20000)
+		pool := proofs.NewSearchBudget(20000)
 		budget := pool.Within(limit)
 		got := ssaflow.RunsOnceThroughPrivateEntryCallsWithin(call, budget)
 		if got {
@@ -94,7 +95,7 @@ func TestPrivateEntryChainDepth(t *testing.T) {
 		fmt.Fprintf(&source, "func main(){%s()}", previous)
 		pkg := ssaflowtest.BuildPackage(t, "main", source.String())
 		call := ssaflow.InstructionsOf[*ssa.Call](pkg.Func("helper"))[0]
-		if got := ssaflow.RunsOnceThroughPrivateEntryCallsWithin(call, ssaflow.NewSearchBudget(20000)); got != (length == 14) {
+		if got := ssaflow.RunsOnceThroughPrivateEntryCallsWithin(call, proofs.NewSearchBudget(20000)); got != (length == 14) {
 			t.Errorf("%d bridges: %v", length, got)
 		}
 	}

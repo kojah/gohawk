@@ -3,7 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -20,7 +20,7 @@ func unknown(a chan int, callback func()) { go signal(a); go callback() }
 `)
 	engine := NewEngine()
 	function := pkg.Func("two")
-	result := engine.Root(function, ssaflow.NewSearchBudget(2000))
+	result := engine.Root(function, proofs.NewSearchBudget(2000))
 	if !result.Complete() || len(result.Workers) != 2 || len(result.Operations) != 0 {
 		t.Fatalf("two-child root = %+v", result)
 	}
@@ -31,7 +31,7 @@ func unknown(a chan int, callback func()) { go signal(a); go callback() }
 			t.Errorf("child %d = %+v, want one close of %v", index, worker, parameter)
 		}
 	}
-	empty := engine.Root(pkg.Func("emptyChild"), ssaflow.NewSearchBudget(2000))
+	empty := engine.Root(pkg.Func("emptyChild"), proofs.NewSearchBudget(2000))
 	if !empty.Complete() || empty.Completeness() != CompleteWithEffects || len(empty.Workers) != 1 ||
 		len(empty.Workers[0].Operations) != 0 {
 		t.Errorf("event-free child was not retained: %+v", empty)
@@ -42,13 +42,13 @@ func unknown(a chan int, callback func()) { go signal(a); go callback() }
 		"unknown":  ReasonBodyUnavailable,
 	} {
 		t.Run(name, func(t *testing.T) {
-			got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000))
+			got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000))
 			if got.Complete() || got.Reason != reason || len(got.Workers) != 0 {
 				t.Errorf("%s root = %+v, want no usable children (%s)", name, got, reason)
 			}
 		})
 	}
-	if got := engine.Root(function, ssaflow.NewSearchBudget(1)); got.Complete() || len(got.Workers) != 0 {
+	if got := engine.Root(function, proofs.NewSearchBudget(1)); got.Complete() || len(got.Workers) != 0 {
 		t.Fatalf("budget-cut root retained children: %+v", got)
 	}
 }
@@ -60,7 +60,7 @@ func Spawn(a *sync.Mutex) { go func(){ a.Lock(); a.Unlock() }() }
 func Copy(a *sync.Mutex) { b := *a; go func(){ b.Lock(); b.Unlock() }() }
 func Mutable(a, b *sync.Mutex) { p := a; go func(){ p.Lock(); p.Unlock() }(); p = b; _ = p }
 `)
-	got := NewEngine().Function(pkg.Func("Spawn"), ssaflow.NewSearchBudget(2000))
+	got := NewEngine().Function(pkg.Func("Spawn"), proofs.NewSearchBudget(2000))
 	if got.Completeness() != CompleteWithEffects || len(got.Workers) != 1 || len(got.Workers[0].Operations) != 2 {
 		t.Fatalf("pointer capture = %+v", got)
 	}
@@ -70,7 +70,7 @@ func Mutable(a, b *sync.Mutex) { p := a; go func(){ p.Lock(); p.Unlock() }(); p 
 		}
 	}
 	for _, name := range []string{"Copy", "Mutable"} {
-		if result := NewEngine().Function(pkg.Func(name), ssaflow.NewSearchBudget(2000)); result.Complete() {
+		if result := NewEngine().Function(pkg.Func(name), proofs.NewSearchBudget(2000)); result.Complete() {
 			t.Errorf("%s should remain unknown: %+v", name, result)
 		}
 	}
@@ -92,7 +92,7 @@ func five(a, b, c, d, e chan int) {
 }
 `)
 	function := pkg.Func("two")
-	got := NewEngine().Root(function, ssaflow.NewSearchBudget(2000))
+	got := NewEngine().Root(function, proofs.NewSearchBudget(2000))
 	if !got.Complete() || len(got.Workers) != 2 {
 		t.Fatalf("two helper launches = %+v", got)
 	}
@@ -106,7 +106,7 @@ func five(a, b, c, d, e chan int) {
 		t.Error("separate helper calls must retain distinct launch sites")
 	}
 	for _, name := range []string{"conditional", "five"} {
-		if result := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); result.Complete() {
+		if result := NewEngine().Root(pkg.Func(name), proofs.NewSearchBudget(2000)); result.Complete() {
 			t.Errorf("%s should remain unknown: %+v", name, result)
 		}
 	}
@@ -138,16 +138,16 @@ func Caller(done chan int) { _ = Returned(done) }
 `)
 	engine := NewEngine()
 	for _, name := range []string{"Result", "Returned"} {
-		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects {
+		if got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects {
 			t.Errorf("%s root = %+v, want complete", name, got)
 		}
 	}
 	for name, reason := range map[string]Reason{"Recovered": ReasonBodyUnavailable, "Caller": ReasonEffectUnknown} {
-		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); got.Complete() || got.Reason != reason {
+		if got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000)); got.Complete() || got.Reason != reason {
 			t.Errorf("%s root = %+v, want %s", name, got, reason)
 		}
 	}
-	if got := engine.Function(pkg.Func("Returned"), ssaflow.NewSearchBudget(2000)); got.Complete() {
+	if got := engine.Function(pkg.Func("Returned"), proofs.NewSearchBudget(2000)); got.Complete() {
 		t.Errorf("helper returning a channel = %+v, want incomplete", got)
 	}
 }
@@ -206,17 +206,17 @@ func Copy(o *owner) { peer := *o.peer; _ = peer }
 func Context(o *owner) { <-o.ctx.Done() }
 `)
 	engine := NewEngine()
-	if got := engine.Root(pkg.Func("Inert"), ssaflow.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects || len(got.Operations) != 2 {
+	if got := engine.Root(pkg.Func("Inert"), proofs.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects || len(got.Operations) != 2 {
 		t.Errorf("inert reads = %+v, want the lock pair alone", got)
 	}
-	if got := engine.Root(pkg.Func("Writes"), ssaflow.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects || len(got.Operations) != 2 {
+	if got := engine.Root(pkg.Func("Writes"), proofs.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects || len(got.Operations) != 2 {
 		t.Errorf("inert writes = %+v, want the lock pair alone", got)
 	}
-	if got := engine.Root(pkg.Func("Containers"), ssaflow.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects || len(got.Operations) != 2 {
+	if got := engine.Root(pkg.Func("Containers"), proofs.NewSearchBudget(2000)); got.Completeness() != CompleteWithEffects || len(got.Operations) != 2 {
 		t.Errorf("inert containers = %+v, want the lock pair alone", got)
 	}
 	for _, name := range []string{"Channel", "Pointer", "Copy", "Context", "PeerMutex", "StoreChannel", "StoreInMap", "ReadFromMap"} {
-		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); got.Complete() {
+		if got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000)); got.Complete() {
 			t.Errorf("%s = %+v, want incomplete", name, got)
 		}
 	}

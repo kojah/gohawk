@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -18,7 +19,7 @@ func TestHeapSmokeExistingStoreOverlap(t *testing.T) {
 	if !ok {
 		t.Fatal("replacement did not produce a load")
 	}
-	stored := heapmodel.NewStorage(ssaflow.NewSearchBudget(1000)).Content(load.X, call)
+	stored := heapmodel.NewStorage(proofs.NewSearchBudget(1000)).Content(load.X, call)
 	if !stored.Proven() || !heapmodel.DefinitelySameValue(stored.Value, call.Common().Args[1]) {
 		t.Fatal("existing latest-store helper failed to resolve the replacement")
 	}
@@ -76,7 +77,7 @@ func clearedAfterClose(a, b *resource, choose bool) {
 			})
 			target := fn.Params[test.target]
 			proof := ProveCompletion(CompletionRequest{
-				Instruction: instruction, Target: target, Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000),
+				Instruction: instruction, Target: target, Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(1000),
 			})
 			if proof.Proven() != test.complete {
 				t.Fatalf("existing completion = %#v, want proven %t", proof, test.complete)
@@ -117,7 +118,7 @@ func replaced() { value := acquire(); value.body = new(resource); cleanup(value.
 				return ssaflow.CallName(ssaflow.InstructionCall(i)) == "cleanup"
 			}).(*ssa.Call)
 			value := call.Common().Args[0]
-			if got := heapmodel.NewStorage(ssaflow.NewSearchBudget(1000)).Projection(value, root, call).Proven(); got != test.stable {
+			if got := heapmodel.NewStorage(proofs.NewSearchBudget(1000)).Projection(value, root, call).Proven(); got != test.stable {
 				t.Fatalf("existing projection=%t, want %t", got, test.stable)
 			}
 			if available, reason := smokeHeapMatch(call, value, value, 256); available || reason != "unsupported-effect" {

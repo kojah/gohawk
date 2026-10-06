@@ -1,13 +1,15 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
-
-// Callee resolution is one question with one answer: which function does this
-// call actually reach, in the form that carries evidence about it. A generic
-// call may point at an instantiated wrapper, and that wrapper is the wrong
-// place to look twice over. Its body may not survive instantiation, and a
-// lifecycle summary is recorded against the origin's object, so a proof that
-// reads the instantiation finds neither the source nor the facts.
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+	"golang.org/x/tools/go/ssa"
+	// Callee resolution is one question with one answer: which function does this
+	// call actually reach, in the form that carries evidence about it. A generic
+	// call may point at an instantiated wrapper, and that wrapper is the wrong
+	// place to look twice over. Its body may not survive instantiation, and a
+	// lifecycle summary is recorded against the origin's object, so a proof that
+	// reads the instantiation finds neither the source nor the facts.
+)
 
 // ResolvedCallee returns the callee a call reaches, answering a generic
 // instantiation with its origin. The origin keeps the same parameter
@@ -56,7 +58,7 @@ func CallResult(call *ssa.Call, index int) ssa.Value { //nolint:ireturn // SSA c
 // Referrers are charged before inspection; a single-result lookup costs one
 // visit. Nil at cutoff means unavailable, not an absent result. It never follows
 // aliases or substitutes a sibling result. A nil budget retains default policy.
-func CallResultWithin(call *ssa.Call, index int, budget *SearchBudget) ssa.Value { //nolint:ireturn // SSA results have several concrete forms.
+func CallResultWithin(call *ssa.Call, index int, budget *proofs.SearchBudget) ssa.Value { //nolint:ireturn // SSA results have several concrete forms.
 	if index < 0 {
 		if !budget.Spend() {
 			return nil

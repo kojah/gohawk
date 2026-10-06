@@ -33,7 +33,8 @@ Walk the decision in order and stop at the first fit.
 1. **Analyzer-local.** Precision policy — what counts as a join, a transfer,
    an obligation — always stays beside the analyzer that owns it, even when the
    implementation looks reusable.
-2. **`internal/ssaflow`** for shared value provenance, calls, budgets, and
+2. **`internal/proof`** for shared outcomes, provenance and work budgets;
+   **`internal/ssaflow`** for shared value provenance, calls and
    control flow; **`internal/heapmodel`** for storage, identity, and heap queries;
    **`internal/lifecycle`** for completion and transfer proofs using that evidence;
    **`internal/resourcemodel`**

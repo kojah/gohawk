@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -15,7 +16,7 @@ import (
 // store referrers with budget. The identity callback may share it too; its
 // internals and operand allocation retain independent costs. Cutoff contributes
 // no may-evidence and must remain unknown to callers, never prove absence.
-func DerivesFromWithin(value, source ssa.Value, same func(ssa.Value, ssa.Value) bool, budget *SearchBudget) bool {
+func DerivesFromWithin(value, source ssa.Value, same func(ssa.Value, ssa.Value) bool, budget *proofs.SearchBudget) bool {
 	if source == nil {
 		return false
 	}
@@ -41,7 +42,7 @@ func DerivesFromWithin(value, source ssa.Value, same func(ssa.Value, ssa.Value) 
 
 // derivationSources includes arbitrary computation operands and exact stores
 // feeding a load. This is deliberately broader than transparent identity.
-func derivationSourcesWithin(value ssa.Value, budget *SearchBudget) []ssa.Value {
+func derivationSourcesWithin(value ssa.Value, budget *proofs.SearchBudget) []ssa.Value {
 	var sources []ssa.Value
 	if load, ok := value.(*ssa.UnOp); ok && load.Op == token.MUL {
 		for address := load.X; address != nil; address = enclosingAggregateAddressWithin(address, budget) {
@@ -64,7 +65,7 @@ func derivationSourcesWithin(value ssa.Value, budget *SearchBudget) []ssa.Value 
 	return sources
 }
 
-func appendStoredDerivationSourcesWithin(sources []ssa.Value, address ssa.Value, budget *SearchBudget) []ssa.Value {
+func appendStoredDerivationSourcesWithin(sources []ssa.Value, address ssa.Value, budget *proofs.SearchBudget) []ssa.Value {
 	if address.Referrers() == nil {
 		return sources
 	}
@@ -86,7 +87,7 @@ func appendStoredDerivationSourcesWithin(sources []ssa.Value, address ssa.Value,
 // store into one of its fields or elements, or whose address reaches a call,
 // a closure, or storage, because a load beneath such an aggregate may return
 // something other than a component of a whole-aggregate store.
-func enclosingAggregateAddressWithin(address ssa.Value, budget *SearchBudget) ssa.Value {
+func enclosingAggregateAddressWithin(address ssa.Value, budget *proofs.SearchBudget) ssa.Value {
 	var enclosing ssa.Value
 	switch typed := address.(type) {
 	case *ssa.FieldAddr:
@@ -126,13 +127,13 @@ func WholeWrittenCell(cell *ssa.Alloc) bool {
 
 // WholeWrittenCellWithin shares whole-cell and selection-referrer visits with
 // budget. Cutoff supplies no whole-written evidence; nil retains the default.
-func WholeWrittenCellWithin(cell *ssa.Alloc, budget *SearchBudget) bool {
+func WholeWrittenCellWithin(cell *ssa.Alloc, budget *proofs.SearchBudget) bool {
 	return enclosingAggregateAddressWithin(&ssa.FieldAddr{X: cell}, budget) != nil && !budget.Exhausted() && !budget.PoolExhausted()
 }
 
 // addressOnlyLoaded reports whether an address, and every field or element
 // selected beneath it, is only ever loaded from.
-func addressOnlyLoadedWithin(address ssa.Value, budget *SearchBudget) bool {
+func addressOnlyLoadedWithin(address ssa.Value, budget *proofs.SearchBudget) bool {
 	if !budget.Spend() {
 		return false
 	}
@@ -153,7 +154,7 @@ func addressOnlyLoadedWithin(address ssa.Value, budget *SearchBudget) bool {
 // Selected addresses may only be loaded or selected further. Whole-root stores
 // are a separate policy of enclosingAggregateAddressWithin, never accepted here.
 // The caller charges this use; recursive selection visits retain their costs.
-func addressUseOnlyLoadsWithin(reference ssa.Instruction, budget *SearchBudget) bool {
+func addressUseOnlyLoadsWithin(reference ssa.Instruction, budget *proofs.SearchBudget) bool {
 	switch typed := reference.(type) {
 	case *ssa.FieldAddr:
 		return addressOnlyLoadedWithin(typed, budget)

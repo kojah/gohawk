@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 )
 
@@ -41,16 +42,16 @@ func TestCompletionCoverageSearchAllowance(t *testing.T) {
 			if baseline.Proven() != test.want {
 				t.Fatalf("default=%+v", baseline)
 			}
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				request.Budget = ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				request.Budget = proofs.NewSearchBudget(limit)
 				got := ProveCompletion(request)
 				if request.Budget.Exhausted() {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted {
+					if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted {
 						t.Fatalf("cut%d=%+v", limit, got)
 					}
 					continue
 				}
-				if got.State == ssaflow.EvidenceUnknown || got.Proven() != test.want {
+				if got.State == proofs.EvidenceUnknown || got.Proven() != test.want {
 					t.Fatalf("complete%d=%+v want%v", limit, got, test.want)
 				}
 				return
@@ -64,12 +65,12 @@ func TestCompletionCoverageMemoChildAndFresh(t *testing.T) {
 	pkg := buildTestSSA(t, completionCoverageBudgetFixture)
 	fn := pkg.Func("runNested")
 	call := findLaunch(t, fn)
-	pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 	search := newCompletionSearch("Close", CoverageEveryReturn, pool.Within(1))
 	if got := search.completes(call, fn.Params[0]); got.proven || !search.budget.Exhausted() || pool.Exhausted() {
 		t.Fatalf("cut=%+v parent exhausted=%v", got, pool.Exhausted())
 	}
-	search.budget = pool.Within(ssaflow.SummaryBudget)
+	search.budget = pool.Within(proofs.SummaryBudget)
 	if got := search.completes(call, fn.Params[0]); !got.proven {
 		t.Fatalf("fresh memo query=%+v", got)
 	}
@@ -87,11 +88,11 @@ func TestCompletionCaseCoverageAllowance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
 			request := CompletionRequest{Target: fn.Params[0], Methods: []string{"Close"}}
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				request.Budget = ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				request.Budget = proofs.NewSearchBudget(limit)
 				proof := ProveCompletionForCase(fn, test.condition, request)
 				if request.Budget.Exhausted() {
-					if proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+					if proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted {
 						t.Fatalf("cut case%d=%+v", limit, proof)
 					}
 					continue
@@ -109,16 +110,16 @@ func TestCompletionCaseCoverageAllowance(t *testing.T) {
 func TestCompletionUnavailableSummaryCut(t *testing.T) {
 	pkg := buildTestSSA(t, completionOutcomeFixture)
 	fn := pkg.Func("callOpaque")
-	pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 	request := CompletionRequest{Instruction: findLaunch(t, fn), Target: fn.Params[0], Methods: []string{"Close"}, Budget: pool.Within(0)}
 	request.Summarized = func(ssa.Instruction, ssa.Value, string, bool, ssaflow.CallCondition) bool {
 		return request.Budget.Spend()
 	}
 	cut := ProveCompletion(request)
-	if cut.State != ssaflow.EvidenceUnknown || cut.Reason != ssaflow.EvidenceBudgetExhausted || pool.Exhausted() {
+	if cut.State != proofs.EvidenceUnknown || cut.Reason != proofs.EvidenceBudgetExhausted || pool.Exhausted() {
 		t.Fatalf("unavailable cut=%+v parent exhausted=%v", cut, pool.Exhausted())
 	}
-	request.Budget = pool.Within(ssaflow.SummaryBudget)
+	request.Budget = pool.Within(proofs.SummaryBudget)
 	if fresh := ProveCompletion(request); !fresh.Proven() {
 		t.Fatalf("fresh summary=%+v", fresh)
 	}
@@ -138,16 +139,16 @@ func TestCompletionAssumedCoverageAllowance(t *testing.T) {
 			return common != nil && ssaflow.CallName(common) == "Close"
 		}
 		completed := false
-		for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-			budget := ssaflow.NewSearchBudget(limit)
+		for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+			budget := proofs.NewSearchBudget(limit)
 			proof := proveMethodCallCoverageAssumingWithin(fn, calls, CoverageEveryReturn, assumptions, budget)
 			if budget.Exhausted() || limit == 0 {
-				if proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+				if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted {
 					t.Fatalf("assumed cut%d=%+v", limit, proof)
 				}
 				continue
 			}
-			if proof.State == ssaflow.EvidenceUnknown || proof.Proven() != yes {
+			if proof.State == proofs.EvidenceUnknown || proof.Proven() != yes {
 				t.Fatalf("assumed complete%d=%+v want%v", limit, proof, yes)
 			}
 			completed = true

@@ -3,7 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -20,13 +20,13 @@ func mixed(a, b *worker, c chan int, flag bool) { var r runner = a; if flag { r 
 func escape(w *worker, f func(runner)) { var r runner = w; f(r) }
 `)
 	for _, name := range []string{"opaque", "mixed", "escape"} {
-		got := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		got := NewEngine().Root(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 		if got.Complete() {
 			t.Errorf("%s must remain unknown: %+v", name, got)
 		}
 	}
 	for _, name := range []string{"direct", "locker"} {
-		got := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		got := NewEngine().Root(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 		if !got.Complete() || len(got.Operations) != 2 || got.Operations[0].Kind != Lock || got.Operations[1].Kind != Unlock {
 			t.Errorf("%s = %+v, want exact lock/unlock", name, got)
 		}

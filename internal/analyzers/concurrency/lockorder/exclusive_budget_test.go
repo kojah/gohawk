@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -34,24 +35,24 @@ func TestExclusiveCallerRequestAllowance(t *testing.T) {
 			t.Log(dump.String())
 			inventory := collectLockCallers(pkg.Func("init"), ssaflow.DeclaredFunctions(pkg), nil)
 			callers := newExclusiveCallers(nil, inventory)
-			budget := ssaflow.NewSearchBudget(0)
+			budget := proofs.NewSearchBudget(0)
 			proof := callers.parameterExclusive(function, 0, budget)
-			if proof.state == ssaflow.EvidenceProven || proof.reason != lockReasonLockStateBudgetExhausted || !budget.Exhausted() {
+			if proof.state == proofs.EvidenceProven || proof.reason != lockReasonLockStateBudgetExhausted || !budget.Exhausted() {
 				t.Fatalf("caller allowance bypass: %+v", proof)
 			}
 			if len(callers.exclusive) != 0 {
 				t.Fatal("interrupted proof entered cache")
 			}
 			defaultProof := callers.parameterExclusive(function, 0, nil)
-			if (defaultProof.state == ssaflow.EvidenceProven) != test.want {
+			if (defaultProof.state == proofs.EvidenceProven) != test.want {
 				t.Fatalf("default proof %+v", defaultProof)
 			}
 			checkExclusiveAllowances(t, inventory, function, defaultProof)
 			// A cache hit still belongs to a live request, but needs no caller rescan.
-			if cached := callers.parameterExclusive(function, 0, ssaflow.NewSearchBudget(1)); cached != defaultProof {
+			if cached := callers.parameterExclusive(function, 0, proofs.NewSearchBudget(1)); cached != defaultProof {
 				t.Fatal("cache hit changed proof")
 			}
-			if cut := callers.parameterExclusive(function, 0, ssaflow.NewSearchBudget(0)); cut.reason != lockReasonLockStateBudgetExhausted {
+			if cut := callers.parameterExclusive(function, 0, proofs.NewSearchBudget(0)); cut.reason != lockReasonLockStateBudgetExhausted {
 				t.Fatal("cache bypassed admission")
 			}
 			checkExclusiveAcquisitionAllowances(t, inventory, function, test.want)
@@ -63,7 +64,7 @@ func checkExclusiveAllowances(t *testing.T, inventory map[*ssa.Function]conditio
 	t.Helper()
 	for limit := range 16 {
 		callers := newExclusiveCallers(nil, inventory)
-		pool := ssaflow.NewSearchBudget(128)
+		pool := proofs.NewSearchBudget(128)
 		budget := pool.Within(limit)
 		proof := callers.parameterExclusive(function, 0, budget)
 		if budget.Exhausted() {
@@ -88,12 +89,12 @@ func checkExclusiveAcquisitionAllowances(t *testing.T, inventory map[*ssa.Functi
 	call := ssaflow.InstructionsOf[*ssa.Call](function)[0]
 	receiver := ssaflow.CallReceiver(call.Common())
 	defaultProof := newExclusiveCallers(nil, inventory).acquisitionExclusive(function, call, receiver, nil)
-	if (defaultProof.state == ssaflow.EvidenceProven) != want {
+	if (defaultProof.state == proofs.EvidenceProven) != want {
 		t.Fatalf("acquisition proof %+v", defaultProof)
 	}
 	for limit := range 16 {
 		callers := newExclusiveCallers(nil, inventory)
-		pool := ssaflow.NewSearchBudget(128)
+		pool := proofs.NewSearchBudget(128)
 		budget := pool.Within(limit)
 		proof := callers.acquisitionExclusive(function, call, receiver, budget)
 		if budget.Exhausted() {

@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"go/types"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -35,7 +36,7 @@ func (policy SuccessorPolicy) Successors(block, predecessor *ssa.BasicBlock) []*
 
 // SuccessorsWithin shares literal, bound-value and assumption work with budget.
 // Custom feasibility hooks may share it too. Cutoff leaves the edge set unknown.
-func (policy SuccessorPolicy) SuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock {
+func (policy SuccessorPolicy) SuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) []*ssa.BasicBlock {
 	var successors []*ssa.BasicBlock
 	if policy.Feasible != nil {
 		successors = policy.Feasible(block, predecessor)
@@ -54,7 +55,7 @@ func (policy SuccessorPolicy) SuccessorsWithin(block, predecessor *ssa.BasicBloc
 
 // Keep one already-feasible edge through the same filter for bound values
 // and nonnil assumptions. Cutoff never admits a partially inspected edge set.
-func keepSuccessorWithin(successors []*ssa.BasicBlock, taken *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock {
+func keepSuccessorWithin(successors []*ssa.BasicBlock, taken *ssa.BasicBlock, budget *proofs.SearchBudget) []*ssa.BasicBlock {
 	for _, successor := range successors {
 		if !budget.Spend() {
 			return nil
@@ -76,12 +77,12 @@ type SuccessorEdge struct {
 
 // EdgesWithin shares successor selection and guard extension with budget.
 // Cutoff returns no complete edge set; callers must check exhaustion.
-func (policy SuccessorPolicy) EdgesWithin(block, predecessor *ssa.BasicBlock, guards PathGuards, budget *SearchBudget) []SuccessorEdge {
+func (policy SuccessorPolicy) EdgesWithin(block, predecessor *ssa.BasicBlock, guards PathGuards, budget *proofs.SearchBudget) []SuccessorEdge {
 	return policy.edgesWithFormats(block, predecessor, guards, budget, nil)
 }
 
 func (policy SuccessorPolicy) edgesWithFormats(
-	block, predecessor *ssa.BasicBlock, guards PathGuards, budget *SearchBudget, formats *guardFormats,
+	block, predecessor *ssa.BasicBlock, guards PathGuards, budget *proofs.SearchBudget, formats *guardFormats,
 ) []SuccessorEdge {
 	if !budget.Spend() {
 		return nil

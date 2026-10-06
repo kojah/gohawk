@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -28,7 +29,7 @@ func TestAmbiguousCleanupAllowance(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			query, _ := ambiguousCleanupInputs(t, pkg.Func(test.name))
-			prove := func(budget *ssaflow.SearchBudget) resourceProof {
+			prove := func(budget *proofs.SearchBudget) resourceProof {
 				fresh, selected := ambiguousCleanupInputs(t, pkg.Func(test.name))
 				return fresh.proveAmbiguousCleanupWithin(selected, selected.Common(), budget)
 			}
@@ -43,9 +44,9 @@ func TestAmbiguousCleanupAllowance(t *testing.T) {
 
 func TestAmbiguousCleanupChildAndFresh(t *testing.T) {
 	query, call := ambiguousCleanupInputs(t, ambiguousCleanupFixture(t).Func("helper"))
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	cut := query.proveAmbiguousCleanupWithin(call, call.Common(), pool.Within(1))
-	if cut.State != ssaflow.EvidenceUnknown || cut.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+	if cut.State != proofs.EvidenceUnknown || cut.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 		t.Fatalf("child proof = %+v, parent exhausted %v", cut, pool.Exhausted())
 	}
 	fresh := query.proveAmbiguousCleanupWithin(call, call.Common(), pool.Within(releaseSearchBudget))
@@ -56,12 +57,12 @@ func TestAmbiguousCleanupChildAndFresh(t *testing.T) {
 
 func TestAmbiguousCleanupMetadataExclusions(t *testing.T) {
 	query, call := ambiguousCleanupInputs(t, ambiguousCleanupFixture(t).Func("helper"))
-	query.optional.proof = resourceProof{State: ssaflow.EvidenceProven}
-	if got := query.proveAmbiguousCleanupWithin(call, call.Common(), ssaflow.NewSearchBudget(0)); got.State != ssaflow.EvidenceDisproven {
+	query.optional.proof = resourceProof{State: proofs.EvidenceProven}
+	if got := query.proveAmbiguousCleanupWithin(call, call.Common(), proofs.NewSearchBudget(0)); got.State != proofs.EvidenceDisproven {
 		t.Fatalf("optional acquisition queried ambiguity: %+v", got)
 	}
 	query.optional = optionalAcquisitionProof{}
-	if got := query.proveAmbiguousCleanupWithin(call, nil, ssaflow.NewSearchBudget(0)); got.State != ssaflow.EvidenceDisproven {
+	if got := query.proveAmbiguousCleanupWithin(call, nil, proofs.NewSearchBudget(0)); got.State != proofs.EvidenceDisproven {
 		t.Fatalf("noncall queried ambiguity: %+v", got)
 	}
 }
@@ -70,20 +71,20 @@ func TestAmbiguousCleanupFlow(t *testing.T) {
 	pkg := ambiguousCleanupFixture(t)
 	for _, test := range []struct {
 		name string
-		want ssaflow.EvidenceState
+		want proofs.EvidenceState
 	}{
-		{"merged", ssaflow.EvidenceUnknown},
-		{"helper", ssaflow.EvidenceUnknown},
-		{"direct", ssaflow.EvidenceDisproven},
-		{"conditional", ssaflow.EvidenceProven},
-		{"readOnly", ssaflow.EvidenceProven},
-		{"overwritten", ssaflow.EvidenceProven},
-		{"other", ssaflow.EvidenceProven},
+		{"merged", proofs.EvidenceUnknown},
+		{"helper", proofs.EvidenceUnknown},
+		{"direct", proofs.EvidenceDisproven},
+		{"conditional", proofs.EvidenceProven},
+		{"readOnly", proofs.EvidenceProven},
+		{"overwritten", proofs.EvidenceProven},
+		{"other", proofs.EvidenceProven},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			query, _ := ambiguousCleanupInputs(t, pkg.Func(test.name))
 			got := evaluateResourceFlow(nil, query.evidence, query.acquisition, query.resource, query.contract)
-			if got.state != test.want || (got.leak != nil) != (test.want == ssaflow.EvidenceProven) {
+			if got.state != test.want || (got.leak != nil) != (test.want == proofs.EvidenceProven) {
 				t.Fatalf("flow = %+v, want state %v", got, test.want)
 			}
 		})

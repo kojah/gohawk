@@ -3,7 +3,7 @@ package resultfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -13,9 +13,9 @@ func Identity(p *int) *int { return p }
 `)
 	function := pkg.Func("Identity")
 	completed := false
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
 		engine := NewEngine()
-		cut := ssaflow.NewSearchBudget(limit)
+		cut := proofs.NewSearchBudget(limit)
 		got := engine.Function(function, cut)
 		if got.Available {
 			parameter, proven := got.ReturnedParameter(0)
@@ -28,7 +28,7 @@ func Identity(p *int) *int { return p }
 		if _, proven := got.ReturnedParameter(0); proven || !cut.Exhausted() {
 			t.Fatal("cutoff admitted identity or failed to record exhaustion")
 		}
-		fresh := engine.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		fresh := engine.Function(function, proofs.NewSearchBudget(proofs.SummaryBudget))
 		parameter, proven := fresh.ReturnedParameter(0)
 		if !fresh.Available || !proven || parameter != 0 {
 			t.Fatal("cutoff poisoned fresh identity inference")

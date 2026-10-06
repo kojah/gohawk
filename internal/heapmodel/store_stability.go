@@ -1,6 +1,7 @@
 package heapmodel
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,29 +17,29 @@ import (
 func (storage *Storage) StableContent(address ssa.Value, observation ssa.Instruction) StoredValue {
 	location, ok := storage.location(address)
 	if !ok {
-		return storage.unknown(ssaflow.EvidenceStorageNotLocal, observation)
+		return storage.unknown(proofs.EvidenceStorageNotLocal, observation)
 	}
 	if observation == nil || location.root.Parent() != observation.Parent() {
-		return storage.unknown(ssaflow.EvidenceStorageOutsideFunction, observation)
+		return storage.unknown(proofs.EvidenceStorageOutsideFunction, observation)
 	}
 	var stores []*ssa.Store
 	if blocked, ok := storage.collect(location.root, observation, &stores, true); !ok {
-		return storage.unknown(ssaflow.EvidenceStorageAddressEscapes, blocked)
+		return storage.unknown(proofs.EvidenceStorageAddressEscapes, blocked)
 	}
 	for _, store := range stores {
 		written, ok := storage.location(store.Addr)
 		if !ok {
-			return storage.unknown(ssaflow.EvidenceStorageWriteThroughAlias, store)
+			return storage.unknown(proofs.EvidenceStorageWriteThroughAlias, store)
 		}
 		if !slotBeneath(location.path, written.path) && !slotBeneath(written.path, location.path) {
 			continue
 		}
 		follows := StoreMayFollowWithin(location.root, observation, store, storage.budget)
 		if storage.budget.Exhausted() || storage.budget.PoolExhausted() {
-			return storage.unknown(ssaflow.EvidenceBudgetExhausted, store)
+			return storage.unknown(proofs.EvidenceBudgetExhausted, store)
 		}
 		if follows || ssaflow.BlockInCycle(store.Block()) && store.Block() != location.root.Block() {
-			return storage.unknown(ssaflow.EvidenceStorageWriteAfterObservation, store)
+			return storage.unknown(proofs.EvidenceStorageWriteAfterObservation, store)
 		}
 	}
 	return storage.content(location, observation)
@@ -46,7 +47,7 @@ func (storage *Storage) StableContent(address ssa.Value, observation ssa.Instruc
 
 // SliceOnlyObserved reports whether use constructs a slice whose only consumers
 // are observation. The caller must account for observation's own effects.
-func SliceOnlyObserved(use, observation ssa.Instruction, budget *ssaflow.SearchBudget) bool {
+func SliceOnlyObserved(use, observation ssa.Instruction, budget *proofs.SearchBudget) bool {
 	slice, ok := use.(*ssa.Slice)
 	if !ok || slice.Referrers() == nil {
 		return false

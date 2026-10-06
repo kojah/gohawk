@@ -3,13 +3,13 @@ package lifecycle
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 // A child budget stops at its own limit or when the pool runs out, whichever
 // comes first, and reports which one it was.
 func TestBudgetWithinPool(t *testing.T) {
-	pool := ssaflow.NewSearchBudget(5)
+	pool := proofs.NewSearchBudget(5)
 	first := pool.Within(3)
 	for range 3 {
 		if !first.Spend() {
@@ -28,10 +28,10 @@ func TestBudgetWithinPool(t *testing.T) {
 	if second.Spend() || !second.PoolExhausted() || !pool.Exhausted() {
 		t.Fatal("second child should stop because the pool ran out")
 	}
-	if !ssaflow.NewSearchBudget(1).Within(2).Spend() {
+	if !proofs.NewSearchBudget(1).Within(2).Spend() {
 		t.Fatal("a plain budget spends")
 	}
-	var none *ssaflow.SearchBudget
+	var none *proofs.SearchBudget
 	if !none.Within(1).Spend() {
 		t.Fatal("a nil pool yields a plain budget")
 	}

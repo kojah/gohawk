@@ -4,7 +4,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -27,28 +27,28 @@ func (relation Relation) At(path []string) bool { return slices.Equal(relation.p
 // RelationProof carries the exact owner-to-resource path established by the
 // heap/storage model, or an unknown outcome when that path cannot be named.
 type RelationProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Relation Relation
 }
 
 // ProveRelation resolves a direct identity or an exact field/element path
 // from owner to resource at observation. It reuses the existing heap model
 // through lifecycle; no separate resource points-to graph is maintained.
-func ProveRelation(owner, resource ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) RelationProof {
-	unknown := RelationProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+func ProveRelation(owner, resource ssa.Value, observation ssa.Instruction, budget *proofs.SearchBudget) RelationProof {
+	unknown := RelationProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	if owner == nil || resource == nil || observation == nil || budget == nil {
 		return unknown
 	}
 	if !budget.Spend() {
-		return RelationProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}}
+		return RelationProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}}
 	}
 	same := heapmodel.NewStorage(budget).Same(owner, resource)
-	if same.Reason == ssaflow.EvidenceBudgetExhausted || budget.Exhausted() || budget.PoolExhausted() {
-		return RelationProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}}
+	if same.Reason == proofs.EvidenceBudgetExhausted || budget.Exhausted() || budget.PoolExhausted() {
+		return RelationProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}}
 	}
 	if same.Proven() {
 		return RelationProof{
-			Proof:    ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath},
+			Proof:    proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceSameAccessPath},
 			Relation: Relation{owner: owner, resource: resource},
 		}
 	}
@@ -57,7 +57,7 @@ func ProveRelation(owner, resource ssa.Value, observation ssa.Instruction, budge
 		return RelationProof{Proof: path.Proof}
 	}
 	return RelationProof{
-		Proof:    ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath},
+		Proof:    proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceSameAccessPath},
 		Relation: Relation{owner: owner, resource: resource, path: slices.Clone(path.Path)},
 	}
 }

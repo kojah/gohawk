@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -50,7 +51,7 @@ func merge(first, second int, choose bool) int64 {
 			if !test.fold(walk(), phis[0]) {
 				t.Fatal("opaque merge was not available to the leaf predicate")
 			}
-			if test.fold(walk().Within(NewSearchBudget(0)), phis[0]) {
+			if test.fold(walk().Within(proofs.NewSearchBudget(0)), phis[0]) {
 				t.Fatal("exhausted fold supplied identity evidence")
 			}
 		})

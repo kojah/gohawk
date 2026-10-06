@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"go/types"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -59,7 +60,7 @@ type ObligationFlow struct {
 	// guard transitions. Callbacks may share it for their own work; feasibility
 	// and library-contract internals have separate costs. Exhaustion is uncertain:
 	// it cannot establish either a violation or an exact discharge.
-	Budget *SearchBudget
+	Budget *proofs.SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
 	// so a comma-ok assertion of a type it satisfies is taken to succeed.
 	NonNilType  types.Type
@@ -138,7 +139,7 @@ type obligationKey struct {
 	covered                   ObligationAction
 }
 
-func (state obligationState) keyWithin(budget *SearchBudget, ids *guardIDs) obligationKey {
+func (state obligationState) keyWithin(budget *proofs.SearchBudget, ids *guardIDs) obligationKey {
 	predecessor := -1
 	if state.predecessor != nil {
 		predecessor = state.predecessor.Index

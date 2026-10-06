@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -60,18 +61,18 @@ func returnedLoad(t *testing.T, function *ssa.Function) *ssa.UnOp {
 
 func TestStorageGiveUpsNameTheirCause(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "example.com/ssaflowtest", storageGiveUpFixture)
-	want := map[string]ssaflow.EvidenceReason{
-		"conflicting": ssaflow.EvidenceStorageConflictingWrites,
-		"escaped":     ssaflow.EvidenceStorageAddressEscapes,
-		"partial":     ssaflow.EvidenceStoragePartialWrite,
-		"param":       ssaflow.EvidenceStorageNotLocal,
+	want := map[string]proofs.EvidenceReason{
+		"conflicting": proofs.EvidenceStorageConflictingWrites,
+		"escaped":     proofs.EvidenceStorageAddressEscapes,
+		"partial":     proofs.EvidenceStoragePartialWrite,
+		"param":       proofs.EvidenceStorageNotLocal,
 	}
 	for name, reason := range want {
 		t.Run(name, func(t *testing.T) {
 			var observed []string
 			observer := func(reason string, _ token.Pos, _ map[string]string) { observed = append(observed, reason) }
 			load := returnedLoad(t, pkg.Func(name))
-			content := NewStorage(ssaflow.NewSearchBudget(1000).Observed(observer)).Content(load.X, load)
+			content := NewStorage(proofs.NewSearchBudget(1000).Observed(observer)).Content(load.X, load)
 			if content.Proven() || content.Reason != reason {
 				t.Fatalf("Content = %+v, want reason %s", content.Proof, reason)
 			}
@@ -88,15 +89,15 @@ func TestStorageGiveUpsNameTheirCause(t *testing.T) {
 		}
 		closure := closures[0]
 		cell := closure.Bindings[0]
-		content := NewStorage(ssaflow.NewSearchBudget(1000)).StableContent(cell, closure)
-		if content.Proven() || content.Reason != ssaflow.EvidenceStorageWriteAfterObservation {
+		content := NewStorage(proofs.NewSearchBudget(1000)).StableContent(cell, closure)
+		if content.Proven() || content.Reason != proofs.EvidenceStorageWriteAfterObservation {
 			t.Fatalf("StableContent = %+v, want write after observation", content.Proof)
 		}
 	})
 	t.Run("budget", func(t *testing.T) {
 		load := returnedLoad(t, pkg.Func("conflicting"))
-		content := NewStorage(ssaflow.NewSearchBudget(1)).Content(load.X, load)
-		if content.Proven() || content.Reason != ssaflow.EvidenceBudgetExhausted {
+		content := NewStorage(proofs.NewSearchBudget(1)).Content(load.X, load)
+		if content.Proven() || content.Reason != proofs.EvidenceBudgetExhausted {
 			t.Fatalf("Content = %+v, want budget exhausted", content.Proof)
 		}
 	})
@@ -107,9 +108,9 @@ func TestStorageGiveUpsNameTheirCause(t *testing.T) {
 func TestSilentBudgetGiveUpAllocatesNothing(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "example.com/ssaflowtest", storageGiveUpFixture)
 	load := returnedLoad(t, pkg.Func("param"))
-	storage := NewStorage(ssaflow.NewSearchBudget(1000))
+	storage := NewStorage(proofs.NewSearchBudget(1000))
 	allocations := testing.AllocsPerRun(100, func() {
-		storage.unknown(ssaflow.EvidenceStorageNotLocal, load)
+		storage.unknown(proofs.EvidenceStorageNotLocal, load)
 	})
 	if allocations != 0 {
 		t.Fatalf("silent give-up allocated %v times per run", allocations)
@@ -122,7 +123,7 @@ func TestObservedBudgetReportsPositionAndInstruction(t *testing.T) {
 	var at token.Pos
 	var details map[string]string
 	observer := func(_ string, pos token.Pos, got map[string]string) { at, details = pos, got }
-	NewStorage(ssaflow.NewSearchBudget(1000).Observed(observer)).Content(load.X, load)
+	NewStorage(proofs.NewSearchBudget(1000).Observed(observer)).Content(load.X, load)
 	if !at.IsValid() || details["instruction"] == "" {
 		t.Fatalf("observer got position %v and details %v; want the blocking call", at, details)
 	}

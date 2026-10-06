@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -29,11 +30,11 @@ func TestProjectionCutoffPreservesMutationBoundary(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			root, observation := projectionQuery(t, pkg.Func(test.name))
 			argument := observation.Common().Args[0]
-			for allowance := 1; allowance <= ssaflow.QueryBudget; allowance++ {
-				budget := ssaflow.NewSearchBudget(allowance)
+			for allowance := 1; allowance <= proofs.QueryBudget; allowance++ {
+				budget := proofs.NewSearchBudget(allowance)
 				proof := NewStorage(budget).Projection(argument, root, observation)
 				if budget.Exhausted() {
-					if proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+					if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted {
 						t.Fatalf("cut %d published evidence: %+v", allowance, proof)
 					}
 					continue
@@ -53,15 +54,15 @@ func TestProjectionRetainsIndependentPathCutoff(t *testing.T) {
  type node struct { child *node; body *int }
  func acquire() *node { return nil }
  func cleanup(*int){}
- func deep(){p:=acquire(); cleanup(p.` + strings.Repeat("child.", ssaflow.QueryBudget+1) + `body)}
+ func deep(){p:=acquire(); cleanup(p.` + strings.Repeat("child.", proofs.QueryBudget+1) + `body)}
  func shallow(){p:=acquire(); cleanup(p.body)}
  `
 	pkg := ssaflowtest.BuildPackage(t, "projectionprobe", source)
-	budget := ssaflow.NewSearchBudget(10 * ssaflow.QueryBudget)
+	budget := proofs.NewSearchBudget(10 * proofs.QueryBudget)
 	storage := NewStorage(budget)
 	root, observation := projectionQuery(t, pkg.Func("deep"))
 	proof := storage.Projection(observation.Common().Args[0], root, observation)
-	if proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted || budget.Exhausted() {
+	if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted || budget.Exhausted() {
 		t.Fatalf("child cutoff lost: %+v, parent exhausted=%v", proof, budget.Exhausted())
 	}
 	root, observation = projectionQuery(t, pkg.Func("shallow"))
@@ -79,14 +80,14 @@ func TestProjectionObservationWindowCutoffIsUnavailable(t *testing.T) {
 	if len(stores) != 1 {
 		t.Fatal("fixture lost selected field replacement")
 	}
-	cut := ssaflow.NewSearchBudget(1)
+	cut := proofs.NewSearchBudget(1)
 	if instructionWithinObservation(stores[0], origin, observation, cut) || !cut.Exhausted() {
 		t.Fatal("observation window bypassed caller allowance")
 	}
-	if !instructionWithinObservation(stores[0], origin, observation, ssaflow.NewSearchBudget(ssaflow.QueryBudget)) {
+	if !instructionWithinObservation(stores[0], origin, observation, proofs.NewSearchBudget(proofs.QueryBudget)) {
 		t.Fatal("fresh query lost mutating use inside observation window")
 	}
-	cut = ssaflow.NewSearchBudget(1)
+	cut = proofs.NewSearchBudget(1)
 	if NewStorage(cut).addressDoesNotEscapeBetween(stores[0].Addr, origin, observation, map[ssa.Value]bool{}) || !cut.Exhausted() {
 		t.Fatal("shortened observation window certified stable storage")
 	}
@@ -115,11 +116,11 @@ func TestEmbeddedFieldSetupSharesStorageAllowance(t *testing.T) {
 		}
 		assertEmbeddedFieldSetupCutoff(t, address)
 		completed := false
-		for allowance := 1; allowance <= ssaflow.QueryBudget; allowance++ {
-			budget := ssaflow.NewSearchBudget(allowance)
+		for allowance := 1; allowance <= proofs.QueryBudget; allowance++ {
+			budget := proofs.NewSearchBudget(allowance)
 			proof := NewStorage(budget).StableFieldContent(address, observation)
 			if budget.Exhausted() {
-				if proof.State != ssaflow.EvidenceUnknown || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+				if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted {
 					t.Fatalf("%s cut %d: %+v", name, allowance, proof)
 				}
 				continue
@@ -158,7 +159,7 @@ func projectionQuery(t *testing.T, fn *ssa.Function) (ssa.Value, *ssa.Call) {
 
 func assertEmbeddedFieldSetupCutoff(t *testing.T, address ssa.Value) {
 	t.Helper()
-	cut := ssaflow.NewSearchBudget(1)
+	cut := proofs.NewSearchBudget(1)
 	path, known := ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(cut), address,
 		func(value ssa.Value) bool { _, fresh := value.(*ssa.Alloc); return fresh })
 	if known || !cut.Exhausted() || path.Depth != 0 {
@@ -166,8 +167,8 @@ func assertEmbeddedFieldSetupCutoff(t *testing.T, address ssa.Value) {
 	}
 	// Three visits suffice to name this allocation/field/field location.
 	// Embedded setup must share them even when no observation is supplied.
-	setup := ssaflow.NewSearchBudget(3)
-	if proof := NewStorage(setup).StableFieldContent(address, nil); !setup.Exhausted() || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+	setup := proofs.NewSearchBudget(3)
+	if proof := NewStorage(setup).StableFieldContent(address, nil); !setup.Exhausted() || proof.Reason != proofs.EvidenceBudgetExhausted {
 		t.Fatalf("embedded setup bypassed storage allowance: %+v", proof)
 	}
 }

@@ -2,7 +2,7 @@ package goroutineownership
 
 import (
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -35,14 +35,14 @@ type spawnAnalysis struct {
 	probe analysisTrace.Probe
 	// pool accumulates requests drawn through budget. Default flow and graph
 	// helpers retain separate costs. Lazy creation attaches the probe observer.
-	pool *ssaflow.SearchBudget
+	pool *proofs.SearchBudget
 	// discoveryBudget preserves cutoff availability even after partial evidence.
-	discoveryBudget *ssaflow.SearchBudget
+	discoveryBudget *proofs.SearchBudget
 }
 
 // spawnQueryBudget bounds each shared storage or origin query a spawn proof
 // asks; exhaustion is unknown evidence, never a join or a leak.
-const spawnQueryBudget = ssaflow.QueryBudget
+const spawnQueryBudget = proofs.QueryBudget
 
 // spawnPoolBudget bounds selected requests for one spawn. Their per-query
 // limits alone do not bound repeated questions per tracked value/instruction.
@@ -54,13 +54,13 @@ const spawnPoolBudget = 100 * spawnQueryBudget
 // budget draws one shared query's allowance from this spawn's pool so the
 // storage, summary, and completion give-ups inside it reach the trace and
 // the selected requests accumulate under one candidate allowance.
-func (analysis *spawnAnalysis) budget() *ssaflow.SearchBudget {
+func (analysis *spawnAnalysis) budget() *proofs.SearchBudget {
 	return analysis.queryBudget(spawnQueryBudget)
 }
 
-func (analysis *spawnAnalysis) queryBudget(limit int) *ssaflow.SearchBudget {
+func (analysis *spawnAnalysis) queryBudget(limit int) *proofs.SearchBudget {
 	if analysis.pool == nil {
-		analysis.pool = ssaflow.NewSearchBudget(spawnPoolBudget).Observed(analysis.probe.Observer())
+		analysis.pool = proofs.NewSearchBudget(spawnPoolBudget).Observed(analysis.probe.Observer())
 	}
 	return analysis.pool.Within(limit)
 }
@@ -116,7 +116,7 @@ func (analysis *spawnAnalysis) discoverAdapters() {
 }
 
 func (analysis *spawnAnalysis) discoverCompletion() {
-	analysis.discoveryBudget = analysis.queryBudget(ssaflow.SummaryBudget)
+	analysis.discoveryBudget = analysis.queryBudget(proofs.SummaryBudget)
 	analysis.signals, analysis.groups, analysis.unsettledDone = spawnedCompletionValues(analysis.pass, analysis.spawn, analysis.discoveryBudget)
 }
 
@@ -126,7 +126,7 @@ func (analysis *spawnAnalysis) discoveryUnavailable(phase queryPhase) bool {
 	if !analysis.discoveryBudget.Exhausted() {
 		return false
 	}
-	analysis.discoveryBudget.Observe(ssaflow.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
+	analysis.discoveryBudget.Observe(proofs.EvidenceBudgetExhausted, analysis.spawn.Pos(), func() map[string]string {
 		pool := "false"
 		if analysis.discoveryBudget.PoolExhausted() {
 			pool = "true"

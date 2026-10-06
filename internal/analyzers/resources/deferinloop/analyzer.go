@@ -10,6 +10,7 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -49,7 +50,7 @@ func runDeferInLoop(pass *analysis.Pass) (any, error) {
 			}
 			proof := proveDeferLifetime(evidence, knowledge, probe, deferred, obligation)
 			emitDeferLifetimeDecision(probe, proof)
-			if proof.state == ssaflow.EvidenceProven {
+			if proof.state == proofs.EvidenceProven {
 				reportDeferInLoop(pass, deferred)
 			}
 		}

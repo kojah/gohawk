@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 const resultGuardBudgetFixture = resultGuardFixture + `
@@ -57,12 +57,12 @@ func TestResultGuardDiscoveryAllowance(t *testing.T) {
 			if !baseline.Proven() || len(baseline.Guards) != test.count {
 				t.Fatalf("default discovery = %+v", baseline)
 			}
-			for limit := range ssaflow.SummaryBudget {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := range proofs.SummaryBudget {
+				budget := proofs.NewSearchBudget(limit)
 				request.Budget = budget
 				got := ProveResultGuards(fn, request)
 				if budget.Exhausted() || budget.PoolExhausted() || limit == 0 {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted || got.Guards != nil {
+					if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted || got.Guards != nil {
 						t.Fatalf("cut %d published guard census: %+v", limit, got)
 					}
 					continue
@@ -79,12 +79,12 @@ func TestResultGuardDiscoveryAllowance(t *testing.T) {
 
 func TestResultGuardDiscoveryChildAndFresh(t *testing.T) {
 	fn := buildTestSSA(t, resultGuardBudgetFixture).Func("multiple")
-	pool := ssaflow.NewSearchBudget(10000)
+	pool := proofs.NewSearchBudget(10000)
 	request := CompletionRequest{Target: openedFile(t, fn), Methods: []string{"Close"}, Budget: pool.Within(5)}
-	if got := ProveResultGuards(fn, request); got.State != ssaflow.EvidenceUnknown || got.Guards != nil || pool.Exhausted() {
+	if got := ProveResultGuards(fn, request); got.State != proofs.EvidenceUnknown || got.Guards != nil || pool.Exhausted() {
 		t.Fatalf("child discovery = %+v, parent exhausted %v", got, pool.Exhausted())
 	}
-	request.Budget = pool.Within(ssaflow.SummaryBudget)
+	request.Budget = pool.Within(proofs.SummaryBudget)
 	if got := ProveResultGuards(fn, request); !got.Proven() || len(got.Guards) != 2 {
 		t.Fatalf("fresh discovery = %+v", got)
 	}
@@ -92,8 +92,8 @@ func TestResultGuardDiscoveryChildAndFresh(t *testing.T) {
 
 func TestResultGuardDiscoveryPartialList(t *testing.T) {
 	fn := buildTestSSA(t, resultGuardBudgetFixture).Func("multiple")
-	for limit := range ssaflow.SummaryBudget {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := range proofs.SummaryBudget {
+		budget := proofs.NewSearchBudget(limit)
 		got := ProveResultGuards(fn, CompletionRequest{Target: openedFile(t, fn), Methods: []string{"Close"}, Budget: budget})
 		if budget.Exhausted() || budget.PoolExhausted() {
 			if len(got.Guards) > 0 {

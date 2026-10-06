@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -31,12 +32,12 @@ func TestAcquisitionContextCancellationAllowance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			call := contextAcquisitionCall(t, pkg.Func(test.name))
 			if test.name == "conn" || test.name == "ordinary" || test.name == "txRows" || test.name == "stmtRows" || test.name == "opaque" {
-				if proof := proveAcquisitionContextCanceledWithin(call, ssaflow.NewSearchBudget(0)); proof.State != ssaflow.EvidenceDisproven {
+				if proof := proveAcquisitionContextCanceledWithin(call, proofs.NewSearchBudget(0)); proof.State != proofs.EvidenceDisproven {
 					t.Fatalf("noneligible API queried cancellation: %+v", proof)
 				}
 				return
 			}
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				return proveAcquisitionContextCanceledWithin(call, budget)
 			}, test.want)
 		})
@@ -45,9 +46,9 @@ func TestAcquisitionContextCancellationAllowance(t *testing.T) {
 
 func TestAcquisitionContextCancellationChildCutoff(t *testing.T) {
 	call := contextAcquisitionCall(t, acquisitionContextFixture(t).Func("exact"))
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	got := proveAcquisitionContextCanceledWithin(call, pool.Within(1))
-	if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+	if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 		t.Fatalf("interrupted cancellation = %+v; parent exhausted %v", got, pool.Exhausted())
 	}
 	fresh := proveAcquisitionContextCanceledWithin(call, pool.Within(releaseSearchBudget))
@@ -77,10 +78,10 @@ func TestAcquisitionContextCancellationFlow(t *testing.T) {
 				family: resourceFamilySQL, packagePath: "database/sql", cleanup: []string{"Close"},
 			})
 			if name == "exact" {
-				if got.state != ssaflow.EvidenceDisproven || got.reason != resourceReasonCanceledAcquisition || got.leak != nil {
+				if got.state != proofs.EvidenceDisproven || got.reason != resourceReasonCanceledAcquisition || got.leak != nil {
 					t.Fatalf("canceled acquisition reported = %+v", got)
 				}
-			} else if got.state != ssaflow.EvidenceProven || got.leak == nil {
+			} else if got.state != proofs.EvidenceProven || got.leak == nil {
 				t.Fatalf("later cancellation lost independent statement leak = %+v", got)
 			}
 		})

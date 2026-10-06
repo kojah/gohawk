@@ -4,6 +4,7 @@ import (
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -26,10 +27,10 @@ import (
 // tests again, or condition cleanup on a flag stay visible: a flag the
 // caller does not branch on leaves the unreleased path feasible.
 func (analysis *resourceAnalysis) provePairedErrorCleanupWithin(
-	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *proofs.SearchBudget,
 ) resourceProof {
 	if common == nil {
-		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonUntouched}
 	}
 	// Correlation belongs to this exact acquisition. A wrapper, projection or
 	// possible origin cannot use its error to discharge a different resource.
@@ -52,7 +53,7 @@ func (analysis *resourceAnalysis) provePairedErrorCleanupWithin(
 			return carriedValueProof(false, resourceReasonUntouched, budget)
 		}
 		proof := analysis.proveCorrelatedErrorWithin(instruction, argument, budget)
-		if proof.State == ssaflow.EvidenceUnknown {
+		if proof.State == proofs.EvidenceUnknown {
 			return proof
 		}
 		if proof.Proven() {
@@ -70,8 +71,8 @@ func (analysis *resourceAnalysis) provePairedErrorCleanupWithin(
 		Instruction: instruction, Target: analysis.resource, Methods: analysis.contract.cleanup,
 		Coverage: lifecycle.CoverageAnywhere, Budget: budget,
 	})
-	if completion.Reason == ssaflow.EvidenceBudgetExhausted {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	if completion.Reason == proofs.EvidenceBudgetExhausted {
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	return carriedValueProof(completion.Proven(), resourceReasonPairedErrorHelperCleanup, budget)
 }
@@ -80,7 +81,7 @@ func (analysis *resourceAnalysis) provePairedErrorCleanupWithin(
 // zero and one preserve the existing paired-acquisition contract; this query
 // does not reinterpret an arbitrary factory's last error as the paired slot.
 func (analysis *resourceAnalysis) proveCorrelatedErrorWithin(
-	call ssa.Instruction, argument ssa.Value, budget *ssaflow.SearchBudget,
+	call ssa.Instruction, argument ssa.Value, budget *proofs.SearchBudget,
 ) resourceProof {
 	if !syntax.IsErrorType(argument.Type()) {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
@@ -92,7 +93,7 @@ func (analysis *resourceAnalysis) proveCorrelatedErrorWithin(
 	if resource == analysis.resource {
 		paired := ssaflow.CallResultWithin(analysis.acquisition, 1, budget)
 		proof := carriedValueProof(argument == paired, resourceReasonPairedErrorHelperCleanup, budget)
-		if proof.State != ssaflow.EvidenceDisproven {
+		if proof.State != proofs.EvidenceDisproven {
 			return proof
 		}
 	}
@@ -123,7 +124,7 @@ func (analysis *resourceAnalysis) proveCorrelatedErrorWithin(
 		if other != nil {
 			nilValue := ssaflow.DefinitelyNilWithin(other, budget)
 			proof := carriedValueProof(nilValue, resourceReasonPairedErrorHelperCleanup, budget)
-			if proof.State != ssaflow.EvidenceDisproven {
+			if proof.State != proofs.EvidenceDisproven {
 				return proof
 			}
 		}

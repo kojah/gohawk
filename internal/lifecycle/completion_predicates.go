@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -29,8 +30,8 @@ func (search *completionSearch) queryAt(instruction ssa.Instruction) ssaflow.Cal
 // completion may settle a field or element beneath the parameter; the proof
 // then names that path, and a caller must not credit a claim whose path is
 // not known.
-func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondition, request CompletionRequest) ssaflow.CompletionProof {
-	unknown := ssaflow.CompletionProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondition, request CompletionRequest) proofs.CompletionProof {
+	unknown := proofs.CompletionProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	parameter, ok := request.Target.(*ssa.Parameter)
 	if !ok || function == nil || parameter.Parent() != function || len(function.Blocks) == 0 ||
 		!condition.ValidFor(function.Signature) || request.InvokeTarget && len(request.Methods) != 0 {
@@ -67,16 +68,16 @@ func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondit
 			proven = search.conditionalCoverage(function, locals, parameter, resultTest)
 		})
 		if proven && !request.Budget.Exhausted() {
-			return ssaflow.CompletionProof{
-				Proof: ssaflow.Proof{
-					State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceCalledCompletion, Method: method, Provenance: ssaflow.EvidenceFromLocalSSA,
+			return proofs.CompletionProof{
+				Proof: proofs.Proof{
+					State: proofs.EvidenceProven, Reason: proofs.EvidenceCalledCompletion, Method: method, Provenance: proofs.EvidenceFromLocalSSA,
 				},
 				Path: paths.path, PathKnown: paths.known(),
 			}
 		}
 	}
 	if request.Budget.Exhausted() {
-		unknown.Reason = ssaflow.EvidenceBudgetExhausted
+		unknown.Reason = proofs.EvidenceBudgetExhausted
 	}
 	return unknown
 }

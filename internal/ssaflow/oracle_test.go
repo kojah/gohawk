@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -112,8 +113,8 @@ func TestCountedLoopMatchesExecution(t *testing.T) {
 	for name, executed := range run.loops {
 		header := loopHeader(t, pkg.Func(name))
 		for proof, loop := range map[string]ssaflow.CountedLoop{
-			"loop":   ssaflow.ProveCountedLoop(header, 100, ssaflow.NewSearchBudget(ssaflow.QueryBudget)),
-			"region": ssaflow.ProveCountedRegion(header, 100, ssaflow.NewSearchBudget(ssaflow.QueryBudget)),
+			"loop":   ssaflow.ProveCountedLoop(header, 100, proofs.NewSearchBudget(proofs.QueryBudget)),
+			"region": ssaflow.ProveCountedRegion(header, 100, proofs.NewSearchBudget(proofs.QueryBudget)),
 		} {
 			if !loop.Proven() {
 				continue

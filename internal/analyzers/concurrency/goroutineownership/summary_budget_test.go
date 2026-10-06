@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -33,7 +34,7 @@ func TestSummaryJoinSharesCandidateAllowance(t *testing.T) {
 	query := func(limit int) helperCallProof {
 		candidate := &spawnAnalysis{
 			pass: pass, function: function, spawn: spawn, probe: probe,
-			pool: ssaflow.NewSearchBudget(limit).Observed(probe.Observer()), tracked: []trackedValue{{value: target, kind: trackedSignal}},
+			pool: proofs.NewSearchBudget(limit).Observed(probe.Observer()), tracked: []trackedValue{{value: target, kind: trackedSignal}},
 		}
 		return candidate.summarizedJoin(call)
 	}
@@ -64,14 +65,14 @@ func TestSummaryJoinChildCutoffAndFreshCache(t *testing.T) {
 	pass := &analysis.Pass{Fset: pkg.Prog.Fset, Pkg: pkg.Pkg, ResultOf: map[*analysis.Analyzer]any{concurrencyfacts.Analyzer: engine}}
 	candidate := &spawnAnalysis{
 		pass: pass, function: fn, spawn: ssaflow.InstructionsOf[*ssa.Go](fn)[0],
-		pool: ssaflow.NewSearchBudget(spawnPoolBudget), tracked: []trackedValue{{value: ssaflow.InstructionsOf[*ssa.MakeChan](fn)[0], kind: trackedSignal}},
+		pool: proofs.NewSearchBudget(spawnPoolBudget), tracked: []trackedValue{{value: ssaflow.InstructionsOf[*ssa.MakeChan](fn)[0], kind: trackedSignal}},
 	}
 	if got := candidate.summarizedJoin(call); got.action != actionUnknown || got.reason != reasonSummaryJoinBudgetExhausted || candidate.pool.Exhausted() {
 		t.Fatalf("child cutoff with live pool returned %+v, pool exhausted=%v", got, candidate.pool.Exhausted())
 	}
 	// A larger independent engine query may complete the same callee. A child
 	// cutoff must not have cached its interrupted prefix as a final answer.
-	summary := engine.AtCall(call, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	summary := engine.AtCall(call, proofs.NewSearchBudget(proofs.SummaryBudget))
 	if !summary.Complete() {
 		t.Fatalf("fresh engine query unavailable: %+v", summary)
 	}

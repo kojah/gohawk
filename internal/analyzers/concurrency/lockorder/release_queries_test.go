@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -28,24 +29,24 @@ func TestLockReleaseQueryCoverageAndLaunch(t *testing.T) {
 	for _, test := range []struct {
 		index    int
 		coverage lifecycle.CompletionCoverage
-		reason   ssaflow.EvidenceReason
+		reason   proofs.EvidenceReason
 		proven   bool
 	}{
-		{0, lifecycle.CoverageEveryReturn, ssaflow.EvidenceCalledCompletion, true},
-		{1, lifecycle.CoverageEveryReturn, ssaflow.EvidenceNone, false},
-		{1, lifecycle.CoverageAnywhere, ssaflow.EvidenceCalledCompletion, true},
-		{2, lifecycle.CoverageEveryReturn, ssaflow.EvidenceNone, false},
-		{3, lifecycle.CoverageEveryReturn, ssaflow.EvidenceNone, false},
-		{4, lifecycle.CoverageEveryReturn, ssaflow.EvidenceStartedCompletion, true},
-		{5, lifecycle.CoverageAnywhere, ssaflow.EvidenceDeferredCompletion, true},
+		{0, lifecycle.CoverageEveryReturn, proofs.EvidenceCalledCompletion, true},
+		{1, lifecycle.CoverageEveryReturn, proofs.EvidenceNone, false},
+		{1, lifecycle.CoverageAnywhere, proofs.EvidenceCalledCompletion, true},
+		{2, lifecycle.CoverageEveryReturn, proofs.EvidenceNone, false},
+		{3, lifecycle.CoverageEveryReturn, proofs.EvidenceNone, false},
+		{4, lifecycle.CoverageEveryReturn, proofs.EvidenceStartedCompletion, true},
+		{5, lifecycle.CoverageAnywhere, proofs.EvidenceDeferredCompletion, true},
 	} {
 		var evidence lifecycle.LocalEvidence
-		queries := newLockReleaseQueries(&evidence, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		queries := newLockReleaseQueries(&evidence, proofs.NewSearchBudget(proofs.SummaryBudget))
 		proof := queries.query(calls[test.index], fn.Params[0], test.coverage, nil)
-		if proof.Proven() != test.proven || test.proven && !releaseSettled(proof, test.reason) || queries.cutoff.Reason != ssaflow.EvidenceNone {
+		if proof.Proven() != test.proven || test.proven && !releaseSettled(proof, test.reason) || queries.cutoff.Reason != proofs.EvidenceNone {
 			t.Fatalf("call%d coverage%d proof=%+v cutoff=%+v", test.index, test.coverage, proof, queries.cutoff)
 		}
-		if test.index == 3 && proof.State != ssaflow.EvidenceUnknown {
+		if test.index == 3 && proof.State != proofs.EvidenceUnknown {
 			t.Fatalf("opaque callback became known: %+v", proof)
 		}
 	}
@@ -61,9 +62,9 @@ func TestLockReleaseQueryCutoffAndFreshEvidence(t *testing.T) {
 	fn := pkg.Func("called")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 	completed := false
-	for limit := range ssaflow.SummaryBudget {
+	for limit := range proofs.SummaryBudget {
 		var evidence lifecycle.LocalEvidence
-		pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+		pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 		child := pool.Within(limit)
 		queries := newLockReleaseQueries(&evidence, child)
 		proof := queries.query(call, fn.Params[0], lifecycle.CoverageEveryReturn, nil)
@@ -71,15 +72,15 @@ func TestLockReleaseQueryCutoffAndFreshEvidence(t *testing.T) {
 			completed = true
 			break
 		}
-		if proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted || pool.Exhausted() {
+		if proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted || pool.Exhausted() {
 			t.Fatalf("cut%d proof=%+v pool=%v", limit, proof, pool.Exhausted())
 		}
-		fresh := newLockReleaseQueries(&evidence, pool.Within(ssaflow.SummaryBudget))
-		if proof := fresh.query(call, fn.Params[0], lifecycle.CoverageEveryReturn, nil); !releaseSettled(proof, ssaflow.EvidenceCalledCompletion) {
+		fresh := newLockReleaseQueries(&evidence, pool.Within(proofs.SummaryBudget))
+		if proof := fresh.query(call, fn.Params[0], lifecycle.CoverageEveryReturn, nil); !releaseSettled(proof, proofs.EvidenceCalledCompletion) {
 			t.Fatalf("fresh at%d: %+v", limit, proof)
 		}
 		warm := newLockReleaseQueries(&evidence, pool.Within(0))
-		if proof := warm.query(call, fn.Params[0], lifecycle.CoverageEveryReturn, nil); proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+		if proof := warm.query(call, fn.Params[0], lifecycle.CoverageEveryReturn, nil); proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted {
 			t.Fatalf("warm zero allowance at%d: %+v", limit, proof)
 		}
 	}
@@ -89,17 +90,17 @@ func TestLockReleaseQueryCutoffAndFreshEvidence(t *testing.T) {
 	// A question's local cap can fail while its function pool remains usable.
 	// That failure must still make the work list's publication barrier unavailable.
 	var cold lifecycle.LocalEvidence
-	pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 	queries := newLockReleaseQueries(&cold, pool)
 	queries.limit = 1
 	proof := queries.query(call, fn.Params[0], lifecycle.CoverageEveryReturn, nil)
 	walk := lockStateWalk{budget: pool, flow: lockFlowContext{releases: queries}}
-	if proof.Proven() || releaseSettled(proof, ssaflow.EvidenceCalledCompletion) ||
-		queries.cutoff.Reason != ssaflow.EvidenceBudgetExhausted || pool.Exhausted() || !walk.incomplete() {
+	if proof.Proven() || releaseSettled(proof, proofs.EvidenceCalledCompletion) ||
+		queries.cutoff.Reason != proofs.EvidenceBudgetExhausted || pool.Exhausted() || !walk.incomplete() {
 		t.Fatalf("local cap proof=%+v cutoff=%+v pool=%v", proof, queries.cutoff, pool.Exhausted())
 	}
 	retry := newLockReleaseQueries(&cold, pool)
-	if proof := retry.query(call, fn.Params[0], lifecycle.CoverageEveryReturn, nil); !releaseSettled(proof, ssaflow.EvidenceCalledCompletion) {
+	if proof := retry.query(call, fn.Params[0], lifecycle.CoverageEveryReturn, nil); !releaseSettled(proof, proofs.EvidenceCalledCompletion) {
 		t.Fatalf("fresh after local cap: %+v", proof)
 	}
 }
@@ -120,11 +121,11 @@ func TestLockReleaseCutoffDiscardsEarlierFindings(t *testing.T) {
 	// Leave result summaries unavailable so this isolates release inference,
 	// rather than cutting during the independent termination-result query.
 	fixture.results = nil
-	budget := ssaflow.NewSearchBudget(100)
+	budget := proofs.NewSearchBudget(100)
 	if ok, reports, edges := fixture.run(budget); ok || !budget.Exhausted() || len(reports) != 0 || edges != 0 {
 		t.Fatalf("late release cutoff complete=%v reports=%v edges=%d exhausted=%v", ok, reports, edges, budget.Exhausted())
 	}
-	fresh := ssaflow.NewSearchBudget(lockStateWorkBudget)
+	fresh := proofs.NewSearchBudget(lockStateWorkBudget)
 	if ok, reports, edges := fixture.run(fresh); !ok || len(reports) != 1 || edges != 1 || fresh.Exhausted() {
 		t.Fatalf("fresh release flow complete=%v reports=%v edges=%d", ok, reports, edges)
 	}

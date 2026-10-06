@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"slices"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -133,7 +134,7 @@ func QueryEscape(value ssa.Value, scope EscapeScope) EscapeProof {
 		return EscapeProof{Reason: EscapeIdentityUnknown, Scope: scope}
 	}
 	proof := EscapeProof{Outcome: EscapeLocal, Reason: EscapeConfined, Scope: scope}
-	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+	budget := proofs.NewSearchBudget(proofs.QueryBudget)
 	for origin, at := range graph.escapeOrigins {
 		if !budget.Spend() {
 			return EscapeProof{Reason: EscapeBudgetExhausted, Scope: scope}
@@ -205,7 +206,7 @@ func escapeSlotsOverlap(left, right slot) bool {
 	return left.region == right.region && (slotBeneath(left.path, right.path) || slotBeneath(right.path, left.path))
 }
 
-func (graph *regionGraph) resultEscapeEvents(target slot, proof *EscapeProof, budget *ssaflow.SearchBudget) {
+func (graph *regionGraph) resultEscapeEvents(target slot, proof *EscapeProof, budget *proofs.SearchBudget) {
 	for _, block := range graph.function.Blocks {
 		if graph.entry[block] == nil {
 			continue
@@ -246,7 +247,7 @@ var opaqueAddressBuiltins = []syntax.Symbol{
 	syntax.Builtin("String"), syntax.Builtin("StringData"),
 }
 
-func (graph *regionGraph) opaqueRepresentationEscape(at ssa.Instruction, target slot, proof *EscapeProof, budget *ssaflow.SearchBudget) {
+func (graph *regionGraph) opaqueRepresentationEscape(at ssa.Instruction, target slot, proof *EscapeProof, budget *proofs.SearchBudget) {
 	if converted, ok := at.(*ssa.Convert); ok {
 		if basic, ok := converted.Type().Underlying().(*types.Basic); ok && (basic.Kind() == types.UnsafePointer || basic.Kind() == types.Uintptr) {
 			graph.exportEscape(converted.X, target, at, EscapeToOpaqueRepresentation, proof, budget)
@@ -261,7 +262,7 @@ func (graph *regionGraph) opaqueRepresentationEscape(at ssa.Instruction, target 
 }
 
 func (graph *regionGraph) exportEscape(
-	value ssa.Value, target slot, at ssa.Instruction, destination EscapeDestination, proof *EscapeProof, budget *ssaflow.SearchBudget,
+	value ssa.Value, target slot, at ssa.Instruction, destination EscapeDestination, proof *EscapeProof, budget *proofs.SearchBudget,
 ) {
 	if !tracked(value.Type()) {
 		return
@@ -285,7 +286,7 @@ func (graph *regionGraph) exportEscape(
 
 // escapeReachability reads existing edges. It does not infer ownership or add
 // a second heap graph. Missing/backed/foreign contents prevent negative proofs.
-func (graph *regionGraph) escapeReachability(state *regionState, roots pointees, target slot, budget *ssaflow.SearchBudget) (bool, bool) {
+func (graph *regionGraph) escapeReachability(state *regionState, roots pointees, target slot, budget *proofs.SearchBudget) (bool, bool) {
 	seen := map[slot]bool{}
 	queue := []slot{}
 	complete := true
@@ -325,7 +326,7 @@ func (graph *regionGraph) escapeReachability(state *regionState, roots pointees,
 	return found, complete
 }
 
-func escapeChildren(queue []slot, state *regionState, current slot, budget *ssaflow.SearchBudget) ([]slot, bool) {
+func escapeChildren(queue []slot, state *regionState, current slot, budget *proofs.SearchBudget) ([]slot, bool) {
 	complete := true
 	for held := range state.backing {
 		if !budget.Spend() {

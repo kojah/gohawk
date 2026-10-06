@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -20,17 +21,17 @@ const httpEffectsBudget = 4000
 
 // Default mutation keeps its existing child cap while sharing the caller's
 // allowance. A shortened child is unavailable even when the caller can continue.
-func proveDefaultClientUnmodifiedWithin(function *ssa.Function, budget *ssaflow.SearchBudget) resourceProof {
+func proveDefaultClientUnmodifiedWithin(function *ssa.Function, budget *proofs.SearchBudget) resourceProof {
 	child := budget.Within(httpEffectsBudget)
 	modified := newHTTPWriterEffects().scanDefaultOverrides(function, child, true)
 	return carriedValueProof(!modified, resourceReasonUntouched, child)
 }
 
-func (effects *httpWriterEffects) visibleOverrides(function *ssa.Function, budget *ssaflow.SearchBudget) bool {
+func (effects *httpWriterEffects) visibleOverrides(function *ssa.Function, budget *proofs.SearchBudget) bool {
 	return effects.scanDefaultOverrides(function, budget, false)
 }
 
-func (effects *httpWriterEffects) scanDefaultOverrides(function *ssa.Function, budget *ssaflow.SearchBudget, allowRootDo bool) bool {
+func (effects *httpWriterEffects) scanDefaultOverrides(function *ssa.Function, budget *proofs.SearchBudget, allowRootDo bool) bool {
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		if allowRootDo {
 			if load, ok := instruction.(*ssa.UnOp); ok && load.Op == token.MUL &&

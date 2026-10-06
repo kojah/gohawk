@@ -1,4 +1,4 @@
-package ssaflow
+package proof
 
 // EvidenceReason identifies the concrete SSA relationship that established a
 // proof. String supplies stable trace codes; numeric values are not wire identifiers.

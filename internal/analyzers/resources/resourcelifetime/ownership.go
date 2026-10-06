@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -23,10 +24,10 @@ import (
 // search itself. Either way the call is uncertain, never a release.
 // https://github.com/kubernetes/kubernetes/blob/e72c2715ade37738aa5c029e8de5285cbe1c9441/staging/src/k8s.io/client-go/util/testing/remove_file.go#L25-L39
 func (analysis *resourceAnalysis) proveImportedLoopReleaseWithin(
-	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *proofs.SearchBudget,
 ) resourceProof {
 	if common == nil || common.StaticCallee() == nil || len(common.StaticCallee().Blocks) != 0 {
-		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonUntouched}
 	}
 	for index, argument := range common.Args {
 		if !budget.Spend() {
@@ -34,7 +35,7 @@ func (analysis *resourceAnalysis) proveImportedLoopReleaseWithin(
 		}
 		if released, _ := analysis.evidence.CalleeClaims(instruction, index, lifecyclefacts.ClaimReleasesInLoop); released {
 			carried := analysis.proveCarriedValueWithin(argument, budget)
-			if carried.State == ssaflow.EvidenceUnknown {
+			if carried.State == proofs.EvidenceUnknown {
 				return carried
 			}
 			if carried.Proven() {
@@ -61,36 +62,36 @@ func resourceLifecycleMethod(name string) bool {
 // and later stores. A send is uncertain ownership, never a cleanup guarantee.
 // https://github.com/Contextualist/acp/blob/579b477d0281df41ab8753a7cbcb8f7807e52e2c/pkg/pnet/p2p.go#L79-L91
 func (analysis *resourceAnalysis) responseBodyAggregateHandoff(value ssa.Value, at ssa.Instruction) resourceProof {
-	missing := resourceProof{State: ssaflow.EvidenceDisproven}
+	missing := resourceProof{State: proofs.EvidenceDisproven}
 	if analysis.contract.family != resourceFamilyHTTP || !heapmodel.CanHoldReference(value.Type()) {
 		return missing
 	}
-	budget := analysis.budget(ssaflow.QueryBudget)
+	budget := analysis.budget(proofs.QueryBudget)
 	storage := heapmodel.NewStorage(budget)
 	for _, load := range ssaflow.InstructionsOf[*ssa.UnOp](analysis.function) {
 		if !budget.Spend() {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if lifecyclefacts.ResponseBodyField(load) == nil || !storage.Projection(load, analysis.resource, load).Proven() {
 			continue
 		}
 		contained, known := heapmodel.ContainsAt(value, load, at)
 		if known && contained {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonResponseBodyAggregateHandoff}
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonResponseBodyAggregateHandoff}
 		}
 	}
 	return missing
 }
 
 func (analysis *resourceAnalysis) proveAggregateOwnerEscapeWithin(
-	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *proofs.SearchBudget,
 ) resourceProof {
 	for index, argument := range common.Args {
 		if !budget.Spend() {
 			return aggregateEscapeProof(false, budget)
 		}
 		candidate := analysis.proveAggregateArgumentWithin(argument, instruction, budget)
-		if candidate.State == ssaflow.EvidenceUnknown {
+		if candidate.State == proofs.EvidenceUnknown {
 			return candidate
 		}
 		if !candidate.Proven() {
@@ -100,7 +101,7 @@ func (analysis *resourceAnalysis) proveAggregateOwnerEscapeWithin(
 		// wrapper is an owning aggregate. Require a proven store by this callee
 		// before treating such a value as published through the next helper.
 		direct := analysis.proveCarriedDirectlyWithin(argument, budget)
-		if direct.State == ssaflow.EvidenceUnknown {
+		if direct.State == proofs.EvidenceUnknown {
 			return direct
 		}
 		if direct.Proven() {
@@ -122,8 +123,8 @@ func (analysis *resourceAnalysis) proveAggregateOwnerEscapeWithin(
 			continue
 		}
 		effects := analysis.evidence.CallEffectsWithin(instruction, argument, budget)
-		if effects.Reason == ssaflow.EvidenceBudgetExhausted {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		if effects.Reason == proofs.EvidenceBudgetExhausted {
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if effects.Proven() {
 			if effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
@@ -140,7 +141,7 @@ func (analysis *resourceAnalysis) proveAggregateOwnerEscapeWithin(
 		// the whole aggregate. An unsummarized callee stays a boundary:
 		// silence is not a proof.
 		contents := analysis.proveAggregateContentsEscapeWithin(instruction, index, argument, budget)
-		if contents.State != ssaflow.EvidenceDisproven {
+		if contents.State != proofs.EvidenceDisproven {
 			return contents
 		}
 	}
@@ -150,11 +151,11 @@ func (analysis *resourceAnalysis) proveAggregateOwnerEscapeWithin(
 // A completed unavailable position asks about all contents, as before. A
 // shortened relation cannot substitute that broader query for the missing path.
 func (analysis *resourceAnalysis) proveAggregateContentsEscapeWithin(
-	instruction ssa.Instruction, index int, argument ssa.Value, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, index int, argument ssa.Value, budget *proofs.SearchBudget,
 ) resourceProof {
-	path := resourcemodel.ProveRelation(argument, analysis.resource, instruction, budget.Within(ssaflow.QueryBudget))
-	if path.Reason == ssaflow.EvidenceBudgetExhausted {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	path := resourcemodel.ProveRelation(argument, analysis.resource, instruction, budget.Within(proofs.QueryBudget))
+	if path.Reason == proofs.EvidenceBudgetExhausted {
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	if !budget.Spend() {
 		return aggregateEscapeProof(false, budget)
@@ -164,7 +165,7 @@ func (analysis *resourceAnalysis) proveAggregateContentsEscapeWithin(
 }
 
 func (analysis *resourceAnalysis) proveAggregateArgumentWithin(
-	argument ssa.Value, instruction ssa.Instruction, budget *ssaflow.SearchBudget,
+	argument ssa.Value, instruction ssa.Instruction, budget *proofs.SearchBudget,
 ) resourceProof {
 	// The resource itself, or a load that resolves to it, is not an
 	// aggregate holding the resource; only a genuine container is asked
@@ -180,47 +181,47 @@ func (analysis *resourceAnalysis) proveAggregateArgumentWithin(
 		return aggregateEscapeProof(false, budget)
 	}
 	if heapmodel.MayAlias(argument, analysis.resource) {
-		return resourceProof{State: ssaflow.EvidenceDisproven}
+		return resourceProof{State: proofs.EvidenceDisproven}
 	}
 	closure := analysis.proveCarriedClosureWithin(argument, budget)
-	if closure.State == ssaflow.EvidenceUnknown {
+	if closure.State == proofs.EvidenceUnknown {
 		return closure
 	}
 	if closure.Proven() {
-		return resourceProof{State: ssaflow.EvidenceDisproven}
+		return resourceProof{State: proofs.EvidenceDisproven}
 	}
 	contained := lifecycle.ProveMayContainValueAtWithin(argument, analysis.resource, instruction, budget)
-	if contained.State == ssaflow.EvidenceUnknown {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	if contained.State == proofs.EvidenceUnknown {
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	if contained.Proven() {
 		return aggregateEscapeProof(true, budget)
 	}
 	wrapper := analysis.provePossibleWrapperWithin(argument, 0, false, budget)
-	if wrapper.State == ssaflow.EvidenceUnknown {
+	if wrapper.State == proofs.EvidenceUnknown {
 		return wrapper
 	}
 	return aggregateEscapeProof(wrapper.Proven(), budget)
 }
 
-func aggregateEscapeProof(found bool, budget *ssaflow.SearchBudget) resourceProof {
+func aggregateEscapeProof(found bool, budget *proofs.SearchBudget) resourceProof {
 	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	if found {
-		return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonAggregateOwnerMayEscape}
+		return resourceProof{State: proofs.EvidenceProven, Reason: resourceReasonAggregateOwnerMayEscape}
 	}
-	return resourceProof{State: ssaflow.EvidenceDisproven}
+	return resourceProof{State: proofs.EvidenceDisproven}
 }
 
 // proveCallResultMayTransferWithin reports whether a non-error call result flows to a return
 // or a global aggregate. A fluent builder may publish its nested resource without
 // returning it from this function. This is uncertainty, not proof of ownership:
 // https://github.com/tair-opensource/RedisShake/blob/014e2f493583d24d2a37166d360bad21fc2a2422/internal/log/init.go#L54-L60
-func proveCallResultMayTransferWithin(instruction ssa.Instruction, budget *ssaflow.SearchBudget) resourceProof {
+func proveCallResultMayTransferWithin(instruction ssa.Instruction, budget *proofs.SearchBudget) resourceProof {
 	result, ok := instruction.(ssa.Value)
 	if !ok || instruction.Parent() == nil {
-		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonUntouched}
 	}
 	errorType := types.Universe.Lookup("error").Type()
 	// One census shares return and global-publication work. A result that merely
@@ -262,7 +263,7 @@ func proveCallResultMayTransferWithin(instruction ssa.Instruction, budget *ssafl
 // borrowing remains transparent. No missing claim proves an absence of escape.
 // https://github.com/golang/debug/blob/ac862fd6552b739f50ba812382eed75745a129b1/cmd/viewcore/main.go#L820-L829
 func (analysis *resourceAnalysis) proveAsynchronousExposureWithin(
-	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *proofs.SearchBudget,
 ) resourceProof {
 	for index, argument := range common.Args {
 		if !budget.Spend() {
@@ -285,8 +286,8 @@ func (analysis *resourceAnalysis) proveAsynchronousExposureWithin(
 	effects := analysis.evidence.CallEffectsWithin(instruction, analysis.resource, budget)
 	// A shortened local effect query cannot establish the absence of async use.
 	// Preserve its child-cap cutoff even when the caller allowance is available.
-	if effects.Reason == ssaflow.EvidenceBudgetExhausted {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	if effects.Reason == proofs.EvidenceBudgetExhausted {
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	return carriedValueProof(effects.Proven() && effects.Effects&ssaflow.EffectAsync != 0, resourceReasonCallEffectsAsynchronousExposure, budget)
 }

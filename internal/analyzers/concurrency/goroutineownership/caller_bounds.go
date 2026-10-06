@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
@@ -24,7 +25,7 @@ import (
 // https://github.com/prometheus/prometheus/blob/e06b2dc5a6149e20ca82fe936fb044a6dfe45958/discovery/kubernetes/kubernetes.go#L438-L458
 // Reminal passes its stop channel through several small helpers:
 // https://github.com/harshalgajjar/Reminal/blob/c4fd9e64b3b1deabaaacd5e10b9090a28792148d/internal/client/directoryhost.go#L62-L106
-func goroutineReceivesCallerSignal(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
+func goroutineReceivesCallerSignal(pass *analysis.Pass, spawn *ssa.Go, budget *proofs.SearchBudget) bool {
 	function, closure := resolveSpawnedFunction(pass, spawn, budget)
 	if function == nil {
 		return false
@@ -47,7 +48,7 @@ func goroutineReceivesCallerSignal(pass *analysis.Pass, spawn *ssa.Go, budget *s
 
 // goroutineReceivesCallerContext reports whether the worker, or a static helper
 // it passes the exact context to, receives from a caller-owned context.
-func goroutineReceivesCallerContext(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
+func goroutineReceivesCallerContext(pass *analysis.Pass, spawn *ssa.Go, budget *proofs.SearchBudget) bool {
 	function, closure := resolveSpawnedFunction(pass, spawn, budget)
 	if function == nil {
 		return false
@@ -70,7 +71,7 @@ var contextDoneMethod = syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "c
 // downloader selects on d.ctx.Done() in a helper the worker calls on its
 // captured receiver:
 // https://github.com/zkep/my-geektime/blob/a614af742806cfb10f84598c71c0dd668e96549b/libs/m3u8/downloader.go#L249-L288
-func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
+func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go, budget *proofs.SearchBudget) bool {
 	function, closure := resolveSpawnedFunction(pass, spawn, budget)
 	if function == nil {
 		return false
@@ -90,7 +91,7 @@ func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go, budget
 	return false
 }
 
-func contextFieldReceivedAnywhere(function *ssa.Function, local ssa.Value, spawner *ssa.Function, budget *ssaflow.SearchBudget) bool {
+func contextFieldReceivedAnywhere(function *ssa.Function, local ssa.Value, spawner *ssa.Function, budget *proofs.SearchBudget) bool {
 	search := newWorkerReceiveSearch(budget, func(body *ssa.Function, target, channel ssa.Value) bool {
 		done, ok := channel.(*ssa.Call)
 		if !ok || !ssaflow.CallMatchesSymbol(done.Common(), contextDoneMethod) {
@@ -119,7 +120,7 @@ func loadedContextField(value ssa.Value) *ssa.FieldAddr {
 // fieldStoredIn reports a visible store to the same field of any value of the
 // same type inside function: the context may then be one this function chose,
 // not one the receiver's owner installed.
-func fieldStoredIn(field *ssa.FieldAddr, function *ssa.Function, budget *ssaflow.SearchBudget) bool {
+func fieldStoredIn(field *ssa.FieldAddr, function *ssa.Function, budget *proofs.SearchBudget) bool {
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		store, ok := instruction.(*ssa.Store)
 		if !ok {
@@ -138,7 +139,7 @@ func fieldStoredIn(field *ssa.FieldAddr, function *ssa.Function, budget *ssaflow
 // this only to decline the default context-mode diagnostic.
 // https://github.com/c9s/bbgo/blob/4a4a18a08897579d157c8fd3b412309cd4954852/pkg/cmd/exchangetest.go#L233-L255
 // https://github.com/inbucket/inbucket/blob/94472ab496822dec612edce7988a1f953a9eafbd/pkg/msghub/hub_test.go#L361-L372
-func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) bool {
+func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go, budget *proofs.SearchBudget) bool {
 	function, closure := resolveSpawnedFunction(pass, spawn, budget)
 	if function == nil {
 		return false
@@ -231,7 +232,7 @@ func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *heapmodel.Stora
 // aggregate keeps the exact field path rooted at that capture:
 // https://github.com/charmbracelet/wishlist/blob/3404a9e6f1d3e544a59e95302bfbe575bf1cf75e/server.go#L44-L51
 func callerSuppliedValue(
-	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *ssaflow.SearchBudget,
+	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *proofs.SearchBudget,
 ) bool {
 	if supplied := ssaflow.SpawnedValueAtCallWithin(spawn, function, closure, value, budget); supplied != nil {
 		return ssaflow.ExternallyOwnedValue(supplied)
@@ -256,7 +257,7 @@ func spawnedParameterIsReceived(
 	function *ssa.Function,
 	closure *ssa.MakeClosure,
 	typed func(ssa.Value) bool,
-	budget *ssaflow.SearchBudget,
+	budget *proofs.SearchBudget,
 ) bool {
 	for binding := range ssaflow.CallBindingsWithin(spawn.Common(), function, closure, budget) {
 		if typed(binding.Local) && bindingIsExternallyOwned(binding, budget) &&
@@ -270,7 +271,7 @@ func spawnedParameterIsReceived(
 // A captured cell supplies its contents to the worker. An ordinary argument
 // supplies the value evaluated at the launch; loading it would change which
 // value the caller-owned lifetime boundary applies to.
-func bindingIsExternallyOwned(binding ssaflow.CallBinding, budget *ssaflow.SearchBudget) bool {
+func bindingIsExternallyOwned(binding ssaflow.CallBinding, budget *proofs.SearchBudget) bool {
 	supplied := binding.Supplied
 	if binding.Captured {
 		supplied = ssaflow.CapturedBindingValueWithin(supplied, budget)
@@ -282,7 +283,7 @@ func bindingIsExternallyOwned(binding ssaflow.CallBinding, budget *ssaflow.Searc
 // exact value to, receives from local on any path. A bounded worker commonly
 // selects on its stop signal inside a loop, so every-return coverage is not
 // required here; this evidence never proves a join, only a caller-owned bound.
-func receivesAnywhere(function *ssa.Function, local ssa.Value, budget *ssaflow.SearchBudget) bool {
+func receivesAnywhere(function *ssa.Function, local ssa.Value, budget *proofs.SearchBudget) bool {
 	search := newWorkerReceiveSearch(budget, func(_ *ssa.Function, target, channel ssa.Value) bool {
 		return heapmodel.ValueDerivesFrom(channel, target)
 	})

@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -42,7 +43,7 @@ func TestSpillPathsRequireOriginalContentsAtRead(t *testing.T) {
 	} {
 		fn := pkg.Func(test.name)
 		value := ssaflow.InstructionsOf[*ssa.Return](fn)[0].Results[0]
-		path, known := AccessPathFromParameterWithin(value, fn.Params[test.parameter], ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+		path, known := AccessPathFromParameterWithin(value, fn.Params[test.parameter], proofs.NewSearchBudget(proofs.QueryBudget))
 		regionGraphs.Lock()
 		_, built := regionGraphs.entries[fn]
 		regionGraphs.Unlock()
@@ -53,8 +54,8 @@ func TestSpillPathsRequireOriginalContentsAtRead(t *testing.T) {
 			t.Errorf("%s parameter%d path=%v/%v, want%v/%v", test.name, test.parameter, path, known, test.path, test.known)
 		}
 		completed := false
-		for limit := 1; limit <= ssaflow.QueryBudget; limit++ {
-			budget := ssaflow.NewSearchBudget(limit)
+		for limit := 1; limit <= proofs.QueryBudget; limit++ {
+			budget := proofs.NewSearchBudget(limit)
 			path, known := AccessPathFromParameterWithin(value, fn.Params[test.parameter], budget)
 			if budget.Exhausted() {
 				if known || path != nil {

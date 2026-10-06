@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -62,11 +63,11 @@ const (
 
 // guardConditionWithin decodes condition identity, polarity and stability.
 // An interrupted decode supplies no identity or path-pruning evidence.
-func guardConditionWithin(condition ssa.Value, budget *SearchBudget) (identity string, negated, stable, ok bool) {
+func guardConditionWithin(condition ssa.Value, budget *proofs.SearchBudget) (identity string, negated, stable, ok bool) {
 	return guardConditionWithFormats(condition, budget, nil)
 }
 
-func guardConditionWithFormats(condition ssa.Value, budget *SearchBudget, formats *guardFormats) (identity string, negated, stable, ok bool) {
+func guardConditionWithFormats(condition ssa.Value, budget *proofs.SearchBudget, formats *guardFormats) (identity string, negated, stable, ok bool) {
 	condition, inverted := booleanNegationSourceWithin(condition, budget)
 	if budget.Exhausted() {
 		return "", false, false, false
@@ -78,7 +79,7 @@ func guardConditionWithFormats(condition ssa.Value, budget *SearchBudget, format
 	return identity, negated != inverted, stable, ok
 }
 
-func guardConditionSource(condition ssa.Value, budget *SearchBudget, formats *guardFormats) (identity string, negated, stable, ok bool) {
+func guardConditionSource(condition ssa.Value, budget *proofs.SearchBudget, formats *guardFormats) (identity string, negated, stable, ok bool) {
 	if identity, negated, ok := loadedGuard(condition, budget, formats); ok {
 		return identity, negated, false, true
 	}
@@ -111,7 +112,7 @@ func stableEquality(left, right ssa.Value) string {
 	return "eq(" + first + "," + second + ")"
 }
 
-func loadedGuard(condition ssa.Value, budget *SearchBudget, formats *guardFormats) (string, bool, bool) {
+func loadedGuard(condition ssa.Value, budget *proofs.SearchBudget, formats *guardFormats) (string, bool, bool) {
 	switch typed := condition.(type) {
 	case *ssa.UnOp:
 		if typed.Op != token.MUL {
@@ -139,11 +140,11 @@ func loadedGuard(condition ssa.Value, budget *SearchBudget, formats *guardFormat
 }
 
 // guardAddressIdentityWithin names a cell by its selected address/load path.
-func guardAddressIdentityWithin(address ssa.Value, budget *SearchBudget) (string, bool) {
+func guardAddressIdentityWithin(address ssa.Value, budget *proofs.SearchBudget) (string, bool) {
 	return guardAddressIdentityWithFormats(address, budget, nil)
 }
 
-func guardAddressIdentityWithFormats(address ssa.Value, budget *SearchBudget, formats *guardFormats) (string, bool) {
+func guardAddressIdentityWithFormats(address ssa.Value, budget *proofs.SearchBudget, formats *guardFormats) (string, bool) {
 	if !budget.Spend() {
 		return "", false
 	}
@@ -171,7 +172,7 @@ func guardAddressIdentityWithFormats(address ssa.Value, budget *SearchBudget, fo
 // A call result outside a cycle is computed once per invocation, like a
 // parameter, so comparing it twice compares the same value: two checks of one
 // err agree.
-func stableOperandWithin(value ssa.Value, budget *SearchBudget) bool {
+func stableOperandWithin(value ssa.Value, budget *proofs.SearchBudget) bool {
 	if !budget.Spend() {
 		return false
 	}
@@ -210,13 +211,13 @@ func booleanValue(value ssa.Value) bool {
 // ExtendWithin shares guard decoding and comparison with budget. Incomplete
 // guards or contradictions are unavailable; callers must check exhaustion.
 func (guards PathGuards) ExtendWithin(
-	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *SearchBudget,
+	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *proofs.SearchBudget,
 ) (PathGuards, GuardContradiction) {
 	return guards.extendWithFormats(block, successor, keep, budget, nil)
 }
 
 func (guards PathGuards) extendWithFormats(
-	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *SearchBudget, formats *guardFormats,
+	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *proofs.SearchBudget, formats *guardFormats,
 ) (PathGuards, GuardContradiction) {
 	if len(block.Succs) != 2 || len(block.Instrs) == 0 {
 		return guards, GuardConsistent
@@ -260,7 +261,7 @@ func (guards PathGuards) extendWithFormats(
 }
 
 // forgetWithin drops guards about the stored cell and paths above/beneath it.
-func (guards PathGuards) forgetWithin(store *ssa.Store, budget *SearchBudget, formats *guardFormats) PathGuards {
+func (guards PathGuards) forgetWithin(store *ssa.Store, budget *proofs.SearchBudget, formats *guardFormats) PathGuards {
 	address, ok := guardAddressIdentityWithFormats(store.Addr, budget, formats)
 	if budget.Exhausted() {
 		return nil
@@ -273,7 +274,7 @@ func (guards PathGuards) forgetWithin(store *ssa.Store, budget *SearchBudget, fo
 
 // Store invalidation and rerun-result invalidation share the same exact
 // identity filtering; neither may keep a partial guard list at cutoff.
-func (guards PathGuards) withoutIdentityWithin(identity string, budget *SearchBudget) PathGuards {
+func (guards PathGuards) withoutIdentityWithin(identity string, budget *proofs.SearchBudget) PathGuards {
 	if len(guards) > GuardLimit {
 		return guards.withoutIdentityInto(nil, identity, budget)
 	}
@@ -291,7 +292,7 @@ func (guards PathGuards) withoutIdentityWithin(identity string, budget *SearchBu
 
 // withoutIdentityInto owns filtering and its charges for both bounded and
 // oversized inputs. A cutoff never publishes the partially collected guards.
-func (guards PathGuards) withoutIdentityInto(kept PathGuards, identity string, budget *SearchBudget) PathGuards {
+func (guards PathGuards) withoutIdentityInto(kept PathGuards, identity string, budget *proofs.SearchBudget) PathGuards {
 	for _, guard := range guards {
 		if !budget.Spend() {
 			return nil
@@ -305,11 +306,11 @@ func (guards PathGuards) withoutIdentityInto(kept PathGuards, identity string, b
 
 // AfterWithin shares guard invalidation with budget. A cutoff cannot establish
 // that the remaining guards hold; callers must check exhaustion.
-func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *SearchBudget) PathGuards {
+func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *proofs.SearchBudget) PathGuards {
 	return guards.afterWithFormats(instruction, budget, nil)
 }
 
-func (guards PathGuards) afterWithFormats(instruction ssa.Instruction, budget *SearchBudget, formats *guardFormats) PathGuards {
+func (guards PathGuards) afterWithFormats(instruction ssa.Instruction, budget *proofs.SearchBudget, formats *guardFormats) PathGuards {
 	switch typed := instruction.(type) {
 	case *ssa.Store:
 		return guards.forgetWithin(typed, budget, formats)
@@ -325,7 +326,7 @@ func (guards PathGuards) afterWithFormats(instruction ssa.Instruction, budget *S
 
 // KeyWithin charges guard entries before rendering. An exhausted partial key
 // must not enter a visited set; a nil budget retains the default policy.
-func (guards PathGuards) KeyWithin(budget *SearchBudget) string {
+func (guards PathGuards) KeyWithin(budget *proofs.SearchBudget) string {
 	if len(guards) == 0 {
 		return ""
 	}

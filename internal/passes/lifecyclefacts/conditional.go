@@ -8,6 +8,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -41,7 +42,7 @@ func summarizeConditional(pass *analysis.Pass, function *ssa.Function) []Dischar
 	if len(conditions) == 0 {
 		return nil
 	}
-	budget := ssaflow.NewSearchBudget(conditionalExportBudget)
+	budget := proofs.NewSearchBudget(conditionalExportBudget)
 	lookup := conditionalLookup(func(instruction ssa.Instruction) (Fact, bool) { return importFact(pass, instruction) }, budget, nil)
 	var summary []Discharge
 	for index, parameter := range function.Params {
@@ -261,7 +262,7 @@ func conditionalMethods(value types.Type) []string {
 }
 
 func conditionalLookup(
-	lookup func(ssa.Instruction) (Fact, bool), budget *ssaflow.SearchBudget, onFact func(),
+	lookup func(ssa.Instruction) (Fact, bool), budget *proofs.SearchBudget, onFact func(),
 ) lifecycle.CompletionSummaryLookup {
 	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, condition ssaflow.CallCondition) bool {
 		fact, ok := lookup(instruction)
@@ -338,7 +339,7 @@ func (evidence *LifecycleEvidence) CompletionOnEdge(from, to *ssa.BasicBlock, re
 	request.CallContract = resourcemodel.ConditionalReleases(request.Budget)
 	proof := CompletionProof{CompletionProof: lifecycle.ProveCompletionOnEdge(from, to, request)}
 	if proof.Proven() && usedFact {
-		proof.Provenance = ssaflow.EvidenceFromImportedFact
+		proof.Provenance = proofs.EvidenceFromImportedFact
 		proof.SummaryReason = reasonConditionalSummary
 	}
 	if from != nil && len(from.Instrs) != 0 && proof.Proven() {

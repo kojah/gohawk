@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -34,11 +35,11 @@ type returnedCleanupKey struct {
 // ProveReturnedCleanup proves a factory relation using the completion request's
 // methods or InvokeTarget mode, budget, and imported-summary policies. Target
 // and Instruction are unused: relation identifies values inside the factory.
-func ProveReturnedCleanup(function *ssa.Function, relation ReturnedCleanupRelation, request CompletionRequest) ssaflow.CompletionProof {
+func ProveReturnedCleanup(function *ssa.Function, relation ReturnedCleanupRelation, request CompletionRequest) proofs.CompletionProof {
 	methods := request.Methods
 	if request.InvokeTarget {
 		if len(methods) != 0 {
-			return ssaflow.CompletionProof{}
+			return proofs.CompletionProof{}
 		}
 		methods = []string{""}
 	}
@@ -48,12 +49,12 @@ func ProveReturnedCleanup(function *ssa.Function, relation ReturnedCleanupRelati
 		search.summarized, search.returnedSummaries = request.Summarized, request.ReturnedSummaries
 		search.callContract = request.CallContract
 		if search.returnedRelation(function, relation) {
-			return ssaflow.CompletionProof{Proof: ssaflow.Proof{
-				State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceReturnedDeferredCleanup, Method: method, Provenance: ssaflow.EvidenceFromLocalSSA,
+			return proofs.CompletionProof{Proof: proofs.Proof{
+				State: proofs.EvidenceProven, Reason: proofs.EvidenceReturnedDeferredCleanup, Method: method, Provenance: proofs.EvidenceFromLocalSSA,
 			}}
 		}
 	}
-	return ssaflow.CompletionProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+	return proofs.CompletionProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 }
 
 func (search *completionSearch) returnedCallCompletes(instruction ssa.Instruction, target ssa.Value) (launchKind, bool) {
@@ -164,7 +165,7 @@ func (search *completionSearch) returnedRelationBody(function *ssa.Function, rel
 	return witness
 }
 
-func returnedCleanupValue(returned *ssa.Return, index int, budget *ssaflow.SearchBudget) ssa.Value { //nolint:ireturn // Preserve exact SSA values.
+func returnedCleanupValue(returned *ssa.Return, index int, budget *proofs.SearchBudget) ssa.Value { //nolint:ireturn // Preserve exact SSA values.
 	if index < 0 || index >= len(returned.Results) {
 		return nil
 	}

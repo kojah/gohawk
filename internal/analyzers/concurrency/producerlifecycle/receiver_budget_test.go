@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -43,7 +43,7 @@ func checkHelperReceiverBudgets(t *testing.T, call ssa.CallInstruction, channel 
 					t.Fatal("unexpected warm summary availability")
 				}
 			}
-			budget := ssaflow.NewSearchBudget(limit)
+			budget := proofs.NewSearchBudget(limit)
 			proof := helperReceives(call, channel, nil, engine, budget)
 			if budget.Exhausted() {
 				if !proof.unknown || proof.count != 0 {

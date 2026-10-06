@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -20,7 +21,7 @@ func TestHelperCompletionUsesCandidatePool(t *testing.T) {
 		details map[string]string
 	}
 	var observations []observation
-	analysis.pool = ssaflow.NewSearchBudget(0).Observed(func(reason string, at token.Pos, details map[string]string) {
+	analysis.pool = proofs.NewSearchBudget(0).Observed(func(reason string, at token.Pos, details map[string]string) {
 		observations = append(observations, observation{reason, at, details})
 	})
 	action, reason := analysis.classify(call)
@@ -39,10 +40,10 @@ func TestHelperCompletionUsesCandidatePool(t *testing.T) {
 }
 
 func TestHelperCompletionKeepsLargerQueryAllowance(t *testing.T) {
-	body := "n := 0\n" + strings.Repeat("n = step(n)\n", ssaflow.QueryBudget+1) + "println(n)\nvalue.Close()"
+	body := "n := 0\n" + strings.Repeat("n = step(n)\n", proofs.QueryBudget+1) + "println(n)\nvalue.Close()"
 	analysis, call := helperBudgetAnalysis(t, body)
 	callee := call.Common().StaticCallee()
-	if len(callee.Blocks[0].Instrs) <= ssaflow.QueryBudget {
+	if len(callee.Blocks[0].Instrs) <= proofs.QueryBudget {
 		t.Fatal("fixture must exceed the storage query limit in actual SSA")
 	}
 	if action, reason := analysis.classify(call); action != actionSettled || reason != resourceReasonSettled {
@@ -86,20 +87,20 @@ func loopCaller(value *resource, run bool) { loopClose(value, run) }
 		name     string
 		function string
 		budget   int
-		state    ssaflow.EvidenceState
-		reason   ssaflow.EvidenceReason
+		state    proofs.EvidenceState
+		reason   proofs.EvidenceReason
 		action   resourceAction
 		label    resourceLifetimeReason
 	}{
-		{"exhausted", "caller", 1, ssaflow.EvidenceUnknown, ssaflow.EvidenceBudgetExhausted, actionUnknown, resourceReasonBudgetExhausted},
-		{"completed", "caller", ssaflow.QueryBudget, ssaflow.EvidenceProven, ssaflow.EvidenceNone, actionSettled, resourceReasonSettled},
+		{"exhausted", "caller", 1, proofs.EvidenceUnknown, proofs.EvidenceBudgetExhausted, actionUnknown, resourceReasonBudgetExhausted},
+		{"completed", "caller", proofs.QueryBudget, proofs.EvidenceProven, proofs.EvidenceNone, actionSettled, resourceReasonSettled},
 		{
-			"conditional", "conditionalCaller", ssaflow.QueryBudget, ssaflow.EvidenceDisproven,
-			ssaflow.EvidenceNotFound, actionNone, resourceReasonNone,
+			"conditional", "conditionalCaller", proofs.QueryBudget, proofs.EvidenceDisproven,
+			proofs.EvidenceNotFound, actionNone, resourceReasonNone,
 		},
 		{
-			"loop", "loopCaller", ssaflow.QueryBudget, ssaflow.EvidenceUnknown,
-			ssaflow.EvidenceCompletionInCycle, actionUnknown, resourceReasonHelperCleanupInLoop,
+			"loop", "loopCaller", proofs.QueryBudget, proofs.EvidenceUnknown,
+			proofs.EvidenceCompletionInCycle, actionUnknown, resourceReasonHelperCleanupInLoop,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -107,9 +108,9 @@ func loopCaller(value *resource, run bool) { loopClose(value, run) }
 			call := ssaflow.InstructionsOf[*ssa.Call](function)[0]
 			completion := lifecycle.ProveCompletion(lifecycle.CompletionRequest{
 				Instruction: call, Target: function.Params[0], Methods: []string{"Close"},
-				Budget: ssaflow.NewSearchBudget(test.budget),
+				Budget: proofs.NewSearchBudget(test.budget),
 			})
-			if completion.State != test.state || test.reason != ssaflow.EvidenceNone && completion.Reason != test.reason {
+			if completion.State != test.state || test.reason != proofs.EvidenceNone && completion.Reason != test.reason {
 				t.Fatalf("completion = %+v, want state %v and reason %v", completion, test.state, test.reason)
 			}
 			if action, reason := releaseLabel(lifecyclefacts.Proof{Proof: completion.Proof}); action != test.action || reason != test.label {

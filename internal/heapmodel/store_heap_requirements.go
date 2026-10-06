@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -83,7 +84,7 @@ func (projection *heapProjection) requirements() []HeapRequirement {
 		})
 	}
 	return boundedRequirements(candidates, func(key requirementKey) bool {
-		return onEveryReturn(projection.graph.function, ssaflow.NewSearchBudget(heapRequirementStateBudget), func(instruction ssa.Instruction) bool {
+		return onEveryReturn(projection.graph.function, proofs.NewSearchBudget(heapRequirementStateBudget), func(instruction ssa.Instruction) bool {
 			return slices.Contains(calls[instruction], key)
 		})
 	})
@@ -264,7 +265,7 @@ func (projection *heapProjection) receiverRequirements(common *ssa.CallCommon) [
 // precedes every normal return: the every-return polarity of the
 // completion search, asked of the flow directly. A function that never
 // returns, or never makes such a call, requires nothing.
-func onEveryReturn(function *ssa.Function, budget *ssaflow.SearchBudget, calls func(ssa.Instruction) bool) bool {
+func onEveryReturn(function *ssa.Function, budget *proofs.SearchBudget, calls func(ssa.Instruction) bool) bool {
 	if !ssaflow.HasReturnAndAction(function.Blocks, calls) {
 		return false
 	}

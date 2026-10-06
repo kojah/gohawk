@@ -89,7 +89,7 @@ Runs the analyzers in one process, one action at a time, and prints where
 the time went and which searches ran out of budget. `slowest runs` lists
 analyzer runs over the requested packages; `dependencies` totals each
 analyzer's time on imported packages, where the fact passes summarize the
-standard library. `budgets exhausted` groups every `ssaflow.SearchBudget`
+standard library. `budgets exhausted` groups every `proof.SearchBudget`
 that ran out by the analyzer run it happened in and the function that made
 the budget, with its limit, and says `pool ran out` when the candidate-wide
 pool, not the question's own limit, stopped it. A search cut short answers
@@ -187,7 +187,7 @@ where its steps run inside a callee body in another file. Events include the
 SSA text they concern, so a trace for one candidate reads as an annotated SSA
 walk.
 
-When presenting an `ssaflow.EvidenceState` whose proposition is permission to
+When presenting an `proof.EvidenceState` whose proposition is permission to
 report a diagnostic, use `trace.DiagnosticOutcome`: proven maps to rejected,
 disproven to accepted, and unknown or invalid states to unknown. The helper
 only presents an already selected proof outcome. Cleanup and transfer evidence

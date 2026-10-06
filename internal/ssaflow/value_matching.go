@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/syntax"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -17,7 +18,7 @@ func CapturedBindingValue(binding ssa.Value) ssa.Value { //nolint:ireturn // Sto
 // CapturedBindingValueWithin is the same possible-value selection charged to
 // budget. Exhaustion returns nil; callers retain budget availability separately.
 func CapturedBindingValueWithin(
-	binding ssa.Value, budget *SearchBudget,
+	binding ssa.Value, budget *proofs.SearchBudget,
 ) ssa.Value { //nolint:ireturn // Stored captures may contain any SSA value implementation.
 	if syntax.PointerStruct(binding.Type()) != nil {
 		// A captured struct local is represented by its address. Its stores
@@ -49,7 +50,7 @@ func StructurallySame(value, target ssa.Value) bool {
 
 // StructurallySameWithin charges reaching values, address selections and store
 // referrers to budget. Cutoff supplies no possible identity evidence.
-func StructurallySameWithin(value, target ssa.Value, budget *SearchBudget) bool {
+func StructurallySameWithin(value, target ssa.Value, budget *proofs.SearchBudget) bool {
 	// SSA removes ordinary assignments, but captured locals, embedded fields,
 	// and interface conversions still need explicit identity recovery.
 	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
@@ -66,7 +67,7 @@ func DefinitelyNil(value ssa.Value) bool {
 
 // DefinitelyNilWithin shares the allowance through every represented value.
 // False at cutoff is unavailable, not nonnil; interface boxing stays opaque.
-func DefinitelyNilWithin(value ssa.Value, budget *SearchBudget) bool {
+func DefinitelyNilWithin(value ssa.Value, budget *proofs.SearchBudget) bool {
 	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert
 	return NewReachingWalk(forms).Within(budget).Every(value, func(_ ReachingWalk, value ssa.Value) bool {
 		literal, ok := value.(*ssa.Const)

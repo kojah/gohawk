@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"go/types"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -15,7 +16,7 @@ func ReturnsOnlyNilOrErrors(returned *ssa.Return) bool {
 
 // ReturnsOnlyNilOrErrorsWithin shares result and nilness visits with budget.
 // Cutoff cannot supply the unsuccessful-construction exception.
-func ReturnsOnlyNilOrErrorsWithin(returned *ssa.Return, budget *SearchBudget) bool {
+func ReturnsOnlyNilOrErrorsWithin(returned *ssa.Return, budget *proofs.SearchBudget) bool {
 	if returned == nil || len(returned.Results) == 0 {
 		return false
 	}

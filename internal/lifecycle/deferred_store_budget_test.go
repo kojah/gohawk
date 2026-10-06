@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -45,17 +46,17 @@ func TestDeferredStoreQueriesShareAllowance(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Log(dump.String())
-			full := targetStoredOnPath(cell, target, deferred, ssaflow.NewSearchBudget(10*ssaflow.QueryBudget))
+			full := targetStoredOnPath(cell, target, deferred, proofs.NewSearchBudget(10*proofs.QueryBudget))
 			if full.Proven() != test.proven {
 				t.Fatalf("target store=%+v, want %v", full, test.proven)
 			}
-			cut := ssaflow.NewSearchBudget(1)
+			cut := proofs.NewSearchBudget(1)
 			proof := targetStoredOnPath(cell, target, deferred, cut)
-			if proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted || !cut.Exhausted() {
+			if proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted || !cut.Exhausted() {
 				t.Fatalf("cutoff published target store: %+v", proof)
 			}
 			if test.name == "padded" {
-				cut = ssaflow.NewSearchBudget(20)
+				cut = proofs.NewSearchBudget(20)
 				proof = targetStoredOnPath(cell, target, deferred, cut)
 				if proof.Proven() || !cut.Exhausted() {
 					t.Fatalf("prefix bypassed full census: %+v", proof)
@@ -65,11 +66,11 @@ func TestDeferredStoreQueriesShareAllowance(t *testing.T) {
 	}
 	fn := pkg.Func("empty")
 	cell := ssaflow.InstructionsOf[*ssa.Alloc](fn)[0]
-	cut := ssaflow.NewSearchBudget(1)
+	cut := proofs.NewSearchBudget(1)
 	if valueHasDirectStore(cell, cut) || !cut.Exhausted() {
 		t.Fatal("direct-store census bypassed allowance")
 	}
-	if valueHasDirectStore(cell, ssaflow.NewSearchBudget(ssaflow.QueryBudget)) {
+	if valueHasDirectStore(cell, proofs.NewSearchBudget(proofs.QueryBudget)) {
 		t.Fatal("zero-initialized cell has a direct store")
 	}
 }
@@ -90,7 +91,7 @@ func TestDeferredStableBindingChildCutoffInvalidatesMemo(t *testing.T) {
 	if shallowClosure == nil || len(shallowClosure.Bindings) != 1 {
 		t.Fatal("expected shallow field-address capture")
 	}
-	fresh := newCompletionSearch("Close", CoverageEveryReturn, ssaflow.NewSearchBudget(10*ssaflow.QueryBudget))
+	fresh := newCompletionSearch("Close", CoverageEveryReturn, proofs.NewSearchBudget(10*proofs.QueryBudget))
 	proof := fresh.deferredBindingValue(shallowClosure.Bindings[0], shallow.Params[0], shallowDefer)
 	if !proof.Proven() {
 		t.Fatalf("fresh stable binding did not recover: %+v", proof)
@@ -110,7 +111,7 @@ func TestDeferredStableBindingChildCutoffInvalidatesMemo(t *testing.T) {
 		t.Fatal("capture must be a field address")
 	}
 	callee := completionCallee{function: body, closure: closure, common: deferred.Common(), launch: launchDeferred}
-	search := newCompletionSearch("Close", CoverageEveryReturn, ssaflow.NewSearchBudget(100*ssaflow.QueryBudget))
+	search := newCompletionSearch("Close", CoverageEveryReturn, proofs.NewSearchBudget(100*proofs.QueryBudget))
 	key := completionKey{instruction: deferred, target: fn.Params[0]}
 	attempts := 0
 	for range 2 {

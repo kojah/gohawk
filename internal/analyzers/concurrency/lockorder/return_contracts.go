@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -16,7 +17,7 @@ import (
 // and call metadata share that allowance; mutex identity retains separate costs.
 type lockReturnQueries struct {
 	setup  *lockFunctionSetup
-	budget *ssaflow.SearchBudget
+	budget *proofs.SearchBudget
 }
 
 // acquiresForCaller reports whether the function's contract is to return with

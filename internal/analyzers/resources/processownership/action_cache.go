@@ -1,7 +1,7 @@
 package processownership
 
 import (
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -13,14 +13,14 @@ type commandActionKey struct {
 	command     ssa.Value
 }
 
-func (proof *commandProof) action(instruction ssa.Instruction, command ssa.Value) ssaflow.EvidenceState {
+func (proof *commandProof) action(instruction ssa.Instruction, command ssa.Value) proofs.EvidenceState {
 	key := commandActionKey{instruction: instruction, command: command}
 	if action, ok := proof.actions[key]; ok {
 		return action
 	}
 	action := processOwnershipAction(proof, instruction, command)
 	if proof.actions == nil {
-		proof.actions = make(map[commandActionKey]ssaflow.EvidenceState)
+		proof.actions = make(map[commandActionKey]proofs.EvidenceState)
 	}
 	proof.actions[key] = action
 	return action

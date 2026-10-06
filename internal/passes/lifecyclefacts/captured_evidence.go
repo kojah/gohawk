@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -73,7 +74,7 @@ func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCallee(
 // to budget. Exhaustion preserves possible opaque consumption; it never proves
 // that the callback leaves target with its caller.
 func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCalleeWithin(
-	closure *ssa.MakeClosure, target ssa.Value, budget *ssaflow.SearchBudget,
+	closure *ssa.MakeClosure, target ssa.Value, budget *proofs.SearchBudget,
 ) bool {
 	function, ok := closure.Fn.(*ssa.Function)
 	if !ok || len(function.Blocks) == 0 {
@@ -96,7 +97,7 @@ func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCalleeWithin(
 // of the held values to a callee with no body here. A dynamic callee and a
 // callee in another package both qualify: go vet analyses one package at a
 // time, so an imported body is absent and only its summary is available.
-func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Value, budget *ssaflow.SearchBudget) bool {
+func callHandsValueToUnreadableCallee(instruction ssa.Instruction, held []ssa.Value, budget *proofs.SearchBudget) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
@@ -126,7 +127,7 @@ func capturedTargetUses(function *ssa.Function, closure *ssa.MakeClosure, target
 }
 
 func capturedTargetUsesWithin(
-	function *ssa.Function, closure *ssa.MakeClosure, target ssa.Value, budget *ssaflow.SearchBudget,
+	function *ssa.Function, closure *ssa.MakeClosure, target ssa.Value, budget *proofs.SearchBudget,
 ) iter.Seq[[]ssa.Value] {
 	return func(yield func([]ssa.Value) bool) {
 		for captured := range ssaflow.ClosureBindingPairsWithin(function, closure, budget) {
@@ -149,7 +150,7 @@ func capturedUses(free *ssa.FreeVar) []ssa.Value {
 	return capturedUsesWithin(free, nil)
 }
 
-func capturedUsesWithin(free *ssa.FreeVar, budget *ssaflow.SearchBudget) []ssa.Value {
+func capturedUsesWithin(free *ssa.FreeVar, budget *proofs.SearchBudget) []ssa.Value {
 	uses := []ssa.Value{free}
 	if free.Referrers() == nil {
 		return uses
@@ -171,7 +172,7 @@ func capturedUsesWithin(free *ssa.FreeVar, budget *ssaflow.SearchBudget) []ssa.V
 // longer proves which value the imported callee receives. block/spirit closes
 // rows through an imported CloseAndLog helper inside a deferred literal:
 // https://github.com/block/spirit/blob/c554eae8c56166ad9199fc73556b29ed581ca575/pkg/checksum/single.go#L493-L503
-func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask, observer ssaflow.Observer) bool {
+func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.Value, mask ParameterMask, observer proofs.Observer) bool {
 	if instruction == nil {
 		return false
 	}
@@ -203,8 +204,8 @@ func factOwnsImmutableCapturedArgument(instruction ssa.Instruction, target ssa.V
 	return false
 }
 
-func immutableCapturedTarget(binding, target ssa.Value, observation ssa.Instruction, observer ssaflow.Observer) bool {
-	storage := heapmodel.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
+func immutableCapturedTarget(binding, target ssa.Value, observation ssa.Instruction, observer proofs.Observer) bool {
+	storage := heapmodel.NewStorage(proofs.NewSearchBudget(proofs.QueryBudget).Observed(observer))
 	if storage.Same(binding, target).Proven() {
 		return true
 	}

@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -44,14 +45,14 @@ func TestParameterSpillPathsShareAllowance(t *testing.T) {
 				t.Fatalf("default path=%v/%v", baseline, known)
 			}
 			if known {
-				cut := ssaflow.NewSearchBudget(1)
+				cut := proofs.NewSearchBudget(1)
 				path, ok := AccessPathFromParameterWithin(returned, fn.Params[0], cut)
 				if ok || path != nil || !cut.Exhausted() {
 					t.Fatalf("path bypassed caller allowance: %v/%v", path, ok)
 				}
 			}
-			for limit := 1; limit <= ssaflow.QueryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 1; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				path, ok := AccessPathFromParameterWithin(returned, fn.Params[0], budget)
 				if budget.Exhausted() {
 					if ok || path != nil {
@@ -79,12 +80,12 @@ func TestWholeWrittenSpillCellAllowance(t *testing.T) {
 	if len(cells) != 1 {
 		t.Fatalf("spill cell count=%d", len(cells))
 	}
-	pool := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(proofs.QueryBudget)
 	cut := pool.Within(1)
 	if ssaflow.WholeWrittenCellWithin(cells[0], cut) || !cut.Exhausted() || pool.Exhausted() {
 		t.Fatal("whole-cell cutoff not retained")
 	}
-	if !ssaflow.WholeWrittenCellWithin(cells[0], pool.Within(ssaflow.QueryBudget)) {
+	if !ssaflow.WholeWrittenCellWithin(cells[0], pool.Within(proofs.QueryBudget)) {
 		t.Fatal("fresh whole-cell query did not recover")
 	}
 }

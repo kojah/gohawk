@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -33,11 +34,11 @@ func TestHEADAcquisitionAllowance(t *testing.T) {
 			if baseline.Reason != test.reason {
 				t.Fatalf("default HEAD=%+v, want %v; SSA:\n%s", baseline, test.reason, carriedSSA(t, call.Parent()))
 			}
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := proveHeadAcquisitionWithin(call, budget)
 				if resourceFlowExhausted(budget) || limit == 0 && test.name != "phi" && test.name != "opaque" {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
+					if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted {
 						t.Fatalf("cut HEAD=%+v", got)
 					}
 					continue
@@ -54,20 +55,22 @@ func TestHEADAcquisitionAllowance(t *testing.T) {
 
 func TestHEADAcquisitionChildCutoff(t *testing.T) {
 	call := headDoCall(t, headAllowanceFixture(t, false).Func("cloned"))
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	cut := proveHeadAcquisitionWithin(call, pool.Within(2))
-	if cut.State != ssaflow.EvidenceUnknown || cut.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+	if cut.State != proofs.EvidenceUnknown || cut.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 		t.Fatalf("cut HEAD=%+v", cut)
 	}
 	fresh := proveHeadAcquisitionWithin(call, pool.Within(releaseSearchBudget))
-	if fresh.State != ssaflow.EvidenceUnknown || fresh.Reason != resourceReasonHeadAcquisition {
+	if fresh.State != proofs.EvidenceUnknown || fresh.Reason != resourceReasonHeadAcquisition {
 		t.Fatalf("fresh HEAD=%+v", fresh)
 	}
 }
 
 func TestHEADDefaultEffectsChildCutoff(t *testing.T) {
 	call := headDoCall(t, headAllowanceFixture(t, true).Func("defaultClient"))
-	assertHTTPChildCutoffFlow(t, call, func(budget *ssaflow.SearchBudget) resourceProof { return proveHeadAcquisitionWithin(call, budget) })
+	assertHTTPChildCutoffFlow(t, call, func(budget *proofs.SearchBudget) resourceProof {
+		return proveHeadAcquisitionWithin(call, budget)
+	})
 }
 
 func headDoCall(t *testing.T, fn *ssa.Function) *ssa.Call {

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -30,7 +31,7 @@ func TestSQLParentCleanupAllowance(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			acquisition, cleanup := sqlParentInputs(t, pkg.Func(test.name))
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				return proveSQLParentCleanupWithin(acquisition, cleanup, budget)
 			}, test.want)
 		})
@@ -46,18 +47,18 @@ func TestSQLParentConsumersCutoff(t *testing.T) {
 			provider := resourceSummaries.Provider(nil)
 			evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
 			query := &resourceAnalysis{function: fn, acquisition: acquisition, resource: acquisition, summaries: provider, evidence: evidence}
-			query.pool = ssaflow.NewSearchBudget(0)
+			query.pool = proofs.NewSearchBudget(0)
 			if action, reason := query.classify(cleanup); action != actionUnknown || reason != resourceReasonBudgetExhausted {
 				t.Fatalf("interrupted classifier = %v/%v", action, reason)
 			}
-			query.pool = ssaflow.NewSearchBudget(resourcePoolBudget)
+			query.pool = proofs.NewSearchBudget(resourcePoolBudget)
 			want := proveSQLParentCleanupWithin(acquisition, cleanup, nil).Reason
 			if action, reason := query.classify(cleanup); action != actionUnknown || reason != want {
 				t.Fatalf("fresh classifier = %v/%v", action, reason)
 			}
-			pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+			pool := proofs.NewSearchBudget(resourcePoolBudget)
 			got := query.provePriorCleanupWithin(acquisition, pool.Within(2))
-			if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+			if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 				t.Fatalf("interrupted prior cleanup = %+v", got)
 			}
 			if fresh := query.provePriorCleanupWithin(acquisition, pool.Within(releaseSearchBudget)); !fresh.Proven() || fresh.Reason != want {
@@ -72,17 +73,17 @@ func TestSQLParentStorageChildCap(t *testing.T) {
 import "database/sql"
 type dbAlias sql.DB
 func long(db *sql.DB) { p := db;
-` + strings.Repeat("p = (*sql.DB)((*dbAlias)(p))\n", ssaflow.QueryBudget+20) + `
+` + strings.Repeat("p = (*sql.DB)((*dbAlias)(p))\n", proofs.QueryBudget+20) + `
 defer p.Close(); _,_ = db.Prepare("q") }
 func short(db *sql.DB) { p := (*sql.DB)((*dbAlias)(db)); defer p.Close(); _,_ = db.Prepare("q") }
 `
 	pkg := ssaflowtest.BuildPackage(t, "sqlparentcap", source)
 	for _, name := range []string{"long", "short"} {
 		acquisition, cleanup := sqlParentInputs(t, pkg.Func(name))
-		pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+		pool := proofs.NewSearchBudget(resourcePoolBudget)
 		got := proveSQLParentCleanupWithin(acquisition, cleanup, pool.Within(releaseSearchBudget))
 		if name == "long" {
-			if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+			if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 				t.Fatalf("storage child cutoff = %+v; parent exhausted %v", got, pool.Exhausted())
 			}
 		} else if !got.Proven() {

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -58,8 +59,8 @@ func TestSpillPathsRetainReadTimeIdentity(t *testing.T) {
 
 func checkSpillPathCutoffs(t *testing.T, field *ssa.FieldAddr, want ssaflow.EmbeddedFieldPath, known bool) {
 	t.Helper()
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		got, ok := embeddedPathWithin(field, budget)
 		if budget.Exhausted() {
 			if ok {
@@ -82,7 +83,7 @@ func TestCanonicalFieldCutoffDoesNotPoisonFreshQuery(t *testing.T) {
 		t.Fatalf("loads=%d", len(loads))
 	}
 	engine := NewEngine()
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	child := pool.Within(0)
 	if _, ok := engine.query(child).fixedLoad(loads[0]); ok || !child.Exhausted() || pool.Exhausted() {
 		t.Fatal("expected child cutoff")
@@ -90,11 +91,11 @@ func TestCanonicalFieldCutoffDoesNotPoisonFreshQuery(t *testing.T) {
 	if _, cached := engine.fields.canonical[loads[0]]; cached {
 		t.Fatal("interrupted canonical sentinel retained")
 	}
-	first, ok := engine.query(pool.Within(ssaflow.SummaryBudget)).fixedLoad(loads[0])
+	first, ok := engine.query(pool.Within(proofs.SummaryBudget)).fixedLoad(loads[0])
 	if !ok || first != loads[0] {
 		t.Fatalf("fresh=%v/%v", first, ok)
 	}
-	second, ok := engine.query(pool.Within(ssaflow.SummaryBudget)).fixedLoad(loads[1])
+	second, ok := engine.query(pool.Within(proofs.SummaryBudget)).fixedLoad(loads[1])
 	if !ok || second != first {
 		t.Fatalf("canonical second=%v/%v", second, ok)
 	}
@@ -104,17 +105,17 @@ func TestCapturedFieldReadCensusCutoff(t *testing.T) {
 	source := `package capturereads
  import "sync"
  type D struct{mu sync.Mutex}
- func subject(d *D){go func(){` + strings.Repeat("println(d);", ssaflow.QueryBudget+1) + `d.mu.Lock()}()}
+ func subject(d *D){go func(){` + strings.Repeat("println(d);", proofs.QueryBudget+1) + `d.mu.Lock()}()}
  `
 	fn := ssaflowtest.BuildPackage(t, "capturereads", source).Func("subject").AnonFuncs[0]
 	loads := ssaflow.InstructionsOf[*ssa.UnOp](fn)
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
+	child := pool.Within(proofs.QueryBudget)
 	got, ok := NewEngine().query(child).fixedLoad(loads[0])
 	if ok || got != nil || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("capture cut=%v/%v", got, ok)
 	}
-	fresh, ok := NewEngine().query(pool.Within(ssaflow.SummaryBudget)).fixedLoad(loads[0])
+	fresh, ok := NewEngine().query(pool.Within(proofs.SummaryBudget)).fixedLoad(loads[0])
 	if !ok || fresh != loads[0] {
 		t.Fatalf("fresh capture=%v/%v", fresh, ok)
 	}
@@ -124,25 +125,25 @@ func TestSpillOrderingSharesPathAllowance(t *testing.T) {
 	source := `package spillorder
  import "sync"
  type D struct{mu sync.Mutex;n int}
- func padded(d *D)int{f:=func(){_=d.n};_=f;n:=0;` + strings.Repeat("n++;", ssaflow.QueryBudget+1) + `d.mu.Lock();d.mu.Unlock();return n}
+ func padded(d *D)int{f:=func(){_=d.n};_=f;n:=0;` + strings.Repeat("n++;", proofs.QueryBudget+1) + `d.mu.Lock();d.mu.Unlock();return n}
  `
 	fn := ssaflowtest.BuildPackage(t, "spillorder", source).Func("padded")
 	field := ssaflow.InstructionsOf[*ssa.FieldAddr](fn)[0]
-	pool := ssaflow.NewSearchBudget(20 * ssaflow.SummaryBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(20 * proofs.SummaryBudget)
+	child := pool.Within(proofs.QueryBudget)
 	if path, ok := embeddedPathWithin(field, child); ok || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("path cut=%+v/%v", path, ok)
 	}
-	path, ok := embeddedPathWithin(field, pool.Within(2*ssaflow.SummaryBudget))
+	path, ok := embeddedPathWithin(field, pool.Within(2*proofs.SummaryBudget))
 	if !ok || path.Root != fn.Params[0] {
 		t.Fatalf("fresh path=%+v/%v", path, ok)
 	}
 	engine := NewEngine()
-	short := pool.Within(ssaflow.SummaryBudget)
+	short := pool.Within(proofs.SummaryBudget)
 	if result := engine.Function(fn, short); result.Complete() || !short.Exhausted() {
 		t.Fatalf("summary cutoff=%+v", result)
 	}
-	fresh := engine.Function(fn, pool.Within(10*ssaflow.SummaryBudget))
+	fresh := engine.Function(fn, pool.Within(10*proofs.SummaryBudget))
 	if !pairedLock(fresh) {
 		t.Fatalf("fresh summary=%+v", fresh)
 	}
@@ -168,9 +169,9 @@ func TestFieldLoadDiscoveryPreservesPathOrderAndCutoffs(t *testing.T) {
 	}
 	for _, mode := range []string{"caller", "canonical"} {
 		t.Run(mode, func(t *testing.T) {
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
 				engine := NewEngine()
-				pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+				pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 				child := pool.Within(limit)
 				query := engine.query(child)
 				var got *ssa.UnOp
@@ -184,7 +185,7 @@ func TestFieldLoadDiscoveryPreservesPathOrderAndCutoffs(t *testing.T) {
 					if known || got != nil || pool.Exhausted() {
 						t.Fatalf("cutoff %d: %v/%v", limit, got, known)
 					}
-					query = engine.query(pool.Within(ssaflow.SummaryBudget))
+					query = engine.query(pool.Within(proofs.SummaryBudget))
 					if mode == "caller" {
 						got, known = query.callerLoad(fn, path, fieldOf(address))
 					} else {

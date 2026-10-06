@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -17,9 +18,9 @@ func TestCapturedBodyCleanupRejectsStaleOrigins(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			query, invocation, closure := guardedBodyInputs(t, pkg.Func(name))
 			proof := query.proveGuardedCapturedBodyWithin(invocation, closure, nil)
-			want := ssaflow.EvidenceDisproven
+			want := proofs.EvidenceDisproven
 			if name == "stable" {
-				want = ssaflow.EvidenceUnknown
+				want = proofs.EvidenceUnknown
 			}
 			if proof.State != want {
 				t.Fatalf("captured cleanup = %+v, want state %v", proof, want)

@@ -3,6 +3,7 @@ package ssaflow_test
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -34,8 +35,8 @@ func indexed(value *[2]int, index int) (*int, *int) { return &value[index], &val
 				t.Fatal("fixture must establish possible structural identity")
 			}
 			completed := false
-			for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := ssaflow.StructurallySameWithin(left, right, budget)
 				if budget.Exhausted() {
 					if got {

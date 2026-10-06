@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -42,11 +43,11 @@ func direct(){target(&box{})}
 				}
 			}
 			t.Log(dump.String())
-			if got := callers.parameterExclusive(pkg.Func("target"), 0, nil).state == ssaflow.EvidenceProven; got != test.want {
+			if got := callers.parameterExclusive(pkg.Func("target"), 0, nil).state == proofs.EvidenceProven; got != test.want {
 				t.Fatalf("parameter exclusivity = %v, want %v", got, test.want)
 			}
-			cutoff := collectLockCallers(pkg.Func("init"), ssaflow.DeclaredFunctions(pkg), ssaflow.NewSearchBudget(0))
-			if newExclusiveCallers(nil, cutoff).parameterExclusive(pkg.Func("target"), 0, nil).state == ssaflow.EvidenceProven {
+			cutoff := collectLockCallers(pkg.Func("init"), ssaflow.DeclaredFunctions(pkg), proofs.NewSearchBudget(0))
+			if newExclusiveCallers(nil, cutoff).parameterExclusive(pkg.Func("target"), 0, nil).state == proofs.EvidenceProven {
 				t.Fatal("incomplete caller inventory proved parameter exclusivity")
 			}
 		})
@@ -67,7 +68,7 @@ func other(value *box){dynamic.run(value)}
 	inventory := collectLockCallers(pkg.Func("init"), functions, nil)
 	for _, function := range functions {
 		if function.Name() == "run" {
-			if newExclusiveCallers(nil, inventory).parameterExclusive(function, 1, nil).state == ssaflow.EvidenceProven {
+			if newExclusiveCallers(nil, inventory).parameterExclusive(function, 1, nil).state == proofs.EvidenceProven {
 				t.Fatal("fresh method call hid an unmodeled interface caller")
 			}
 			return

@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/factcodec"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 )
@@ -64,7 +65,7 @@ func run(pass *analysis.Pass) (any, error) {
 		if object == nil || !object.Exported() {
 			continue
 		}
-		summary := engine.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		summary := engine.Function(function, proofs.NewSearchBudget(proofs.SummaryBudget))
 		if summary.Available {
 			pass.ExportObjectFact(object, &publishedFact{factcodec.Wrap(Fact{
 				Version: factVersion, Results: slices.Clone(summary.results), Cases: slices.Clone(summary.cases), Returned: slices.Clone(summary.returned),

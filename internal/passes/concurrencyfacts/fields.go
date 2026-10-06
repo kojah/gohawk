@@ -5,6 +5,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -21,13 +22,13 @@ import (
 // builder spills it to a cell and reads it back: such a read is the parameter
 // itself while the heap model proves the cell still holds it, which a write by
 // the closure or a later reassignment breaks.
-func embeddedPathWithin(value ssa.Value, budget *ssaflow.SearchBudget) (ssaflow.EmbeddedFieldPath, bool) {
+func embeddedPathWithin(value ssa.Value, budget *proofs.SearchBudget) (ssaflow.EmbeddedFieldPath, bool) {
 	return pathFromWithin(value, nil, budget)
 }
 
 // Path inference retains the observation point of a local spill load. Both
 // the root census and its canonicalization share the caller allowance.
-func pathFromWithin(value ssa.Value, loaded func(*ssa.UnOp) (*ssa.UnOp, bool), budget *ssaflow.SearchBudget) (ssaflow.EmbeddedFieldPath, bool) {
+func pathFromWithin(value ssa.Value, loaded func(*ssa.UnOp) (*ssa.UnOp, bool), budget *proofs.SearchBudget) (ssaflow.EmbeddedFieldPath, bool) {
 	mutex := MutexPointer(value.Type())
 	path, ok := ssaflow.ResolveEmbeddedFieldPath(ssaflow.NewReachingWalk(ssaflow.TransparentNone).Within(budget), value, func(root ssa.Value) bool {
 		switch root := root.(type) {
@@ -59,7 +60,7 @@ func pathFromWithin(value ssa.Value, loaded func(*ssa.UnOp) (*ssa.UnOp, bool), b
 }
 
 // spilledParameterWithin returns the parameter a load reads back from its spill cell.
-func spilledParameterWithin(value ssa.Value, budget *ssaflow.SearchBudget) (*ssa.Parameter, bool) {
+func spilledParameterWithin(value ssa.Value, budget *proofs.SearchBudget) (*ssa.Parameter, bool) {
 	load, ok := value.(*ssa.UnOp)
 	if !ok || load.Op != token.MUL {
 		return nil, false
@@ -86,7 +87,7 @@ func spilledParameterWithin(value ssa.Value, budget *ssaflow.SearchBudget) (*ssa
 // A unique parameter store names a read only after initialization. A load
 // saved before the store still contains the zero value, regardless of later
 // closure uses of the cell. Closure roots are bound separately at their call.
-func onlyStoredParameterWithin(cell *ssa.Alloc, load *ssa.UnOp, budget *ssaflow.SearchBudget) (*ssa.Parameter, bool) {
+func onlyStoredParameterWithin(cell *ssa.Alloc, load *ssa.UnOp, budget *proofs.SearchBudget) (*ssa.Parameter, bool) {
 	stored, ok := ssaflow.WrittenOnceCellAtWithin(cell, load, budget)
 	parameter, isParameter := stored.(*ssa.Parameter)
 	return parameter, ok && isParameter

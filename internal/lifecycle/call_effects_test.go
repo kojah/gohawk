@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -59,15 +60,15 @@ func probe(p *owner,pick bool) *owner { `+test.body+`;return nil }
 				t.Fatal(err)
 			}
 			t.Log(dump.String())
-			proof := ssaflow.NewCallEffects(ssaflow.NewSearchBudget(1000)).Value(fn.Params[0])
+			proof := ssaflow.NewCallEffects(proofs.NewSearchBudget(1000)).Value(fn.Params[0])
 			if proof.Proven() != test.known || proof.Effects != test.want {
 				t.Fatalf("effects = %+v, want known=%t effects=%v", proof, test.known, test.want)
 			}
 			if proof.PreservesStorage() != (test.known && test.want & ^ssaflow.EffectRead == 0) {
 				t.Fatalf("unexpected preservation: %+v", proof)
 			}
-			exhausted := ssaflow.NewCallEffects(ssaflow.NewSearchBudget(0)).Value(fn.Params[0])
-			if exhausted.Proven() || exhausted.Reason != ssaflow.EvidenceBudgetExhausted {
+			exhausted := ssaflow.NewCallEffects(proofs.NewSearchBudget(0)).Value(fn.Params[0])
+			if exhausted.Proven() || exhausted.Reason != proofs.EvidenceBudgetExhausted {
 				t.Fatalf("budget exhaustion: %+v", exhausted)
 			}
 		})

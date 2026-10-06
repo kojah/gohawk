@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -26,14 +27,14 @@ func TestOptionalAcquisitionAllowance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			call, resource, errValue := acquiredResourceInputs(t, pkg.Func(test.name))
 			baseline := proveOptionalAcquisitionWithin(call, resource, errValue, nil)
-			if baseline.Proven() != test.want || baseline.proof.State == ssaflow.EvidenceUnknown {
+			if baseline.Proven() != test.want || baseline.proof.State == proofs.EvidenceUnknown {
 				t.Fatalf("default diamond proof = %+v; SSA:\n%s", baseline, carriedSSA(t, call.Parent()))
 			}
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := proveOptionalAcquisitionWithin(call, resource, errValue, budget)
 				if resourceFlowExhausted(budget) || limit == 0 {
-					if got.proof.State != ssaflow.EvidenceUnknown || got.proof.Reason != resourceReasonBudgetExhausted ||
+					if got.proof.State != proofs.EvidenceUnknown || got.proof.Reason != resourceReasonBudgetExhausted ||
 						got.resourcePhi != nil || got.merge != nil || got.acquisitionBlock != nil || got.acquiredSuccessor != nil {
 						t.Fatalf("interrupted diamond retains correlation: %+v", got)
 					}
@@ -51,9 +52,9 @@ func TestOptionalAcquisitionAllowance(t *testing.T) {
 
 func TestOptionalAcquisitionChildCutoff(t *testing.T) {
 	call, resource, errValue := acquiredResourceInputs(t, optionalAcquisitionFixture(t).Func("exact"))
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	got := proveOptionalAcquisitionWithin(call, resource, errValue, pool.Within(2))
-	if got.proof.State != ssaflow.EvidenceUnknown || got.proof.Reason != resourceReasonBudgetExhausted || got.resourcePhi != nil || pool.Exhausted() {
+	if got.proof.State != proofs.EvidenceUnknown || got.proof.Reason != resourceReasonBudgetExhausted || got.resourcePhi != nil || pool.Exhausted() {
 		t.Fatalf("optional child cutoff = %+v; parent exhausted %v", got, pool.Exhausted())
 	}
 	if fresh := proveOptionalAcquisitionWithin(call, resource, errValue, pool.Within(releaseSearchBudget)); !fresh.Proven() {
@@ -70,10 +71,10 @@ func TestOptionalAcquisitionFlow(t *testing.T) {
 			evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
 			got := evaluateResourceFlow(nil, evidence, call, resource, resourceContract{cleanup: []string{"Close"}})
 			if name == "leak" {
-				if got.state != ssaflow.EvidenceProven || got.leak == nil {
+				if got.state != proofs.EvidenceProven || got.leak == nil {
 					t.Fatalf("optional leak lost = %+v", got)
 				}
-			} else if got.state != ssaflow.EvidenceDisproven || got.leak != nil {
+			} else if got.state != proofs.EvidenceDisproven || got.leak != nil {
 				t.Fatalf("optional cleanup reported = %+v", got)
 			}
 		})

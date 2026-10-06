@@ -3,6 +3,7 @@ package heapmodel
 import (
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,18 +17,18 @@ import (
 // access path from root whose selected storage cannot have been replaced before
 // observation. It intentionally rejects phi-selected roots and roots without a
 // source instruction, because neither supplies one exact ownership interval.
-func (storage *Storage) Projection(value, root ssa.Value, observation ssa.Instruction) ssaflow.IdentityProof {
+func (storage *Storage) Projection(value, root ssa.Value, observation ssa.Instruction) proofs.IdentityProof {
 	proof := storage.proveUnmodifiedProjection(value, root, observation)
 	if !proof.Proven() {
 		proof = storage.unknown(proof.Reason, observation).Proof
 	}
-	return ssaflow.IdentityProof{Proof: proof}
+	return proofs.IdentityProof{Proof: proof}
 }
 
-func (storage *Storage) proveUnmodifiedProjection(value, root ssa.Value, observation ssa.Instruction) ssaflow.Proof {
-	unavailable := ssaflow.Proof{Reason: ssaflow.EvidenceStorageProjectionModified}
+func (storage *Storage) proveUnmodifiedProjection(value, root ssa.Value, observation ssa.Instruction) proofs.Proof {
+	unavailable := proofs.Proof{Reason: proofs.EvidenceStorageProjectionModified}
 	if !storage.budget.Spend() {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	}
 	if observation == nil || root == nil || root.Parent() != observation.Parent() {
 		return unavailable
@@ -40,7 +41,7 @@ func (storage *Storage) proveUnmodifiedProjection(value, root ssa.Value, observa
 		return unavailable
 	}
 	projection := ProveStrictProjectionPathWithin(value, root, storage.budget)
-	if projection.Reason == ssaflow.EvidenceBudgetExhausted {
+	if projection.Reason == proofs.EvidenceBudgetExhausted {
 		return projection.Proof
 	}
 	if !projection.Proven() {
@@ -53,10 +54,10 @@ func (storage *Storage) proveUnmodifiedProjection(value, root ssa.Value, observa
 	if !storage.rootDoesNotEscapeBetween(root, origin, observation, map[ssa.Value]bool{}) {
 		return unavailable
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath, Provenance: ssaflow.EvidenceFromLocalSSA}
+	return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceSameAccessPath, Provenance: proofs.EvidenceFromLocalSSA}
 }
 
-func projectedStorageAddress(value ssa.Value, budget *ssaflow.SearchBudget) ssa.Value { //nolint:ireturn // SSA address forms are intentionally preserved.
+func projectedStorageAddress(value ssa.Value, budget *proofs.SearchBudget) ssa.Value { //nolint:ireturn // SSA address forms are intentionally preserved.
 	if !budget.Spend() {
 		return nil
 	}
@@ -188,7 +189,7 @@ func outwardProjectionWrapper(reference ssa.Instruction, inner ssa.Value) (ssa.V
 	return wrapper, ok && unwrapped == inner
 }
 
-func instructionWithinObservation(candidate, origin, observation ssa.Instruction, budget *ssaflow.SearchBudget) bool {
+func instructionWithinObservation(candidate, origin, observation ssa.Instruction, budget *proofs.SearchBudget) bool {
 	return candidate != nil && candidate != origin && ssaflow.InstructionMayFollowWithin(origin, candidate, budget) &&
 		ssaflow.InstructionMayFollowWithin(candidate, observation, budget)
 }
@@ -197,7 +198,7 @@ func instructionWithinObservation(candidate, origin, observation ssa.Instruction
 // parameter path when available. A proven storage-derived projection can have
 // no Path; that cannot publish an exact field cleanup contract.
 type ProjectionPathProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Path []string
 }
 
@@ -207,31 +208,31 @@ type ProjectionPathProof struct {
 // not stability or ownership. Parameter paths reuse read-time spill identity;
 // other roots retain the existing storage-derived projection rule. Graph and
 // alias internals retain separate costs.
-func ProveStrictProjectionPathWithin(value, root ssa.Value, budget *ssaflow.SearchBudget) ProjectionPathProof {
-	child := budget.Within(ssaflow.QueryBudget)
+func ProveStrictProjectionPathWithin(value, root ssa.Value, budget *proofs.SearchBudget) ProjectionPathProof {
+	child := budget.Within(proofs.QueryBudget)
 	if _, parameter := root.(*ssa.Parameter); parameter {
 		path, known := AccessPathFromParameterWithin(value, root, child)
 		if child.Exhausted() || child.PoolExhausted() {
-			return ProjectionPathProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}}
+			return ProjectionPathProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 		}
 		if known && len(path) > 0 {
-			return ProjectionPathProof{Proof: ssaflow.Proof{
-				State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath, Provenance: ssaflow.EvidenceFromLocalSSA,
+			return ProjectionPathProof{Proof: proofs.Proof{
+				State: proofs.EvidenceProven, Reason: proofs.EvidenceSameAccessPath, Provenance: proofs.EvidenceFromLocalSSA,
 			}, Path: path}
 		}
 	}
 	depth, ok := strictAccessPathDepth(value, root, map[ssa.Value]bool{}, child)
 	if child.Exhausted() || child.PoolExhausted() {
-		return ProjectionPathProof{Proof: ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}}
+		return ProjectionPathProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 	}
-	state, reason := ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
+	state, reason := proofs.EvidenceDisproven, proofs.EvidenceNotFound
 	if ok && depth > 0 {
-		state, reason = ssaflow.EvidenceProven, ssaflow.EvidenceSameAccessPath
+		state, reason = proofs.EvidenceProven, proofs.EvidenceSameAccessPath
 	}
-	return ProjectionPathProof{Proof: ssaflow.Proof{State: state, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}}
+	return ProjectionPathProof{Proof: proofs.Proof{State: state, Reason: reason, Provenance: proofs.EvidenceFromLocalSSA}}
 }
 
-func strictAccessPathDepth(value, root ssa.Value, seen map[ssa.Value]bool, budget *ssaflow.SearchBudget) (int, bool) {
+func strictAccessPathDepth(value, root ssa.Value, seen map[ssa.Value]bool, budget *proofs.SearchBudget) (int, bool) {
 	if value == nil || root == nil || seen[value] || !budget.Spend() {
 		return 0, false
 	}

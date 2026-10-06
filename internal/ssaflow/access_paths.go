@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -43,7 +44,7 @@ func ValueIsAccessPathFrom(value, root ssa.Value) bool {
 
 // ValueIsAccessPathFromWithin applies the same projection policy under budget.
 // A false result at exhaustion is unavailable, not evidence of unrelated roots.
-func ValueIsAccessPathFromWithin(value, root ssa.Value, budget *SearchBudget) bool {
+func ValueIsAccessPathFromWithin(value, root ssa.Value, budget *proofs.SearchBudget) bool {
 	_, ok := AccessPathStepsWithin(value, root, budget)
 	return ok
 }
@@ -51,13 +52,13 @@ func ValueIsAccessPathFromWithin(value, root ssa.Value, budget *SearchBudget) bo
 // SameAccessPathWithin shares both path searches and step comparison with
 // budget. Both paths must be nameable; unlike ProveIdentityWithin, direct value
 // identity cannot bypass that policy. Cutoff supplies no matching-path evidence.
-func SameAccessPathWithin(left, right AccessPath, budget *SearchBudget) bool {
+func SameAccessPathWithin(left, right AccessPath, budget *proofs.SearchBudget) bool {
 	leftPath, leftOK := AccessPathStepsWithin(left.Value, left.Root, budget)
 	rightPath, rightOK := AccessPathStepsWithin(right.Value, right.Root, budget)
 	return leftOK && rightOK && sameAccessPathSteps(leftPath, rightPath, budget)
 }
 
-func sameAccessPathSteps(left, right []string, budget *SearchBudget) bool {
+func sameAccessPathSteps(left, right []string, budget *proofs.SearchBudget) bool {
 	if len(left) != len(right) {
 		return false
 	}
@@ -76,7 +77,7 @@ func AccessPathSteps(value, root ssa.Value) ([]string, bool) {
 // AccessPathStepsWithin charges projection visits and structural root checks to
 // one allowance. Cutoff returns no path; callers inspect budget availability.
 // A nil budget retains default field, constant-index, wrapper and load policy.
-func AccessPathStepsWithin(value, root ssa.Value, budget *SearchBudget) ([]string, bool) {
+func AccessPathStepsWithin(value, root ssa.Value, budget *proofs.SearchBudget) ([]string, bool) {
 	return accessPathSteps(value, root, map[ssa.Value]bool{}, budget, nil)
 }
 
@@ -84,7 +85,7 @@ func AccessPathStepsWithin(value, root ssa.Value, budget *SearchBudget) ([]strin
 // That load snapshots the root's contents before later pointer selections or
 // wrappers. A path with no load has a nil read; it supplies no snapshot.
 // Cutoff or an unmodeled path publishes neither the path nor a read.
-func AccessPathReadWithin(value, root ssa.Value, budget *SearchBudget) ([]string, *ssa.UnOp, bool) {
+func AccessPathReadWithin(value, root ssa.Value, budget *proofs.SearchBudget) ([]string, *ssa.UnOp, bool) {
 	var read *ssa.UnOp
 	path, ok := accessPathSteps(value, root, map[ssa.Value]bool{}, budget, &read)
 	if !ok || budget.Exhausted() || budget.PoolExhausted() {
@@ -93,7 +94,7 @@ func AccessPathReadWithin(value, root ssa.Value, budget *SearchBudget) ([]string
 	return path, read, true
 }
 
-func accessPathSteps(value, root ssa.Value, seen map[ssa.Value]bool, budget *SearchBudget, read **ssa.UnOp) ([]string, bool) {
+func accessPathSteps(value, root ssa.Value, seen map[ssa.Value]bool, budget *proofs.SearchBudget, read **ssa.UnOp) ([]string, bool) {
 	if !budget.Spend() || value == nil || root == nil || seen[value] {
 		return nil, false
 	}

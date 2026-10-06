@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -63,15 +64,15 @@ func TestCancellationOwnerAllowanceAndContracts(t *testing.T) {
 
 func checkCancellationOwnerCutoffs(t *testing.T, cancel ssa.Value, want cancellationOwnerProof) {
 	t.Helper()
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		pool := ssaflow.NewSearchBudget(4 * ssaflow.SummaryBudget)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		pool := proofs.NewSearchBudget(4 * proofs.SummaryBudget)
 		child := pool.Within(limit)
 		got := proveCancellationOwnerWithin(cancel, child)
 		if child.Exhausted() {
-			if got.Known() || got.Owner != nil || got.Reason != ssaflow.EvidenceBudgetExhausted || pool.Exhausted() {
+			if got.Known() || got.Owner != nil || got.Reason != proofs.EvidenceBudgetExhausted || pool.Exhausted() {
 				t.Fatalf("cut%d retained%+v", limit, got)
 			}
-			fresh := proveCancellationOwnerWithin(cancel, pool.Within(ssaflow.SummaryBudget))
+			fresh := proveCancellationOwnerWithin(cancel, pool.Within(proofs.SummaryBudget))
 			if !reflect.DeepEqual(fresh, want) {
 				t.Fatalf("fresh after cut%d=%+v want%+v", limit, fresh, want)
 			}
@@ -87,20 +88,20 @@ func checkCancellationOwnerCutoffs(t *testing.T, cancel ssa.Value, want cancella
 
 func TestCancellationOwnerLargeCensusesShareAllowance(t *testing.T) {
 	for _, test := range []struct{ name, body string }{
-		{"capture", `o:=&owner{stop:func(){` + strings.Repeat("_ =cancel;", ssaflow.QueryBudget+1) + `cancel()}};return o`},
-		{"ordering", `n:=0;` + strings.Repeat("n++;", ssaflow.QueryBudget+1) + `return &owner{n:n,stop:func(){cancel()}}`},
-		{"fields", `o:=&owner{cancel:cancel};` + strings.Repeat("o.n++;", ssaflow.QueryBudget+1) + `return o`},
+		{"capture", `o:=&owner{stop:func(){` + strings.Repeat("_ =cancel;", proofs.QueryBudget+1) + `cancel()}};return o`},
+		{"ordering", `n:=0;` + strings.Repeat("n++;", proofs.QueryBudget+1) + `return &owner{n:n,stop:func(){cancel()}}`},
+		{"fields", `o:=&owner{cancel:cancel};` + strings.Repeat("o.n++;", proofs.QueryBudget+1) + `return o`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			source := `package ownerbudget;type owner struct{cancel func();stop func();n int};func padded(cancel func())*owner{` + test.body + `}`
 			fn := ssaflowtest.BuildPackage(t, "ownerbudget", source).Func("padded")
-			pool := ssaflow.NewSearchBudget(20 * ssaflow.SummaryBudget)
-			child := pool.Within(ssaflow.QueryBudget)
+			pool := proofs.NewSearchBudget(20 * proofs.SummaryBudget)
+			child := pool.Within(proofs.QueryBudget)
 			got := proveCancellationOwnerWithin(fn.Params[0], child)
 			if got.Known() || got.Owner != nil || !child.Exhausted() || pool.Exhausted() {
 				t.Fatalf("large census retained%+v", got)
 			}
-			fresh := proveCancellationOwnerWithin(fn.Params[0], pool.Within(10*ssaflow.SummaryBudget))
+			fresh := proveCancellationOwnerWithin(fn.Params[0], pool.Within(10*proofs.SummaryBudget))
 			if !fresh.Proven() || fresh.Owner == nil {
 				t.Fatalf("fresh census=%+v", fresh)
 			}
@@ -112,7 +113,7 @@ func TestCancellationOwnerCutoffKeepsExactCleanup(t *testing.T) {
 	fn := ssaflowtest.BuildPackage(t, "ownerbudget", `package ownerbudget
  type owner struct{cancel func()}
  func root(cancel func())*owner{o:=&owner{cancel:cancel};cancel();return o}`).Func("root")
-	query := &cancellationClassifier{cancel: fn.Params[0], pool: ssaflow.NewSearchBudget(0), actions: make(map[ssa.Instruction]cancellationAction)}
+	query := &cancellationClassifier{cancel: fn.Params[0], pool: proofs.NewSearchBudget(0), actions: make(map[ssa.Instruction]cancellationAction)}
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 	if label := query.classifyAction(call); label.action != cancellationActionRelease {
 		t.Fatalf("exact cleanup=%+v", label)
@@ -143,7 +144,7 @@ func TestCancellationOwnerCutoffCannotBecomeLoss(t *testing.T) {
 			fn := pkg.Func(test.name)
 			for _, limit := range []int{0, cancellationPoolBudget} {
 				query := &cancellationClassifier{
-					cancel: fn.Params[0], pool: ssaflow.NewSearchBudget(limit),
+					cancel: fn.Params[0], pool: proofs.NewSearchBudget(limit),
 					actions: make(map[ssa.Instruction]cancellationAction),
 				}
 				got := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{

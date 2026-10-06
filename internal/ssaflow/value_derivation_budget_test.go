@@ -3,6 +3,7 @@ package ssaflow_test
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -31,9 +32,9 @@ func cycle(p *int, flag bool) *int { for flag { p = opaque(p) }; return p }
 				}
 			}
 			completed := false
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				pool := ssaflow.NewSearchBudget(limit)
-				budget := pool.Within(ssaflow.SummaryBudget)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				pool := proofs.NewSearchBudget(limit)
+				budget := pool.Within(proofs.SummaryBudget)
 				got := ssaflow.DerivesFromWithin(value, fn.Params[0], same, budget)
 				if limit == 0 && !budget.Exhausted() {
 					t.Fatal("empty allowance did not stop derivation")
@@ -57,26 +58,26 @@ func cycle(p *int, flag bool) *int { for flag { p = opaque(p) }; return p }
 	}
 	fn := pkg.Func("replaced")
 	value := ssaflow.InstructionsOf[*ssa.Return](fn)[0].Results[0]
-	if ssaflow.DerivesFromWithin(value, fn.Params[0], same, ssaflow.NewSearchBudget(ssaflow.SummaryBudget)) {
+	if ssaflow.DerivesFromWithin(value, fn.Params[0], same, proofs.NewSearchBudget(proofs.SummaryBudget)) {
 		t.Fatal("replaced nested field must not cross the whole-aggregate store")
 	}
 }
 
 func TestDerivationRejectsCallbackCutoff(t *testing.T) {
 	source := &ssa.Alloc{}
-	budget := ssaflow.NewSearchBudget(1)
+	budget := proofs.NewSearchBudget(1)
 	matched := func(_, _ ssa.Value) bool { budget.Spend(); return true }
 	if ssaflow.DerivesFromWithin(source, source, matched, budget) || !budget.Exhausted() {
 		t.Fatal("callback exhaustion admitted positive derivation")
 	}
-	if !ssaflow.DerivesFromWithin(source, source, func(left, right ssa.Value) bool { return left == right }, ssaflow.NewSearchBudget(1)) {
+	if !ssaflow.DerivesFromWithin(source, source, func(left, right ssa.Value) bool { return left == right }, proofs.NewSearchBudget(1)) {
 		t.Fatal("fresh query did not recover direct identity")
 	}
 }
 
 func TestDerivationRejectsSiblingPoolCutoff(t *testing.T) {
 	source := &ssa.Alloc{}
-	pool := ssaflow.NewSearchBudget(1)
+	pool := proofs.NewSearchBudget(1)
 	budget := pool.Within(10)
 	sibling := pool.Within(10)
 	matched := func(_, _ ssa.Value) bool { sibling.Spend(); return true }
@@ -105,15 +106,15 @@ func TestWholeWrittenCellDistinguishesSelectedUses(t *testing.T) {
 				t.Fatal("SSA has no aggregate cell")
 			}
 			cell := cells[0]
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 				child := pool.Within(limit)
 				got := ssaflow.WholeWrittenCellWithin(cell, child)
 				if child.Exhausted() {
 					if got || pool.Exhausted() {
 						t.Fatalf("cutoff %d admitted cell", limit)
 					}
-					if fresh := ssaflow.WholeWrittenCellWithin(cell, pool.Within(ssaflow.SummaryBudget)); fresh != test.want {
+					if fresh := ssaflow.WholeWrittenCellWithin(cell, pool.Within(proofs.SummaryBudget)); fresh != test.want {
 						t.Fatalf("fresh after %d=%v", limit, fresh)
 					}
 					continue

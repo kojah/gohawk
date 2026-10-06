@@ -3,7 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -42,13 +42,13 @@ func Misleading(b *Bool, ch chan int) { b.Load(); close(ch) }
 `)
 	engine := NewEngine()
 	for name, closes := range map[string]int{"Counters": 1, "Loaded": 1, "Misleading": 3} {
-		got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000))
+		got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000))
 		if got.Completeness() != CompleteWithEffects || len(got.Operations) != closes {
 			t.Errorf("%s = %+v, want %d operations", name, got, closes)
 		}
 	}
 	for _, name := range []string{"LoadedChannel", "StoredChannel", "PointerToMutex"} {
-		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); got.Complete() {
+		if got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000)); got.Complete() {
 			t.Errorf("%s = %+v, want incomplete", name, got)
 		}
 	}
@@ -69,19 +69,19 @@ func Reassigns(d, o *D) { d.mu.Lock(); f := func() { _ = d.n }; f(); d = o; d.mu
 func Caller(x *D) { Reads(x); x.mu.Lock(); x.mu.Unlock() }
 `)
 	engine := NewEngine()
-	if got := engine.Root(pkg.Func("Reads"), ssaflow.NewSearchBudget(2000)); !pairedLock(got) {
+	if got := engine.Root(pkg.Func("Reads"), proofs.NewSearchBudget(2000)); !pairedLock(got) {
 		t.Errorf("Reads = %+v, want a lock and unlock of one mutex", got)
 	}
 	// The helper's lock binds to the caller's own address for x.mu.
-	caller := engine.Root(pkg.Func("Caller"), ssaflow.NewSearchBudget(2000))
+	caller := engine.Root(pkg.Func("Caller"), proofs.NewSearchBudget(2000))
 	if !caller.Complete() || len(caller.Operations) != 4 || caller.Operations[0].Resource != caller.Operations[2].Resource {
 		t.Errorf("Caller = %+v, want the helper's lock of x.mu to match the caller's", caller)
 	}
-	reassigns := engine.Root(pkg.Func("Reassigns"), ssaflow.NewSearchBudget(2000))
+	reassigns := engine.Root(pkg.Func("Reassigns"), proofs.NewSearchBudget(2000))
 	if !reassigns.Complete() || len(reassigns.Operations) != 2 || reassigns.Operations[0].Resource == reassigns.Operations[1].Resource {
 		t.Errorf("Reassigns = %+v, want a lock of d.mu and an unlock of o.mu", reassigns)
 	}
-	if got := engine.Root(pkg.Func("Writes"), ssaflow.NewSearchBudget(2000)); got.Complete() {
+	if got := engine.Root(pkg.Func("Writes"), proofs.NewSearchBudget(2000)); got.Complete() {
 		t.Errorf("Writes = %+v, want incomplete", got)
 	}
 }
@@ -110,12 +110,12 @@ func Box() { closeBox() }
 `)
 	engine := NewEngine()
 	for _, name := range []string{"lockState", "State", "Plain"} {
-		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); !pairedLock(got) {
+		if got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000)); !pairedLock(got) {
 			t.Errorf("%s = %+v, want a lock and unlock of one mutex", name, got)
 		}
 	}
 	for _, name := range []string{"Shared", "Held", "Box"} {
-		if got := engine.Root(pkg.Func(name), ssaflow.NewSearchBudget(2000)); got.Complete() {
+		if got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000)); got.Complete() {
 			t.Errorf("%s = %+v, want incomplete", name, got)
 		}
 	}
@@ -155,7 +155,7 @@ func Mapped(m map[string]*conn) { m["k"].mu.Lock(); m["k"].mu.Unlock() }
 func Rebinds(s, o *server) { s.conn.mu.Lock(); go func() { s = o }(); s.conn.mu.Unlock() }
 `)
 	engine := NewEngine()
-	budget := func() *ssaflow.SearchBudget { return ssaflow.NewSearchBudget(4000) }
+	budget := func() *proofs.SearchBudget { return proofs.NewSearchBudget(4000) }
 	for _, name := range []string{"Serve", "Helper", "Argument"} {
 		if got := engine.Root(pkg.Func(name), budget()); !pairedLock(got) {
 			t.Errorf("%s = %+v, want a lock and unlock of one mutex", name, got)

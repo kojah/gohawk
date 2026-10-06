@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -19,7 +20,7 @@ type EnclosingCompletionRequest struct {
 	Function *ssa.Function
 	Value    ssa.Value
 	Methods  []string
-	Budget   *ssaflow.SearchBudget
+	Budget   *proofs.SearchBudget
 }
 
 type enclosingFrame struct {
@@ -39,8 +40,8 @@ type enclosingSearch struct {
 // ProveEnclosingCompletion follows callback arguments from their lexical
 // owner, requiring all discovered invocations to have the same cleanup
 // guarantee. An incomplete traversal is Unknown, never a cleanup proof.
-func ProveEnclosingCompletion(request EnclosingCompletionRequest) ssaflow.CompletionProof {
-	unknown := ssaflow.CompletionProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+func ProveEnclosingCompletion(request EnclosingCompletionRequest) proofs.CompletionProof {
+	unknown := proofs.CompletionProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	if request.Function == nil || request.Function.Parent() == nil || request.Value == nil || request.Budget == nil {
 		return unknown
 	}
@@ -54,14 +55,14 @@ func ProveEnclosingCompletion(request EnclosingCompletionRequest) ssaflow.Comple
 	}
 	complete := search.walk(&enclosingFrame{function: root})
 	if request.Budget.Exhausted() {
-		unknown.Reason = ssaflow.EvidenceBudgetExhausted
+		unknown.Reason = proofs.EvidenceBudgetExhausted
 		return unknown
 	}
 	if !complete || !search.found {
 		return unknown
 	}
-	return ssaflow.CompletionProof{Proof: ssaflow.Proof{
-		State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceDeferredCompletion, Provenance: ssaflow.EvidenceFromLocalSSA,
+	return proofs.CompletionProof{Proof: proofs.Proof{
+		State: proofs.EvidenceProven, Reason: proofs.EvidenceDeferredCompletion, Provenance: proofs.EvidenceFromLocalSSA,
 	}}
 }
 
@@ -246,7 +247,7 @@ func (search *enclosingSearch) completed(frame *enclosingFrame) bool {
 				proof := ProveCompletion(CompletionRequest{
 					Instruction: instruction, Target: value, Methods: search.request.Methods, Budget: search.request.Budget, ExactTarget: true,
 				})
-				if proof.Proven() && proof.Reason == ssaflow.EvidenceDeferredCompletion {
+				if proof.Proven() && proof.Reason == proofs.EvidenceDeferredCompletion {
 					return true
 				}
 			}

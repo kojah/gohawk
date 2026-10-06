@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -16,9 +17,9 @@ import (
 // exact local protocol shapes that may acquire no body. They feed the ordinary
 // resource flow; no separate cleanup or reporting decision is made here.
 
-func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call, budget *ssaflow.SearchBudget) resourceLifetimeReason {
+func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call, budget *proofs.SearchBudget) resourceLifetimeReason {
 	head := proveHeadAcquisitionWithin(call, budget)
-	if head.State == ssaflow.EvidenceUnknown && head.Reason != resourceReasonNone {
+	if head.State == proofs.EvidenceUnknown && head.Reason != resourceReasonNone {
 		return head.Reason
 	}
 	if head.Reason != resourceReasonNone {
@@ -44,7 +45,7 @@ func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call, budget *ssaflo
 			})
 		}
 	}
-	if proof.State == ssaflow.EvidenceUnknown && proof.Reason == resourceReasonBudgetExhausted {
+	if proof.State == proofs.EvidenceUnknown && proof.Reason == resourceReasonBudgetExhausted {
 		return proof.Reason
 	}
 	if proof.Proven() {
@@ -68,11 +69,11 @@ func httpAcquisitionBoundary(pass *analysis.Pass, call *ssa.Call, budget *ssaflo
 // https://github.com/vishen/go-chromecast/blob/5dd70bb91787fe28e3d8946682c66cb2a1d61d21/application/application.go#L723-L732
 // https://github.com/alexellis/arkade/blob/0a0a800fd7554d4eddb1856f9ef8a21214e95bab/pkg/get/get.go#L236-L244
 // https://github.com/deweizhu/bookget/blob/2cdbf6d6c3ce70355a5c4411c0faf3450e9ae877/pkg/downloader/downloader.go#L510-L522
-func proveHeadAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
+func proveHeadAcquisitionWithin(call *ssa.Call, budget *proofs.SearchBudget) resourceProof {
 	return findHeadAcquisitionWithin(call, budget).within(budget)
 }
 
-func findHeadAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
+func findHeadAcquisitionWithin(call *ssa.Call, budget *proofs.SearchBudget) resourceProof {
 	common := call.Common()
 	if !ssaflow.CallMatchesSymbol(common, httpClientDo) || len(common.Args) != 2 {
 		return resourceProof{}
@@ -83,16 +84,16 @@ func findHeadAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) res
 		return resourceProof{}
 	}
 	if !headRequestWithin(common.Args[1], budget) {
-		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonHeadRequestModified}
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonHeadRequestModified}
 	}
 	client := proveHeadClientUnconfiguredWithin(common.Args[0], call.Parent(), budget)
-	if client.State == ssaflow.EvidenceUnknown {
+	if client.State == proofs.EvidenceUnknown {
 		return client
 	}
 	if !client.Proven() {
-		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonHeadClientNotUnconfigured}
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonHeadClientNotUnconfigured}
 	}
-	return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonHeadAcquisition}
+	return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonHeadAcquisition}
 }
 
 var (

@@ -3,6 +3,7 @@ package cancellationownership
 import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -40,7 +41,7 @@ type cancellationClassifier struct {
 	transfers       bool
 	// observer hears where the shared storage, effect, and completion queries
 	// behind this proof gave up; nil when the candidate is not being traced.
-	observer ssaflow.Observer
+	observer proofs.Observer
 	// probe traces this classifier's labels. Only the candidate's own
 	// classifier has one; a parent context's classifier stays silent, since
 	// its labels reach the trace as the child's.
@@ -56,11 +57,11 @@ type cancellationClassifier struct {
 	owner *cancellationOwnerProof
 	// pool is this cancellation's total across every query its proof asks;
 	// see budget.
-	pool *ssaflow.SearchBudget
+	pool *proofs.SearchBudget
 }
 
 // Exhausted helper searches remain unknown, never evidence of lost cleanup.
-const cancellationCompletionBudget = ssaflow.QueryBudget
+const cancellationCompletionBudget = proofs.QueryBudget
 
 // cancellationPoolBudget bounds a whole cancellation proof, a hundred full
 // queries, so a candidate in a large function stays bounded; an exhausted
@@ -69,9 +70,9 @@ const cancellationPoolBudget = 100 * cancellationCompletionBudget
 
 // budget draws one query's allowance from this proof's pool; the pool
 // carries the observer, so every give-up reaches the trace.
-func (classifier *cancellationClassifier) budget() *ssaflow.SearchBudget {
+func (classifier *cancellationClassifier) budget() *proofs.SearchBudget {
 	if classifier.pool == nil {
-		classifier.pool = ssaflow.NewSearchBudget(cancellationPoolBudget).Observed(classifier.observer)
+		classifier.pool = proofs.NewSearchBudget(cancellationPoolBudget).Observed(classifier.observer)
 	}
 	return classifier.pool.Within(cancellationCompletionBudget)
 }

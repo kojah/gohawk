@@ -3,6 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -46,7 +47,7 @@ func Branchy(mu *sync.Mutex) { run(mu, &branchy{}) }
 func send(s Sender, ch chan int) { s.Send(ch) }
 `)
 	engine := NewEngine()
-	budget := func() *ssaflow.SearchBudget { return ssaflow.NewSearchBudget(2000) }
+	budget := func() *proofs.SearchBudget { return proofs.NewSearchBudget(2000) }
 
 	if hole := engine.Function(pkg.Func("run"), budget()); hole.Reason != ReasonCallbackBindingRequired || !kinds(hole, Lock, Invoke, Unlock) {
 		t.Fatalf("run = %+v, want lock, hole, unlock", hole)
@@ -94,12 +95,12 @@ func TestImportedInterfaceHoles(t *testing.T) {
 			for _, function := range functions {
 				switch function.Name() {
 				case "quietUnderLock":
-					got := engine.Root(function, ssaflow.NewSearchBudget(2000))
+					got := engine.Root(function, proofs.NewSearchBudget(2000))
 					if got.Completeness() != CompleteWithEffects || !kinds(got, Lock, Unlock) {
 						t.Errorf("quietUnderLock = %+v", got)
 					}
 				case "forwardInterface":
-					got := engine.Function(function, ssaflow.NewSearchBudget(2000))
+					got := engine.Function(function, proofs.NewSearchBudget(2000))
 					if got.Reason != ReasonCallbackBindingRequired || !kinds(got, Lock, Invoke, Unlock) {
 						t.Errorf("forwardInterface = %+v", got)
 					}

@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -15,7 +16,7 @@ import (
 // producer/receiver proof. Receiver helpers are expanded too: exposing sends
 // alone would turn a hidden drain into a false abandoned-producer diagnostic.
 func summarizedSends(function *ssa.Function, spawn *ssa.Go, engine *concurrencyfacts.Engine) ([]producerSend, bool) {
-	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	budget := proofs.NewSearchBudget(proofs.SummaryBudget)
 	summary := engine.AtCall(spawn, budget)
 	if !summary.Complete() {
 		return nil, false
@@ -54,7 +55,7 @@ func summarizedSends(function *ssa.Function, spawn *ssa.Go, engine *concurrencyf
 // that case from an opaque participant. A send/close mutates the channel;
 // receiving is unsupported by that proof and therefore cannot establish this
 // absence claim. Retention, asynchronous use, and unknown uses also decline.
-func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *ssaflow.SearchBudget) producerProof {
+func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *proofs.SearchBudget) producerProof {
 	unknown := producerProof{Reason: reasonWorkerChannelUsesUnknown}
 	function, closure := ssaflow.DirectCallee(call.Common())
 	if function == nil || len(function.Blocks) == 0 {
@@ -80,7 +81,7 @@ func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *ssafl
 	if !matched || budget.Exhausted() {
 		return unknown
 	}
-	return producerProof{State: ssaflow.EvidenceProven, Reason: reasonWorkerChannelUsesComplete}
+	return producerProof{State: proofs.EvidenceProven, Reason: reasonWorkerChannelUsesComplete}
 }
 
 func onlyChannelMutation(proof ssaflow.CallEffectProof) bool {
@@ -111,7 +112,7 @@ type receiveProof struct {
 
 func helperReceives(
 	call ssa.CallInstruction, channel ssa.Value, origin *ssa.Go,
-	engine *concurrencyfacts.Engine, budget *ssaflow.SearchBudget,
+	engine *concurrencyfacts.Engine, budget *proofs.SearchBudget,
 ) receiveProof {
 	if call == origin {
 		return receiveProof{reason: reasonProducerLaunch}
@@ -153,7 +154,7 @@ func helperReceives(
 
 // A complete protocol still needs exact channel binding. Losing that identity
 // query to the shared allowance cannot establish an absent receive.
-func summaryReceives(summary concurrencyfacts.Summary, channel ssa.Value, launched bool, budget *ssaflow.SearchBudget) receiveProof {
+func summaryReceives(summary concurrencyfacts.Summary, channel ssa.Value, launched bool, budget *proofs.SearchBudget) receiveProof {
 	proof := receiveProof{reason: reasonReceiverHelperComplete}
 	storage := heapmodel.NewStorage(budget)
 	for _, operation := range summary.Operations {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -182,14 +183,14 @@ func (classifier *cancellationClassifier) exactArgumentAction(instruction ssa.In
 	}
 	completion := lifecycle.ProveCompletion(request)
 	switch completion.State {
-	case ssaflow.EvidenceProven:
+	case proofs.EvidenceProven:
 		return labelled(cancellationActionRelease, reasonLabelHelperRelease), true
-	case ssaflow.EvidenceUnknown:
+	case proofs.EvidenceUnknown:
 		if classifier.summaryInvokes(instruction, request) {
 			return labelled(cancellationActionRelease, reasonLabelSummaryRelease), true
 		}
 		return labelled(cancellationActionUnknown, reasonLabelHelperUndecided), true
-	case ssaflow.EvidenceDisproven:
+	case proofs.EvidenceDisproven:
 	}
 	// The older may-alias invocation query can still identify an ambiguous
 	// handoff outside exact completion's boundary, but cannot prove release.

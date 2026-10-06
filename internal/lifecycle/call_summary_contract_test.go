@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -22,9 +23,9 @@ func sibling() {}
 		t.Run(cut, func(t *testing.T) {
 			memo := ssaflow.NewCallGraphMemo[*ssa.Function, int]()
 			root, child, sibling := pkg.Func("root"), pkg.Func("child"), pkg.Func("sibling")
-			budget := ssaflow.NewSearchBudget(0)
+			budget := proofs.NewSearchBudget(0)
 			if cut == "recursion" {
-				budget = ssaflow.NewSearchBudget(10)
+				budget = proofs.NewSearchBudget(10)
 			}
 			unavailable := func(ssaflow.SummaryUnavailable, int) int { return -1 }
 			got := memo.Summarize(root, root, budget, func() int {
@@ -45,12 +46,12 @@ func sibling() {}
 				t.Fatalf("cut result = %d", got)
 			}
 			for _, function := range []*ssa.Function{root, child} {
-				got := memo.Summarize(function, function, ssaflow.NewSearchBudget(10), func() int { return 42 }, unavailable)
+				got := memo.Summarize(function, function, proofs.NewSearchBudget(10), func() int { return 42 }, unavailable)
 				if got != 42 {
 					t.Errorf("%s retained shortened answer %d", function.Name(), got)
 				}
 			}
-			got = memo.Summarize(sibling, sibling, ssaflow.NewSearchBudget(0), func() int {
+			got = memo.Summarize(sibling, sibling, proofs.NewSearchBudget(0), func() int {
 				t.Error("unaffected sibling was unnecessarily recomputed")
 				return 99
 			}, unavailable)
@@ -68,13 +69,13 @@ func caller(a, b chan int) { helper(a); helper(b) }
 `)
 	callee, caller := pkg.Func("helper"), pkg.Func("caller")
 	computations := 0
-	summaries := ssaflow.NewFunctionSummaries(func(fn *ssa.Function, budget *ssaflow.SearchBudget) []ssa.Value {
+	summaries := ssaflow.NewFunctionSummaries(func(fn *ssa.Function, budget *proofs.SearchBudget) []ssa.Value {
 		computations++
 		budget.Spend()
 		return []ssa.Value{fn.Params[0]}
 	}, func(ssaflow.SummaryUnavailable) []ssa.Value { return nil })
 	for index, call := range ssaflow.InstructionsOf[*ssa.Call](caller) {
-		got := summaries.AtCall(call, ssaflow.NewSearchBudget(10), func(symbolic []ssa.Value, bindings []ssaflow.CallBinding) []ssa.Value {
+		got := summaries.AtCall(call, proofs.NewSearchBudget(10), func(symbolic []ssa.Value, bindings []ssaflow.CallBinding) []ssa.Value {
 			// Generic summary values can contain arbitrary maps and pointers.
 			// Ownership is the adapter's contract, not an implicit deep copy.
 			bound := slices.Clone(symbolic)
@@ -85,7 +86,7 @@ func caller(a, b chan int) { helper(a); helper(b) }
 			t.Fatalf("invocation %d bound to %v", index, got)
 		}
 		got[0] = nil
-		if symbolic := summaries.Function(callee, ssaflow.NewSearchBudget(0)); symbolic[0] != callee.Params[0] {
+		if symbolic := summaries.Function(callee, proofs.NewSearchBudget(0)); symbolic[0] != callee.Params[0] {
 			t.Fatal("call-site mutation changed cached symbolic evidence")
 		}
 	}
@@ -97,12 +98,12 @@ func caller(a, b chan int) { helper(a); helper(b) }
 func TestSummaryContractPolicyIsolation(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "contracts", "package contracts; func helper() {}")
 	for _, policyAnswer := range []int{7, 11} {
-		summaries := ssaflow.NewFunctionSummaries(func(_ *ssa.Function, budget *ssaflow.SearchBudget) int {
+		summaries := ssaflow.NewFunctionSummaries(func(_ *ssa.Function, budget *proofs.SearchBudget) int {
 			budget.Spend()
 			return policyAnswer
 		}, func(ssaflow.SummaryUnavailable) int { return -1 })
 		for _, limit := range []int{1, 0} {
-			if got := summaries.Function(pkg.Func("helper"), ssaflow.NewSearchBudget(limit)); got != policyAnswer {
+			if got := summaries.Function(pkg.Func("helper"), proofs.NewSearchBudget(limit)); got != policyAnswer {
 				t.Errorf("policy %d got %d", policyAnswer, got)
 			}
 		}
@@ -118,7 +119,7 @@ func caller() { helper() }
 	call := ssaflow.InstructionsOf[*ssa.Call](caller)[0]
 	visits := map[*ssa.Function]int{}
 	var summaries *ssaflow.FunctionSummaries[int]
-	summaries = ssaflow.NewFunctionSummaries(func(fn *ssa.Function, budget *ssaflow.SearchBudget) int {
+	summaries = ssaflow.NewFunctionSummaries(func(fn *ssa.Function, budget *proofs.SearchBudget) int {
 		visits[fn]++
 		budget.Spend()
 		if fn == callee {
@@ -129,10 +130,10 @@ func caller() { helper() }
 			return answer
 		})
 	}, func(ssaflow.SummaryUnavailable) int { return -1 })
-	if got := summaries.Function(caller, ssaflow.NewSearchBudget(2)); got != -1 {
+	if got := summaries.Function(caller, proofs.NewSearchBudget(2)); got != -1 {
 		t.Fatalf("binding-exhausted caller = %d, want unavailable", got)
 	}
-	if got := summaries.Function(caller, ssaflow.NewSearchBudget(10)); got != 7 {
+	if got := summaries.Function(caller, proofs.NewSearchBudget(10)); got != 7 {
 		t.Errorf("fresh caller query = %d, want 7", got)
 	}
 	if visits[caller] != 2 || visits[callee] != 1 {

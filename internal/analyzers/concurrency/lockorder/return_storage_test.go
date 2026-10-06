@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -34,8 +35,8 @@ func plain() bool { return true }
 			if returned == nil {
 				t.Fatal("no normal return")
 			}
-			for _, limit := range []int{0, 1, ssaflow.SummaryBudget} {
-				budget := ssaflow.NewSearchBudget(limit)
+			for _, limit := range []int{0, 1, proofs.SummaryBudget} {
+				budget := proofs.NewSearchBudget(limit)
 				query := lockReturnQueries{budget: budget}
 				success := query.successfulReturn(function, returned)
 				if limit == 0 && (!budget.Exhausted() || success) {
@@ -44,7 +45,7 @@ func plain() bool { return true }
 				if budget.Exhausted() && success {
 					t.Fatal("interrupted result storage supplied success")
 				}
-				if limit == ssaflow.SummaryBudget && (budget.Exhausted() || success != (name != "declined")) {
+				if limit == proofs.SummaryBudget && (budget.Exhausted() || success != (name != "declined")) {
 					t.Fatalf("complete success=%v exhausted=%v", success, budget.Exhausted())
 				}
 			}

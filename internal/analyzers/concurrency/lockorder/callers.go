@@ -1,6 +1,7 @@
 package lockorder
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,6 +15,6 @@ type conditionalCallerSet = ssaflow.PrivateFunctionUses
 // candidate. Exhaustion invalidates every caller set for both consumers.
 const callerSetBudget = 20_000
 
-func collectLockCallers(initialization *ssa.Function, functions []*ssa.Function, budget *ssaflow.SearchBudget) map[*ssa.Function]conditionalCallerSet {
+func collectLockCallers(initialization *ssa.Function, functions []*ssa.Function, budget *proofs.SearchBudget) map[*ssa.Function]conditionalCallerSet {
 	return ssaflow.CollectPrivateFunctionUsesWithin(append([]*ssa.Function{initialization}, functions...), budget)
 }

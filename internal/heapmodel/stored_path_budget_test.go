@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
@@ -41,11 +42,11 @@ func three(p, other *resource) { h := &deep{nested{holder{p,other}}}; observe(h)
 			if baseline.Proven() != (test.path != nil) || !slices.Equal(baseline.Path, test.path) {
 				t.Fatalf("default stored path = %+v, want %v", baseline, test.path)
 			}
-			for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := ProveStoredPathWithin(root, fn.Params[0], call, budget)
 				if limit == 0 || budget.Exhausted() || budget.PoolExhausted() {
-					if got.Proven() || got.Reason != ssaflow.EvidenceBudgetExhausted {
+					if got.Proven() || got.Reason != proofs.EvidenceBudgetExhausted {
 						t.Fatalf("interrupted stored path = %+v", got)
 					}
 					continue
@@ -66,18 +67,18 @@ type holder struct { value *int }
 func noop() {}
 func observe(*holder) {}
 func caller(p *int) { h := &holder{p};
-` + strings.Repeat("noop()\n", ssaflow.QueryBudget+100) + "observe(h) }"
+` + strings.Repeat("noop()\n", proofs.QueryBudget+100) + "observe(h) }"
 	fn := ssaflowtest.BuildPackage(t, "pathchild", source).Func("caller")
 	call := heapObservation(t, fn)
 	root := call.Common().Args[0]
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
+	child := pool.Within(proofs.QueryBudget)
 	query := storedPathQuery{budget: pool, storageBudget: child, storage: NewStorage(child), target: fn.Params[0], observation: call}
 	proof := storedPathProof(query.walk(root, nil, 2), pool, child)
-	if proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted || pool.Exhausted() || pool.PoolExhausted() {
+	if proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted || pool.Exhausted() || pool.PoolExhausted() {
 		t.Fatalf("structural storage child cutoff = %+v, parent exhausted %v", proof, pool.Exhausted())
 	}
-	fresh := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	fresh := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	query = storedPathQuery{budget: fresh, storageBudget: fresh, storage: NewStorage(fresh), target: fn.Params[0], observation: call}
 	if path := query.walk(root, nil, 2); !slices.Equal(path, []string{"field:0"}) || fresh.Exhausted() {
 		t.Fatalf("fresh structural path = %v, exhausted %v", path, fresh.Exhausted())

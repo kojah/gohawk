@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -46,16 +47,16 @@ func TestPossibleWrapperAllowance(t *testing.T) {
 
 func checkPossibleWrapperAllowance(t *testing.T, query *resourceAnalysis, value ssa.Value, depth int, direct, want bool) {
 	t.Helper()
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		proof := query.provePossibleWrapperWithin(value, depth, direct, budget)
 		if resourceFlowExhausted(budget) || limit == 0 {
-			if proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted {
+			if proof.State != proofs.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted {
 				t.Fatalf("allowance %d retained interrupted wrapper: %+v", limit, proof)
 			}
 			continue
 		}
-		if proof.State == ssaflow.EvidenceUnknown || proof.Proven() != want {
+		if proof.State == proofs.EvidenceUnknown || proof.Proven() != want {
 			t.Fatalf("complete wrapper = %+v, want %v", proof, want)
 		}
 		return
@@ -99,8 +100,8 @@ func checkWrapperPublicationAllowance(t *testing.T, query *resourceAnalysis, wan
 			last = instruction
 		}
 	}
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		var proof resourceProof
 		switch instruction := last.(type) {
 		case *ssa.Call:
@@ -111,12 +112,12 @@ func checkWrapperPublicationAllowance(t *testing.T, query *resourceAnalysis, wan
 			t.Fatalf("publication instruction missing: %v", last)
 		}
 		if resourceFlowExhausted(budget) || limit == 0 {
-			if proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted {
+			if proof.State != proofs.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted {
 				t.Fatalf("allowance %d retained interrupted publication: %+v", limit, proof)
 			}
 			continue
 		}
-		if proof.State == ssaflow.EvidenceUnknown || proof.Proven() != want {
+		if proof.State == proofs.EvidenceUnknown || proof.Proven() != want {
 			t.Fatalf("complete publication = %+v, want %v; SSA:\n%s", proof, want, carriedSSA(t, query.function))
 		}
 		return
@@ -129,11 +130,11 @@ func TestWrapperRetentionClassifierCutoff(t *testing.T) {
 	fn := pkg.Func("used")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[2]
 	query := aggregateEscapeAnalysis(fn)
-	query.pool = ssaflow.NewSearchBudget(0)
+	query.pool = proofs.NewSearchBudget(0)
 	if reason, opaque := query.opaqueFunctionCall(call, call.Common(), false); !opaque || reason != resourceReasonBudgetExhausted {
 		t.Fatalf("interrupted retaining-call classifier = %v/%v", reason, opaque)
 	}
-	query.pool = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	query.pool = proofs.NewSearchBudget(proofs.SummaryBudget)
 	if reason, opaque := query.opaqueFunctionCall(call, call.Common(), false); opaque || reason != resourceReasonNone {
 		t.Fatalf("fresh non-retaining-call classifier = %v/%v", reason, opaque)
 	}

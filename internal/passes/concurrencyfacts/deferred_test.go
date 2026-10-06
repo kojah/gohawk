@@ -3,7 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -52,7 +52,7 @@ func TestDeferredEffectGroups(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
-			result := NewEngine().Function(function, ssaflow.NewSearchBudget(2000))
+			result := NewEngine().Function(function, proofs.NewSearchBudget(2000))
 			if result.Complete() != (test.kinds != nil) || len(result.Operations) != len(test.kinds) {
 				t.Fatalf("unexpected summary: %+v", result)
 			}

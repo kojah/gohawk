@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
@@ -58,12 +59,12 @@ func assertConcurrencyCaller(t *testing.T, provider *Provider, engine *concurren
 	// Run executes in the analysis driver's goroutine. Assertions must return
 	// normally so a failing control still completes the driver's action.
 	call := ssaflow.InstructionsOf[*ssa.Call](function)[0]
-	bound, available := provider.ConcurrencyAtCall(call, ssaflow.NewSearchBudget(2000))
+	bound, available := provider.ConcurrencyAtCall(call, proofs.NewSearchBudget(2000))
 	if available != Available {
 		t.Errorf("%s: selected component unavailable", function)
 		return
 	}
-	domain := engine.AtCall(call, ssaflow.NewSearchBudget(2000))
+	domain := engine.AtCall(call, proofs.NewSearchBudget(2000))
 	if bound.Reason != domain.Reason || bound.Complete() != domain.Complete() || len(bound.Operations) != len(domain.Operations) {
 		t.Errorf("%s: broker/domain outcomes differ: %+v / %+v", function, bound, domain)
 		return
@@ -87,16 +88,16 @@ func assertConcurrencyCaller(t *testing.T, provider *Provider, engine *concurren
 		}
 		bound.Operations[0].Resource.Value = nil
 		bound.Operations[0].Kind = concurrencyfacts.Unlock
-		fresh, _ := provider.ConcurrencyAtCall(call, ssaflow.NewSearchBudget(2000))
+		fresh, _ := provider.ConcurrencyAtCall(call, proofs.NewSearchBudget(2000))
 		assertPairBinding(t, function, call, fresh)
 	}
-	budget := ssaflow.NewSearchBudget(1)
+	budget := proofs.NewSearchBudget(1)
 	cut, _ := provider.ConcurrencyAtCall(call, budget)
 	if function.Name() != "Opaque" && (cut.Complete() || !budget.Exhausted()) {
 		t.Error("interrupted binding must not expose a complete effect prefix")
 	}
 	for allowance := 2; allowance <= 16; allowance++ {
-		budget := ssaflow.NewSearchBudget(allowance)
+		budget := proofs.NewSearchBudget(allowance)
 		cut, _ := provider.ConcurrencyAtCall(call, budget)
 		if budget.Exhausted() && (cut.Complete() || len(cut.Operations) != 0) {
 			t.Errorf("%s: allowance %d exposed interrupted effects", function, allowance)

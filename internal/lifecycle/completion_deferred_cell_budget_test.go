@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -21,7 +22,7 @@ func deferredCleared(p *resource, pick bool){held:=p;defer func(){if held!=nil{h
 	if !ok {
 		t.Fatalf("capture is %T, want actual cell", closure.Bindings[0])
 	}
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.QueryBudget)
 	search := newCompletionSearch("Close", CoverageEveryReturn, pool.Within(1))
 	if _, mapped := search.deferredCellLocal(body.FreeVars[0], cell, function.Params[0], deferred); mapped || !search.budget.Exhausted() {
 		t.Fatal("graph relation bypassed the exhausted mapping allowance")
@@ -29,7 +30,7 @@ func deferredCleared(p *resource, pick bool){held:=p;defer func(){if held!=nil{h
 	if pool.Exhausted() {
 		t.Fatal("independent child cutoff exhausted the pool")
 	}
-	search.budget = pool.Within(ssaflow.QueryBudget)
+	search.budget = pool.Within(proofs.QueryBudget)
 	local, mapped := search.deferredCellLocal(body.FreeVars[0], cell, function.Params[0], deferred)
 	if !mapped || local.kind != localExact || search.budget.Exhausted() {
 		t.Fatalf("fresh exact cell mapping did not recover: %+v, mapped=%v", local, mapped)

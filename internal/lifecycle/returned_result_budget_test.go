@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -38,15 +39,15 @@ func direct() int {return 4}
 func checkReturnedResultAllowances(t *testing.T, returned *ssa.Return, baseline ssa.Value) {
 	t.Helper()
 	complete := false
-	for limit := range ssaflow.SummaryBudget {
-		pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	for limit := range proofs.SummaryBudget {
+		pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 		budget := pool.Within(limit)
 		result := ReturnedResultWithin(returned, 0, budget)
 		if budget.Exhausted() {
 			if result != nil || pool.Exhausted() {
 				t.Fatal("local cutoff published result or exhausted pool")
 			}
-			if fresh := ReturnedResultWithin(returned, 0, pool.Within(ssaflow.SummaryBudget)); fresh != baseline {
+			if fresh := ReturnedResultWithin(returned, 0, pool.Within(proofs.SummaryBudget)); fresh != baseline {
 				t.Fatal("fresh query did not recover default result")
 			}
 			continue

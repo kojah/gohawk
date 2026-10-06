@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"slices"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -24,15 +25,15 @@ func ValueCallsMethod(value ssa.Value, method string, target ssa.Value) bool {
 // and callback-preserving wrapper policies; it proves neither invocation nor
 // that every possible callback completes. Value, referrer and callee queries
 // share budget. A cutoff is unknown; nil retains the default unbounded search.
-func ProveValueCallsMethodWithin(value ssa.Value, method string, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func ProveValueCallsMethodWithin(value ssa.Value, method string, target ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
 	matched := newCompletionSearch(method, CoverageEveryReturn, budget).valueCallsMethod(value, target)
 	if budget.Exhausted() {
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 	}
 	if matched {
-		return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceCallbackCompletion, Method: method}
+		return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceCallbackCompletion, Method: method}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
+	return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}
 }
 
 func (search *completionSearch) valueCallsMethod(value, target ssa.Value) bool {

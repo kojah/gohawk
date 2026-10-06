@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -73,19 +74,19 @@ const (
 	launchCallback
 )
 
-func (launch launchKind) reason() ssaflow.EvidenceReason {
+func (launch launchKind) reason() proofs.EvidenceReason {
 	switch launch {
 	case launchDeferred:
-		return ssaflow.EvidenceDeferredCompletion
+		return proofs.EvidenceDeferredCompletion
 	case launchCalled:
-		return ssaflow.EvidenceCalledCompletion
+		return proofs.EvidenceCalledCompletion
 	case launchStarted:
-		return ssaflow.EvidenceStartedCompletion
+		return proofs.EvidenceStartedCompletion
 	case launchCallback:
-		return ssaflow.EvidenceCallbackCompletion
+		return proofs.EvidenceCallbackCompletion
 	case launchNone:
 	}
-	return ssaflow.EvidenceNone
+	return proofs.EvidenceNone
 }
 
 // completionCallee is one resolved body to search. A callee reached through a
@@ -175,7 +176,7 @@ type completionSearch struct {
 	// touched the target; nil outside a body's coverage.
 	paths *completionPaths
 	// budget, when set, bounds this question; nil leaves the search unbounded.
-	budget *ssaflow.SearchBudget
+	budget *proofs.SearchBudget
 	// constants fixes Boolean parameters and captures of the body being
 	// searched, bound from the constant arguments of the call that reached it.
 	// Like bindings, they are scoped to one invocation.
@@ -190,7 +191,7 @@ func (search *completionSearch) forCallback() *completionSearch {
 	return &nested
 }
 
-func newCompletionSearch(method string, coverage CompletionCoverage, budget *ssaflow.SearchBudget) *completionSearch {
+func newCompletionSearch(method string, coverage CompletionCoverage, budget *proofs.SearchBudget) *completionSearch {
 	search := &completionSearch{
 		incomplete:   new(bool),
 		inCycle:      new(bool),

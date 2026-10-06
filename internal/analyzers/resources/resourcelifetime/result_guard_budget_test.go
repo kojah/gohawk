@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/tools/go/ssa"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
@@ -20,12 +21,12 @@ func TestResourceResultGuardDiscoveryAllowance(t *testing.T) {
 	for _, name := range []string{"guarded", "success"} {
 		t.Run(name, func(t *testing.T) {
 			call, resource, _ := acquiredResourceInputs(t, pkg.Func(name))
-			for limit := range ssaflow.SummaryBudget {
+			for limit := range proofs.SummaryBudget {
 				query := &resourceAnalysis{function: call.Parent(), resource: resource, contract: resourceContract{cleanup: []string{"Close", "Close"}}}
-				budget := ssaflow.NewSearchBudget(limit)
+				budget := proofs.NewSearchBudget(limit)
 				got := query.discoverResultGuardedDefersWithin(budget)
 				if resourceFlowExhausted(budget) || limit == 0 {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || query.guardedDefers != nil {
+					if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || query.guardedDefers != nil {
 						t.Fatalf("cut %d = %+v, guards %+v", limit, got, query.guardedDefers)
 					}
 					continue
@@ -33,7 +34,7 @@ func TestResourceResultGuardDiscoveryAllowance(t *testing.T) {
 				if !got.Proven() || len(query.guardedDefers) != 1 {
 					t.Fatalf("complete discovery = %+v, guards %+v", got, query.guardedDefers)
 				}
-				fresh := query.discoverResultGuardedDefersWithin(ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+				fresh := query.discoverResultGuardedDefersWithin(proofs.NewSearchBudget(proofs.SummaryBudget))
 				if !fresh.Proven() || len(query.guardedDefers) != 1 {
 					t.Fatalf("fresh repeated discovery = %+v, guards %+v", fresh, query.guardedDefers)
 				}
@@ -42,10 +43,10 @@ func TestResourceResultGuardDiscoveryAllowance(t *testing.T) {
 				evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
 				flow := evaluateResourceFlow(nil, evidence, call, resource, query.contract)
 				if name == "guarded" {
-					if flow.state != ssaflow.EvidenceProven || flow.leak == nil {
+					if flow.state != proofs.EvidenceProven || flow.leak == nil {
 						t.Fatalf("guarded leak lost: %+v", flow)
 					}
-				} else if flow.state != ssaflow.EvidenceDisproven || flow.leak != nil {
+				} else if flow.state != proofs.EvidenceDisproven || flow.leak != nil {
 					t.Fatalf("success cleanup reported: %+v", flow)
 				}
 				return
@@ -74,12 +75,12 @@ func TestResourceResultGuardReturnCutoff(t *testing.T) {
 			if !ssaflow.InstructionDominates(query.guardedDefers[0].Defer, returned) {
 				continue
 			}
-			query.pool = ssaflow.NewSearchBudget(0)
+			query.pool = proofs.NewSearchBudget(0)
 			action, reason, ok := query.resultGuardedReturn(returned)
 			if !ok || action != actionUnknown || reason != resourceReasonResultGuardedUnknown {
 				t.Fatalf("cut=%v/%v/%v", action, reason, ok)
 			}
-			query.pool = ssaflow.NewSearchBudget(resourcePoolBudget)
+			query.pool = proofs.NewSearchBudget(resourcePoolBudget)
 			action, _, ok = query.resultGuardedReturn(returned)
 			if name == "released" && (!ok || action != actionSettled) {
 				t.Fatalf("fresh release=%v/%v", action, ok)

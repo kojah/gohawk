@@ -4,6 +4,7 @@ import (
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -14,10 +15,10 @@ import (
 // expansions; the shared allowance also charges keys, copies, instruction visits
 // and nested branch/release queries. Setup shares this pool; identity/heap/type
 // query internals retain their separately recorded costs.
-const lockStateWorkBudget = 100 * ssaflow.SummaryBudget
+const lockStateWorkBudget = 100 * proofs.SummaryBudget
 
 type lockStateWalk struct {
-	budget            *ssaflow.SearchBudget
+	budget            *proofs.SearchBudget
 	fieldEvidence     readLockFieldEvidence
 	setup             *lockFunctionSetup
 	flow              lockFlowContext
@@ -177,5 +178,5 @@ func (walk *lockStateWalk) transfer(instruction ssa.Instruction, state lockFlowS
 // hit its own cap before the function pool; that answer is still unavailable.
 func (walk *lockStateWalk) incomplete() bool {
 	return walk.remaining < 0 || walk.budget.Exhausted() || walk.budget.PoolExhausted() ||
-		walk.flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted
+		walk.flow.releases.cutoff.Reason == proofs.EvidenceBudgetExhausted
 }

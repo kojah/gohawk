@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/lifecycle"
 
+	analysisproof "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -53,11 +54,11 @@ func TestDeferredCaptureAllowance(t *testing.T) {
 			if len(closures) == 0 {
 				t.Fatal("no closure")
 			}
-			proofs := []func(*ssaflow.SearchBudget) ssaflow.Proof{
-				func(budget *ssaflow.SearchBudget) ssaflow.Proof {
+			proofs := []func(*analysisproof.SearchBudget) analysisproof.Proof{
+				func(budget *analysisproof.SearchBudget) analysisproof.Proof {
 					return query.proveDeferredCaptureCellWithin(store, budget)
 				},
-				func(budget *ssaflow.SearchBudget) ssaflow.Proof {
+				func(budget *analysisproof.SearchBudget) analysisproof.Proof {
 					return query.proveDeferredCaptureWithin(closures[0], budget)
 				},
 			}
@@ -83,18 +84,18 @@ func cancelCaptureStore(t *testing.T, fn *ssa.Function) *ssa.Store {
 	return nil
 }
 
-func checkDeferredCaptureAllowance(t *testing.T, prove func(*ssaflow.SearchBudget) ssaflow.Proof, want bool) {
+func checkDeferredCaptureAllowance(t *testing.T, prove func(*analysisproof.SearchBudget) analysisproof.Proof, want bool) {
 	t.Helper()
 	baseline := prove(nil)
 	if baseline.Proven() != want {
 		t.Fatalf("default=%+v want%v", baseline, want)
 	}
 	completed := false
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= analysisproof.SummaryBudget; limit++ {
+		budget := analysisproof.NewSearchBudget(limit)
 		got := prove(budget)
 		if budget.Exhausted() || limit == 0 {
-			if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted {
+			if got.State != analysisproof.EvidenceUnknown || got.Reason != analysisproof.EvidenceBudgetExhausted {
 				t.Fatalf("cut%d=%+v", limit, got)
 			}
 			continue
@@ -108,19 +109,19 @@ func checkDeferredCaptureAllowance(t *testing.T, prove func(*ssaflow.SearchBudge
 	if !completed {
 		t.Fatal("capture never completed")
 	}
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	pool := analysisproof.NewSearchBudget(10 * analysisproof.SummaryBudget)
 	child := pool.Within(1)
-	if proof := prove(child); proof.State != ssaflow.EvidenceUnknown || !child.Exhausted() || pool.Exhausted() {
+	if proof := prove(child); proof.State != analysisproof.EvidenceUnknown || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("child=%+v", proof)
 	}
-	if proof := prove(pool.Within(ssaflow.SummaryBudget)); proof != baseline {
+	if proof := prove(pool.Within(analysisproof.SummaryBudget)); proof != baseline {
 		t.Fatalf("fresh=%+v want%+v", proof, baseline)
 	}
 }
 
 func TestDeferredCaptureClassifierCutoff(t *testing.T) {
 	fn := ssaflowtest.BuildPackage(t, "capturecells", deferredCaptureFixture).Func("direct")
-	query := &cancellationClassifier{cancel: fn.Params[0], pool: ssaflow.NewSearchBudget(0)}
+	query := &cancellationClassifier{cancel: fn.Params[0], pool: analysisproof.NewSearchBudget(0)}
 	store := cancelCaptureStore(t, fn)
 	if label := query.classifyAction(store); label.action != cancellationActionUnknown {
 		t.Fatalf("cut store=%+v", label)
@@ -129,7 +130,7 @@ func TestDeferredCaptureClassifierCutoff(t *testing.T) {
 	if label, ok := query.deferredLiteralLabel(deferred); !ok || label.action != cancellationActionUnknown {
 		t.Fatalf("cut defer=%+v/%v", label, ok)
 	}
-	query.pool = ssaflow.NewSearchBudget(cancellationPoolBudget)
+	query.pool = analysisproof.NewSearchBudget(cancellationPoolBudget)
 	if label := query.classifyAction(store); label.action != cancellationActionNone {
 		t.Fatalf("fresh store=%+v", label)
 	}
@@ -199,16 +200,16 @@ func TestDeferredCaptureGuardCensusAllowance(t *testing.T) {
 	if !discovery.Proven() || len(discovery.Guards) != 2 {
 		t.Fatalf("discovery=%+v", discovery)
 	}
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+	for limit := 0; limit <= analysisproof.SummaryBudget; limit++ {
 		query := &cancellationClassifier{cancel: cancel}
-		pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+		pool := analysisproof.NewSearchBudget(10 * analysisproof.SummaryBudget)
 		child := pool.Within(limit)
 		proof := query.retainResultGuardsWithin(discovery.Guards, child)
 		if child.Exhausted() || limit == 0 {
-			if proof.State != ssaflow.EvidenceUnknown || query.guards != nil || pool.Exhausted() {
+			if proof.State != analysisproof.EvidenceUnknown || query.guards != nil || pool.Exhausted() {
 				t.Fatalf("cut%d=%+v guards%v", limit, proof, query.guards)
 			}
-			fresh := query.retainResultGuardsWithin(discovery.Guards, pool.Within(ssaflow.SummaryBudget))
+			fresh := query.retainResultGuardsWithin(discovery.Guards, pool.Within(analysisproof.SummaryBudget))
 			if !fresh.Proven() || len(query.guards) != 2 {
 				t.Fatalf("fresh=%+v guards%v", fresh, query.guards)
 			}

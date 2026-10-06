@@ -3,6 +3,7 @@ package heapmodel
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -22,15 +23,15 @@ func TestStorageOrderingAndDominanceCutoff(t *testing.T) {
 	if len(stores) != 1 {
 		t.Fatal("expected a sole actual SSA initializer")
 	}
-	storage := NewStorage(ssaflow.NewSearchBudget(1))
-	if proof := storage.reachingContent(storageLocation{root: cell}, load, stores); proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+	storage := NewStorage(proofs.NewSearchBudget(1))
+	if proof := storage.reachingContent(storageLocation{root: cell}, load, stores); proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted {
 		t.Fatalf("unavailable initializer dominance must stay unknown: %+v", proof)
 	}
-	fresh := NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+	fresh := NewStorage(proofs.NewSearchBudget(proofs.QueryBudget))
 	if proof := fresh.reachingContent(storageLocation{root: cell}, load, stores); !proof.Proven() || proof.Value != call.Common().Args[1] {
 		t.Fatal("fresh initializer dominance lost exact contents")
 	}
-	storage = NewStorage(ssaflow.NewSearchBudget(1))
+	storage = NewStorage(proofs.NewSearchBudget(1))
 	var collected []*ssa.Store
 	_, ok := storage.collect(cell, load, &collected, false)
 	if ok || !storage.Budget().Exhausted() || len(collected) != 0 {

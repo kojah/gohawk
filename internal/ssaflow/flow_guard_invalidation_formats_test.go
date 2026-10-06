@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -41,10 +42,10 @@ func TestGuardAddressFormatsPreserveInvalidation(t *testing.T) {
 				t.Fatal("warm invalidation did not retain exactly the unrelated guard")
 			}
 			for allowance := range 8 {
-				original, cached := NewSearchBudget(allowance), NewSearchBudget(allowance)
+				original, cached := proofs.NewSearchBudget(allowance), proofs.NewSearchBudget(allowance)
 				want := guards.AfterWithin(instruction, original)
 				got := guards.afterWithFormats(instruction, cached, &formats)
-				if !slices.Equal(got, want) || (got == nil) != (want == nil) || original.remaining != cached.remaining ||
+				if !slices.Equal(got, want) || (got == nil) != (want == nil) || original.Remaining() != cached.Remaining() ||
 					original.Exhausted() != cached.Exhausted() {
 					t.Fatalf("memoized invalidation changed allowance %d", allowance)
 				}
@@ -65,7 +66,7 @@ func TestEmptyCallInvalidationKeepsNilAndBudget(t *testing.T) {
  `)
 	call := InstructionsOf[*ssa.Call](pkg.Func("subject"))[0]
 	for _, guards := range []PathGuards{nil, {}} {
-		budget := NewSearchBudget(0)
+		budget := proofs.NewSearchBudget(0)
 		var formats guardFormats
 		if got := guards.afterWithFormats(call, budget, &formats); got != nil || budget.Exhausted() || len(formats.addresses) != 0 {
 			t.Fatal("empty invalidation changed nil evidence, charges or memo")
@@ -84,11 +85,11 @@ func TestGuardAddressFormatsPreserveSharedInvalidationBudget(t *testing.T) {
 	var formats guardFormats
 	_ = guards.afterWithFormats(store, nil, &formats)
 	for allowance := range 6 {
-		poolA, poolB := NewSearchBudget(allowance), NewSearchBudget(allowance)
+		poolA, poolB := proofs.NewSearchBudget(allowance), proofs.NewSearchBudget(allowance)
 		left, right := poolA.Within(6), poolB.Within(6)
 		want := guards.AfterWithin(store, left)
 		got := guards.afterWithFormats(store, right, &formats)
-		if !slices.Equal(got, want) || (got == nil) != (want == nil) || left.remaining != right.remaining || poolA.remaining != poolB.remaining ||
+		if !slices.Equal(got, want) || (got == nil) != (want == nil) || left.Remaining() != right.Remaining() || poolA.Remaining() != poolB.Remaining() ||
 			left.Exhausted() != right.Exhausted() || left.PoolExhausted() != right.PoolExhausted() {
 			t.Fatalf("memoized invalidation changed shared allowance %d", allowance)
 		}

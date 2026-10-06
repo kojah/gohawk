@@ -1,6 +1,7 @@
 package heapmodel
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -26,7 +27,7 @@ const (
 // Census, reachability, union and history visits share budget; cutoff publishes
 // no relation. Graph construction/replay and points-to internals retain separate
 // costs. A nil budget retains the unbounded observation policy.
-func DeferredCellRelationWithin(cell *ssa.Alloc, target ssa.Value, invocation ssa.Instruction, budget *ssaflow.SearchBudget) (DeferredCellMatch, bool) {
+func DeferredCellRelationWithin(cell *ssa.Alloc, target ssa.Value, invocation ssa.Instruction, budget *proofs.SearchBudget) (DeferredCellMatch, bool) {
 	if !budget.Spend() {
 		return DeferredCellUnknown, false
 	}
@@ -73,7 +74,7 @@ func DeferredCellRelationWithin(cell *ssa.Alloc, target ssa.Value, invocation ss
 // over every reachable return when the function defers nothing and the
 // callback was registered with a test instead. A deferred literal observes
 // its captured cell then, not at the registration.
-func (graph *regionGraph) contentWhenDeferredRunWithin(address ssa.Value, registration ssa.Instruction, budget *ssaflow.SearchBudget) (pointees, bool) {
+func (graph *regionGraph) contentWhenDeferredRunWithin(address ssa.Value, registration ssa.Instruction, budget *proofs.SearchBudget) (pointees, bool) {
 	defer graph.lock()()
 	if !graph.available || registration == nil {
 		return nil, false
@@ -109,7 +110,7 @@ func (graph *regionGraph) contentWhenDeferredRunWithin(address ssa.Value, regist
 // deferredObservationPoints completes one shared census before selecting
 // RunDefers or, when none exist, returns for test-registered callbacks. A prefix
 // cannot establish that a later deferred execution point or return is absent.
-func deferredObservationPoints(function *ssa.Function, budget *ssaflow.SearchBudget) ([]ssa.Instruction, bool) {
+func deferredObservationPoints(function *ssa.Function, budget *proofs.SearchBudget) ([]ssa.Instruction, bool) {
 	var runs, returns []ssa.Instruction
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		switch instruction.(type) {

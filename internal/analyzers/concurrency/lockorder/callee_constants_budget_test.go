@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -24,9 +25,9 @@ func TestCalleeConstantAllowance(t *testing.T) {
 	}{{ssaflow.OutcomeFalse, 0}, {ssaflow.OutcomeTrue, 1}} {
 		constants := ssaflow.FixedValues{fn.Params[0]: test.outcome}
 		completed := false
-		for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+		for limit := 0; limit <= proofs.SummaryBudget; limit++ {
 			search := newCalleeLockSearch()
-			pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+			pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 			child := pool.Within(limit)
 			context := &constantContext{budget: child, visiting: map[string]bool{}}
 			got, complete := search.locksUnder(fn, constants, context)
@@ -34,7 +35,7 @@ func TestCalleeConstantAllowance(t *testing.T) {
 				if complete || len(got.acquires) != 0 || pool.Exhausted() {
 					t.Fatalf("cut%d=%+v/%v", limit, got, complete)
 				}
-				fresh := &constantContext{budget: pool.Within(ssaflow.SummaryBudget), visiting: map[string]bool{}}
+				fresh := &constantContext{budget: pool.Within(proofs.SummaryBudget), visiting: map[string]bool{}}
 				recovered, ok := search.locksUnder(fn, constants, fresh)
 				if !ok || len(recovered.acquires) != test.count {
 					t.Fatalf("fresh=%+v/%v", recovered, ok)
@@ -66,15 +67,15 @@ func TestCalleeConstantAllowance(t *testing.T) {
 func TestCalleeNestedBindingCutoffBeforePruning(t *testing.T) {
 	fn := constantPruningPackage(t).Func("root")
 	constants := ssaflow.FixedValues{fn.Params[0]: ssaflow.OutcomeNil}
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
+	child := pool.Within(proofs.QueryBudget)
 	search := newCalleeLockSearch()
 	context := &constantContext{budget: child, visiting: map[string]bool{}}
 	got, complete := search.locksUnder(fn, constants, context)
 	if complete || len(got.acquires) != 0 || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("cut nested binding=%+v/%v", got, complete)
 	}
-	fresh := &constantContext{budget: pool.Within(2 * ssaflow.SummaryBudget), visiting: map[string]bool{}}
+	fresh := &constantContext{budget: pool.Within(2 * proofs.SummaryBudget), visiting: map[string]bool{}}
 	if got, complete := search.locksUnder(fn, constants, fresh); !complete || len(got.acquires) != 0 {
 		t.Fatalf("fresh pruning=%+v/%v", got, complete)
 	}
@@ -87,12 +88,12 @@ func TestCalleeRootBindingCutoffDoesNotReviveOrders(t *testing.T) {
 	if ordinary := search.locks(pkg.Func("leaf")); len(ordinary.acquires) != 1 {
 		t.Fatalf("ordinary control=%+v", ordinary)
 	}
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
+	child := pool.Within(proofs.QueryBudget)
 	if got := search.locksAtWithin(call, child); len(got.acquires) != 0 || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("cut revived orders=%+v", got)
 	}
-	fresh := pool.Within(2 * ssaflow.SummaryBudget)
+	fresh := pool.Within(2 * proofs.SummaryBudget)
 	if got := search.locksAtWithin(call, fresh); len(got.acquires) != 0 || fresh.Exhausted() {
 		t.Fatalf("fresh pruning=%+v", got)
 	}
@@ -103,7 +104,7 @@ func constantPruningPackage(t *testing.T) *ssa.Package {
 	source := `package prunedlocks
  import "sync"
  var mu sync.Mutex
- func leaf(yes bool,p *int){if yes{mu.Lock();` + strings.Repeat("println(p);", ssaflow.QueryBudget+1) + `if p==nil{println("nil")};mu.Unlock()}}
+ func leaf(yes bool,p *int){if yes{mu.Lock();` + strings.Repeat("println(p);", proofs.QueryBudget+1) + `if p==nil{println("nil")};mu.Unlock()}}
  func root(p *int){leaf(false,p)}
  func call(){leaf(false,nil)}
  `

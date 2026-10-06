@@ -3,6 +3,7 @@ package heapmodel
 import (
 	"strings"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -15,7 +16,7 @@ func (storage *Storage) reachingContent(location storageLocation, observation ss
 	for _, store := range stores {
 		written, ok := storage.location(store.Addr)
 		if !ok || written.root != location.root {
-			return storage.unknown(ssaflow.EvidenceStorageWriteThroughAlias, store)
+			return storage.unknown(proofs.EvidenceStorageWriteThroughAlias, store)
 		}
 		if slotBeneath(location.path, written.path) {
 			writes[store] = storageWrite{suffix: strings.TrimPrefix(location.path, written.path)}
@@ -30,7 +31,7 @@ func (storage *Storage) reachingContent(location storageLocation, observation ss
 	if store, write, only := soleStorageWrite(writes); only && !write.partial {
 		dominates := ssaflow.InstructionDominatesWithin(store, observation, storage.budget)
 		if storage.budget.Exhausted() {
-			return storage.unknown(ssaflow.EvidenceBudgetExhausted, observation)
+			return storage.unknown(proofs.EvidenceBudgetExhausted, observation)
 		}
 		if dominates {
 			return storage.projectStored(store.Val, write.suffix)
@@ -38,7 +39,7 @@ func (storage *Storage) reachingContent(location storageLocation, observation ss
 	}
 	index := ssaflow.InstructionIndexWithin(observation, storage.budget)
 	if index < 0 {
-		return storage.unknown(ssaflow.EvidenceStorageNoReachingWrite, observation)
+		return storage.unknown(proofs.EvidenceStorageNoReachingWrite, observation)
 	}
 	query := reachingStorage{storage: storage, location: location, writes: writes, active: make(map[*ssa.BasicBlock]bool)}
 	return query.before(observation.Block(), index)
@@ -69,27 +70,27 @@ type reachingStorage struct {
 
 func (query *reachingStorage) before(block *ssa.BasicBlock, index int) StoredValue {
 	if block == nil {
-		return query.storage.unknown(ssaflow.EvidenceStorageNoReachingWrite, nil)
+		return query.storage.unknown(proofs.EvidenceStorageNoReachingWrite, nil)
 	}
 	if query.active[block] {
-		return query.storage.unknown(ssaflow.EvidenceStorageWriteInCycle, block.Instrs[len(block.Instrs)-1])
+		return query.storage.unknown(proofs.EvidenceStorageWriteInCycle, block.Instrs[len(block.Instrs)-1])
 	}
 	if !query.storage.budget.Spend() {
-		return query.storage.unknown(ssaflow.EvidenceBudgetExhausted, nil)
+		return query.storage.unknown(proofs.EvidenceBudgetExhausted, nil)
 	}
 	query.active[block] = true
 	defer delete(query.active, block)
 	for i := index - 1; i >= 0; i-- {
 		if !query.storage.budget.Spend() {
-			return query.storage.unknown(ssaflow.EvidenceBudgetExhausted, nil)
+			return query.storage.unknown(proofs.EvidenceBudgetExhausted, nil)
 		}
 		if block.Instrs[i] == query.location.root {
-			return query.storage.unknown(ssaflow.EvidenceStorageNoReachingWrite, query.location.root)
+			return query.storage.unknown(proofs.EvidenceStorageNoReachingWrite, query.location.root)
 		}
 		if store, ok := block.Instrs[i].(*ssa.Store); ok {
 			if write, relevant := query.writes[store]; relevant {
 				if write.partial {
-					return query.storage.unknown(ssaflow.EvidenceStoragePartialWrite, store)
+					return query.storage.unknown(proofs.EvidenceStoragePartialWrite, store)
 				}
 				return query.storage.projectStored(store.Val, write.suffix)
 			}
@@ -102,12 +103,12 @@ func (query *reachingStorage) before(block *ssa.BasicBlock, index int) StoredVal
 			return incoming
 		}
 		if agreed.Proven() && !query.storage.Same(agreed.Value, incoming.Value).Proven() {
-			return query.storage.unknown(ssaflow.EvidenceStorageConflictingWrites, predecessor.Instrs[len(predecessor.Instrs)-1])
+			return query.storage.unknown(proofs.EvidenceStorageConflictingWrites, predecessor.Instrs[len(predecessor.Instrs)-1])
 		}
 		agreed = incoming
 	}
 	if !agreed.Proven() {
-		return query.storage.unknown(ssaflow.EvidenceStorageNoReachingWrite, nil)
+		return query.storage.unknown(proofs.EvidenceStorageNoReachingWrite, nil)
 	}
 	return agreed
 }

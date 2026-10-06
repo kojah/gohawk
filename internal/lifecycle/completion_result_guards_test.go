@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -55,7 +56,7 @@ func TestResultGuards(t *testing.T) {
 	if len(guards) != 1 || len(guards[0].Cells) != 1 {
 		t.Fatalf("ResultGuards(closeOnError) = %+v, want one guard on the err result", guards)
 	}
-	states := map[string]ssaflow.EvidenceState{}
+	states := map[string]proofs.EvidenceState{}
 	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](guarded) {
 		if !ssaflow.InstructionDominates(guards[0].Defer, returned) {
 			continue
@@ -63,11 +64,11 @@ func TestResultGuards(t *testing.T) {
 		value, _ := ssaflow.ValueAtReturnWithin(returned, guards[0].Cells[0], nil)
 		states[value.String()] = guards[0].CompletesAtReturn(request, returned, ssaflow.ValueOutcome)
 	}
-	if states["nil:error"] != ssaflow.EvidenceDisproven {
+	if states["nil:error"] != proofs.EvidenceDisproven {
 		t.Errorf("the nil return: %v, want the guarded close skipped (disproven); all: %v", states["nil:error"], states)
 	}
 	for value, state := range states {
-		if value != "nil:error" && state != ssaflow.EvidenceProven {
+		if value != "nil:error" && state != proofs.EvidenceProven {
 			t.Errorf("the %s return: %v, want the guarded close run (proven)", value, state)
 		}
 	}

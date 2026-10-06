@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -18,7 +19,7 @@ import (
 // implementation ignores cancellation while streaming results, so the caller's
 // canceled-context arm must not hide the abandoned producer behind the helper.
 // https://github.com/google/badwolf/blob/6cde56dbc7db828597ea856db6c3e1f331e70916/storage/memoization/memoization.go#L194-L222
-func workerHandsOffOutputChannelWithin(function *ssa.Function, budget *ssaflow.SearchBudget) bool {
+func workerHandsOffOutputChannelWithin(function *ssa.Function, budget *proofs.SearchBudget) bool {
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		call, ok := instruction.(*ssa.Call)
 		if !ok {
@@ -54,7 +55,7 @@ func workerHandsOffOutputChannelWithin(function *ssa.Function, budget *ssaflow.S
 // Releasing an I/O operation cannot settle a subsequent blocking publication.
 // Keep the existing completion proof authoritative for workers with sends.
 // https://github.com/pterodactyl/wings/blob/d6116827313dae176ddf4741e233554392993398/server/transfer/source.go#L87-L96
-func workerHasSendWithin(function *ssa.Function, budget *ssaflow.SearchBudget) bool {
+func workerHasSendWithin(function *ssa.Function, budget *proofs.SearchBudget) bool {
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		if _, send := instruction.(*ssa.Send); send {
 			return true

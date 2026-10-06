@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"github.com/kojah/gohawk/internal/summaries"
@@ -22,7 +23,7 @@ func TestCarriedClosureAllowance(t *testing.T) {
 			fn := pkg.Func(test.name)
 			query := callbackAnalysis(fn, provider)
 			value := ssaflow.InstructionsOf[*ssa.Return](fn)[0].Results[0]
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				return query.proveCarriedClosureWithin(value, budget)
 			}, test.want)
 			if test.name == "twice" && !query.proveCarriedValueWithin(value, nil).Proven() {
@@ -39,7 +40,7 @@ func TestClosureBindingAllowance(t *testing.T) {
 			fn := pkg.Func(name)
 			closure := ssaflow.InstructionsOf[*ssa.MakeClosure](fn)[0]
 			query := callbackAnalysis(fn, provider)
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				return query.proveClosureCarryWithin(closure, budget)
 			}, name != "unrelated")
 		})
@@ -78,7 +79,7 @@ func TestCarriedCallArgumentsAllowance(t *testing.T) {
 			fn := pkg.Func(test.name)
 			query := callbackAnalysis(fn, provider)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				switch test.family {
 				case retention:
 					return query.provePossiblyRetainedCallbackWithin(call, call.Common(), budget)
@@ -98,11 +99,11 @@ func TestClosureClassifierCutoff(t *testing.T) {
 	launched := ssaflow.InstructionsOf[*ssa.Go](fn)[0]
 	closure := launched.Common().Value.(*ssa.MakeClosure)
 	query := callbackAnalysis(fn, provider)
-	query.pool = ssaflow.NewSearchBudget(0)
+	query.pool = proofs.NewSearchBudget(0)
 	if reason, opaque := query.opaqueClosureCall(launched, closure, false); !opaque || reason != resourceReasonBudgetExhausted {
 		t.Fatalf("interrupted closure classifier = %v/%v", reason, opaque)
 	}
-	query.pool = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	query.pool = proofs.NewSearchBudget(proofs.SummaryBudget)
 	if reason, opaque := query.opaqueClosureCall(launched, closure, false); !opaque || reason != resourceReasonCapturedByStartedLiteral {
 		t.Fatalf("fresh closure classifier = %v/%v", reason, opaque)
 	}

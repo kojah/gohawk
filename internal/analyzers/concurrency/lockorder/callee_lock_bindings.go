@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -79,7 +80,7 @@ func possibleFreshBoundMutex(path ssaflow.EmbeddedFieldPath) freshMutexFieldProo
 	if !ok {
 		return unknown
 	}
-	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+	budget := proofs.NewSearchBudget(proofs.QueryBudget)
 	storage := heapmodel.NewStorage(budget)
 	fresh := false
 	for instruction := range ssaflow.InstructionsWithin(load.Parent(), budget) {
@@ -129,7 +130,7 @@ func embeddedValueFields(path ssaflow.EmbeddedFieldPath) bool {
 	return true
 }
 
-func freshOwnerResult(value ssa.Value, budget *ssaflow.SearchBudget) bool {
+func freshOwnerResult(value ssa.Value, budget *proofs.SearchBudget) bool {
 	if _, fresh := value.(*ssa.Alloc); fresh {
 		return true
 	}
@@ -156,7 +157,7 @@ func freshOwnerResult(value ssa.Value, budget *ssaflow.SearchBudget) bool {
 	return returned && !budget.Exhausted()
 }
 
-func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storage *heapmodel.Storage, budget *ssaflow.SearchBudget) bool {
+func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storage *heapmodel.Storage, budget *proofs.SearchBudget) bool {
 	call, ok := instruction.(*ssa.Call)
 	if !ok {
 		return false

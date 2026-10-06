@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -16,7 +17,7 @@ func TestPriorCleanupAllowance(t *testing.T) {
 	}{{"captured", true}, {"registered", true}, {"unrelated", false}, {"byValue", false}, {"later", false}, {"leak", false}} {
 		t.Run(test.name, func(t *testing.T) {
 			query, call := priorCleanupAnalysis(t, pkg.Func(test.name))
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				got := query.provePriorCleanupWithin(call, budget)
 				if got.Proven() && got.Instruction == nil {
 					t.Fatal("complete prior-cleanup witness has no instruction")
@@ -33,7 +34,7 @@ func TestCapturedCellCleanupAllowance(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			query, _ := priorCleanupAnalysis(t, pkg.Func(name))
 			deferred := ssaflow.InstructionsOf[*ssa.Defer](query.function)[0]
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				return query.proveCapturedCellCleanupWithin(deferred, budget)
 			}, name == "captured")
 		})
@@ -42,9 +43,9 @@ func TestCapturedCellCleanupAllowance(t *testing.T) {
 
 func TestPriorCleanupChildCutoff(t *testing.T) {
 	query, call := priorCleanupAnalysis(t, priorCleanupFixture(t).Func("captured"))
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	got := query.provePriorCleanupWithin(call, pool.Within(2))
-	if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || got.Instruction != nil || pool.Exhausted() {
+	if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || got.Instruction != nil || pool.Exhausted() {
 		t.Fatalf("interrupted prior registration = %+v; parent exhausted %v", got, pool.Exhausted())
 	}
 	if fresh := query.provePriorCleanupWithin(call, pool.Within(releaseSearchBudget)); !fresh.Proven() || fresh.Instruction == nil {
@@ -56,11 +57,11 @@ func TestCapturedCellClassifierCutoff(t *testing.T) {
 	query, _ := priorCleanupAnalysis(t, priorCleanupFixture(t).Func("captured"))
 	deferred := ssaflow.InstructionsOf[*ssa.Defer](query.function)[0]
 	closure := deferred.Common().Value.(*ssa.MakeClosure)
-	query.pool = ssaflow.NewSearchBudget(0)
+	query.pool = proofs.NewSearchBudget(0)
 	if reason, opaque := query.opaqueClosureCall(deferred, closure, false); !opaque || reason != resourceReasonBudgetExhausted {
 		t.Fatalf("interrupted captured cleanup classifier = %v/%v", reason, opaque)
 	}
-	query.pool = ssaflow.NewSearchBudget(resourcePoolBudget)
+	query.pool = proofs.NewSearchBudget(resourcePoolBudget)
 	if reason, opaque := query.opaqueClosureCall(deferred, closure, false); !opaque || reason != resourceReasonCapturedCellMayCleanup {
 		t.Fatalf("fresh captured cleanup classifier = %v/%v", reason, opaque)
 	}
@@ -74,15 +75,15 @@ func TestPriorCleanupFlow(t *testing.T) {
 			got := evaluateResourceFlow(nil, query.evidence, call, call, query.contract)
 			switch name {
 			case "captured", "registered":
-				if got.state != ssaflow.EvidenceUnknown || got.leak != nil {
+				if got.state != proofs.EvidenceUnknown || got.leak != nil {
 					t.Fatalf("prior cleanup lost uncertainty = %+v", got)
 				}
 			case "leak":
-				if got.state != ssaflow.EvidenceProven || got.leak == nil {
+				if got.state != proofs.EvidenceProven || got.leak == nil {
 					t.Fatalf("leak witness lost = %+v", got)
 				}
 			case "released":
-				if got.state != ssaflow.EvidenceDisproven || got.leak != nil {
+				if got.state != proofs.EvidenceDisproven || got.leak != nil {
 					t.Fatalf("exact cleanup reported = %+v", got)
 				}
 			}

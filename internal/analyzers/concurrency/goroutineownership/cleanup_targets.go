@@ -3,6 +3,7 @@ package goroutineownership
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,7 +17,7 @@ import (
 // literal captures the exact sibling resource and the existing helper-use
 // proof establishes its lifecycle call. Arbitrary tuple siblings prove nothing.
 // https://github.com/containerd/ttrpc/blob/9e62ff76048c2565d85b243f70adc66aeea73290/server_test.go#L571-L582
-func cleanupTargets(common *ssa.CallCommon, budget *ssaflow.SearchBudget) []ssa.Value {
+func cleanupTargets(common *ssa.CallCommon, budget *proofs.SearchBudget) []ssa.Value {
 	if receiver := ssaflow.CallReceiver(common); lifecycleOwnerWithin(receiver, budget) && lifecycleMethod(ssaflow.CallName(common)) {
 		return []ssa.Value{receiver}
 	}
@@ -31,7 +32,7 @@ func cleanupTargets(common *ssa.CallCommon, budget *ssaflow.SearchBudget) []ssa.
 	return factoryCleanupTargets(factory, callback.Index, budget)
 }
 
-func factoryCleanupTargets(factory *ssa.Call, callbackIndex int, budget *ssaflow.SearchBudget) []ssa.Value {
+func factoryCleanupTargets(factory *ssa.Call, callbackIndex int, budget *proofs.SearchBudget) []ssa.Value {
 	function := ssaflow.ResolvedCallee(factory.Common())
 	if function == nil {
 		return nil
@@ -88,7 +89,7 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int, budget *ssaflow
 	return targets
 }
 
-func callbackClosesSibling(closure *ssa.MakeClosure, sibling ssa.Value, budget *ssaflow.SearchBudget) bool {
+func callbackClosesSibling(closure *ssa.MakeClosure, sibling ssa.Value, budget *proofs.SearchBudget) bool {
 	function, _ := closure.Fn.(*ssa.Function)
 	if function == nil {
 		return false

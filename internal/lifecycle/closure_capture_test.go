@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -21,11 +22,11 @@ if flag { fn = func() { <-ch } } else { fn = func() { <-other } }; go callback(f
 `)
 	for _, test := range []struct {
 		name   string
-		reason ssaflow.EvidenceReason
+		reason proofs.EvidenceReason
 	}{
-		{"mixed", ssaflow.EvidenceCapturedByClosure},
-		{"unrelated", ssaflow.EvidenceNotFound},
-		{"converted", ssaflow.EvidenceNotFound},
+		{"mixed", proofs.EvidenceCapturedByClosure},
+		{"unrelated", proofs.EvidenceNotFound},
+		{"converted", proofs.EvidenceNotFound},
 	} {
 		fn := pkg.Func(test.name)
 		var value ssa.Value
@@ -34,15 +35,15 @@ if flag { fn = func() { <-ch } } else { fn = func() { <-other } }; go callback(f
 		} else {
 			value = ssaflow.InstructionsOf[*ssa.Call](fn)[0].Common().Args[0]
 		}
-		pool := ssaflow.NewSearchBudget(4 * ssaflow.QueryBudget)
+		pool := proofs.NewSearchBudget(4 * proofs.QueryBudget)
 		cut := ProvePossibleClosureCaptureWithin(value, fn.Params[0], pool.Within(0))
-		if cut.State != ssaflow.EvidenceUnknown || cut.Reason != ssaflow.EvidenceBudgetExhausted || pool.Exhausted() {
+		if cut.State != proofs.EvidenceUnknown || cut.Reason != proofs.EvidenceBudgetExhausted || pool.Exhausted() {
 			t.Fatalf("%s cutoff: %+v", test.name, cut)
 		}
-		fresh := ProvePossibleClosureCaptureWithin(value, fn.Params[0], pool.Within(ssaflow.QueryBudget))
-		want := ssaflow.EvidenceDisproven
+		fresh := ProvePossibleClosureCaptureWithin(value, fn.Params[0], pool.Within(proofs.QueryBudget))
+		want := proofs.EvidenceDisproven
 		if test.name == "mixed" {
-			want = ssaflow.EvidenceProven
+			want = proofs.EvidenceProven
 		}
 		if fresh.Reason != test.reason || fresh.State != want {
 			t.Fatalf("%s fresh: %+v", test.name, fresh)

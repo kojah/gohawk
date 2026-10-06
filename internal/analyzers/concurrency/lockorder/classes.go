@@ -5,6 +5,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -103,14 +104,14 @@ func possibleFreshMutexField(value ssa.Value) freshMutexFieldProof {
 		fresh = fresh || allocated
 	}
 	if !fresh || visibleMutexSlotReplacement(ssaflow.NewReachingWalk(ssaflow.TransparentNone), owner, field.Field, load,
-		ssaflow.NewSearchBudget(ssaflow.QueryBudget)) {
+		proofs.NewSearchBudget(proofs.QueryBudget)) {
 		return unknown
 	}
 	return freshMutexFieldProof{possible: true, reason: lockReasonFreshFieldIdentityUnknown}
 }
 
 func visibleMutexSlotReplacement(
-	walk ssaflow.ReachingWalk, owner ssa.Value, field int, observation ssa.Instruction, budget *ssaflow.SearchBudget,
+	walk ssaflow.ReachingWalk, owner ssa.Value, field int, observation ssa.Instruction, budget *proofs.SearchBudget,
 ) bool {
 	if !walk.Mark(owner) || owner.Referrers() == nil {
 		return false
@@ -150,7 +151,7 @@ func visibleMutexSlotReplacement(
 	return false
 }
 
-func mutexSlotWrittenShared(address *ssa.FieldAddr, budget *ssaflow.SearchBudget) bool {
+func mutexSlotWrittenShared(address *ssa.FieldAddr, budget *proofs.SearchBudget) bool {
 	if address.Referrers() == nil {
 		return false
 	}

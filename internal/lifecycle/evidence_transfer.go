@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -33,53 +34,53 @@ type OwnershipTransferRequest struct {
 }
 
 // OwnershipTransfer proves and memoizes an ownership-transfer request.
-func (evidence *LocalEvidence) OwnershipTransfer(request OwnershipTransferRequest) ssaflow.OwnershipTransferProof {
+func (evidence *LocalEvidence) OwnershipTransfer(request OwnershipTransferRequest) proofs.OwnershipTransferProof {
 	key := transferEvidenceKey{instruction: request.Instruction, value: request.Value, modes: request.Modes}
 	if proof, ok := evidence.transfers[key]; ok {
 		return proof
 	}
 	proof := proveOwnershipTransfer(request)
 	if evidence.transfers == nil {
-		evidence.transfers = make(map[transferEvidenceKey]ssaflow.OwnershipTransferProof)
+		evidence.transfers = make(map[transferEvidenceKey]proofs.OwnershipTransferProof)
 	}
 	evidence.transfers[key] = proof
 	return proof
 }
 
-func proveOwnershipTransfer(request OwnershipTransferRequest) ssaflow.OwnershipTransferProof {
+func proveOwnershipTransfer(request OwnershipTransferRequest) proofs.OwnershipTransferProof {
 	if request.Instruction == nil || request.Value == nil || request.Modes == 0 {
-		return ssaflow.OwnershipTransferProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+		return proofs.OwnershipTransferProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	}
 	checks := []struct {
 		mode   OwnershipTransferMode
-		reason ssaflow.EvidenceReason
+		reason proofs.EvidenceReason
 		proven func(ssa.Instruction, ssa.Value) bool
 	}{
-		{TransferStoredInField, ssaflow.EvidenceStoredInField, StoresValueInField},
-		{TransferOwnerStoredInField, ssaflow.EvidenceOwnerStoredInField, StoresOwnerOfValueInField},
-		{TransferStoredInGlobal, ssaflow.EvidenceStoredInGlobal, StoresValueInGlobal},
-		{TransferStoredInEnclosingScope, ssaflow.EvidenceStoredInEnclosingScope, StoresValueInEnclosingScope},
-		{TransferOwnerStoredInExternalField, ssaflow.EvidenceOwnerStoredInExternalField, StoresOwnerOfValueInExternalField},
-		{TransferStoredInOwnedMap, ssaflow.EvidenceStoredInOwnedMap, StoresValueInOwnedMap},
-		{TransferSentToReceiver, ssaflow.EvidenceSentToReceiver, SendsValue},
-		{TransferCapturedByClosure, ssaflow.EvidenceCapturedByClosure, ClosureCapturesValue},
-		{TransferCallResultStoredInField, ssaflow.EvidenceCallResultStoredInField, CallTransfersValueToField},
-		{TransferToReturnedOwner, ssaflow.EvidenceTransferredToReturnedOwner, CallTransfersArgumentToReturnedOwner},
-		{TransferToReceiver, ssaflow.EvidenceTransferredToReceiver, CallTransfersArgumentToReceiver},
-		{TransferToLifecycleOwner, ssaflow.EvidenceTransferredToLifecycleOwner, CallTransfersArgumentToLifecycleOwner},
+		{TransferStoredInField, proofs.EvidenceStoredInField, StoresValueInField},
+		{TransferOwnerStoredInField, proofs.EvidenceOwnerStoredInField, StoresOwnerOfValueInField},
+		{TransferStoredInGlobal, proofs.EvidenceStoredInGlobal, StoresValueInGlobal},
+		{TransferStoredInEnclosingScope, proofs.EvidenceStoredInEnclosingScope, StoresValueInEnclosingScope},
+		{TransferOwnerStoredInExternalField, proofs.EvidenceOwnerStoredInExternalField, StoresOwnerOfValueInExternalField},
+		{TransferStoredInOwnedMap, proofs.EvidenceStoredInOwnedMap, StoresValueInOwnedMap},
+		{TransferSentToReceiver, proofs.EvidenceSentToReceiver, SendsValue},
+		{TransferCapturedByClosure, proofs.EvidenceCapturedByClosure, ClosureCapturesValue},
+		{TransferCallResultStoredInField, proofs.EvidenceCallResultStoredInField, CallTransfersValueToField},
+		{TransferToReturnedOwner, proofs.EvidenceTransferredToReturnedOwner, CallTransfersArgumentToReturnedOwner},
+		{TransferToReceiver, proofs.EvidenceTransferredToReceiver, CallTransfersArgumentToReceiver},
+		{TransferToLifecycleOwner, proofs.EvidenceTransferredToLifecycleOwner, CallTransfersArgumentToLifecycleOwner},
 	}
 	for _, check := range checks {
 		if request.Modes&check.mode != 0 && check.proven(request.Instruction, request.Value) {
-			return ssaflow.OwnershipTransferProof{Proof: ssaflow.Proof{
-				State: ssaflow.EvidenceProven, Reason: check.reason, Provenance: ssaflow.EvidenceFromLocalSSA,
+			return proofs.OwnershipTransferProof{Proof: proofs.Proof{
+				State: proofs.EvidenceProven, Reason: check.reason, Provenance: proofs.EvidenceFromLocalSSA,
 			}}
 		}
 	}
 	if transferEvidenceUnavailable(request) {
-		return ssaflow.OwnershipTransferProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+		return proofs.OwnershipTransferProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	}
-	return ssaflow.OwnershipTransferProof{Proof: ssaflow.Proof{
-		State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound, Provenance: ssaflow.EvidenceFromLocalSSA,
+	return proofs.OwnershipTransferProof{Proof: proofs.Proof{
+		State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound, Provenance: proofs.EvidenceFromLocalSSA,
 	}}
 }
 

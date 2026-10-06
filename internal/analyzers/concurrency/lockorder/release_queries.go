@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
@@ -25,25 +26,25 @@ const lockCompletionBudget = 250_000
 // releaseSettled projects an exact completion proof into the launch form this
 // release policy accepts. Interrupted searches remain unavailable for the whole
 // function; they must never stand in for a proven release.
-func releaseSettled(proof ssaflow.CompletionProof, reason ssaflow.EvidenceReason) bool {
+func releaseSettled(proof proofs.CompletionProof, reason proofs.EvidenceReason) bool {
 	return proof.Proven() && proof.Reason == reason
 }
 
 type lockReleaseQueries struct {
 	evidence *lifecycle.LocalEvidence
-	budget   *ssaflow.SearchBudget
+	budget   *proofs.SearchBudget
 	limit    int
-	cutoff   ssaflow.Proof
+	cutoff   proofs.Proof
 }
 
-func newLockReleaseQueries(evidence *lifecycle.LocalEvidence, budget *ssaflow.SearchBudget) *lockReleaseQueries {
+func newLockReleaseQueries(evidence *lifecycle.LocalEvidence, budget *proofs.SearchBudget) *lockReleaseQueries {
 	return &lockReleaseQueries{evidence: evidence, budget: budget, limit: lockCompletionBudget}
 }
 
 func (queries *lockReleaseQueries) query(
-	instruction ssa.Instruction, target ssa.Value, coverage lifecycle.CompletionCoverage, observer ssaflow.Observer,
-) ssaflow.CompletionProof {
-	if queries.cutoff.Reason == ssaflow.EvidenceBudgetExhausted || !queries.budget.Spend() {
+	instruction ssa.Instruction, target ssa.Value, coverage lifecycle.CompletionCoverage, observer proofs.Observer,
+) proofs.CompletionProof {
+	if queries.cutoff.Reason == proofs.EvidenceBudgetExhausted || !queries.budget.Spend() {
 		return queries.interrupted()
 	}
 	child := queries.budget.Within(queries.limit)
@@ -53,15 +54,15 @@ func (queries *lockReleaseQueries) query(
 	proof := queries.evidence.Completion(lifecycle.CompletionRequest{
 		Instruction: instruction, Target: target, Methods: []string{"Unlock", "RUnlock"}, Coverage: coverage, Budget: child,
 	})
-	if child.Exhausted() || child.PoolExhausted() || proof.Reason == ssaflow.EvidenceBudgetExhausted {
+	if child.Exhausted() || child.PoolExhausted() || proof.Reason == proofs.EvidenceBudgetExhausted {
 		return queries.interrupted()
 	}
 	return proof
 }
 
-func (queries *lockReleaseQueries) interrupted() ssaflow.CompletionProof {
-	queries.cutoff = ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
-	return ssaflow.CompletionProof{Proof: queries.cutoff}
+func (queries *lockReleaseQueries) interrupted() proofs.CompletionProof {
+	queries.cutoff = proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
+	return proofs.CompletionProof{Proof: queries.cutoff}
 }
 
 func (queries *lockReleaseQueries) identities(held []string) []string {
@@ -91,10 +92,10 @@ func (flow lockFlowContext) possiblyDeferredUnlock(acquisition ssa.Instruction, 
 				return false
 			}
 			proof := flow.releases.query(deferred, value, lifecycle.CoverageAnywhere, nil)
-			if flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted {
+			if flow.releases.cutoff.Reason == proofs.EvidenceBudgetExhausted {
 				return false
 			}
-			if releaseSettled(proof, ssaflow.EvidenceDeferredCompletion) {
+			if releaseSettled(proof, proofs.EvidenceDeferredCompletion) {
 				// A defer registered before acquisition can conditionally release the
 				// exact lock using state established after Lock. Without proving the
 				// deferred guard false, a missing-release defect is uncertain. Telekom's
@@ -112,12 +113,12 @@ func (flow lockFlowContext) possiblyDeferredUnlock(acquisition ssa.Instruction, 
 // possible-release witness when exact completion fails. Defers register future
 // cleanup through recordDeferredUnlocks rather than consuming held locks here.
 func (flow lockFlowContext) transferCompletedUnlocks(instruction ssa.Instruction, state lockFlowState) []string {
-	var reason ssaflow.EvidenceReason
+	var reason proofs.EvidenceReason
 	switch instruction.(type) {
 	case *ssa.Call:
-		reason = ssaflow.EvidenceCalledCompletion
+		reason = proofs.EvidenceCalledCompletion
 	case *ssa.Go:
-		reason = ssaflow.EvidenceStartedCompletion
+		reason = proofs.EvidenceStartedCompletion
 	default:
 		return state.held
 	}
@@ -128,13 +129,13 @@ func (flow lockFlowContext) transferCompletedUnlocks(instruction ssa.Instruction
 		}
 		for _, value := range flow.lockValues[identity] {
 			proof := flow.releases.query(instruction, value, lifecycle.CoverageEveryReturn, nil)
-			if flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted {
+			if flow.releases.cutoff.Reason == proofs.EvidenceBudgetExhausted {
 				return held
 			}
 			if !releaseSettled(proof, reason) {
-				if reason == ssaflow.EvidenceCalledCompletion {
+				if reason == proofs.EvidenceCalledCompletion {
 					flow.recordPossibleCalledRelease(instruction, identity, value, proof)
-					if flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted {
+					if flow.releases.cutoff.Reason == proofs.EvidenceBudgetExhausted {
 						return held
 					}
 				}
@@ -155,10 +156,10 @@ func (flow lockFlowContext) transferCompletedUnlocks(instruction ssa.Instruction
 }
 
 func (flow lockFlowContext) recordPossibleCalledRelease(
-	instruction ssa.Instruction, identity string, value ssa.Value, proof ssaflow.CompletionProof,
+	instruction ssa.Instruction, identity string, value ssa.Value, proof proofs.CompletionProof,
 ) {
 	possible := flow.mayRelease(instruction, value)
-	if flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted {
+	if flow.releases.cutoff.Reason == proofs.EvidenceBudgetExhausted {
 		return
 	}
 	flow.releaseAttempts.record(identity, instruction, value, proof, possible)
@@ -195,10 +196,10 @@ func (flow lockFlowContext) recordDeferredUnlocks(
 			// Missing-release diagnostics need the release to be impossible, so
 			// this asks only whether the defer may unlock.
 			proof := flow.releases.query(instruction, value, lifecycle.CoverageAnywhere, probe.Observer())
-			if flow.releases.cutoff.Reason == ssaflow.EvidenceBudgetExhausted {
+			if flow.releases.cutoff.Reason == proofs.EvidenceBudgetExhausted {
 				return deferred
 			}
-			if releaseSettled(proof, ssaflow.EvidenceDeferredCompletion) {
+			if releaseSettled(proof, proofs.EvidenceDeferredCompletion) {
 				if !slices.Contains(deferred, identity) {
 					probe.Evidence(analysisTrace.Step{
 						Reason: lockReasonDeferredReleaseProven.String(), Outcome: analysisTrace.OutcomeAccepted, Pos: instruction.Pos(),
@@ -218,5 +219,5 @@ func (flow lockFlowContext) recordDeferredUnlocks(
 // answers only whether the caller may still claim the lock is held.
 func (flow lockFlowContext) mayRelease(instruction ssa.Instruction, value ssa.Value) bool {
 	proof := flow.releases.query(instruction, value, lifecycle.CoverageAnywhere, nil)
-	return proof.Proven() && proof.Reason == ssaflow.EvidenceCalledCompletion
+	return proof.Proven() && proof.Reason == proofs.EvidenceCalledCompletion
 }

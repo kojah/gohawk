@@ -4,6 +4,7 @@ import (
 	"go/token"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -33,18 +34,18 @@ func ReturnedValueOwnsValueSummarized(returned *ssa.Return, value ssa.Value, sum
 // caller allowance. Result, value, reference, storage and constructor coverage
 // visits share budget. Cutoff is unknown; a completed negative means only that
 // this model found no owner. Graph/type and summary-hook internals remain separate.
-func ProveReturnedOwnershipWithin(returned *ssa.Return, value ssa.Value, summarized ReturnsOwner, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func ProveReturnedOwnershipWithin(returned *ssa.Return, value ssa.Value, summarized ReturnsOwner, budget *proofs.SearchBudget) proofs.Proof {
 	search := newOwnershipSearch(summarized)
 	search.budget = budget
 	found := search.returnedValueOwnsValue(returned, value)
 	if search.exhausted() {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	}
-	state, reason := ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
+	state, reason := proofs.EvidenceDisproven, proofs.EvidenceNotFound
 	if found {
-		state, reason = ssaflow.EvidenceProven, ssaflow.EvidenceStructuralWalk
+		state, reason = proofs.EvidenceProven, proofs.EvidenceStructuralWalk
 	}
-	return ssaflow.Proof{State: state, Reason: reason, Provenance: ssaflow.EvidenceFromLocalSSA}
+	return proofs.Proof{State: state, Reason: reason, Provenance: proofs.EvidenceFromLocalSSA}
 }
 
 // ownershipSearch carries the cycle guard and the summary hook through the
@@ -52,7 +53,7 @@ func ProveReturnedOwnershipWithin(returned *ssa.Return, value ssa.Value, summari
 type ownershipSearch struct {
 	seen       map[ownershipPair]bool
 	summarized ReturnsOwner
-	budget     *ssaflow.SearchBudget
+	budget     *proofs.SearchBudget
 }
 
 func newOwnershipSearch(summarized ReturnsOwner) *ownershipSearch {
@@ -239,7 +240,7 @@ func (search *ownershipSearch) samePathStoresValue(address ssa.Value, value ssa.
 
 // localAggregateRoot returns the local allocation an address selects
 // beneath through fields and constant indexes, or nil.
-func localAggregateRootWithin(address ssa.Value, budget *ssaflow.SearchBudget) *ssa.Alloc {
+func localAggregateRootWithin(address ssa.Value, budget *proofs.SearchBudget) *ssa.Alloc {
 	for {
 		if !budget.Spend() {
 			return nil
@@ -295,7 +296,7 @@ func LoadedAggregateMayHold(value, target ssa.Value) bool {
 // the value at that load. A nil budget preserves the default query policy.
 // Unavailable storage retains the original load; cutoff returns nil and leaves
 // exhaustion visible on budget, so it cannot impersonate a nil error or success.
-func ReturnedResultWithin(returned *ssa.Return, index int, budget *ssaflow.SearchBudget) ssa.Value { //nolint:ireturn // Preserve SSA result identity.
+func ReturnedResultWithin(returned *ssa.Return, index int, budget *proofs.SearchBudget) ssa.Value { //nolint:ireturn // Preserve SSA result identity.
 	if index < 0 || index >= len(returned.Results) {
 		return nil
 	}

@@ -1,6 +1,8 @@
 package producerlifecycle
 
-import "github.com/kojah/gohawk/internal/ssaflow"
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+)
 
 // Producer policy owns its reasons. A shared SSA relationship is supporting
 // evidence, not a container for analyzer-specific string classifications.
@@ -55,9 +57,9 @@ func (reason producerReason) String() string {
 }
 
 type producerProof struct {
-	State  ssaflow.EvidenceState
+	State  proofs.EvidenceState
 	Reason producerReason
 }
 
-func (proof producerProof) Proven() bool { return proof.State == ssaflow.EvidenceProven }
-func (proof producerProof) Known() bool  { return proof.State != ssaflow.EvidenceUnknown }
+func (proof producerProof) Proven() bool { return proof.State == proofs.EvidenceProven }
+func (proof producerProof) Known() bool  { return proof.State != proofs.EvidenceUnknown }

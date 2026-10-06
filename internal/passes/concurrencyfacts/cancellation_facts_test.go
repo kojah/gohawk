@@ -3,6 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
@@ -19,7 +20,7 @@ func TestImportedCancellationRequirements(t *testing.T) {
 				return nil, err
 			}
 			for _, function := range functions {
-				result := engine.Root(function, ssaflow.NewSearchBudget(2000))
+				result := engine.Root(function, proofs.NewSearchBudget(2000))
 				if function.Name() != "bound" {
 					if result.Complete() || result.Reason == ReasonNone {
 						t.Errorf("%s lost imported requirement: %+v", function, result)

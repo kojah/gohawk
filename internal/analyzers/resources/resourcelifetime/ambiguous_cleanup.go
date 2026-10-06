@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,10 +17,10 @@ import (
 // It cannot settle the caller's exact resource; cutoff supplies uncertainty
 // rather than a completed absence of possible cleanup.
 func (analysis *resourceAnalysis) proveAmbiguousCleanupWithin(
-	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *proofs.SearchBudget,
 ) resourceProof {
 	if analysis.optional.Proven() || common == nil {
-		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonUntouched}
 	}
 	// A merged receiver or escaped owner projection may still select this
 	// acquisition. Exact storage identity cannot establish that relationship,
@@ -29,7 +30,7 @@ func (analysis *resourceAnalysis) proveAmbiguousCleanupWithin(
 	if slices.Contains(analysis.contract.cleanup, ssaflow.CallName(common)) {
 		derived := heapmodel.ValueDerivesFromWithin(ssaflow.CallReceiver(common), analysis.resource, budget)
 		proof := carriedValueProof(derived, resourceReasonAmbiguousCleanupValue, budget)
-		if proof.State != ssaflow.EvidenceDisproven {
+		if proof.State != proofs.EvidenceDisproven {
 			return proof
 		}
 	}
@@ -42,7 +43,7 @@ func (analysis *resourceAnalysis) proveAmbiguousCleanupWithin(
 // have the same unknown boundary above; read-only helpers do not qualify.
 // https://github.com/mr-karan/doggo/blob/7f6b105f240e562a5c7659976b1c16b683c25385/pkg/resolvers/doh.go#L143-L168
 func (analysis *resourceAnalysis) proveAmbiguousHelperCleanupWithin(
-	instruction ssa.Instruction, common *ssa.CallCommon, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, common *ssa.CallCommon, budget *proofs.SearchBudget,
 ) resourceProof {
 	for _, argument := range common.Args {
 		if !budget.Spend() {
@@ -69,11 +70,11 @@ func (analysis *resourceAnalysis) proveAmbiguousHelperCleanupWithin(
 			proof := analysis.evidence.Prove(lifecyclefacts.EvidenceRequest{
 				Instruction: instruction, Target: argument, Completion: &completion, SelectMask: releaseMask(instruction, argument, method),
 			})
-			if proof.Reason == ssaflow.EvidenceBudgetExhausted {
-				return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+			if proof.Reason == proofs.EvidenceBudgetExhausted {
+				return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 			}
 			candidate := carriedValueProof(proof.Proven(), resourceReasonAmbiguousHelperCleanupValue, budget)
-			if candidate.State != ssaflow.EvidenceDisproven {
+			if candidate.State != proofs.EvidenceDisproven {
 				return candidate
 			}
 		}

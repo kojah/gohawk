@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"slices"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -28,7 +29,7 @@ func (loop NaturalLoop) Contains(block *ssa.BasicBlock) bool {
 // OutermostLoops returns the function's natural loops that no other loop
 // contains. A cycle that is not a natural loop is not reported; a caller that
 // orders blocks still finds it and declines.
-func OutermostLoops(function *ssa.Function, budget *SearchBudget) ([]NaturalLoop, bool) {
+func OutermostLoops(function *ssa.Function, budget *proofs.SearchBudget) ([]NaturalLoop, bool) {
 	var loops []NaturalLoop
 	for _, header := range function.Blocks {
 		loop, ok := naturalLoop(header, budget)
@@ -53,13 +54,13 @@ func OutermostLoops(function *ssa.Function, budget *SearchBudget) ([]NaturalLoop
 
 // NaturalLoopAt returns the natural loop whose header is header, nested loops
 // included, or false when no back edge enters header.
-func NaturalLoopAt(header *ssa.BasicBlock, budget *SearchBudget) (NaturalLoop, bool) {
+func NaturalLoopAt(header *ssa.BasicBlock, budget *proofs.SearchBudget) (NaturalLoop, bool) {
 	return naturalLoop(header, budget)
 }
 
 // naturalLoop collects the loop whose back edges enter header: edges from
 // blocks that header dominates.
-func naturalLoop(header *ssa.BasicBlock, budget *SearchBudget) (NaturalLoop, bool) {
+func naturalLoop(header *ssa.BasicBlock, budget *proofs.SearchBudget) (NaturalLoop, bool) {
 	members := map[*ssa.BasicBlock]bool{header: true}
 	var work []*ssa.BasicBlock
 	backEdge := false
@@ -113,7 +114,7 @@ func naturalLoop(header *ssa.BasicBlock, budget *SearchBudget) (NaturalLoop, boo
 // iterations. Range loops over slices, arrays, strings, and integers, and
 // ordinary counted for loops, have this shape. It says nothing about whether
 // the calls in the body return; the caller decides that separately.
-func BoundedLoop(loop NaturalLoop, budget *SearchBudget) bool {
+func BoundedLoop(loop NaturalLoop, budget *proofs.SearchBudget) bool {
 	for _, block := range loop.Blocks {
 		if !budget.Spend() {
 			return false

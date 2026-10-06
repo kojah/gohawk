@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"iter"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -24,7 +25,7 @@ func StoredInto(address ssa.Value) iter.Seq[ssa.Value] {
 // Cutoff may leave a partial sequence; callers inspect exhaustion before using
 // its absence as evidence. Consumer early stopping does not exhaust the budget.
 // Graph, callback and allocation costs remain independent. Nil is unbounded.
-func StoredIntoWithin(address ssa.Value, budget *ssaflow.SearchBudget) iter.Seq[ssa.Value] {
+func StoredIntoWithin(address ssa.Value, budget *proofs.SearchBudget) iter.Seq[ssa.Value] {
 	return func(yield func(ssa.Value) bool) {
 		ssaflow.WalkStatesWithin([]ssa.Value{address}, func(value ssa.Value) ssa.Value { return value }, func(address ssa.Value) ([]ssa.Value, bool) {
 			if address == nil || address.Referrers() == nil {

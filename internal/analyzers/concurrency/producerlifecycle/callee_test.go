@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -29,14 +30,14 @@ func selected(yes bool, opaque func()) {
 	for _, test := range []struct {
 		name  string
 		count int
-		state ssaflow.EvidenceState
+		state proofs.EvidenceState
 	}{
-		{"direct", 2, ssaflow.EvidenceProven},
-		{"captured", 2, ssaflow.EvidenceProven},
-		{"generic", 2, ssaflow.EvidenceProven},
-		{"balanced", 2, ssaflow.EvidenceDisproven},
-		{"dynamic", 0, ssaflow.EvidenceUnknown},
-		{"selected", 0, ssaflow.EvidenceUnknown},
+		{"direct", 2, proofs.EvidenceProven},
+		{"captured", 2, proofs.EvidenceProven},
+		{"generic", 2, proofs.EvidenceProven},
+		{"balanced", 2, proofs.EvidenceDisproven},
+		{"dynamic", 0, proofs.EvidenceUnknown},
+		{"selected", 0, proofs.EvidenceUnknown},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)

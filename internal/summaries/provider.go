@@ -7,7 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
@@ -93,7 +93,7 @@ func (provider *Provider) ForFunction(function *ssa.Function) Function {
 
 // Results obtains unconditional per-result guarantees. Available summaries may
 // still return Unknown for any or every result position.
-func (function Function) Results(budget *ssaflow.SearchBudget) (resultfacts.Summary, Availability) {
+func (function Function) Results(budget *proofs.SearchBudget) (resultfacts.Summary, Availability) {
 	provider := function.provider
 	if !provider.selection.requirements.Results {
 		return resultfacts.Summary{}, NotRequested
@@ -151,7 +151,7 @@ func (provider *Provider) Concurrency() (*concurrencyfacts.Engine, Availability)
 
 // ConcurrencyAtCall binds ordered effects through the existing domain engine.
 // Missing or incomplete effects retain the engine's domain-specific Reason.
-func (provider *Provider) ConcurrencyAtCall(call ssa.CallInstruction, budget *ssaflow.SearchBudget) (concurrencyfacts.Summary, Availability) {
+func (provider *Provider) ConcurrencyAtCall(call ssa.CallInstruction, budget *proofs.SearchBudget) (concurrencyfacts.Summary, Availability) {
 	if !provider.selection.requirements.Concurrency {
 		return concurrencyfacts.Summary{Reason: concurrencyfacts.ReasonComponentNotRequested}, NotRequested
 	}
@@ -166,13 +166,13 @@ func (provider *Provider) ConcurrencyAtCall(call ssa.CallInstruction, budget *ss
 // ProveCallReturnsViewWithin binds a selected lifecycle declaration using the
 // domain's exact call-site policy and caller allowance. Missing declarations
 // and binding cutoff remain unknown; graph/type and fact-copy costs are separate.
-func (provider *Provider) ProveCallReturnsViewWithin(call *ssa.Call, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func (provider *Provider) ProveCallReturnsViewWithin(call *ssa.Call, target ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
 	if !budget.Spend() {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	}
 	fact, availability := provider.ForFunction(call.Common().StaticCallee()).Lifecycle()
 	if availability != Available {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceUnavailable}
+		return proofs.Proof{Reason: proofs.EvidenceUnavailable}
 	}
 	return fact.ProveReturnsViewWithin(call, target, budget)
 }

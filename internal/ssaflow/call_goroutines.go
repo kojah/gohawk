@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -21,7 +22,7 @@ func SpawnedValueAtCall(
 // extraction. Exhaustion returns nil and remains distinguishable on budget;
 // this query never supplies exact asynchronous identity.
 func SpawnedValueAtCallWithin(
-	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *SearchBudget,
+	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *proofs.SearchBudget,
 ) ssa.Value { //nolint:ireturn // SSA values retain their concrete representations.
 	bindings := CallBindingsWithin(spawn.Common(), function, closure, budget)
 	// Captures are considered before arguments, preserving the candidate
@@ -59,7 +60,7 @@ func MayAliasThroughLoads(value, target ssa.Value) bool {
 
 // MayAliasThroughLoadsWithin charges reaching-value visits to budget. A cutoff
 // cannot prove that value does not possibly originate at target.
-func MayAliasThroughLoadsWithin(value, target ssa.Value, budget *SearchBudget) bool {
+func MayAliasThroughLoadsWithin(value, target ssa.Value, budget *proofs.SearchBudget) bool {
 	forms := TransparentChangeInterface | TransparentChangeType | TransparentConvert | TransparentMakeInterface
 	var leaf func(ReachingWalk, ssa.Value) bool
 	leaf = func(walk ReachingWalk, value ssa.Value) bool {

@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
@@ -23,12 +24,12 @@ type resourceReturnedWrapperProof struct {
 	Position int // Direct retaining result, or -1 for a nested or absent wrapper.
 }
 
-func (analysis *resourceAnalysis) returnedWrapperWithin(returned *ssa.Return, budget *ssaflow.SearchBudget) resourceReturnedWrapperProof {
+func (analysis *resourceAnalysis) returnedWrapperWithin(returned *ssa.Return, budget *proofs.SearchBudget) resourceReturnedWrapperProof {
 	if proof, known := analysis.wrappers[returned]; known {
 		return proof
 	}
 	proof := analysis.proveReturnedWrapperWithin(returned, budget)
-	if proof.State == ssaflow.EvidenceUnknown {
+	if proof.State == proofs.EvidenceUnknown {
 		return proof
 	}
 	if analysis.wrappers == nil {
@@ -44,7 +45,7 @@ func (analysis *resourceAnalysis) returnedWrapperWithin(returned *ssa.Return, bu
 // Positive evidence establishes possible retention only, so the classifier
 // labels it unknown rather than settled. All census, dominance and containment
 // visits share budget; graph and alias-query internals remain independent.
-func (analysis *resourceAnalysis) proveReturnedWrapperWithin(returned *ssa.Return, budget *ssaflow.SearchBudget) resourceReturnedWrapperProof {
+func (analysis *resourceAnalysis) proveReturnedWrapperWithin(returned *ssa.Return, budget *proofs.SearchBudget) resourceReturnedWrapperProof {
 	position := analysis.returnedWrapperPositionWithin(returned, budget)
 	found := position >= 0
 	if !found && !resourceFlowExhausted(budget) {
@@ -62,18 +63,18 @@ func (analysis *resourceAnalysis) proveReturnedWrapperWithin(returned *ssa.Retur
 	}
 	if resourceFlowExhausted(budget) {
 		return resourceReturnedWrapperProof{
-			resourceProof: resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}, Position: -1,
+			resourceProof: resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}, Position: -1,
 		}
 	}
 	if found {
 		return resourceReturnedWrapperProof{
-			resourceProof: resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonReturnedWrapperRetains}, Position: position,
+			resourceProof: resourceProof{State: proofs.EvidenceProven, Reason: resourceReasonReturnedWrapperRetains}, Position: position,
 		}
 	}
-	return resourceReturnedWrapperProof{resourceProof: resourceProof{State: ssaflow.EvidenceDisproven}, Position: -1}
+	return resourceReturnedWrapperProof{resourceProof: resourceProof{State: proofs.EvidenceDisproven}, Position: -1}
 }
 
-func returnedContainsWrapperWithin(returned *ssa.Return, call *ssa.Call, budget *ssaflow.SearchBudget) bool {
+func returnedContainsWrapperWithin(returned *ssa.Return, call *ssa.Call, budget *proofs.SearchBudget) bool {
 	for _, result := range returned.Results {
 		if !budget.Spend() {
 			return false
@@ -85,67 +86,67 @@ func returnedContainsWrapperWithin(returned *ssa.Return, call *ssa.Call, budget 
 	return false
 }
 
-func (analysis *resourceAnalysis) proveResourceReturn(returned *ssa.Return, budget *ssaflow.SearchBudget) resourceLifetimePolicyResult {
+func (analysis *resourceAnalysis) proveResourceReturn(returned *ssa.Return, budget *proofs.SearchBudget) resourceLifetimePolicyResult {
 	owner := analysis.returnedResourceOwner(returned, budget)
-	if owner.State == ssaflow.EvidenceUnknown {
+	if owner.State == proofs.EvidenceUnknown {
 		return unknownResourceLifetime(owner.Reason)
 	}
-	transferred := owner.State == ssaflow.EvidenceProven || heapmodel.ReturnedMayAliasAnyWithin(returned, analysis.owners, budget)
+	transferred := owner.State == proofs.EvidenceProven || heapmodel.ReturnedMayAliasAnyWithin(returned, analysis.owners, budget)
 	if resourceFlowExhausted(budget) {
 		return unknownResourceLifetime(resourceReasonBudgetExhausted)
 	}
 	if transferred {
 		return acceptedResourceLifetime(resourceReasonReturnedMayTransfer)
 	}
-	return resourceLifetimePolicyResult{state: ssaflow.EvidenceProven, reason: resourceReasonUnownedReturn, leak: returned}
+	return resourceLifetimePolicyResult{state: proofs.EvidenceProven, reason: resourceReasonUnownedReturn, leak: returned}
 }
 
 // returnedResourceOwner reports whether the return hands the resource to the
 // caller through a value that can still release it. When a result derives
 // from the resource but is declined, the trace says which rule declined it:
 // a summarized view, or a projection with no cleanup method.
-func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) returnedResourceOwner(returned *ssa.Return, budget *proofs.SearchBudget) resourceProof {
 	resource := analysis.resource
 	if !budget.Spend() {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	if lifecycle.ProveReturnedOwnershipWithin(returned, resource, nil, budget).Proven() {
-		return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonReturnedMayTransfer}
+		return resourceProof{State: proofs.EvidenceProven, Reason: resourceReasonReturnedMayTransfer}
 	}
 	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	wrapper := analysis.returnedWrapperWithin(returned, budget)
-	if wrapper.State == ssaflow.EvidenceUnknown {
+	if wrapper.State == proofs.EvidenceUnknown {
 		return wrapper.resourceProof
 	}
 	if position := wrapper.Position; position >= 0 &&
 		analysis.evidence.RetainingResultClaimed(analysis.function, position) {
 		analysis.traceReturnedResult(returned, returned.Results[position], resourceReasonReturnedRetainingWrapper, analysisTrace.OutcomeAccepted)
-		return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonReturnedMayTransfer}
+		return resourceProof{State: proofs.EvidenceProven, Reason: resourceReasonReturnedMayTransfer}
 	}
 	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	for _, result := range returned.Results {
 		if !budget.Spend() {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if !heapmodel.ValueDerivesFromWithin(result, resource, budget) {
 			continue
 		}
 		proof := analysis.proveReturnedProjection(returned, result, budget)
-		if proof.State == ssaflow.EvidenceUnknown || proof.Proven() {
+		if proof.State == proofs.EvidenceUnknown || proof.Proven() {
 			return proof
 		}
 	}
 	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
-	return resourceProof{State: ssaflow.EvidenceDisproven}
+	return resourceProof{State: proofs.EvidenceDisproven}
 }
 
-func (analysis *resourceAnalysis) proveReturnedProjection(returned *ssa.Return, result ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
+func (analysis *resourceAnalysis) proveReturnedProjection(returned *ssa.Return, result ssa.Value, budget *proofs.SearchBudget) resourceProof {
 	resource, cleanup := analysis.resource, analysis.contract.cleanup
 	// Narrowing an interface preserves its dynamic object, including Close:
 	// the caller can still recover io.Closer by assertion. Require the
@@ -153,13 +154,13 @@ func (analysis *resourceAnalysis) proveReturnedProjection(returned *ssa.Return, 
 	// replacement body that merely occupies the original field.
 	// https://github.com/lich0821/ccNexus/blob/55887d232555f94ea4db621a5a7e65430eebf0d7/internal/transformer/tool_chain.go#L121-L135
 	if !budget.Spend() {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	if original, changed := ssaflow.UnwrapTransparentValue(result, ssaflow.TransparentChangeInterface); changed {
-		projectionBudget := budget.Within(ssaflow.QueryBudget)
+		projectionBudget := budget.Within(proofs.QueryBudget)
 		projection := heapmodel.NewStorage(projectionBudget).Projection(original, resource, returned)
 		if projectionBudget.Exhausted() || projectionBudget.PoolExhausted() {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if projection.Proven() {
 			result = original
@@ -169,30 +170,30 @@ func (analysis *resourceAnalysis) proveReturnedProjection(returned *ssa.Return, 
 	// method names suggest; the caller of this function cannot close the
 	// resource through it.
 	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	if call, ok := result.(*ssa.Call); ok {
 		view := analysis.summaries.ProveCallReturnsViewWithin(call, resource, budget)
-		if view.State == ssaflow.EvidenceUnknown && view.Reason == ssaflow.EvidenceBudgetExhausted {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		if view.State == proofs.EvidenceUnknown && view.Reason == proofs.EvidenceBudgetExhausted {
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if view.Proven() {
 			analysis.traceReturnedResult(returned, result, resourceReasonReturnedViewCannotRelease, analysisTrace.OutcomeRejected)
-			return resourceProof{State: ssaflow.EvidenceDisproven}
+			return resourceProof{State: proofs.EvidenceDisproven}
 		}
 	}
 	methods := types.NewMethodSet(result.Type())
 	for method := range methods.Methods() {
 		if !budget.Spend() {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if slices.Contains(cleanup, method.Obj().Name()) {
 			analysis.traceReturnedResult(returned, result, resourceReasonReturnedCleanupProjection, analysisTrace.OutcomeAccepted)
-			return resourceProof{State: ssaflow.EvidenceProven, Reason: resourceReasonReturnedMayTransfer}
+			return resourceProof{State: proofs.EvidenceProven, Reason: resourceReasonReturnedMayTransfer}
 		}
 	}
 	analysis.traceReturnedResult(returned, result, resourceReasonReturnedProjectionLacksCleanup, analysisTrace.OutcomeRejected)
-	return resourceProof{State: ssaflow.EvidenceDisproven}
+	return resourceProof{State: proofs.EvidenceDisproven}
 }
 
 // returnedWrapperPositionWithin reports the result position at which a return hands
@@ -206,7 +207,7 @@ func (analysis *resourceAnalysis) proveReturnedProjection(returned *ssa.Return, 
 // return that discards the wrapper still abandons the resource. A may-hold
 // wrapper, such as bufio.NewWriter, is not a chain step and stays reported.
 // https://github.com/datolabs-io/opsy/blob/8c588e1c17da76db92351ccaf9b1fdd5793ab5f5/internal/config/config.go#L186-L209
-func (analysis *resourceAnalysis) returnedWrapperPositionWithin(returned *ssa.Return, budget *ssaflow.SearchBudget) int {
+func (analysis *resourceAnalysis) returnedWrapperPositionWithin(returned *ssa.Return, budget *proofs.SearchBudget) int {
 	for position, result := range returned.Results {
 		if !budget.Spend() {
 			return -1
@@ -218,7 +219,7 @@ func (analysis *resourceAnalysis) returnedWrapperPositionWithin(returned *ssa.Re
 	return -1
 }
 
-func (analysis *resourceAnalysis) provenWrapperOfWithin(value ssa.Value, depth int, budget *ssaflow.SearchBudget) bool {
+func (analysis *resourceAnalysis) provenWrapperOfWithin(value ssa.Value, depth int, budget *proofs.SearchBudget) bool {
 	if !budget.Spend() {
 		return false
 	}

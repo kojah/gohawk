@@ -6,7 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -20,13 +20,13 @@ func TestLockWalkCutoffDiscardsReportsAndOrders(t *testing.T) {
 
 func assertLockWalkCutoffs(t *testing.T, fixture *lockWalkFixture, minReports int) {
 	t.Helper()
-	complete, baseline, edges := fixture.run(ssaflow.NewSearchBudget(lockStateWorkBudget))
+	complete, baseline, edges := fixture.run(proofs.NewSearchBudget(lockStateWorkBudget))
 	if !complete || len(baseline) < minReports || edges == 0 {
 		t.Fatalf("baseline complete=%v reports=%v edges=%d", complete, baseline, edges)
 	}
 	finished := false
-	for limit := range ssaflow.SummaryBudget {
-		pool := ssaflow.NewSearchBudget(lockStateWorkBudget)
+	for limit := range proofs.SummaryBudget {
+		pool := proofs.NewSearchBudget(lockStateWorkBudget)
 		child := pool.Within(limit)
 		ok, reports, orders := fixture.run(child)
 		if ok {
@@ -51,13 +51,13 @@ func assertLockWalkCutoffs(t *testing.T, fixture *lockWalkFixture, minReports in
 func TestLockWalkParentCutoffAndStableCleanup(t *testing.T) {
 	pkg := lockWalkBudgetPackage(t)
 	fixture := newLockWalkFixture(pkg.Func("witness"))
-	pool := ssaflow.NewSearchBudget(1)
+	pool := proofs.NewSearchBudget(1)
 	child := pool.Within(lockStateWorkBudget)
 	if ok, reports, orders := fixture.run(child); ok || !child.PoolExhausted() || len(reports) != 0 || orders != 0 {
 		t.Fatalf("parent cutoff complete=%v reports=%v edges=%d", ok, reports, orders)
 	}
 	safe := newLockWalkFixture(pkg.Func("safe"))
-	if ok, reports, orders := safe.run(ssaflow.NewSearchBudget(lockStateWorkBudget)); !ok || len(reports) != 0 || orders != 0 {
+	if ok, reports, orders := safe.run(proofs.NewSearchBudget(lockStateWorkBudget)); !ok || len(reports) != 0 || orders != 0 {
 		t.Fatalf("stable branch cleanup complete=%v reports=%v edges=%d", ok, reports, orders)
 	}
 }
@@ -73,7 +73,7 @@ func newLockWalkFixture(function *ssa.Function) *lockWalkFixture {
 	return &lockWalkFixture{function: function, calleeLocks: newCalleeLockSearch(), results: resultfacts.NewEngine()}
 }
 
-func (fixture *lockWalkFixture) run(budget *ssaflow.SearchBudget) (bool, []analysis.Diagnostic, int) {
+func (fixture *lockWalkFixture) run(budget *proofs.SearchBudget) (bool, []analysis.Diagnostic, int) {
 	var reports []analysis.Diagnostic
 	fn := fixture.function
 	pass := &analysis.Pass{

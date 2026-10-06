@@ -3,6 +3,7 @@ package resultfacts
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -20,17 +21,17 @@ func TestAssumedResultCutoff(t *testing.T) {
 	}
 	assumed := ssaflow.FixedValues{function.Params[0]: ssaflow.OutcomeNil}
 	engine := NewEngine()
-	zero := ssaflow.NewSearchBudget(0)
+	zero := proofs.NewSearchBudget(0)
 	if got := engine.assumedValue(value, assumed, zero); got != Unknown || !zero.Exhausted() {
 		t.Fatal("zero allowance must not decide an assumed literal")
 	}
-	pool := ssaflow.NewSearchBudget(0)
-	if got := engine.assumedValue(value, assumed, pool.Within(ssaflow.QueryBudget)); got != Unknown || !pool.Exhausted() {
+	pool := proofs.NewSearchBudget(0)
+	if got := engine.assumedValue(value, assumed, pool.Within(proofs.QueryBudget)); got != Unknown || !pool.Exhausted() {
 		t.Fatal("exhausted parent pool must not decide an assumed literal")
 	}
 	completed := false
-	for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.QueryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		got := engine.assumedValue(value, assumed, budget)
 		if got == AlwaysFalse {
 			if budget.Exhausted() {
@@ -53,14 +54,14 @@ func TestConditionalSummaryCutoffRecovery(t *testing.T) {
 	for _, name := range []string{"Failed", "FailedWithSideEffect", "OpenForwarded"} {
 		t.Run(name, func(t *testing.T) {
 			function := pkg.Func(name)
-			want := NewEngine().Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+			want := NewEngine().Function(function, proofs.NewSearchBudget(proofs.SummaryBudget))
 			if !want.Available || len(want.Cases()) == 0 {
 				t.Fatal("expected actual conditional guarantee")
 			}
 			completed := false
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
 				engine := NewEngine()
-				budget := ssaflow.NewSearchBudget(limit)
+				budget := proofs.NewSearchBudget(limit)
 				got := engine.Function(function, budget)
 				if got.Available {
 					if len(got.Cases()) != len(want.Cases()) || budget.Exhausted() {
@@ -72,7 +73,7 @@ func TestConditionalSummaryCutoffRecovery(t *testing.T) {
 				if len(got.Cases()) != 0 || !budget.Exhausted() {
 					t.Fatal("interrupted summary admitted cases")
 				}
-				fresh := engine.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+				fresh := engine.Function(function, proofs.NewSearchBudget(proofs.SummaryBudget))
 				if !fresh.Available || len(fresh.Cases()) != len(want.Cases()) {
 					t.Fatal("cutoff poisoned a fresh query")
 				}

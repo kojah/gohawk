@@ -4,7 +4,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -142,8 +142,8 @@ func (evidence *LifecycleEvidence) RetainingResult(call *ssa.Call) (int, bool) {
 	}
 	for index := range call.Common().Signature().Results().Len() {
 		if fact.Must.RetainingResults.contains(index) {
-			evidence.emit(EvidenceRequest{Instruction: call, Target: call}, Proof{Proof: ssaflow.Proof{
-				State: ssaflow.EvidenceProven, Provenance: ssaflow.EvidenceFromImportedFact,
+			evidence.emit(EvidenceRequest{Instruction: call, Target: call}, Proof{Proof: proofs.Proof{
+				State: proofs.EvidenceProven, Provenance: proofs.EvidenceFromImportedFact,
 			}, SummaryReason: reasonRetainingResultContract})
 			return index, true
 		}

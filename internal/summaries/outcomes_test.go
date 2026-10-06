@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -30,7 +31,7 @@ func caller(flag bool) (bool,bool,*box,*box,any,bool,bool) {
 		ssaflow.OutcomeTrue, ssaflow.OutcomeFalse, ssaflow.OutcomeNil, ssaflow.OutcomeNonNil,
 		ssaflow.OutcomeNonNil, ssaflow.OutcomeAny, ssaflow.OutcomeAny,
 	} {
-		got, known := provider.OutcomeOf(results[index], ssaflow.NewSearchBudget(2000))
+		got, known := provider.OutcomeOf(results[index], proofs.NewSearchBudget(2000))
 		if got != want || known != (want != ssaflow.OutcomeAny) {
 			t.Errorf("result %d: outcome (%v,%v), want %v", index, got, known, want)
 		}
@@ -50,7 +51,7 @@ func caller(flag bool) (bool,bool,*box,*box,any,bool,bool) {
 			t.Error("unavailable component invented a call outcome")
 		}
 	}
-	budget := ssaflow.NewSearchBudget(1)
+	budget := proofs.NewSearchBudget(1)
 	budget.Spend()
 	if got, known := provider.OutcomeOf(results[0], budget); known || got != ssaflow.OutcomeAny || !budget.Exhausted() {
 		t.Error("exhausted summary query retained a call guarantee")

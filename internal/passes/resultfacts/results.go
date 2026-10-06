@@ -8,6 +8,7 @@ import (
 	"go/types"
 	"sync"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -92,13 +93,13 @@ func NewEngine() *Engine {
 }
 
 // Function returns local or imported, context-independent result guarantees.
-func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
+func (engine *Engine) Function(function *ssa.Function, budget *proofs.SearchBudget) Summary {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
 	return engine.function(function, budget)
 }
 
-func (engine *Engine) function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
+func (engine *Engine) function(function *ssa.Function, budget *proofs.SearchBudget) Summary {
 	if function == nil || !budget.Spend() {
 		return Summary{Reason: ReasonSummaryUnavailable}
 	}
@@ -112,7 +113,7 @@ func (engine *Engine) function(function *ssa.Function, budget *ssaflow.SearchBud
 	return engine.summaries.Function(function, budget)
 }
 
-func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
+func (engine *Engine) compute(function *ssa.Function, budget *proofs.SearchBudget) Summary {
 	count := function.Signature.Results().Len()
 	if count > maxResults {
 		return Summary{Reason: ReasonCountLimit}
@@ -151,7 +152,7 @@ func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudg
 		if !proof.Known() {
 			return Summary{Reason: ReasonBudgetExhausted}
 		}
-		result.neverReturns = proof.State == ssaflow.EvidenceDisproven
+		result.neverReturns = proof.State == proofs.EvidenceDisproven
 	}
 	if !witness {
 		result.Reason = ReasonNoNormalReturnWitness
@@ -161,7 +162,7 @@ func (engine *Engine) compute(function *ssa.Function, budget *ssaflow.SearchBudg
 	return result
 }
 
-func (engine *Engine) value(value ssa.Value, budget *ssaflow.SearchBudget) Guarantee {
+func (engine *Engine) value(value ssa.Value, budget *proofs.SearchBudget) Guarantee {
 	query := storedResultQuery{engine: engine, budget: budget}
 	result, ok := query.resolve(ssaflow.NewReachingWalk(ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType), value)
 	if !ok || budget.Exhausted() {
@@ -170,7 +171,7 @@ func (engine *Engine) value(value ssa.Value, budget *ssaflow.SearchBudget) Guara
 	return result
 }
 
-func (engine *Engine) leaf(value ssa.Value, budget *ssaflow.SearchBudget) Guarantee {
+func (engine *Engine) leaf(value ssa.Value, budget *proofs.SearchBudget) Guarantee {
 	if !budget.Spend() {
 		return Unknown
 	}

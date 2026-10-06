@@ -1,9 +1,12 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+	"golang.org/x/tools/go/ssa"
+	// PrivateFunctionUses describes declaration-resolved uses in a supplied body
+	// inventory. It establishes no ownership, completion or execution count.
+)
 
-// PrivateFunctionUses describes declaration-resolved uses in a supplied body
-// inventory. It establishes no ownership, completion or execution count.
 type PrivateFunctionUses struct {
 	// Calls contains at most 32 direct synchronous calls.
 	Calls []*ssa.Call
@@ -16,7 +19,7 @@ type PrivateFunctionUses struct {
 // and closures when relevant. A nil result means an interrupted census; no
 // discovered prefix may establish absence of other uses. Missing entries have
 // no observed use, rather than a guarantee about execution outside the scope.
-func CollectPrivateFunctionUsesWithin(functions []*ssa.Function, budget *SearchBudget) map[*ssa.Function]PrivateFunctionUses {
+func CollectPrivateFunctionUsesWithin(functions []*ssa.Function, budget *proofs.SearchBudget) map[*ssa.Function]PrivateFunctionUses {
 	uses := map[*ssa.Function]PrivateFunctionUses{}
 	for _, function := range functions {
 		if function == nil {

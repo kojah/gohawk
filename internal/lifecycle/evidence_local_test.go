@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -29,14 +30,14 @@ func store(target *owner, value *closer) {
 		Value:       target,
 		Modes:       TransferStoredInField,
 	})
-	if !proof.Proven() || proof.Reason != ssaflow.EvidenceStoredInField {
+	if !proof.Proven() || proof.Reason != proofs.EvidenceStoredInField {
 		t.Fatalf("ProveOwnershipTransfer() = %#v, want stored-in-field proof", proof)
 	}
 	if rejected := ProveOwnershipTransfer(OwnershipTransferRequest{
 		Instruction: store,
 		Value:       target,
 		Modes:       TransferStoredInGlobal,
-	}); rejected.Proven() || rejected.State != ssaflow.EvidenceDisproven {
+	}); rejected.Proven() || rejected.State != proofs.EvidenceDisproven {
 		t.Fatalf("ProveOwnershipTransfer() = %#v, want disproven relationship", rejected)
 	}
 }
@@ -86,7 +87,7 @@ func returnedOwner(value *resource) *owner { return makeOwner(value) }
 				Value:       value,
 				Modes:       TransferToLifecycleOwner,
 			})
-			if proof.Proven() || proof.State != ssaflow.EvidenceDisproven || proof.Reason != ssaflow.EvidenceNotFound {
+			if proof.Proven() || proof.State != proofs.EvidenceDisproven || proof.Reason != proofs.EvidenceNotFound {
 				t.Fatalf("ProveOwnershipTransfer() = %#v, want no lifecycle-owner proof", proof)
 			}
 		})
@@ -98,7 +99,7 @@ func returnedOwner(value *resource) *owner { return makeOwner(value) }
 		Value:       stored,
 		Modes:       TransferToReceiver,
 	})
-	if !storeProof.Proven() || storeProof.Reason != ssaflow.EvidenceTransferredToReceiver {
+	if !storeProof.Proven() || storeProof.Reason != proofs.EvidenceTransferredToReceiver {
 		t.Fatalf("visible store proof = %#v, want receiver transfer", storeProof)
 	}
 
@@ -108,7 +109,7 @@ func returnedOwner(value *resource) *owner { return makeOwner(value) }
 		Value:       owned,
 		Modes:       TransferToReturnedOwner,
 	})
-	if !ownerProof.Proven() || ownerProof.Reason != ssaflow.EvidenceTransferredToReturnedOwner {
+	if !ownerProof.Proven() || ownerProof.Reason != proofs.EvidenceTransferredToReturnedOwner {
 		t.Fatalf("returned owner proof = %#v, want returned-owner transfer", ownerProof)
 	}
 }
@@ -144,21 +145,21 @@ func fields(left, right *owner) {
 	}
 
 	direct := ssaflow.ProveIdentityWithin(ssaflow.AccessPath{Value: function.Params[0]}, ssaflow.AccessPath{Value: function.Params[0]}, nil)
-	if !direct.Proven() || direct.Reason != ssaflow.EvidenceSameValue {
+	if !direct.Proven() || direct.Reason != proofs.EvidenceSameValue {
 		t.Fatalf("direct identity = %#v, want same-value proof", direct)
 	}
 	mapped := ssaflow.ProveIdentityWithin(
 		ssaflow.AccessPath{Value: fields[0], Root: function.Params[0]},
 		ssaflow.AccessPath{Value: fields[1], Root: function.Params[1]}, nil,
 	)
-	if !mapped.Proven() || mapped.Reason != ssaflow.EvidenceSameAccessPath {
+	if !mapped.Proven() || mapped.Reason != proofs.EvidenceSameAccessPath {
 		t.Fatalf("mapped identity = %#v, want same-access-path proof", mapped)
 	}
 	rejected := ssaflow.ProveIdentityWithin(
 		ssaflow.AccessPath{Value: fields[0], Root: function.Params[0]},
 		ssaflow.AccessPath{Value: fields[2], Root: function.Params[1]}, nil,
 	)
-	if rejected.Proven() || rejected.State != ssaflow.EvidenceDisproven {
+	if rejected.Proven() || rejected.State != proofs.EvidenceDisproven {
 		t.Fatalf("identity = %#v, want different fields disproven", rejected)
 	}
 }
@@ -211,13 +212,13 @@ func TestLocalCompletionCutoffIsNotCached(t *testing.T) {
 	instruction := findSSAInstruction(t, fn, func(instruction ssa.Instruction) bool {
 		return ssaflow.CallName(ssaflow.InstructionCall(instruction)) == "cleanup"
 	})
-	request := CompletionRequest{Instruction: instruction, Target: fn.Params[0], Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(0)}
+	request := CompletionRequest{Instruction: instruction, Target: fn.Params[0], Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(0)}
 	var evidence LocalEvidence
 	cut := evidence.Completion(request)
-	if cut.State != ssaflow.EvidenceUnknown || cut.Reason != ssaflow.EvidenceBudgetExhausted || len(evidence.completions) != 0 {
+	if cut.State != proofs.EvidenceUnknown || cut.Reason != proofs.EvidenceBudgetExhausted || len(evidence.completions) != 0 {
 		t.Fatalf("interrupted completion cached: %+v, entries %d", cut, len(evidence.completions))
 	}
-	request.Budget = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	request.Budget = proofs.NewSearchBudget(proofs.SummaryBudget)
 	fresh := evidence.Completion(request)
 	if !fresh.Proven() || len(evidence.completions) != 1 {
 		t.Fatalf("fresh completion = %+v, entries %d", fresh, len(evidence.completions))

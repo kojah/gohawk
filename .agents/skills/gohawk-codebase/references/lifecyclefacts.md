@@ -115,7 +115,7 @@ func (fact *CleanupFact) String() string
 
 ```go
 type CompletionProof struct {
-	ssaflow.CompletionProof
+	proofs.CompletionProof
 	SummaryReason	Reason
 }
 ```
@@ -173,7 +173,7 @@ type EvidenceRequest struct {
 	Target		ssa.Value
 	Completion	*lifecycle.CompletionRequest
 	Transfer	*lifecycle.OwnershipTransferRequest
-	Local		*ssaflow.Proof
+	Local		*proofs.Proof
 	SelectMask	func(Fact) ParameterMask
 	// StrictImportedProjection lets one analyzer map a summary parameter to an
 	// exact, stable field/index path beneath its target. Ordinary fact matching
@@ -324,7 +324,7 @@ cleanup of something beneath the parameter is not included.
 [Source](../../../../internal/passes/lifecyclefacts/returned_views.go)
 
 ```go
-func (fact *Fact) ProveReturnsViewWithin(instruction ssa.Instruction, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+func (fact *Fact) ProveReturnsViewWithin(instruction ssa.Instruction, target ssa.Value, budget *proofs.SearchBudget) proofs.Proof
 ```
 
 ProveReturnsViewWithin binds the returned-view mask using existing exact
@@ -524,7 +524,7 @@ it. The proof outranks a lifecycle-looking method name on the result type.
 
 ```go
 func (evidence *LifecycleEvidence) CallEffectsWithin(
-	instruction ssa.Instruction, target ssa.Value, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, target ssa.Value, budget *proofs.SearchBudget,
 ) ssaflow.CallEffectProof
 ```
 
@@ -597,7 +597,7 @@ and let the caller keep the old opaque answer.
 
 ```go
 func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCalleeWithin(
-	closure *ssa.MakeClosure, target ssa.Value, budget *ssaflow.SearchBudget,
+	closure *ssa.MakeClosure, target ssa.Value, budget *proofs.SearchBudget,
 ) bool
 ```
 
@@ -814,7 +814,7 @@ ParameterMask is a set of SSA parameter positions in a lifecycle summary.
 
 ```go
 type Proof struct {
-	ssaflow.Proof
+	proofs.Proof
 	SummaryReason	Reason
 }
 ```

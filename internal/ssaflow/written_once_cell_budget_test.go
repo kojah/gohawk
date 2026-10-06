@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -22,8 +23,8 @@ func TestWrittenOnceCellAllowance(t *testing.T) {
 			cell := ssaflow.InstructionsOf[*ssa.Alloc](fn)[0]
 			want, once := ssaflow.WrittenOnceCellWithin(cell, nil)
 			completed := false
-			for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got, ok := ssaflow.WrittenOnceCellWithin(cell, budget)
 				if budget.Exhausted() || limit == 0 {
 					if got != nil || ok {
@@ -40,11 +41,11 @@ func TestWrittenOnceCellAllowance(t *testing.T) {
 			if !completed {
 				t.Fatal("cell census never completed")
 			}
-			pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+			pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 			if got, ok := ssaflow.WrittenOnceCellWithin(cell, pool.Within(1)); got != nil || ok || pool.Exhausted() {
 				t.Fatalf("child=%v/%v pool exhausted=%v", got, ok, pool.Exhausted())
 			}
-			if got, ok := ssaflow.WrittenOnceCellWithin(cell, pool.Within(ssaflow.QueryBudget)); got != want || ok != once {
+			if got, ok := ssaflow.WrittenOnceCellWithin(cell, pool.Within(proofs.QueryBudget)); got != want || ok != once {
 				t.Fatalf("fresh=%v/%v", got, ok)
 			}
 		})
@@ -53,16 +54,16 @@ func TestWrittenOnceCellAllowance(t *testing.T) {
 
 func TestWrittenOnceNestedReaderAllowance(t *testing.T) {
 	source := `package manyreads
- func read(n int)func(){v:=n;return func(){` + strings.Repeat("println(v);", ssaflow.QueryBudget+1) + `}}
+ func read(n int)func(){v:=n;return func(){` + strings.Repeat("println(v);", proofs.QueryBudget+1) + `}}
  `
 	fn := ssaflowtest.BuildPackage(t, "manyreads", source).Func("read")
 	cell := ssaflow.InstructionsOf[*ssa.Alloc](fn)[0]
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
+	child := pool.Within(proofs.QueryBudget)
 	if stored, ok := ssaflow.WrittenOnceCellWithin(cell, child); stored != nil || ok || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("nested reader cut=%v/%v, child exhausted=%v, parent exhausted=%v", stored, ok, child.Exhausted(), pool.Exhausted())
 	}
-	fresh := pool.Within(2 * ssaflow.SummaryBudget)
+	fresh := pool.Within(2 * proofs.SummaryBudget)
 	if stored, ok := ssaflow.WrittenOnceCellWithin(cell, fresh); !ok || stored != fn.Params[0] {
 		t.Fatalf("fresh nested reader=%v/%v", stored, ok)
 	}

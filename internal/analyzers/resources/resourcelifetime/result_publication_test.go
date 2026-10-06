@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -50,7 +51,7 @@ func foreign(dest *holder) { dest.value = makeOwner() }
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				return proveCallResultMayTransferWithin(call, budget)
 			}, test.want)
 		})
@@ -61,14 +62,14 @@ func TestResultPublicationCensusCutoff(t *testing.T) {
 	pkg := resultPublicationCensusFixture(t)
 	fn := pkg.Func("long")
 	calls := ssaflow.InstructionsOf[*ssa.Call](fn)
-	if len(calls) != ssaflow.SummaryBudget+101 {
-		t.Fatalf("call census = %d, want %d", len(calls), ssaflow.SummaryBudget+101)
+	if len(calls) != proofs.SummaryBudget+101 {
+		t.Fatalf("call census = %d, want %d", len(calls), proofs.SummaryBudget+101)
 	}
-	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
-	if proof := proveCallResultMayTransferWithin(calls[0], budget); proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted {
+	budget := proofs.NewSearchBudget(proofs.SummaryBudget)
+	if proof := proveCallResultMayTransferWithin(calls[0], budget); proof.State != proofs.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted {
 		t.Fatalf("interrupted publication census = %+v", proof)
 	}
-	if fresh := proveCallResultMayTransferWithin(calls[0], ssaflow.NewSearchBudget(10*ssaflow.SummaryBudget)); !fresh.Proven() {
+	if fresh := proveCallResultMayTransferWithin(calls[0], proofs.NewSearchBudget(10*proofs.SummaryBudget)); !fresh.Proven() {
 		t.Fatalf("fresh publication census = %+v", fresh)
 	}
 }
@@ -78,7 +79,7 @@ func TestResultPublicationClassifierCutoff(t *testing.T) {
 	fn := pkg.Func("long")
 	calls := ssaflow.InstructionsOf[*ssa.Call](fn)
 	query := aggregateEscapeAnalysis(fn)
-	query.pool = ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	query.pool = proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	if reason, opaque := query.opaqueFunctionCall(calls[0], calls[0].Common(), true); !opaque || reason != resourceReasonBudgetExhausted {
 		t.Fatalf("publication child-cutoff classifier = %v/%v", reason, opaque)
 	}
@@ -104,7 +105,7 @@ func view(*holder) *owner { return &owner{} }
 func noise() {}
 func long(p *resource) *owner { result := view(&holder{p})
 `)
-	for range ssaflow.SummaryBudget + 100 {
+	for range proofs.SummaryBudget + 100 {
 		source.WriteString("noise()\n")
 	}
 	source.WriteString("return result\n}\nfunc short(p *resource) *owner { return view(&holder{p}) }")

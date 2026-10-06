@@ -4,6 +4,7 @@ import (
 	"go/types"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
@@ -119,12 +120,12 @@ func TestResultRelations(t *testing.T) {
 		"Rewrapped":            {returned: []ReturnedParameter{{0, 0}}},
 	}
 	self := pkg.Prog.LookupMethod(types.NewPointer(pkg.Type("box").Type()), pkg.Pkg, "Self")
-	if parameter, ok := NewEngine().Function(self, ssaflow.NewSearchBudget(4000)).ReturnedParameter(0); !ok || parameter != 0 {
+	if parameter, ok := NewEngine().Function(self, proofs.NewSearchBudget(4000)).ReturnedParameter(0); !ok || parameter != 0 {
 		t.Errorf("Self: a method returning its receiver: parameter %d, %t", parameter, ok)
 	}
 	for name, expected := range want {
 		t.Run(name, func(t *testing.T) {
-			got := NewEngine().Function(pkg.Func(name), ssaflow.NewSearchBudget(4000))
+			got := NewEngine().Function(pkg.Func(name), proofs.NewSearchBudget(4000))
 			if len(got.Cases()) != len(expected.cases) || len(got.returned) != len(expected.returned) {
 				t.Fatalf("cases = %+v, returned = %+v; want %+v, %+v", got.Cases(), got.returned, expected.cases, expected.returned)
 			}

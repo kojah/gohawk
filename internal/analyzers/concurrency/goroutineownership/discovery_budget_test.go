@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/check"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -17,7 +18,7 @@ import (
 func TestDiscoveryBudgetIsObserved(t *testing.T) {
 	path := enableSummaryJoinTrace(t)
 	source := "package discovery; func subject() { done:=make(chan int); go func() { n:=0;" +
-		strings.Repeat("n++;", ssaflow.SummaryBudget+32) + "done<-n }() }"
+		strings.Repeat("n++;", proofs.SummaryBudget+32) + "done<-n }() }"
 	pkg := ssaflowtest.BuildPackage(t, "discovery", source)
 	function := pkg.Func("subject")
 	pass := &analysis.Pass{Fset: pkg.Prog.Fset, Pkg: pkg.Pkg}
@@ -52,7 +53,7 @@ func TestPartialDiscoveryCannotReport(t *testing.T) {
 	function := pkg.Func("subject")
 	candidate := &spawnAnalysis{
 		pass: &analysis.Pass{Fset: pkg.Prog.Fset, Pkg: pkg.Pkg}, function: function,
-		spawn: ssaflow.InstructionsOf[*ssa.Go](function)[0], pool: ssaflow.NewSearchBudget(64),
+		spawn: ssaflow.InstructionsOf[*ssa.Go](function)[0], pool: proofs.NewSearchBudget(64),
 	}
 	candidate.discoverCompletion()
 	if len(candidate.signals) == 0 || !candidate.discoveryBudget.Exhausted() || !candidate.discoveryBudget.PoolExhausted() {
@@ -95,7 +96,7 @@ func empty() { go func(){}() }
 			probe := analysisTrace.For(pass, "goroutineownership", string(check.GoroutineJoin), spawn.Pos())
 			candidate := &spawnAnalysis{
 				pass: pass, function: function, spawn: spawn,
-				discoveryBudget: ssaflow.NewSearchBudget(test.limit).Observed(probe.Observer()),
+				discoveryBudget: proofs.NewSearchBudget(test.limit).Observed(probe.Observer()),
 			}
 			if test.name == "relay" {
 				candidate.signals = []ssa.Value{ssaflow.InstructionsOf[*ssa.MakeChan](function)[0]}

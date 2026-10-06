@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 func BenchmarkGuardKeyInterleaved(b *testing.B) {
@@ -64,13 +66,13 @@ func TestGuardKeyWindowChargesHistoricalHits(t *testing.T) {
 			var keys guardKeys
 			_ = keys.keyWithin(left, nil)
 			last := keys.keyWithin(right, nil)
-			poolA, poolB := NewSearchBudget(allowance), NewSearchBudget(allowance)
+			poolA, poolB := proofs.NewSearchBudget(allowance), proofs.NewSearchBudget(allowance)
 			original, cached := poolA, poolB
 			if pooled {
 				original, cached = poolA.Within(4), poolB.Within(4)
 			}
 			want, got := left.KeyWithin(original), keys.keyWithin(left, cached)
-			if got != want || original.remaining != cached.remaining || poolA.remaining != poolB.remaining ||
+			if got != want || original.Remaining() != cached.Remaining() || poolA.Remaining() != poolB.Remaining() ||
 				original.Exhausted() != cached.Exhausted() || original.PoolExhausted() != cached.PoolExhausted() {
 				t.Fatalf("historical hit changed allowance %d, pooled=%v", allowance, pooled)
 			}

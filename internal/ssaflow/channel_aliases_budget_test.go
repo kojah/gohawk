@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -60,11 +61,11 @@ func TestChannelCensusAllowanceAndTiming(t *testing.T) {
 			if test.name == "oldSnapshot" && slices.Contains(want.Values, ssa.Value(ssaflow.InstructionsOf[*ssa.UnOp](fn)[0])) {
 				t.Fatal("pre-store snapshot is not the newly made channel")
 			}
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := ssaflow.ProveChannelValuesWithin(made, budget)
 				if budget.Exhausted() {
-					if got.Reason != ssaflow.EvidenceBudgetExhausted || got.Values != nil || got.Uses != nil {
+					if got.Reason != proofs.EvidenceBudgetExhausted || got.Values != nil || got.Uses != nil {
 						t.Fatalf("cut%d=%+v", limit, got)
 					}
 					continue
@@ -82,17 +83,17 @@ func TestChannelCensusAllowanceAndTiming(t *testing.T) {
 func TestChannelCensusPartialUseDiscarded(t *testing.T) {
 	source := `package partialchannel
  func ignore(done chan int){}
- func subject(){done:=make(chan int);close(done);` + strings.Repeat("ignore(done);", ssaflow.QueryBudget+1) + `}
+ func subject(){done:=make(chan int);close(done);` + strings.Repeat("ignore(done);", proofs.QueryBudget+1) + `}
  `
 	fn := ssaflowtest.BuildPackage(t, "partialchannel", source).Func("subject")
 	made := ssaflow.InstructionsOf[*ssa.MakeChan](fn)[0]
-	pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
-	child := pool.Within(ssaflow.QueryBudget)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
+	child := pool.Within(proofs.QueryBudget)
 	got := ssaflow.ProveChannelValuesWithin(made, child)
-	if got.State != ssaflow.EvidenceUnknown || got.Values != nil || got.Uses != nil || !child.Exhausted() || pool.Exhausted() {
+	if got.State != proofs.EvidenceUnknown || got.Values != nil || got.Uses != nil || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("cut=%+v", got)
 	}
-	fresh := ssaflow.ProveChannelValuesWithin(made, pool.Within(2*ssaflow.SummaryBudget))
+	fresh := ssaflow.ProveChannelValuesWithin(made, pool.Within(2*proofs.SummaryBudget))
 	if !fresh.Proven() || len(fresh.Uses) != 1 {
 		t.Fatalf("fresh=%+v", fresh)
 	}

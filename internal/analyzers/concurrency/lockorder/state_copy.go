@@ -3,13 +3,13 @@ package lockorder
 import (
 	"slices"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 // A successor may share its predecessor's state until expansion. Mutable lock
 // collections are detached under the traversal allowance before any transfer;
 // cutoff exposes no partly copied state to another path.
-func cloneLockStateWithin(state lockFlowState, budget *ssaflow.SearchBudget) (lockFlowState, bool) {
+func cloneLockStateWithin(state lockFlowState, budget *proofs.SearchBudget) (lockFlowState, bool) {
 	if budget.Exhausted() {
 		return lockFlowState{}, false
 	}

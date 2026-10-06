@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -22,11 +23,11 @@ func unrelated(p, other *resource) { observe(&holder{other}) }
 			fn := pkg.Func(name)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 			owner := call.Common().Args[0]
-			for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				proof := ProveRelation(owner, fn.Params[0], call, budget)
 				if budget.Exhausted() || budget.PoolExhausted() {
-					if proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+					if proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted {
 						t.Fatalf("interrupted relation at %d = %+v", limit, proof)
 					}
 					continue

@@ -3,6 +3,7 @@ package goroutineownership
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -33,7 +34,7 @@ func liveSignal() { go signal(make(chan int)) }
 			// The parent completed these actual SSA queries at these allowances
 			// without charging its nil folds. They now cut before discovery can
 			// publish even an already found completion handle.
-			pool := ssaflow.NewSearchBudget(spawnPoolBudget)
+			pool := proofs.NewSearchBudget(spawnPoolBudget)
 			child := pool.Within(test.beforeFold)
 			signals, groups, _ := spawnedCompletionValues(nil, spawn, child)
 			if !child.Exhausted() || pool.Exhausted() {
@@ -45,8 +46,8 @@ func liveSignal() { go signal(make(chan int)) }
 				t.Fatalf("nil evidence bypassed the discovery allowance: %+v, exhausted %v/%v", got, child.Exhausted(), pool.Exhausted())
 			}
 			complete := false
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				signals, groups, _ := spawnedCompletionValues(nil, spawn, budget)
 				if budget.Exhausted() {
 					continue

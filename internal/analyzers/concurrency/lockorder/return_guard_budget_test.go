@@ -3,6 +3,7 @@ package lockorder
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -26,15 +27,15 @@ func unrelated(err, other error) error { if other != nil { return nil }; return 
 			t.Fatal("actual SSA must return the checked value directly")
 		}
 		if name == "guarded" {
-			pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+			pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 			query := lockReturnQueries{setup: setup, budget: pool.Within(3)}
 			if query.nilGuardDominatesReturn(fn.Params[0], returned) || !query.budget.Exhausted() || pool.Exhausted() {
 				t.Fatal("guard identity bypassed the selection-only allowance")
 			}
 		}
 		complete := false
-		for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-			query := lockReturnQueries{setup: setup, budget: ssaflow.NewSearchBudget(limit)}
+		for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+			query := lockReturnQueries{setup: setup, budget: proofs.NewSearchBudget(limit)}
 			got := query.nilGuardDominatesReturn(fn.Params[0], returned)
 			if query.budget.Exhausted() {
 				if got {

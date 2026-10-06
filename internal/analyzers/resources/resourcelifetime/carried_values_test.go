@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -34,16 +35,16 @@ func closure(p, other *resource) any { return func() { println(p) } }
 				t.Fatalf("default carry = %v, want %v; SSA:\n%s", baseline, test.want, carriedSSA(t, fn))
 			}
 			completed := false
-			for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				proof := aggregateEscapeAnalysis(fn).proveCarriedValueWithin(value, budget)
 				if resourceFlowExhausted(budget) || limit == 0 {
-					if proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted {
+					if proof.State != proofs.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted {
 						t.Fatalf("allowance %d retained interrupted carry: %+v", limit, proof)
 					}
 					continue
 				}
-				if proof.State == ssaflow.EvidenceUnknown || proof.Proven() != baseline {
+				if proof.State == proofs.EvidenceUnknown || proof.Proven() != baseline {
 					t.Fatalf("complete carry = %+v, want %v", proof, baseline)
 				}
 				completed = true
@@ -74,10 +75,10 @@ func TestCarriedStorageChildCutoff(t *testing.T) {
 	if count := len(ssaflow.InstructionsOf[*ssa.ChangeType](fn)); count != 1010 {
 		t.Fatalf("conversion count = %d", count)
 	}
-	budget := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	budget := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	value := ssaflow.InstructionsOf[*ssa.Return](fn)[0].Results[0]
 	proof := aggregateEscapeAnalysis(fn).proveCarriedDirectlyWithin(value, budget)
-	if proof.State != ssaflow.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || resourceFlowExhausted(budget) {
+	if proof.State != proofs.EvidenceUnknown || proof.Reason != resourceReasonBudgetExhausted || resourceFlowExhausted(budget) {
 		t.Fatalf("storage child cutoff with available caller = %+v, caller exhausted %v", proof, resourceFlowExhausted(budget))
 	}
 }
@@ -92,7 +93,7 @@ func derived(p *resource) any { return &struct{ value *int }{&p.n} }
 	if contained := lifecycle.ProveMayContainValueWithin(value, fn.Params[0], nil); contained.Proven() {
 		t.Fatalf("control already has object containment: %+v", contained)
 	}
-	proof := aggregateEscapeAnalysis(fn).proveNestedCarryWithin(value, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	proof := aggregateEscapeAnalysis(fn).proveNestedCarryWithin(value, proofs.NewSearchBudget(proofs.SummaryBudget))
 	if !proof.Proven() || proof.Reason != resourceReasonAggregateMayCarry {
 		t.Fatalf("derived stored value = %+v; SSA:\n%s", proof, carriedSSA(t, fn))
 	}
@@ -132,11 +133,11 @@ func dynamic(p, other *resource, f func(any)) { f(p) }
 				t.Fatalf("no payload in SSA:\n%s", carriedSSA(t, fn))
 			}
 			query := aggregateEscapeAnalysis(fn)
-			query.pool = ssaflow.NewSearchBudget(0)
+			query.pool = proofs.NewSearchBudget(0)
 			if reason, opaque := query.opaqueConsumption(payload); !opaque || reason != resourceReasonBudgetExhausted {
 				t.Fatalf("interrupted payload = %v/%v", reason, opaque)
 			}
-			query.pool = ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+			query.pool = proofs.NewSearchBudget(proofs.SummaryBudget)
 			if reason, opaque := query.opaqueConsumption(payload); opaque != test.want || reason != test.reason {
 				t.Fatalf("fresh payload = %v/%v, want %v/%v", reason, opaque, test.reason, test.want)
 			}

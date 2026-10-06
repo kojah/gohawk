@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -18,7 +19,7 @@ func subject(first, second chan int) { go func(arg chan int) { <-arg; <-first; <
 		common: spawn.Common(), function: function, closure: closure,
 		environment: captures, invocation: spawn,
 	}
-	search := newCompletionSearch("", CoverageEveryReturn, ssaflow.NewSearchBudget(2))
+	search := newCompletionSearch("", CoverageEveryReturn, proofs.NewSearchBudget(2))
 	search.bindings = outer
 	key := completionKey{}
 	attempts := 0
@@ -31,11 +32,11 @@ func subject(first, second chan int) { go func(arg chan int) { <-arg; <-first; <
 	if answer := query(); answer.proven || !search.budget.Exhausted() || !*search.incomplete {
 		t.Fatalf("partial callback environment = %+v, incomplete=%v", answer, *search.incomplete)
 	}
-	search.budget = ssaflow.NewSearchBudget(3)
+	search.budget = proofs.NewSearchBudget(3)
 	if answer := query(); !answer.proven || attempts != 2 {
 		t.Fatalf("cutoff poisoned memo: answer=%+v attempts=%d", answer, attempts)
 	}
-	search.budget = ssaflow.NewSearchBudget(3)
+	search.budget = proofs.NewSearchBudget(3)
 	bindings := search.bindCallbackArguments(callee)
 	if bindings == nil || len(bindings.values) != 3 || search.budget.Exhausted() {
 		t.Fatal("complete three-binding environment unavailable")
@@ -59,7 +60,7 @@ func TestEnclosingReadOnlyMetadata(t *testing.T) {
  func subject(w *wrapper) { helper(1,w,2) }
 `)
 	value := pkg.Func("subject").Params[0]
-	pool := ssaflow.NewSearchBudget(8)
+	pool := proofs.NewSearchBudget(8)
 	search := &enclosingSearch{
 		request: EnclosingCompletionRequest{Budget: pool.Within(1)},
 		memo:    ssaflow.NewCallGraphMemo[*enclosingFrame, bool](),
@@ -71,7 +72,7 @@ func TestEnclosingReadOnlyMetadata(t *testing.T) {
 	if !search.readOnly(value) || search.request.Budget.Exhausted() {
 		t.Fatal("fresh allowance did not recover complete read-only evidence")
 	}
-	search.request.Budget = ssaflow.NewSearchBudget(1).Within(4)
+	search.request.Budget = proofs.NewSearchBudget(1).Within(4)
 	if search.readOnly(value) || !search.request.Budget.PoolExhausted() {
 		t.Fatal("shared-pool cutoff proved read-only")
 	}

@@ -3,6 +3,7 @@ package processownership
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -12,7 +13,7 @@ func TestProcessStartCensusCutoff(t *testing.T) {
 	pkg := startCensusPackage(t)
 	fn := pkg.Func("subject")
 	start := startupTestCall(t, fn)
-	pool := ssaflow.NewSearchBudget(processPoolBudget)
+	pool := proofs.NewSearchBudget(processPoolBudget)
 	for limit := range 1000 {
 		child := pool.Within(limit)
 		result := collectProcessStartInstructions(start, ssaflow.CallReceiver(start.Common()), child)
@@ -22,7 +23,7 @@ func TestProcessStartCensusCutoff(t *testing.T) {
 			}
 			return
 		}
-		unknownCutoff := result.State == ssaflow.EvidenceUnknown && result.Reason == ssaflow.EvidenceBudgetExhausted
+		unknownCutoff := result.State == proofs.EvidenceUnknown && result.Reason == proofs.EvidenceBudgetExhausted
 		publishedPrefix := len(result.instructions) != 0 || len(result.owners) != 0
 		if !unknownCutoff || publishedPrefix || pool.Exhausted() {
 			t.Fatalf("cutoff: %+v", result)
@@ -43,7 +44,7 @@ func TestRegisteredOwnerAllowance(t *testing.T) {
 	for instruction := range ssaflow.InstructionsStrictlyDominatingWithin(start, nil) {
 		before = append(before, instruction)
 	}
-	pool := ssaflow.NewSearchBudget(processPoolBudget)
+	pool := proofs.NewSearchBudget(processPoolBudget)
 	child := pool.Within(len(before))
 	if owners := processOwnersRegisteredBefore(before, command, child); len(owners) != 0 || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("owner metadata bypassed body-only allowance: %v", owners)
@@ -51,7 +52,7 @@ func TestRegisteredOwnerAllowance(t *testing.T) {
 	if owners := processOwnersRegisteredBefore(before, command, pool.Within(processQueryBudget)); len(owners) != 3 {
 		t.Fatalf("fresh multi-result owner inventory: %v", owners)
 	}
-	if result := collectProcessStartInstructions(nil, nil, nil); result.State != ssaflow.EvidenceUnknown || result.Reason != ssaflow.EvidenceUnavailable {
+	if result := collectProcessStartInstructions(nil, nil, nil); result.State != proofs.EvidenceUnknown || result.Reason != proofs.EvidenceUnavailable {
 		t.Fatalf("nil Start invented completed census: %+v", result)
 	}
 }

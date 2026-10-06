@@ -15,6 +15,7 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 	inventory := newRepositorySourceInventory(t)
 	for _, source := range inventory.productionGoFiles(
 		t,
+		"internal/proof",
 		"internal/syntax",
 		"internal/ssaflow",
 		"internal/heapmodel",
@@ -47,7 +48,7 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 func internalLayer(packagePath string) string {
 	component, _, _ := strings.Cut(packagePath, "/")
 	switch component {
-	case "syntax", "ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace":
+	case "proof", "syntax", "ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace":
 		return component
 	default:
 		return "other"
@@ -56,6 +57,10 @@ func internalLayer(packagePath string) string {
 
 func forbiddenLayerDependency(from, to string) bool {
 	switch from {
+	case "proof":
+		return slices.Contains([]string{
+			"syntax", "ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace",
+		}, to)
 	case "syntax":
 		return slices.Contains([]string{"ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers"}, to)
 	case "ssaflow":

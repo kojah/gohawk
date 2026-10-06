@@ -4,6 +4,7 @@ import (
 	"go/token"
 	"strings"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -25,21 +26,21 @@ import (
 // The server's own client, as in `server.Client().Get(server.URL)`, is the
 // same request: httptest configures that client with a transport to the
 // server and no timeout, so a header-only response has no body either.
-func proveLocalHeaderOnlyAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
+func proveLocalHeaderOnlyAcquisitionWithin(call *ssa.Call, budget *proofs.SearchBudget) resourceProof {
 	return findLocalHeaderOnlyAcquisitionWithin(call, budget).within(budget)
 }
 
-func findLocalHeaderOnlyAcquisitionWithin(call *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
+func findLocalHeaderOnlyAcquisitionWithin(call *ssa.Call, budget *proofs.SearchBudget) resourceProof {
 	url, ok := localGetURL(call.Common())
 	if !ok {
 		return resourceProof{}
 	}
 	if !budget.Spend() {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	server := localHTTPServerWithin(url, budget)
 	if server == nil || !serverClientOrDefault(call.Common(), server) {
-		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonLocalServerIdentityUnavailable}
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonLocalServerIdentityUnavailable}
 	}
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentMakeInterface
 	function, ok := ssaflow.ResolveReachingValue(ssaflow.NewReachingWalk(forms).Within(budget), server.Common().Args[0],
@@ -51,7 +52,7 @@ func findLocalHeaderOnlyAcquisitionWithin(call *ssa.Call, budget *ssaflow.Search
 			return function, direct
 		}, func(function *ssa.Function) *ssa.Function { return function })
 	if !ok || len(function.Params) != 2 {
-		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonLocalServerHandlerUnavailable}
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonLocalServerHandlerUnavailable}
 	}
 	child := budget.Within(httpEffectsBudget)
 	effects := newHTTPWriterEffects()
@@ -66,13 +67,13 @@ func findLocalHeaderOnlyAcquisitionWithin(call *ssa.Call, budget *ssaflow.Search
 
 // Effect-child exhaustion cannot become a complete protocol decline: that
 // would let ordinary flow report without knowing whether the body exists.
-func localHTTPEffectProof(found bool, reason resourceLifetimeReason, budget *ssaflow.SearchBudget) resourceProof {
+func localHTTPEffectProof(found bool, reason resourceLifetimeReason, budget *proofs.SearchBudget) resourceProof {
 	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
-	state := ssaflow.EvidenceDisproven
+	state := proofs.EvidenceDisproven
 	if found {
-		state = ssaflow.EvidenceProven
+		state = proofs.EvidenceProven
 	}
 	return resourceProof{State: state, Reason: reason}
 }
@@ -104,7 +105,7 @@ func serverClientOrDefault(common *ssa.CallCommon, server *ssa.Call) bool {
 	return ok && ssaflow.CallMatchesSymbol(client.Common(), httptestServerClient) && ssaflow.CallReceiver(client.Common()) == server
 }
 
-func localHTTPServerWithin(url ssa.Value, budget *ssaflow.SearchBudget) *ssa.Call {
+func localHTTPServerWithin(url ssa.Value, budget *proofs.SearchBudget) *ssa.Call {
 	if path, ok := url.(*ssa.BinOp); ok && path.Op == token.ADD && strings.HasPrefix(constantString(path.Y), "/") {
 		url = path.X
 	}
@@ -128,7 +129,7 @@ func localHTTPServerWithin(url ssa.Value, budget *ssaflow.SearchBudget) *ssa.Cal
 
 // httptest.Server.URL is its first field. Only reading that field and closing
 // the server are permitted; Config/Listener access could replace the endpoint.
-func unmodifiedHTTPServerWithin(server *ssa.Call, budget *ssaflow.SearchBudget) bool {
+func unmodifiedHTTPServerWithin(server *ssa.Call, budget *proofs.SearchBudget) bool {
 	if server.Referrers() == nil {
 		return false
 	}
@@ -167,7 +168,7 @@ func unmodifiedHTTPServerWithin(server *ssa.Call, budget *ssaflow.SearchBudget) 
 // onlyClientGetUses reports whether the server's client is used only as the
 // receiver of Get calls. Any other use, such as setting Timeout or storing
 // the client, could give the response a body wrapper.
-func onlyClientGetUsesWithin(client *ssa.Call, budget *ssaflow.SearchBudget) bool {
+func onlyClientGetUsesWithin(client *ssa.Call, budget *proofs.SearchBudget) bool {
 	refs := client.Referrers()
 	if refs == nil {
 		return false

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -33,7 +34,7 @@ _, owner, cleanup := multiple(cmd); defer cleanup(); cmd.Start(); println(owner)
 	}
 	t.Log(dump.String())
 	start := startupTestCall(t, fn)
-	result := collectProcessStartInstructions(start, fn.Params[0], ssaflow.NewSearchBudget(processQueryBudget))
+	result := collectProcessStartInstructions(start, fn.Params[0], proofs.NewSearchBudget(processQueryBudget))
 	if !result.Proven() {
 		t.Fatalf("owner census unavailable: %+v", result)
 	}
@@ -72,23 +73,23 @@ func unreadable(cmd *exec.Cmd) { opaque(cmd) }
 `)
 	for _, test := range []struct {
 		name string
-		want ssaflow.EvidenceState
+		want proofs.EvidenceState
 	}{
-		{"registered", ssaflow.EvidenceUnknown},
-		{"unreadable", ssaflow.EvidenceUnknown},
-		{"configured", ssaflow.EvidenceDisproven},
-		{"observed", ssaflow.EvidenceDisproven},
-		{"paired", ssaflow.EvidenceDisproven},
+		{"registered", proofs.EvidenceUnknown},
+		{"unreadable", proofs.EvidenceUnknown},
+		{"configured", proofs.EvidenceDisproven},
+		{"observed", proofs.EvidenceDisproven},
+		{"paired", proofs.EvidenceDisproven},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
 			call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 			for limit := 0; limit <= processQueryBudget; limit++ {
-				pool := ssaflow.NewSearchBudget(limit)
+				pool := proofs.NewSearchBudget(limit)
 				proof := &commandProof{pool: pool, evidence: lifecyclefacts.NewLifecycleEvidence(nil, "test", "prestart")}
 				got := possiblePreStartResultlessHandoff(proof, call, fn.Params[0])
-				if got.Reason == ssaflow.EvidenceBudgetExhausted {
-					if got.State != ssaflow.EvidenceUnknown {
+				if got.Reason == proofs.EvidenceBudgetExhausted {
+					if got.State != proofs.EvidenceUnknown {
 						t.Fatalf("cutoff %d: %+v", limit, got)
 					}
 					continue

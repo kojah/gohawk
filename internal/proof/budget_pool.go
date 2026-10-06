@@ -1,4 +1,4 @@
-package ssaflow
+package proof
 
 // A proof asks many bounded questions, and a bound on each question is not
 // a bound on the proof: a candidate in a large function can ask thousands

@@ -3,6 +3,7 @@ package goroutineownership
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -31,7 +32,7 @@ func subject(flag bool,count int){
 			candidate := &spawnAnalysis{
 				function: fn, spawn: calls[0], signals: []ssa.Value{target},
 				tracked: []trackedValue{{value: target, kind: trackedSignal}},
-				pool:    ssaflow.NewSearchBudget(spawnPoolBudget),
+				pool:    proofs.NewSearchBudget(spawnPoolBudget),
 			}
 			if got := candidate.closureConsumes(calls[1].Common().Value); got != test.want {
 				t.Errorf("captures=%v want %v", got, test.want)
@@ -51,11 +52,11 @@ func TestClosureChoiceCaptureCutoff(t *testing.T) {
 	fn := pkg.Func("subject")
 	target := ssaflow.InstructionsOf[*ssa.MakeChan](fn)[0]
 	value := ssaflow.InstructionsOf[*ssa.Go](fn)[0].Common().Value
-	candidate := &spawnAnalysis{tracked: []trackedValue{{value: target, kind: trackedSignal}}, pool: ssaflow.NewSearchBudget(1)}
+	candidate := &spawnAnalysis{tracked: []trackedValue{{value: target, kind: trackedSignal}}, pool: proofs.NewSearchBudget(1)}
 	if !candidate.closureConsumes(value) || !candidate.pool.Exhausted() {
 		t.Fatal("cutoff established absent captures")
 	}
-	candidate.pool = ssaflow.NewSearchBudget(spawnPoolBudget)
+	candidate.pool = proofs.NewSearchBudget(spawnPoolBudget)
 	if !candidate.closureConsumes(value) || candidate.pool.Exhausted() {
 		t.Fatal("fresh query lost possible capture")
 	}

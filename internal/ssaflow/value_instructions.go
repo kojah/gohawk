@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"iter"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -27,7 +28,7 @@ func ClosureBindingPairs(function *ssa.Function, closure *ssa.MakeClosure) []Cap
 // ClosureBindingPairsWithin yields matched lexical captures in free-variable
 // order, charging each pair before yielding it. A cutoff leaves later captures
 // unknown. A nil budget retains default policy; stopping needs no later work.
-func ClosureBindingPairsWithin(function *ssa.Function, closure *ssa.MakeClosure, budget *SearchBudget) iter.Seq[CapturedBinding] {
+func ClosureBindingPairsWithin(function *ssa.Function, closure *ssa.MakeClosure, budget *proofs.SearchBudget) iter.Seq[CapturedBinding] {
 	return func(yield func(CapturedBinding) bool) {
 		if function == nil || closure == nil {
 			return
@@ -46,7 +47,7 @@ func ClosureBindingPairsWithin(function *ssa.Function, closure *ssa.MakeClosure,
 // instructions. Callers retain budget availability: a cutoff does not prove
 // that an unvisited instruction or action is absent.
 // A nil budget leaves the census unbounded.
-func InstructionsWithin(function *ssa.Function, budget *SearchBudget) iter.Seq[ssa.Instruction] {
+func InstructionsWithin(function *ssa.Function, budget *proofs.SearchBudget) iter.Seq[ssa.Instruction] {
 	return func(yield func(ssa.Instruction) bool) {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
@@ -90,7 +91,7 @@ func HasReturnAndAction(blocks []*ssa.BasicBlock, action func(ssa.Instruction) b
 // ReferrersWithin yields uses in SSA referrer order, charging before each use.
 // Stopping leaves later uses unexamined; callers check budget availability
 // before treating a partial census as complete. A nil budget is unbounded.
-func ReferrersWithin(value ssa.Value, budget *SearchBudget) iter.Seq[ssa.Instruction] {
+func ReferrersWithin(value ssa.Value, budget *proofs.SearchBudget) iter.Seq[ssa.Instruction] {
 	return func(yield func(ssa.Instruction) bool) {
 		if value == nil || value.Referrers() == nil {
 			return

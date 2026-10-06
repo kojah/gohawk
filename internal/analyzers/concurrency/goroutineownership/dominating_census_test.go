@@ -3,6 +3,7 @@ package goroutineownership
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -17,13 +18,13 @@ func TestDominatingCensusCutoff(t *testing.T) {
 	fn := pkg.Func("subject")
 	pass := &analysis.Pass{Fset: pkg.Prog.Fset, Pkg: pkg.Pkg}
 	candidate := newSpawnAnalysis(pass, fn, ssaflow.InstructionsOf[*ssa.Go](fn)[0])
-	candidate.pool = ssaflow.NewSearchBudget(0).Observed(candidate.probe.Observer())
+	candidate.pool = proofs.NewSearchBudget(0).Observed(candidate.probe.Observer())
 	proof, decided := candidate.dominatingProof()
 	if !decided || proof.Outcome != GoroutineUnknown || proof.Reason != reasonPreSpawnCensusCutoff {
 		t.Fatalf("cutoff: %+v decided=%v", proof, decided)
 	}
 	requireCensusCutoffTrace(t, path, "pre-spawn-census")
-	candidate.pool = ssaflow.NewSearchBudget(spawnPoolBudget)
+	candidate.pool = proofs.NewSearchBudget(spawnPoolBudget)
 	if proof, decided := candidate.dominatingProof(); decided {
 		t.Fatalf("fresh prefix invented cleanup: %+v", proof)
 	}

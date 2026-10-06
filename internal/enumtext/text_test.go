@@ -8,7 +8,7 @@ import (
 
 	"github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/enumtext"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/trace"
 )
 
@@ -27,9 +27,9 @@ func TestDomainWireLabels(t *testing.T) {
 		{analyzers.CheckTier(0), ""},
 		{analyzers.CheckTierCore, "core"},
 		{analyzers.CheckTierExperimental, "experimental"},
-		{ssaflow.EvidenceProvenance(0), ""},
-		{ssaflow.EvidenceFromLocalSSA, "local-ssa"},
-		{ssaflow.EvidenceFromImportedFact, "imported-fact"},
+		{proofs.EvidenceProvenance(0), ""},
+		{proofs.EvidenceFromLocalSSA, "local-ssa"},
+		{proofs.EvidenceFromImportedFact, "imported-fact"},
 		{trace.Outcome(0), ""},
 		{trace.OutcomeObserved, "observed"},
 		{trace.OutcomeAccepted, "accepted"},
@@ -64,7 +64,7 @@ func TestDomainWireLabels(t *testing.T) {
 
 func TestInvalidDomainValues(t *testing.T) {
 	for _, value := range []encoding.TextMarshaler{
-		analyzers.CheckKind(255), analyzers.CheckTier(255), ssaflow.EvidenceProvenance(255), trace.Outcome(255),
+		analyzers.CheckKind(255), analyzers.CheckTier(255), proofs.EvidenceProvenance(255), trace.Outcome(255),
 	} {
 		if _, err := json.Marshal(value); err == nil {
 			t.Errorf("%T accepted invalid numeric value", value)

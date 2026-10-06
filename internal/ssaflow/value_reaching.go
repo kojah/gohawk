@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"maps"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -25,7 +26,7 @@ type ReachingWalk struct {
 	forms      TransparentValueForm
 	opaquePhis bool
 	seen       map[ssa.Value]bool
-	budget     *SearchBudget
+	budget     *proofs.SearchBudget
 	onRevisit  func()
 }
 
@@ -46,7 +47,7 @@ func (walk ReachingWalk) OpaquePhis() ReachingWalk {
 // wrappers, phi edges and revisits. Branches inherit it. A cutoff contributes
 // no evidence; callers inspect availability before interpreting a false or
 // unresolved result. A nil budget retains the unbounded default policy.
-func (walk ReachingWalk) Within(budget *SearchBudget) ReachingWalk {
+func (walk ReachingWalk) Within(budget *proofs.SearchBudget) ReachingWalk {
 	walk.budget = budget
 	return walk
 }

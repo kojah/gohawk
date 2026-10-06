@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -43,7 +43,7 @@ func TestStoredResultGuarantees(t *testing.T) {
 		"mixedInterface": Unknown, "async": Unknown, "preservedSnapshot": AlwaysNonNil,
 	} {
 		t.Run(name, func(t *testing.T) {
-			got := NewEngine().Function(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+			got := NewEngine().Function(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 			if got.Result(0) != want {
 				var ir strings.Builder
 				if _, err := pkg.Func(name).WriteTo(&ir); err != nil {
@@ -59,10 +59,10 @@ func TestStoredResultGuarantees(t *testing.T) {
 func TestStoredResultBudget(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "storedresults", storageResultsFixture)
 	engine := NewEngine()
-	if got := engine.Function(pkg.Func("stable"), ssaflow.NewSearchBudget(3)); got.Result(0) != Unknown {
+	if got := engine.Function(pkg.Func("stable"), proofs.NewSearchBudget(3)); got.Result(0) != Unknown {
 		t.Fatal("exhausted query established a result guarantee")
 	}
-	if got := engine.Function(pkg.Func("stable"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget)); got.Result(0) != AlwaysTrue {
+	if got := engine.Function(pkg.Func("stable"), proofs.NewSearchBudget(proofs.SummaryBudget)); got.Result(0) != AlwaysTrue {
 		t.Fatal("exhausted query poisoned fresh inference")
 	}
 }
@@ -74,7 +74,7 @@ func BenchmarkStoredResultSummary(b *testing.B) {
 			function := pkg.Func(name)
 			b.ReportAllocs()
 			for b.Loop() {
-				NewEngine().Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+				NewEngine().Function(function, proofs.NewSearchBudget(proofs.SummaryBudget))
 			}
 		})
 	}

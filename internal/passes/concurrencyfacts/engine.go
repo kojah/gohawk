@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -21,7 +22,7 @@ type Engine struct {
 	summaries *ssaflow.FunctionSummaries[Summary]
 	linear    *ssaflow.FunctionSummaries[Summary]
 	paths     bool
-	budget    *ssaflow.SearchBudget
+	budget    *proofs.SearchBudget
 	storage   *heapmodel.Storage
 	facts     map[*types.Func]Fact
 	// fields is shared by every query of the engine; see identity.go.
@@ -40,7 +41,7 @@ func NewEngine() *Engine {
 // cache policy so exported functions do not pay for paths only graph queries
 // can use. A linear cutoff must not poison the richer query's cache.
 func (engine *Engine) newSummaries(paths bool) *ssaflow.FunctionSummaries[Summary] {
-	return ssaflow.NewFunctionSummaries(func(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
+	return ssaflow.NewFunctionSummaries(func(function *ssa.Function, budget *proofs.SearchBudget) Summary {
 		builder := engine.query(budget)
 		builder.paths = paths
 		if !paths {
@@ -62,7 +63,7 @@ func unavailableSummary(reason ssaflow.SummaryUnavailable) Summary {
 	return Summary{Reason: ReasonEffectUnknown}
 }
 
-func (engine *Engine) query(budget *ssaflow.SearchBudget) *Engine {
+func (engine *Engine) query(budget *proofs.SearchBudget) *Engine {
 	return &Engine{
 		summaries: engine.summaries, facts: engine.facts, budget: budget, storage: heapmodel.NewStorage(budget), paths: true,
 		fields: engine.fields,
@@ -70,7 +71,7 @@ func (engine *Engine) query(budget *ssaflow.SearchBudget) *Engine {
 }
 
 // Function summarizes a visible body, including bounded child templates.
-func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
+func (engine *Engine) Function(function *ssa.Function, budget *proofs.SearchBudget) Summary {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
 	return engine.summaries.Function(function, budget)
@@ -88,7 +89,7 @@ func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBud
 // Every summary, root or helper, admits instructions that can panic on a nil
 // owner or bad index. A function that recovers is never complete, so a panic
 // ends its path before any later event.
-func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget) Summary {
+func (engine *Engine) Root(function *ssa.Function, budget *proofs.SearchBudget) Summary {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
 	query := engine.query(budget)
@@ -96,7 +97,7 @@ func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget)
 }
 
 // AtCall binds complete local or imported effects to the caller's exact values.
-func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBudget) Summary {
+func (engine *Engine) AtCall(call ssa.CallInstruction, budget *proofs.SearchBudget) Summary {
 	// Analysis drivers may run sibling consumers in parallel. The cache and
 	// its recursion guard form one transaction, so locking individual map
 	// accesses would still let another query look like a recursive call.

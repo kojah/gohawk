@@ -4,7 +4,7 @@ import (
 	"go/ast"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/summaries"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -20,7 +20,7 @@ type lockGuardProof struct {
 // after the analyzer's guard evidence. Proven means the guard policy permits a
 // diagnostic; unknown suppresses it without establishing race freedom.
 type mutationProof struct {
-	state  ssaflow.EvidenceState
+	state  proofs.EvidenceState
 	reason captureReason
 }
 
@@ -33,15 +33,15 @@ func (evidence captureEvidence) proveMutation(
 	// syntax fallback rather than claiming the write is unguarded.
 	switch {
 	case guard.known && guard.guarded:
-		return mutationProof{ssaflow.EvidenceUnknown, guard.reason}
+		return mutationProof{proofs.EvidenceUnknown, guard.reason}
 	case !guard.known && fallbackLock:
-		return mutationProof{ssaflow.EvidenceUnknown, reasonLockFallbackUnknown}
+		return mutationProof{proofs.EvidenceUnknown, reasonLockFallbackUnknown}
 	case mutationHasWorkerGuard(pass, closure, mutation, varying):
-		return mutationProof{ssaflow.EvidenceUnknown, reasonWorkerGuardUnknown}
+		return mutationProof{proofs.EvidenceUnknown, reasonWorkerGuardUnknown}
 	case mutationHasChannelGuard(pass, closure, mutation):
-		return mutationProof{ssaflow.EvidenceUnknown, reasonChannelGuardUnknown}
+		return mutationProof{proofs.EvidenceUnknown, reasonChannelGuardUnknown}
 	default:
-		return mutationProof{ssaflow.EvidenceProven, reasonUnguardedWrite}
+		return mutationProof{proofs.EvidenceProven, reasonUnguardedWrite}
 	}
 }
 
@@ -60,7 +60,7 @@ func (evidence captureEvidence) lockGuard(closure *ast.FuncLit, mutation ast.Nod
 		return lockGuardProof{reason: reasonMutationSiteUnknown}
 	}
 	var region lockRegion
-	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	budget := proofs.NewSearchBudget(proofs.SummaryBudget)
 	for _, instruction := range block.Instrs[:target] {
 		switch instruction := instruction.(type) {
 		case *ssa.Call:

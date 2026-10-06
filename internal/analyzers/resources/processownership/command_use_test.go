@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -26,20 +27,22 @@ func TestCommandUseAllowance(t *testing.T) {
  `)
 	for _, test := range []struct {
 		name string
-		want ssaflow.EvidenceState
+		want proofs.EvidenceState
 	}{
-		{"direct", ssaflow.EvidenceProven},
-		{"unused", ssaflow.EvidenceDisproven},
-		{"errorOnly", ssaflow.EvidenceDisproven},
-		{"pidOnly", ssaflow.EvidenceDisproven},
-		{"captured", ssaflow.EvidenceProven},
-		{"aggregate", ssaflow.EvidenceProven},
-		{"backedge", ssaflow.EvidenceProven},
+		{"direct", proofs.EvidenceProven},
+		{"unused", proofs.EvidenceDisproven},
+		{"errorOnly", proofs.EvidenceDisproven},
+		{"pidOnly", proofs.EvidenceDisproven},
+		{"captured", proofs.EvidenceProven},
+		{"aggregate", proofs.EvidenceProven},
+		{"backedge", proofs.EvidenceProven},
 	} {
 		fn := pkg.Func(test.name)
 		start := startupTestCall(t, fn)
 		cmd := ssaflow.CallReceiver(start.Common())
-		checkProcessQuery(t, test.name, test.want, func(budget *ssaflow.SearchBudget) ssaflow.Proof { return proveCommandUseAfterStart(start, cmd, budget) })
+		checkProcessQuery(t, test.name, test.want, func(budget *proofs.SearchBudget) proofs.Proof {
+			return proveCommandUseAfterStart(start, cmd, budget)
+		})
 	}
 }
 
@@ -53,15 +56,15 @@ func TestReturnedProcessOwnerAllowance(t *testing.T) {
  `)
 	for _, test := range []struct {
 		name string
-		want ssaflow.EvidenceState
+		want proofs.EvidenceState
 	}{
-		{"held", ssaflow.EvidenceProven}, {"pid", ssaflow.EvidenceDisproven}, {"unrelated", ssaflow.EvidenceDisproven},
+		{"held", proofs.EvidenceProven}, {"pid", proofs.EvidenceDisproven}, {"unrelated", proofs.EvidenceDisproven},
 	} {
 		fn := pkg.Func(test.name)
 		start := startupTestCall(t, fn)
 		cmd := ssaflow.CallReceiver(start.Common())
 		returned := ssaflow.InstructionsOf[*ssa.Return](fn)[0]
-		checkProcessQuery(t, test.name, test.want, func(budget *ssaflow.SearchBudget) ssaflow.Proof {
+		checkProcessQuery(t, test.name, test.want, func(budget *proofs.SearchBudget) proofs.Proof {
 			return proveReturnedProcessOwner(returned, cmd, budget)
 		})
 	}
@@ -78,8 +81,8 @@ func TestCommandUseCutoffDecisionTrace(t *testing.T) {
 	start := startupTestCall(t, fn)
 	cmd := ssaflow.CallReceiver(start.Common())
 	witness := ssaflow.InstructionsOf[*ssa.Return](fn)[0]
-	decision := decideProcessReturn(start, cmd, witness, false, ssaflow.NewSearchBudget(0))
-	if decision.state != ssaflow.EvidenceUnknown || decision.reason != reasonCommandUseCutoff {
+	decision := decideProcessReturn(start, cmd, witness, false, proofs.NewSearchBudget(0))
+	if decision.state != proofs.EvidenceUnknown || decision.reason != reasonCommandUseCutoff {
 		t.Fatalf("cutoff: %+v", decision)
 	}
 	emitProcessDecision(&analysis.Pass{Fset: pkg.Prog.Fset, Pkg: pkg.Pkg}, fn, start, cmd, decision)
@@ -101,8 +104,8 @@ func TestCommandUseCutoffDecisionTrace(t *testing.T) {
 	if !found {
 		t.Fatalf("missing attributed cutoff decision: %s", data)
 	}
-	fresh := decideProcessReturn(start, cmd, witness, false, ssaflow.NewSearchBudget(processQueryBudget))
-	if fresh.state != ssaflow.EvidenceProven || fresh.reason != reasonUnownedReturn {
+	fresh := decideProcessReturn(start, cmd, witness, false, proofs.NewSearchBudget(processQueryBudget))
+	if fresh.state != proofs.EvidenceProven || fresh.reason != reasonUnownedReturn {
 		t.Fatalf("fresh: %+v", fresh)
 	}
 }
@@ -119,12 +122,12 @@ func TestProcessHandleArgumentAllowance(t *testing.T) {
 		if ssaflow.CallName(call.Common()) != "println" {
 			continue
 		}
-		proof := &commandProof{pool: ssaflow.NewSearchBudget(0)}
-		if got := processHandleOwnershipAction(proof, call, cmd); got != ssaflow.EvidenceUnknown {
+		proof := &commandProof{pool: proofs.NewSearchBudget(0)}
+		if got := processHandleOwnershipAction(proof, call, cmd); got != proofs.EvidenceUnknown {
 			t.Fatalf("cutoff: %v", got)
 		}
-		proof.pool = ssaflow.NewSearchBudget(processPoolBudget)
-		if got := processHandleOwnershipAction(proof, call, cmd); got != ssaflow.EvidenceDisproven {
+		proof.pool = proofs.NewSearchBudget(processPoolBudget)
+		if got := processHandleOwnershipAction(proof, call, cmd); got != proofs.EvidenceDisproven {
 			t.Fatalf("fresh: %v", got)
 		}
 		return

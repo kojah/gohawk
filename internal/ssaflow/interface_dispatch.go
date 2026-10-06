@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"go/types"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -31,7 +32,7 @@ func (dispatch InterfaceDispatch) Proven() bool { return dispatch.Reason == Disp
 // alternatives through interface conversions. Loads, arbitrary interface
 // parameters, and alternatives with different receivers remain unknown.
 // The supplied program owns method-wrapper construction; no SSA is fabricated.
-func ResolveInterfaceDispatch(common *ssa.CallCommon, program *ssa.Program, budget *SearchBudget) InterfaceDispatch {
+func ResolveInterfaceDispatch(common *ssa.CallCommon, program *ssa.Program, budget *proofs.SearchBudget) InterfaceDispatch {
 	if common == nil || !common.IsInvoke() || program == nil {
 		return InterfaceDispatch{Reason: DispatchUnknown}
 	}

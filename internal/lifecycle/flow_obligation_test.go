@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -79,7 +80,7 @@ func TestEvaluateObligationBudgetCutIsUncertain(t *testing.T) {
 	for _, name := range []string{"exactEverywhere", "earlyReturnUncovered"} {
 		function := pkg.Func(name)
 		start := obligationStart(t, function)
-		got := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{Start: start, Instruction: labelledCall, Budget: ssaflow.NewSearchBudget(0)})
+		got := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{Start: start, Instruction: labelledCall, Budget: proofs.NewSearchBudget(0)})
 		if got != ssaflow.ObligationUncertain {
 			t.Errorf("%s: budget cut outcome = %d, want uncertain", name, got)
 		}

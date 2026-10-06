@@ -27,7 +27,7 @@ which its fields and indexes are selected.
 [Source](../../../../internal/ssaflow/access_paths.go)
 
 ```go
-func AccessPathReadWithin(value, root ssa.Value, budget *SearchBudget) ([]string, *ssa.UnOp, bool)
+func AccessPathReadWithin(value, root ssa.Value, budget *proofs.SearchBudget) ([]string, *ssa.UnOp, bool)
 ```
 
 AccessPathReadWithin names the same static path and its load nearest root.
@@ -48,31 +48,12 @@ func AccessPathSteps(value, root ssa.Value) ([]string, bool)
 [Source](../../../../internal/ssaflow/access_paths.go)
 
 ```go
-func AccessPathStepsWithin(value, root ssa.Value, budget *SearchBudget) ([]string, bool)
+func AccessPathStepsWithin(value, root ssa.Value, budget *proofs.SearchBudget) ([]string, bool)
 ```
 
 AccessPathStepsWithin charges projection visits and structural root checks to
 one allowance. Cutoff returns no path; callers inspect budget availability.
 A nil budget retains default field, constant-index, wrapper and load policy.
-
-## AliasProof
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-type AliasProof struct {
-	Aliases		bool
-	Reason		EvidenceReason
-	Provenance	EvidenceProvenance
-}
-```
-
-AliasProof records whether two values may refer to one object, and the
-reason. Aliases true is possibility, never identity; it includes an object
-carried around a loop's back edge, which only a must-answer filters. A
-false answer is a claim of disjointness, and its reason says which rule
-made it: two paths of one object, an unescaped local against something it
-was never stored into, or two objects the function's flow never connects.
 
 ## AppendedValues
 
@@ -91,7 +72,7 @@ fresh array; a spread slice, as in append(s, t...), is not followed.
 [Source](../../../../internal/ssaflow/slice_elements.go)
 
 ```go
-func AppendedValuesWithin(call *ssa.Call, budget *SearchBudget) ([]ssa.Value, bool)
+func AppendedValuesWithin(call *ssa.Call, budget *proofs.SearchBudget) ([]ssa.Value, bool)
 ```
 
 AppendedValuesWithin follows the same explicit variadic array under budget.
@@ -152,7 +133,7 @@ BlockInCycle reports whether control flow can return to start.
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func BlockInCycleWithin(start *ssa.BasicBlock, budget *SearchBudget) bool
+func BlockInCycleWithin(start *ssa.BasicBlock, budget *proofs.SearchBudget) bool
 ```
 
 BlockInCycleWithin shares queued CFG visits with budget. False at cutoff
@@ -174,7 +155,7 @@ shared function. A block is reachable from itself without traversing an edge.
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func BlockReachableWithin(from, target *ssa.BasicBlock, budget *SearchBudget) bool
+func BlockReachableWithin(from, target *ssa.BasicBlock, budget *proofs.SearchBudget) bool
 ```
 
 BlockReachableWithin shares the allowance with the existing CFG traversal.
@@ -198,7 +179,7 @@ merges; it neither evaluates the operand nor establishes its stability.
 [Source](../../../../internal/ssaflow/natural_loops.go)
 
 ```go
-func BoundedLoop(loop NaturalLoop, budget *SearchBudget) bool
+func BoundedLoop(loop NaturalLoop, budget *proofs.SearchBudget) bool
 ```
 
 BoundedLoop reports whether every loop in loop, nested ones included, is
@@ -213,7 +194,7 @@ the calls in the body return; the caller decides that separately.
 [Source](../../../../internal/ssaflow/flow_branch_literals.go)
 
 ```go
-func BranchBoolWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *SearchBudget) (bool, bool)
+func BranchBoolWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) (bool, bool)
 ```
 
 BranchBoolWithin decides the existing literal-only branch policy under a
@@ -225,7 +206,7 @@ retains the default policy.
 [Source](../../../../internal/ssaflow/flow_branch_literals.go)
 
 ```go
-func BranchValueWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *SearchBudget) ssa.Value
+func BranchValueWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) ssa.Value
 ```
 
 BranchValueWithin charges value and incoming-edge visits before selecting
@@ -266,7 +247,7 @@ what their uses mean remain the consumer's responsibility.
 
 ```go
 func CallBindingsWithin(
-	common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure, budget *SearchBudget,
+	common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure, budget *proofs.SearchBudget,
 ) iter.Seq[CallBinding]
 ```
 
@@ -369,7 +350,7 @@ loading a pointer reads its slot, it does not alias that slot with its pointee.
 
 ```go
 type CallEffectProof struct {
-	Proof
+	proofs.Proof
 	Effects	CallEffect
 }
 ```
@@ -490,7 +471,7 @@ prove more.
 
 ```go
 func (memo *CallGraphMemo[Key, Answer]) Compose(
-	key Key, budget *SearchBudget, compute func() Answer, unavailable func(SummaryUnavailable, Answer) Answer,
+	key Key, budget *proofs.SearchBudget, compute func() Answer, unavailable func(SummaryUnavailable, Answer) Answer,
 ) Answer
 ```
 
@@ -556,7 +537,7 @@ Leave un-marks function as the walk returns past it.
 
 ```go
 func (memo *CallGraphMemo[Key, Answer]) Summarize(
-	key Key, function *ssa.Function, budget *SearchBudget,
+	key Key, function *ssa.Function, budget *proofs.SearchBudget,
 	compute func() Answer, unavailable func(SummaryUnavailable, Answer) Answer,
 ) Answer
 ```
@@ -656,7 +637,7 @@ It does not follow wrappers, loads, or aliases; consumers select that policy.
 [Source](../../../../internal/ssaflow/call_resolution.go)
 
 ```go
-func CallResultWithin(call *ssa.Call, index int, budget *SearchBudget) ssa.Value
+func CallResultWithin(call *ssa.Call, index int, budget *proofs.SearchBudget) ssa.Value
 ```
 
 CallResultWithin selects the same exact result under a shared allowance.
@@ -669,10 +650,8 @@ aliases or substitutes a sibling result. A nil budget retains default policy.
 [Source](../../../../internal/ssaflow/callback_storage.go)
 
 ```go
-func CallbackCaptureReadOnly(closure *ssa.MakeClosure, cell ssa.Value, budget *SearchBudget) bool
+func CallbackCaptureReadOnly(closure *ssa.MakeClosure, cell ssa.Value, budget *proofs.SearchBudget) bool
 ```
-
-CallbackCaptureReadOnly reports whether a closure only observes one captured cell.
 
 ## CapturedBinding
 
@@ -702,7 +681,7 @@ provides no stable-content or exact asynchronous binding guarantee.
 
 ```go
 func CapturedBindingValueWithin(
-	binding ssa.Value, budget *SearchBudget,
+	binding ssa.Value, budget *proofs.SearchBudget,
 ) ssa.Value
 ```
 
@@ -739,7 +718,7 @@ it through one of the modeled aliases.
 
 ```go
 type ChannelValuesProof struct {
-	Proof
+	proofs.Proof
 	Values	[]ssa.Value
 	Uses	[]ChannelUse
 }
@@ -762,7 +741,7 @@ func ClosureBindingPairs(function *ssa.Function, closure *ssa.MakeClosure) []Cap
 [Source](../../../../internal/ssaflow/value_instructions.go)
 
 ```go
-func ClosureBindingPairsWithin(function *ssa.Function, closure *ssa.MakeClosure, budget *SearchBudget) iter.Seq[CapturedBinding]
+func ClosureBindingPairsWithin(function *ssa.Function, closure *ssa.MakeClosure, budget *proofs.SearchBudget) iter.Seq[CapturedBinding]
 ```
 
 ClosureBindingPairsWithin yields matched lexical captures in free-variable
@@ -774,7 +753,7 @@ unknown. A nil budget retains default policy; stopping needs no later work.
 [Source](../../../../internal/ssaflow/call_uses.go)
 
 ```go
-func CollectPrivateFunctionUsesWithin(functions []*ssa.Function, budget *SearchBudget) map[*ssa.Function]PrivateFunctionUses
+func CollectPrivateFunctionUsesWithin(functions []*ssa.Function, budget *proofs.SearchBudget) map[*ssa.Function]PrivateFunctionUses
 ```
 
 CollectPrivateFunctionUsesWithin collects uses of unexported non-method
@@ -793,30 +772,6 @@ func ComparesWithNil(user ssa.Instruction) bool
 
 ComparesWithNil reports whether a use is a nil comparison or a store into
 a captured cell. It retains the default relevance query for summary setup.
-
-## CompletionProof
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-type CompletionProof struct {
-	Proof
-	// Path is the joined access path beneath the target on which the
-	// completing calls were made, empty for the target itself, and is
-	// meaningful only when PathKnown holds: every completing call the
-	// coverage relied on was on a mapped local at one static path. It is
-	// unknown when a receiver was derived from the target without a static
-	// path, when different calls settled different paths, or when the
-	// completion came through a summary or an invoked callback. A caller
-	// exporting the completion as a claim about the target's contents must
-	// require it; a caller settling the target itself may ignore it.
-	Path		string
-	PathKnown	bool
-}
-```
-
-CompletionProof records evidence that a lifecycle method runs under the
-path guarantees selected by an analyzer.
 
 ## ConstantIndex
 
@@ -919,7 +874,7 @@ Interface boxing remains opaque: an interface holding a typed nil is nonnil.
 [Source](../../../../internal/ssaflow/value_matching.go)
 
 ```go
-func DefinitelyNilWithin(value ssa.Value, budget *SearchBudget) bool
+func DefinitelyNilWithin(value ssa.Value, budget *proofs.SearchBudget) bool
 ```
 
 DefinitelyNilWithin shares the allowance through every represented value.
@@ -930,7 +885,7 @@ False at cutoff is unavailable, not nonnil; interface boxing stays opaque.
 [Source](../../../../internal/ssaflow/value_derivation.go)
 
 ```go
-func DerivesFromWithin(value, source ssa.Value, same func(ssa.Value, ssa.Value) bool, budget *SearchBudget) bool
+func DerivesFromWithin(value, source ssa.Value, same func(ssa.Value, ssa.Value) bool, budget *proofs.SearchBudget) bool
 ```
 
 DerivesFromWithin shares queued values, operands, aggregate address uses and
@@ -1110,180 +1065,6 @@ EvaluateObligationWitness is EvaluateObligation that also returns, for a
 violated outcome, the normal return the walk reached with no action before
 it. That return is the proof's witness, which a diagnostic can cite.
 
-## EvidenceFromLocalSSA, EvidenceFromImportedFact
-
-[Source](../../../../internal/ssaflow/proof_provenance.go)
-
-```go
-const (
-	EvidenceFromLocalSSA	EvidenceProvenance
-	EvidenceFromImportedFact
-)
-```
-
-## EvidenceNone, EvidenceNotFound, EvidenceUnavailable, EvidenceSameValue, EvidenceSharedSlot, EvidenceUnknownPointee, EvidenceDisjointPaths, EvidenceDisjointObjects, EvidenceUnescapedLocal, EvidenceStructuralWalk, EvidenceSameAccessPath, EvidenceDeferredCompletion, EvidenceCalledCompletion, EvidenceStartedCompletion, EvidenceCallbackCompletion, EvidenceBudgetExhausted, EvidenceCompletionInCycle, EvidenceHelperInvocation, EvidenceReturnedDeferredCleanup, EvidenceStorageNotLocal, EvidenceStorageOutsideFunction, EvidenceStorageAddressEscapes, EvidenceStorageWriteThroughAlias, EvidenceStoragePartialWrite, EvidenceStorageConflictingWrites, EvidenceStorageNoReachingWrite, EvidenceStorageWriteInCycle, EvidenceStorageWriteAfterObservation, EvidenceStorageProjectionNotLoad, EvidenceStorageProjectionModified, EvidenceStoredValuesDiffer, EvidenceSummaryBodyUnavailable, EvidenceSummaryRecursive, EvidenceStoredInField, EvidenceOwnerStoredInField, EvidenceStoredInGlobal, EvidenceStoredInEnclosingScope, EvidenceOwnerStoredInExternalField, EvidenceStoredInOwnedMap, EvidenceSentToReceiver, EvidenceCapturedByClosure, EvidenceCallResultStoredInField, EvidenceTransferredToReturnedOwner, EvidenceTransferredToReceiver, EvidenceTransferredToLifecycleOwner, EvidenceCallEffectsKnown
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-const (
-	EvidenceNone	EvidenceReason	= iota
-	EvidenceNotFound
-	EvidenceUnavailable
-
-	EvidenceSameValue
-	// EvidenceSharedSlot and the other alias reasons name the rule behind
-	// a may-alias answer; see AliasProof.
-	EvidenceSharedSlot
-	EvidenceUnknownPointee
-	EvidenceDisjointPaths
-	EvidenceDisjointObjects
-	EvidenceUnescapedLocal
-	EvidenceStructuralWalk
-	EvidenceSameAccessPath
-
-	// EvidenceDeferredCompletion and the other completion reasons name the
-	// launch form of the callee that ran the lifecycle method; nested launches
-	// report the outermost form.
-	EvidenceDeferredCompletion
-	EvidenceCalledCompletion
-	EvidenceStartedCompletion
-	EvidenceCallbackCompletion
-	// EvidenceBudgetExhausted marks a question abandoned before it could be
-	// decided, so a caller can tell "not proven" from "not searched".
-	EvidenceBudgetExhausted
-	// EvidenceCompletionInCycle: the only completion found lies inside a
-	// cycle, so it is not on every return, but which element or iteration
-	// it settles is decided by iteration; the search declines to call that
-	// a missing completion.
-	EvidenceCompletionInCycle
-	EvidenceHelperInvocation
-	EvidenceReturnedDeferredCleanup
-
-	// EvidenceStorageNotLocal and the other storage give-up reasons say where
-	// a point-in-time query of local storage stopped. None of them means the
-	// location was empty, unequal, or released; they let a reader see which
-	// write, use, or merge defeated the proof instead of a bare "unavailable".
-	EvidenceStorageNotLocal
-	EvidenceStorageOutsideFunction
-	EvidenceStorageAddressEscapes
-	EvidenceStorageWriteThroughAlias
-	EvidenceStoragePartialWrite
-	EvidenceStorageConflictingWrites
-	EvidenceStorageNoReachingWrite
-	EvidenceStorageWriteInCycle
-	EvidenceStorageWriteAfterObservation
-	EvidenceStorageProjectionNotLoad
-	EvidenceStorageProjectionModified
-	EvidenceStoredValuesDiffer
-
-	// EvidenceSummaryBodyUnavailable and EvidenceSummaryRecursive say why a
-	// callee could not be summarized: an opaque body or dispatch, or a callee
-	// already on the active call path.
-	EvidenceSummaryBodyUnavailable
-	EvidenceSummaryRecursive
-
-	EvidenceStoredInField
-	EvidenceOwnerStoredInField
-	EvidenceStoredInGlobal
-	EvidenceStoredInEnclosingScope
-	EvidenceOwnerStoredInExternalField
-	EvidenceStoredInOwnedMap
-	EvidenceSentToReceiver
-	EvidenceCapturedByClosure
-	EvidenceCallResultStoredInField
-	EvidenceTransferredToReturnedOwner
-	EvidenceTransferredToReceiver
-	EvidenceTransferredToLifecycleOwner
-	EvidenceCallEffectsKnown
-)
-```
-
-## EvidenceProvenance
-
-[Source](../../../../internal/ssaflow/proof_provenance.go)
-
-```go
-type EvidenceProvenance uint8
-```
-
-EvidenceProvenance identifies the analysis boundary that supplied a proof.
-Zero means no boundary supplied evidence; it retains the empty wire label.
-
-## EvidenceProvenance.MarshalText
-
-[Source](../../../../internal/ssaflow/proof_provenance.go)
-
-```go
-func (value EvidenceProvenance) MarshalText() ([]byte, error)
-```
-
-MarshalText preserves string labels in text and JSON output.
-
-## EvidenceProvenance.String
-
-[Source](../../../../internal/ssaflow/proof_provenance.go)
-
-```go
-func (value EvidenceProvenance) String() string
-```
-
-String returns the stable presentation label.
-
-## EvidenceProvenance.UnmarshalText
-
-[Source](../../../../internal/ssaflow/proof_provenance.go)
-
-```go
-func (value *EvidenceProvenance) UnmarshalText(text []byte) error
-```
-
-UnmarshalText accepts only domain labels and leaves value unchanged on error.
-
-## EvidenceReason
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-type EvidenceReason uint8
-```
-
-EvidenceReason identifies the concrete SSA relationship that established a
-proof. String supplies stable trace codes; numeric values are not wire identifiers.
-
-## EvidenceReason.String
-
-[Source](../../../../internal/ssaflow/proof_reasons.go)
-
-```go
-func (reason EvidenceReason) String() string
-```
-
-String renders an evidence classification for tracing or display.
-
-## EvidenceState
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-type EvidenceState uint8
-```
-
-EvidenceState distinguishes a disproved relationship from one that could
-not be decided with the available SSA. Unknown is the useful zero value.
-
-## EvidenceUnknown, EvidenceDisproven, EvidenceProven
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-const (
-	EvidenceUnknown	EvidenceState	= iota
-	EvidenceDisproven
-	EvidenceProven
-)
-```
-
 ## ExactOrNone
 
 [Source](../../../../internal/ssaflow/flow_obligation.go)
@@ -1295,23 +1076,6 @@ func ExactOrNone(owns func(ssa.Instruction) bool) func(ssa.Instruction) Obligati
 ExactOrNone lifts a Boolean ownership predicate to the two-level lattice
 UnownedReturn needs: an owning action is exact, anything else none. A nil
 predicate owns nothing.
-
-## Exhaustion
-
-[Source](../../../../internal/ssaflow/call_budget.go)
-
-```go
-type Exhaustion struct {
-	Site	string
-	Limit	int
-	Pool	bool
-}
-```
-
-Exhaustion is one question that ran out of budget: the code that asked it,
-its limit, and whether the candidate-wide pool ran out rather than the
-question's own limit. gohawk dump budget collects them, because a question
-cut short answers conservatively and says so nowhere else.
 
 ## ExternallyOwnedValue
 
@@ -1329,7 +1093,7 @@ the current function invocation.
 [Source](../../../../internal/ssaflow/flow_branch_literals.go)
 
 ```go
-func FeasibleSuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock
+func FeasibleSuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) []*ssa.BasicBlock
 ```
 
 FeasibleSuccessorsWithin shares allowance through incoming phi selection
@@ -1342,7 +1106,7 @@ retain availability before judging paths. A nil budget preserves defaults.
 
 ```go
 type FixedArgumentsProof struct {
-	Proof
+	proofs.Proof
 	Values	FixedValues
 }
 ```
@@ -1374,7 +1138,7 @@ binding holds only when the closure never writes the cell.
 [Source](../../../../internal/ssaflow/call_constants.go)
 
 ```go
-func (fixed FixedValues) DecidedSuccessorWithin(block *ssa.BasicBlock, budget *SearchBudget) (*ssa.BasicBlock, bool)
+func (fixed FixedValues) DecidedSuccessorWithin(block *ssa.BasicBlock, budget *proofs.SearchBudget) (*ssa.BasicBlock, bool)
 ```
 
 DecidedSuccessorWithin returns the successor a block's branch takes when its
@@ -1397,7 +1161,7 @@ negated, or a bound nilable value compared with nil.
 [Source](../../../../internal/ssaflow/call_constants.go)
 
 ```go
-func (fixed FixedValues) HoldsWithin(condition ssa.Value, budget *SearchBudget) (holds, decided bool)
+func (fixed FixedValues) HoldsWithin(condition ssa.Value, budget *proofs.SearchBudget) (holds, decided bool)
 ```
 
 HoldsWithin shares negation and nil-fold visits with the caller allowance.
@@ -1431,7 +1195,7 @@ its branch and it is among successors.
 [Source](../../../../internal/ssaflow/call_constants.go)
 
 ```go
-func (fixed FixedValues) NarrowWithin(successors []*ssa.BasicBlock, block *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock
+func (fixed FixedValues) NarrowWithin(successors []*ssa.BasicBlock, block *ssa.BasicBlock, budget *proofs.SearchBudget) []*ssa.BasicBlock
 ```
 
 NarrowWithin shares bound-condition and successor-filter visits. Cutoff
@@ -1457,7 +1221,7 @@ stays distinct from entry block zero.
 [Source](../../../../internal/ssaflow/flow_worklist.go)
 
 ```go
-func FlowLocationKeyWithin(block, predecessor *ssa.BasicBlock, index int, guards PathGuards, budget *SearchBudget) FlowLocationKey
+func FlowLocationKeyWithin(block, predecessor *ssa.BasicBlock, index int, guards PathGuards, budget *proofs.SearchBudget) FlowLocationKey
 ```
 
 FlowLocationKeyWithin names a valid block position and its path guards using
@@ -1522,7 +1286,7 @@ interpret missing witnesses as proof that an effect is absent.
 ```go
 func (summaries *FunctionSummaries[Summary]) AtCall(
 	instruction ssa.CallInstruction,
-	budget *SearchBudget,
+	budget *proofs.SearchBudget,
 	bind func(Summary, []CallBinding) Summary,
 ) Summary
 ```
@@ -1539,7 +1303,7 @@ this invocation and never replace the cached symbolic summary.
 [Source](../../../../internal/ssaflow/call_summaries.go)
 
 ```go
-func (summaries *FunctionSummaries[Summary]) Function(function *ssa.Function, budget *SearchBudget) Summary
+func (summaries *FunctionSummaries[Summary]) Function(function *ssa.Function, budget *proofs.SearchBudget) Summary
 ```
 
 Function returns the symbolic summary of function. Completed answers can be
@@ -1591,7 +1355,7 @@ correlation but never invents one.
 [Source](../../../../internal/ssaflow/flow_guard_setup.go)
 
 ```go
-func GuardsDominatingWithin(target ssa.Instruction, budget *SearchBudget) PathGuards
+func GuardsDominatingWithin(target ssa.Instruction, budget *proofs.SearchBudget) PathGuards
 ```
 
 GuardsDominatingWithin shares budget across dominator visits, condition and
@@ -1622,17 +1386,6 @@ matching instruction in blocks. It proves neither ordering nor coverage;
 callers select the blocks and must still ask their path-sensitive query.
 The predicate is evaluated in block/instruction order only until its first
 match; finding a return does not stop enumeration before an action is found.
-
-## IdentityProof
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-type IdentityProof struct{ Proof }
-```
-
-IdentityProof records evidence that two SSA values denote the same value or
-corresponding access path.
 
 ## IdentitySource
 
@@ -1675,7 +1428,7 @@ Instruction order is respected when both values belong to one block.
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func InstructionDominatesWithin(before, after ssa.Instruction, budget *SearchBudget) bool
+func InstructionDominatesWithin(before, after ssa.Instruction, budget *proofs.SearchBudget) bool
 ```
 
 InstructionDominatesWithin shares the allowance across same-block indexing
@@ -1697,7 +1450,7 @@ InstructionIndex returns instruction position within its basic block.
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func InstructionIndexWithin(instruction ssa.Instruction, budget *SearchBudget) int
+func InstructionIndexWithin(instruction ssa.Instruction, budget *proofs.SearchBudget) int
 ```
 
 InstructionIndexWithin charges each inspected instruction before selecting
@@ -1722,7 +1475,7 @@ settle.
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func InstructionMayFollowWithin(before, after ssa.Instruction, budget *SearchBudget) bool
+func InstructionMayFollowWithin(before, after ssa.Instruction, budget *proofs.SearchBudget) bool
 ```
 
 InstructionMayFollowWithin applies the same order/reachability policy under
@@ -1755,7 +1508,7 @@ a terminator; a nil terminator leaves the catalog alone.
 [Source](../../../../internal/ssaflow/flow_termination.go)
 
 ```go
-func InstructionTerminatesWithin(instruction ssa.Instruction, terminates Terminator, budget *SearchBudget) bool
+func InstructionTerminatesWithin(instruction ssa.Instruction, terminates Terminator, budget *proofs.SearchBudget) bool
 ```
 
 InstructionTerminatesWithin shares the allowance across call dispatch,
@@ -1792,7 +1545,7 @@ any use-after-X question.
 [Source](../../../../internal/ssaflow/flow_worklist.go)
 
 ```go
-func InstructionsReachableAfterWithin(start ssa.Instruction, budget *SearchBudget) []ssa.Instruction
+func InstructionsReachableAfterWithin(start ssa.Instruction, budget *proofs.SearchBudget) []ssa.Instruction
 ```
 
 InstructionsReachableAfterWithin charges the instruction and successor
@@ -1804,7 +1557,7 @@ exhaustion never proves that an instruction cannot follow start.
 [Source](../../../../internal/ssaflow/instruction_dominators.go)
 
 ```go
-func InstructionsStrictlyDominatingWithin(at ssa.Instruction, budget *SearchBudget) iter.Seq[ssa.Instruction]
+func InstructionsStrictlyDominatingWithin(at ssa.Instruction, budget *proofs.SearchBudget) iter.Seq[ssa.Instruction]
 ```
 
 InstructionsStrictlyDominatingWithin yields instructions that structurally
@@ -1819,7 +1572,7 @@ on a positive witness avoids later work. Nil budget retains unbounded policy.
 [Source](../../../../internal/ssaflow/value_instructions.go)
 
 ```go
-func InstructionsWithin(function *ssa.Function, budget *SearchBudget) iter.Seq[ssa.Instruction]
+func InstructionsWithin(function *ssa.Function, budget *proofs.SearchBudget) iter.Seq[ssa.Instruction]
 ```
 
 InstructionsWithin yields instructions in block order, charging each one
@@ -1906,7 +1659,7 @@ so callers use it to find a candidate binding, never to credit an action.
 [Source](../../../../internal/ssaflow/call_goroutines.go)
 
 ```go
-func MayAliasThroughLoadsWithin(value, target ssa.Value, budget *SearchBudget) bool
+func MayAliasThroughLoadsWithin(value, target ssa.Value, budget *proofs.SearchBudget) bool
 ```
 
 MayAliasThroughLoadsWithin charges reaching-value visits to budget. A cutoff
@@ -1918,7 +1671,7 @@ cannot prove that value does not possibly originate at target.
 
 ```go
 type NamedResultCellsProof struct {
-	Proof
+	proofs.Proof
 	Cells	map[*ssa.Alloc]int
 }
 ```
@@ -1973,7 +1726,7 @@ header inside this loop. It need not dominate exits or paths that break.
 [Source](../../../../internal/ssaflow/natural_loops.go)
 
 ```go
-func NaturalLoopAt(header *ssa.BasicBlock, budget *SearchBudget) (NaturalLoop, bool)
+func NaturalLoopAt(header *ssa.BasicBlock, budget *proofs.SearchBudget) (NaturalLoop, bool)
 ```
 
 NaturalLoopAt returns the natural loop whose header is header, nested loops
@@ -1984,7 +1737,7 @@ included, or false when no back edge enters header.
 [Source](../../../../internal/ssaflow/call_effects.go)
 
 ```go
-func NewCallEffects(budget *SearchBudget) *CallEffects
+func NewCallEffects(budget *proofs.SearchBudget) *CallEffects
 ```
 
 NewCallEffects constructs a query with a shared instruction budget. A nil
@@ -2004,7 +1757,7 @@ func NewCallGraphMemo[Key comparable, Answer any]() *CallGraphMemo[Key, Answer]
 
 ```go
 func NewFunctionSummaries[Summary any](
-	compute func(*ssa.Function, *SearchBudget) Summary,
+	compute func(*ssa.Function, *proofs.SearchBudget) Summary,
 	unavailable func(SummaryUnavailable) Summary,
 ) *FunctionSummaries[Summary]
 ```
@@ -2025,16 +1778,6 @@ func NewReachingWalk(forms TransparentValueForm) ReachingWalk
 
 NewReachingWalk starts a fold that looks through forms.
 
-## NewSearchBudget
-
-[Source](../../../../internal/ssaflow/call_budget.go)
-
-```go
-func NewSearchBudget(limit int) *SearchBudget
-```
-
-NewSearchBudget returns a budget allowing limit instructions.
-
 ## Nilable
 
 [Source](../../../../internal/ssaflow/call_conditions.go)
@@ -2051,7 +1794,7 @@ Nilable reports whether a value of the type can be nil.
 
 ```go
 type NormalReturnProof struct {
-	Proof
+	proofs.Proof
 	Witness	*ssa.Return
 }
 ```
@@ -2067,9 +1810,6 @@ present only when reachability is proven.
 ```go
 func NormalReturnReachableFrom(block *ssa.BasicBlock) bool
 ```
-
-NormalReturnReachableFrom reports whether block can reach a normal return
-without first invoking a control-flow terminating API.
 
 ## NormalReturnReachableWith
 
@@ -2105,7 +1845,7 @@ type ObligationFlow struct {
 	// guard transitions. Callbacks may share it for their own work; feasibility
 	// and library-contract internals have separate costs. Exhaustion is uncertain:
 	// it cannot establish either a violation or an exact discharge.
-	Budget	*SearchBudget
+	Budget	*proofs.SearchBudget
 	// NonNilType, when set with NonNil, is the concrete type NonNil holds,
 	// so a comma-ok assertion of a type it satisfies is taken to succeed.
 	NonNilType	types.Type
@@ -2179,21 +1919,6 @@ const (
 )
 ```
 
-## Observer
-
-[Source](../../../../internal/ssaflow/proof_observer.go)
-
-```go
-type Observer func(reason string, at token.Pos, details map[string]string)
-```
-
-An Observer hears why a shared proof stopped short: the reason code, the
-position it stopped at, and bounded details such as the instruction that
-blocked it. It reports where evidence ran out, never what an analyzer
-decided, so it changes no answer. The type uses primitives so a tracer can
-satisfy it by method value without an import cycle; a budget carries it to
-every query that spends that budget, the scope of one candidate's proof.
-
 ## Outcome
 
 [Source](../../../../internal/ssaflow/call_conditions.go)
@@ -2246,7 +1971,7 @@ a dynamic type and is not a nil interface.
 [Source](../../../../internal/ssaflow/natural_loops.go)
 
 ```go
-func OutermostLoops(function *ssa.Function, budget *SearchBudget) ([]NaturalLoop, bool)
+func OutermostLoops(function *ssa.Function, budget *proofs.SearchBudget) ([]NaturalLoop, bool)
 ```
 
 OutermostLoops returns the function's natural loops that no other loop
@@ -2263,17 +1988,6 @@ type OwnershipEdge func(from, to *ssa.BasicBlock) bool
 
 OwnershipEdge describes an ownership action established only by taking a
 particular CFG edge, rather than by executing its branch instruction.
-
-## OwnershipTransferProof
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-type OwnershipTransferProof struct{ Proof }
-```
-
-OwnershipTransferProof records evidence that an obligation moved to an
-owner accepted by an analyzer.
 
 ## PackageFunctions
 
@@ -2329,7 +2043,7 @@ PathGuards is the sorted, bounded set of guards a path carries.
 [Source](../../../../internal/ssaflow/flow_guards.go)
 
 ```go
-func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *SearchBudget) PathGuards
+func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *proofs.SearchBudget) PathGuards
 ```
 
 AfterWithin shares guard invalidation with budget. A cutoff cannot establish
@@ -2341,7 +2055,7 @@ that the remaining guards hold; callers must check exhaustion.
 
 ```go
 func (guards PathGuards) ExtendWithin(
-	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *SearchBudget,
+	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *proofs.SearchBudget,
 ) (PathGuards, GuardContradiction)
 ```
 
@@ -2353,7 +2067,7 @@ guards or contradictions are unavailable; callers must check exhaustion.
 [Source](../../../../internal/ssaflow/flow_guards.go)
 
 ```go
-func (guards PathGuards) KeyWithin(budget *SearchBudget) string
+func (guards PathGuards) KeyWithin(budget *proofs.SearchBudget) string
 ```
 
 KeyWithin charges guard entries before rendering. An exhausted partial key
@@ -2394,52 +2108,12 @@ type PrivateFunctionUses struct {
 }
 ```
 
-PrivateFunctionUses describes declaration-resolved uses in a supplied body
-inventory. It establishes no ownership, completion or execution count.
-
-## Proof
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-type Proof struct {
-	State		EvidenceState
-	Reason		EvidenceReason
-	Method		string
-	Provenance	EvidenceProvenance
-}
-```
-
-Proof records whether an SSA policy was established and why. Its zero value
-represents an unproven relationship.
-
-## Proof.Known
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-func (proof Proof) Known() bool
-```
-
-Known reports whether available evidence proved or disproved the requested
-relationship.
-
-## Proof.Proven
-
-[Source](../../../../internal/ssaflow/proof_types.go)
-
-```go
-func (proof Proof) Proven() bool
-```
-
-Proven reports whether the requested relationship was established.
-
 ## ProveChannelValuesWithin
 
 [Source](../../../../internal/ssaflow/channel_aliases.go)
 
 ```go
-func ProveChannelValuesWithin(made *ssa.MakeChan, budget *SearchBudget) ChannelValuesProof
+func ProveChannelValuesWithin(made *ssa.MakeChan, budget *proofs.SearchBudget) ChannelValuesProof
 ```
 
 ProveChannelValuesWithin follows the locally made channel through static
@@ -2452,7 +2126,7 @@ or budget cutoff publishes neither aliases nor uses. Nil budget is unbounded.
 [Source](../../../../internal/ssaflow/counted_loop.go)
 
 ```go
-func ProveCountedLoop(header *ssa.BasicBlock, limit int, budget *SearchBudget) CountedLoop
+func ProveCountedLoop(header *ssa.BasicBlock, limit int, budget *proofs.SearchBudget) CountedLoop
 ```
 
 ProveCountedLoop recognizes only i := 0; i < literal; i++ with one body
@@ -2465,7 +2139,7 @@ to repeat. This query does not unroll SSA or choose an analysis policy.
 [Source](../../../../internal/ssaflow/counted_loop.go)
 
 ```go
-func ProveCountedRegion(header *ssa.BasicBlock, limit int, budget *SearchBudget) CountedLoop
+func ProveCountedRegion(header *ssa.BasicBlock, limit int, budget *proofs.SearchBudget) CountedLoop
 ```
 
 ProveCountedRegion recognizes the same counted header, but lets the body
@@ -2482,7 +2156,7 @@ consumer may use the count but must reason about the body's paths itself.
 
 ```go
 func ProveFixedArgumentsWithin(
-	common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known FixedValues, budget *SearchBudget,
+	common *ssa.CallCommon, closure *ssa.MakeClosure, callee *ssa.Function, known FixedValues, budget *proofs.SearchBudget,
 ) FixedArgumentsProof
 ```
 
@@ -2497,7 +2171,7 @@ bodies yield a completed empty metadata census.
 [Source](../../../../internal/ssaflow/value_identity.go)
 
 ```go
-func ProveIdentityWithin(left, right AccessPath, budget *SearchBudget) IdentityProof
+func ProveIdentityWithin(left, right AccessPath, budget *proofs.SearchBudget) proofs.IdentityProof
 ```
 
 ProveIdentityWithin shares budget across structural identity, both path
@@ -2509,7 +2183,7 @@ reason, never differing paths. Roots must already be established as equivalent.
 [Source](../../../../internal/ssaflow/named_results.go)
 
 ```go
-func ProveNamedResultCellsWithin(function *ssa.Function, budget *SearchBudget) NamedResultCellsProof
+func ProveNamedResultCellsWithin(function *ssa.Function, budget *proofs.SearchBudget) NamedResultCellsProof
 ```
 
 ProveNamedResultCellsWithin shares one instruction/result census across all
@@ -2523,7 +2197,7 @@ Instruction, result and intersection visits share budget; nil is unbounded.
 [Source](../../../../internal/ssaflow/flow_return_reachability.go)
 
 ```go
-func ProveNormalReturnWithin(block *ssa.BasicBlock, terminates Terminator, budget *SearchBudget) NormalReturnProof
+func ProveNormalReturnWithin(block *ssa.BasicBlock, terminates Terminator, budget *proofs.SearchBudget) NormalReturnProof
 ```
 
 ProveNormalReturnWithin shares queued visits, instruction visits and
@@ -2531,35 +2205,12 @@ termination queries with budget. It retains the default CFG policy: no
 branch assumptions, and terminating calls stop only their own paths.
 A nil budget leaves the search unbounded; a missing block is unknown.
 
-## QueryBudget, SummaryBudget
-
-[Source](../../../../internal/ssaflow/call_budget.go)
-
-```go
-const (
-	// QueryBudget bounds one local question: a storage identity, a
-	// projection, a value's uses, or one callee walked for a completion. It
-	// is also what NewStorage and NewCallEffects assume for a nil budget.
-	QueryBudget	= 1000
-	// SummaryBudget bounds a question that consults or computes a function
-	// summary, or decides feasibility from one: twice a local question,
-	// because it walks the callee as well as the caller.
-	SummaryBudget	= 2000
-)
-```
-
-The two shared bounds name how much one question may cost. They are the
-defaults a caller reaches for when it has no reason of its own; a caller
-with one, such as a whole-package caller-set walk, declares a named
-constant beside the proof that explains it. A bare number at a
-construction site is not a decision, so the architecture tests reject it.
-
 ## RangeElementLoop
 
 [Source](../../../../internal/ssaflow/slice_elements.go)
 
 ```go
-func RangeElementLoop(header *ssa.BasicBlock, budget *SearchBudget) (ElementLoop, bool)
+func RangeElementLoop(header *ssa.BasicBlock, budget *proofs.SearchBudget) (ElementLoop, bool)
 ```
 
 RangeElementLoop recognizes the element loop whose header is header. It
@@ -2571,7 +2222,7 @@ body, and a bound that is not the length of one slice value.
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func ReachableBlocksAssumingWithin(function *ssa.Function, constants FixedValues, budget *SearchBudget) []*ssa.BasicBlock
+func ReachableBlocksAssumingWithin(function *ssa.Function, constants FixedValues, budget *proofs.SearchBudget) []*ssa.BasicBlock
 ```
 
 ReachableBlocksAssumingWithin returns blocks reachable under constants in
@@ -2682,7 +2333,7 @@ chain can use the shared cycle guard without widening that proof at merges.
 [Source](../../../../internal/ssaflow/value_reaching.go)
 
 ```go
-func (walk ReachingWalk) Within(budget *SearchBudget) ReachingWalk
+func (walk ReachingWalk) Within(budget *proofs.SearchBudget) ReachingWalk
 ```
 
 Within attaches a shared allowance to value visits, including transparent
@@ -2690,24 +2341,12 @@ wrappers, phi edges and revisits. Branches inherit it. A cutoff contributes
 no evidence; callers inspect availability before interpreting a false or
 unresolved result. A nil budget retains the unbounded default policy.
 
-## RecordExhaustions
-
-[Source](../../../../internal/ssaflow/call_budget.go)
-
-```go
-func RecordExhaustions(record func(Exhaustion)) (stop func())
-```
-
-RecordExhaustions hands every budget exhaustion in this process to record
-until the returned function stops it. While nothing records, a budget pays
-one atomic load when it is made and one when it runs out.
-
 ## ReferrersWithin
 
 [Source](../../../../internal/ssaflow/value_instructions.go)
 
 ```go
-func ReferrersWithin(value ssa.Value, budget *SearchBudget) iter.Seq[ssa.Instruction]
+func ReferrersWithin(value ssa.Value, budget *proofs.SearchBudget) iter.Seq[ssa.Instruction]
 ```
 
 ReferrersWithin yields uses in SSA referrer order, charging before each use.
@@ -2731,7 +2370,7 @@ accepting a load names that exact snapshot, never its underlying cell.
 [Source](../../../../internal/ssaflow/interface_dispatch.go)
 
 ```go
-func ResolveInterfaceDispatch(common *ssa.CallCommon, program *ssa.Program, budget *SearchBudget) InterfaceDispatch
+func ResolveInterfaceDispatch(common *ssa.CallCommon, program *ssa.Program, budget *proofs.SearchBudget) InterfaceDispatch
 ```
 
 ResolveInterfaceDispatch resolves direct interface boxes and agreeing phi
@@ -2798,7 +2437,7 @@ This describes the result shape, not failure, ownership or cleanup coverage.
 [Source](../../../../internal/ssaflow/return_values.go)
 
 ```go
-func ReturnsOnlyNilOrErrorsWithin(returned *ssa.Return, budget *SearchBudget) bool
+func ReturnsOnlyNilOrErrorsWithin(returned *ssa.Return, budget *proofs.SearchBudget) bool
 ```
 
 ReturnsOnlyNilOrErrorsWithin shares result and nilness visits with budget.
@@ -2830,7 +2469,7 @@ flush or a commit, is the calling analyzer's decision.
 [Source](../../../../internal/ssaflow/process_entry.go)
 
 ```go
-func RunsOnceThroughPrivateEntryCallsWithin(instruction ssa.Instruction, budget *SearchBudget) bool
+func RunsOnceThroughPrivateEntryCallsWithin(instruction ssa.Instruction, budget *proofs.SearchBudget) bool
 ```
 
 RunsOnceThroughPrivateEntryCallsWithin extends the at-most-once entry witness
@@ -2847,96 +2486,12 @@ nothing about cleanup or whether entry eventually returns.
 [Source](../../../../internal/ssaflow/access_paths.go)
 
 ```go
-func SameAccessPathWithin(left, right AccessPath, budget *SearchBudget) bool
+func SameAccessPathWithin(left, right AccessPath, budget *proofs.SearchBudget) bool
 ```
 
 SameAccessPathWithin shares both path searches and step comparison with
 budget. Both paths must be nameable; unlike ProveIdentityWithin, direct value
 identity cannot bypass that policy. Cutoff supplies no matching-path evidence.
-
-## SearchBudget
-
-[Source](../../../../internal/ssaflow/call_budget.go)
-
-```go
-type SearchBudget struct {
-	// contains filtered or unexported fields
-}
-```
-
-SearchBudget bounds one interprocedural question by the number of
-instructions it may examine.
-
-## SearchBudget.Exhausted
-
-[Source](../../../../internal/ssaflow/call_budget.go)
-
-```go
-func (budget *SearchBudget) Exhausted() bool
-```
-
-Exhausted reports whether the budget ran out, so a caller can trace the
-bailout and decline to retain an answer that was cut short.
-
-## SearchBudget.Observe
-
-[Source](../../../../internal/ssaflow/call_budget.go)
-
-```go
-func (budget *SearchBudget) Observe(reason EvidenceReason, at token.Pos, build func() map[string]string)
-```
-
-Observe reports one give-up. Details are built only when someone is
-listening, so a silent budget costs one nil check at the give-up point and
-nothing on the path that spends it.
-
-## SearchBudget.Observed
-
-[Source](../../../../internal/ssaflow/call_budget.go)
-
-```go
-func (budget *SearchBudget) Observed(observer Observer) *SearchBudget
-```
-
-Observed attaches an observer that hears each give-up of a proof spending
-this budget, and returns the budget so a query can be built inline. A nil
-observer leaves the budget silent; a nil budget stays unbounded and silent.
-
-## SearchBudget.PoolExhausted
-
-[Source](../../../../internal/ssaflow/call_budget_pool.go)
-
-```go
-func (budget *SearchBudget) PoolExhausted() bool
-```
-
-PoolExhausted reports whether the pool this budget draws from ran out,
-as opposed to the budget's own limit. A proof reports the difference so
-a trace distinguishes an expensive question from an expensive candidate.
-
-## SearchBudget.Spend
-
-[Source](../../../../internal/ssaflow/call_budget.go)
-
-```go
-func (budget *SearchBudget) Spend() bool
-```
-
-Spend charges one instruction and reports whether the walk may continue. A
-nil budget is unbounded, so a caller that does not need one passes nothing.
-
-## SearchBudget.Within
-
-[Source](../../../../internal/ssaflow/call_budget_pool.go)
-
-```go
-func (pool *SearchBudget) Within(limit int) *SearchBudget
-```
-
-Within returns a budget limited to limit instructions that also charges
-every instruction to this pool. A nil pool yields a plain budget. The
-child inherits the pool's observer, so an analyzer attaches the tracer
-once, to the pool.
 
 ## SelectedReceiveChannel
 
@@ -3007,7 +2562,7 @@ supplied by the parent goroutine instruction.
 
 ```go
 func SpawnedValueAtCallWithin(
-	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *SearchBudget,
+	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *proofs.SearchBudget,
 ) ssa.Value
 ```
 
@@ -3043,17 +2598,12 @@ StorageInteger resolves a constant SSA index or the supplied default for an omit
 func StructurallyIdentical(left, right ssa.Value) bool
 ```
 
-StructurallyIdentical proves value identity from the value graph alone:
-one SSA value seen through wrappers, a phi whose alternatives all agree,
-or equal address selections. Distinct loads stay unknown here, even from
-the same address.
-
 ## StructurallyIdenticalWithin
 
 [Source](../../../../internal/ssaflow/value_identity.go)
 
 ```go
-func StructurallyIdenticalWithin(left, right ssa.Value, budget *SearchBudget) bool
+func StructurallyIdenticalWithin(left, right ssa.Value, budget *proofs.SearchBudget) bool
 ```
 
 StructurallyIdenticalWithin charges structural comparisons and reaching-value
@@ -3078,7 +2628,7 @@ polarity ends the walk at anything unknown.
 [Source](../../../../internal/ssaflow/value_matching.go)
 
 ```go
-func StructurallySameWithin(value, target ssa.Value, budget *SearchBudget) bool
+func StructurallySameWithin(value, target ssa.Value, budget *proofs.SearchBudget) bool
 ```
 
 StructurallySameWithin charges reaching values, address selections and store
@@ -3100,7 +2650,7 @@ nil, when block ends in a recognizable nil comparison.
 [Source](../../../../internal/ssaflow/flow_paths.go)
 
 ```go
-func SuccessBranchWithin(block, successor *ssa.BasicBlock, errorValue ssa.Value, budget *SearchBudget) (bool, bool)
+func SuccessBranchWithin(block, successor *ssa.BasicBlock, errorValue ssa.Value, budget *proofs.SearchBudget) (bool, bool)
 ```
 
 SuccessBranchWithin shares derivation and nil-value folds with budget.
@@ -3143,7 +2693,7 @@ SuccessorPolicy chooses the feasible successors of a block.
 [Source](../../../../internal/ssaflow/flow_successors.go)
 
 ```go
-func (policy SuccessorPolicy) EdgesWithin(block, predecessor *ssa.BasicBlock, guards PathGuards, budget *SearchBudget) []SuccessorEdge
+func (policy SuccessorPolicy) EdgesWithin(block, predecessor *ssa.BasicBlock, guards PathGuards, budget *proofs.SearchBudget) []SuccessorEdge
 ```
 
 EdgesWithin shares successor selection and guard extension with budget.
@@ -3165,7 +2715,7 @@ predecessor may take.
 [Source](../../../../internal/ssaflow/flow_successors.go)
 
 ```go
-func (policy SuccessorPolicy) SuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock
+func (policy SuccessorPolicy) SuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) []*ssa.BasicBlock
 ```
 
 SuccessorsWithin shares literal, bound-value and assumption work with budget.
@@ -3216,11 +2766,6 @@ including caller values that known already fixes.
 ```go
 type Terminator func(*ssa.Call) bool
 ```
-
-Terminator extends the documented catalog of terminating calls with what
-an analyzer knows from summaries: a project's own fatal wrapper, or a
-server loop that never returns. It reports only calls; the catalog still
-decides deferred exits and runtime.Goexit.
 
 ## TransparentChangeInterface, TransparentChangeType, TransparentConvert, TransparentMakeInterface, TransparentTypeAssert
 
@@ -3337,7 +2882,7 @@ analysis must select the transformations that preserve its own evidence.
 [Source](../../../../internal/ssaflow/named_results.go)
 
 ```go
-func ValueAtReturnWithin(returned *ssa.Return, cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bool)
+func ValueAtReturnWithin(returned *ssa.Return, cell *ssa.Alloc, budget *proofs.SearchBudget) (ssa.Value, bool)
 ```
 
 ValueAtReturnWithin returns the exact cell's last store in the return block
@@ -3362,7 +2907,7 @@ identifiable field or constant-index projection beneath root.
 [Source](../../../../internal/ssaflow/access_paths.go)
 
 ```go
-func ValueIsAccessPathFromWithin(value, root ssa.Value, budget *SearchBudget) bool
+func ValueIsAccessPathFromWithin(value, root ssa.Value, budget *proofs.SearchBudget) bool
 ```
 
 ValueIsAccessPathFromWithin applies the same projection policy under budget.
@@ -3422,7 +2967,7 @@ therefore capture every part of the state that changes what step does.
 [Source](../../../../internal/ssaflow/flow_worklist.go)
 
 ```go
-func WalkStatesWithin[S any, K comparable](initial []S, key func(S) K, step func(S) ([]S, bool), budget *SearchBudget)
+func WalkStatesWithin[S any, K comparable](initial []S, key func(S) K, step func(S) ([]S, bool), budget *proofs.SearchBudget)
 ```
 
 WalkStatesWithin charges queued visits before key construction, including
@@ -3449,7 +2994,7 @@ a cell's contents are exactly what was stored into it.
 [Source](../../../../internal/ssaflow/value_derivation.go)
 
 ```go
-func WholeWrittenCellWithin(cell *ssa.Alloc, budget *SearchBudget) bool
+func WholeWrittenCellWithin(cell *ssa.Alloc, budget *proofs.SearchBudget) bool
 ```
 
 WholeWrittenCellWithin shares whole-cell and selection-referrer visits with
@@ -3460,7 +3005,7 @@ budget. Cutoff supplies no whole-written evidence; nil retains the default.
 [Source](../../../../internal/ssaflow/written_once_cell.go)
 
 ```go
-func WrittenOnceCellAtWithin(cell *ssa.Alloc, observation ssa.Instruction, budget *SearchBudget) (ssa.Value, bool)
+func WrittenOnceCellAtWithin(cell *ssa.Alloc, observation ssa.Instruction, budget *proofs.SearchBudget) (ssa.Value, bool)
 ```
 
 WrittenOnceCellAtWithin returns the unique stored value only when its store
@@ -3473,7 +3018,7 @@ ordering share budget; callers retain availability before using rejection.
 [Source](../../../../internal/ssaflow/written_once_cell.go)
 
 ```go
-func WrittenOnceCellWithin(cell *ssa.Alloc, budget *SearchBudget) (ssa.Value, bool)
+func WrittenOnceCellWithin(cell *ssa.Alloc, budget *proofs.SearchBudget) (ssa.Value, bool)
 ```
 
 WrittenOnceCellWithin returns the value stored in cell when that store is

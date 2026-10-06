@@ -6,6 +6,7 @@ import (
 	"go/types"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -30,16 +31,16 @@ func many(a chan int, x, y, z, w bool) {
 }
 `)
 	engine := NewEngine()
-	linear := engine.linear.Function(pkg.Func("branch"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	linear := engine.linear.Function(pkg.Func("branch"), proofs.NewSearchBudget(proofs.SummaryBudget))
 	if linear.Reason != ReasonBranchEffectsDiffer || len(linear.Paths) != 0 {
 		t.Fatalf("linear export built unpublishable paths: %+v", linear)
 	}
-	launch := engine.Root(pkg.Func("launch"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	launch := engine.Root(pkg.Func("launch"), proofs.NewSearchBudget(proofs.SummaryBudget))
 	if len(launch.Workers) != 1 || !launch.Workers[0].Branches || len(launch.Workers[0].Alternatives) != 2 {
 		t.Fatalf("forwarded worker alternatives = %+v", launch)
 	}
 	for _, name := range []string{"branch", "forward", "optional"} {
-		got := engine.Function(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		got := engine.Function(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 		if got.Complete() || len(got.Paths) != 2 || got.Reason != ReasonBranchAlternatives {
 			t.Errorf("%s = %+v, want two non-linear paths", name, got)
 		}
@@ -49,12 +50,12 @@ func many(a chan int, x, y, z, w bool) {
 			}
 		}
 	}
-	optional := engine.Function(pkg.Func("optional"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	optional := engine.Function(pkg.Func("optional"), proofs.NewSearchBudget(proofs.SummaryBudget))
 	if len(optional.Paths) == 2 && len(optional.Paths[0].Operations)+len(optional.Paths[1].Operations) != 1 {
 		t.Error("optional cleanup lost its empty escape path")
 	}
 	for _, name := range []string{"opaque", "loop", "many", "selectCaller", "nested", "armLaunch", "deferredLaunch"} {
-		got := engine.Function(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		got := engine.Function(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 		if got.Complete() || len(got.Paths) != 0 {
 			t.Errorf("%s must remain unavailable, got %+v", name, got)
 		}

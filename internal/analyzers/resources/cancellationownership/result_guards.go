@@ -2,6 +2,7 @@ package cancellationownership
 
 import (
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -25,7 +26,7 @@ import (
 // proveDeferredCaptureCellWithin establishes the exact once-stored cancel
 // whose only readers are literals directly deferred after the store. Unknown
 // at cutoff cannot excuse the store as transparent or establish lost cleanup.
-func (classifier *cancellationClassifier) proveDeferredCaptureCellWithin(store *ssa.Store, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func (classifier *cancellationClassifier) proveDeferredCaptureCellWithin(store *ssa.Store, budget *proofs.SearchBudget) proofs.Proof {
 	cell, ok := store.Addr.(*ssa.Alloc)
 	if !ok || store.Val != classifier.cancel {
 		return deferredCaptureProof(false, budget)
@@ -56,19 +57,19 @@ func (classifier *cancellationClassifier) proveDeferredCaptureCellWithin(store *
 	return deferredCaptureProof(captured, budget)
 }
 
-func deferredCaptureProof(proven bool, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func deferredCaptureProof(proven bool, budget *proofs.SearchBudget) proofs.Proof {
 	if budget.Exhausted() || budget.PoolExhausted() {
-		return ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	}
-	state := ssaflow.EvidenceDisproven
+	state := proofs.EvidenceDisproven
 	if proven {
-		state = ssaflow.EvidenceProven
+		state = proofs.EvidenceProven
 	}
-	return ssaflow.Proof{State: state, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
+	return proofs.Proof{State: state, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA}
 }
 
 // deferredDirectlyWithin returns the defer that is a literal's only use.
-func deferredDirectlyWithin(closure *ssa.MakeClosure, budget *ssaflow.SearchBudget) (*ssa.Defer, bool) {
+func deferredDirectlyWithin(closure *ssa.MakeClosure, budget *proofs.SearchBudget) (*ssa.Defer, bool) {
 	if !budget.Spend() || closure.Referrers() == nil {
 		return nil, false
 	}
@@ -93,7 +94,7 @@ func (classifier *cancellationClassifier) deferredLiteralLabel(deferred *ssa.Def
 	}
 	budget := classifier.budget()
 	capture := classifier.proveDeferredCaptureWithin(closure, budget)
-	if capture.State == ssaflow.EvidenceUnknown {
+	if capture.State == proofs.EvidenceUnknown {
 		return labelled(cancellationActionUnknown, reasonLabelDeferredClosure), true
 	}
 	if !capture.Proven() {
@@ -118,7 +119,7 @@ func (classifier *cancellationClassifier) deferredLiteralLabel(deferred *ssa.Def
 	return cancellationLabel{}, false
 }
 
-func (classifier *cancellationClassifier) proveDeferredCaptureWithin(closure *ssa.MakeClosure, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func (classifier *cancellationClassifier) proveDeferredCaptureWithin(closure *ssa.MakeClosure, budget *proofs.SearchBudget) proofs.Proof {
 	for _, binding := range closure.Bindings {
 		if !budget.Spend() {
 			return deferredCaptureProof(false, budget)
@@ -130,7 +131,7 @@ func (classifier *cancellationClassifier) proveDeferredCaptureWithin(closure *ss
 		for user := range ssaflow.ReferrersWithin(cell, budget) {
 			if store, ok := user.(*ssa.Store); ok {
 				proof := classifier.proveDeferredCaptureCellWithin(store, budget)
-				if proof.State != ssaflow.EvidenceDisproven {
+				if proof.State != proofs.EvidenceDisproven {
 					return proof
 				}
 			}
@@ -152,16 +153,16 @@ func (classifier *cancellationClassifier) resultGuardedReturn(returned *ssa.Retu
 	for _, guard := range classifier.guards {
 		reaching := guard.ProveReachesReturn(returned, budget)
 		if !reaching.Proven() {
-			uncertain = uncertain || reaching.State == ssaflow.EvidenceUnknown
+			uncertain = uncertain || reaching.State == proofs.EvidenceUnknown
 			continue
 		}
 		request := lifecycle.CompletionRequest{Target: classifier.cancel, InvokeTarget: true, Budget: budget}
 		switch guard.CompletesAtReturn(request, returned, outcomeOf) {
-		case ssaflow.EvidenceProven:
+		case proofs.EvidenceProven:
 			return labelled(cancellationActionRelease, reasonLabelResultGuardedRelease), true
-		case ssaflow.EvidenceUnknown:
+		case proofs.EvidenceUnknown:
 			uncertain = true
-		case ssaflow.EvidenceDisproven:
+		case proofs.EvidenceDisproven:
 		}
 	}
 	if uncertain {
@@ -172,7 +173,7 @@ func (classifier *cancellationClassifier) resultGuardedReturn(returned *ssa.Retu
 
 // retainResultGuardsWithin publishes the filtered census only when every
 // captured guard is decided. A truncated list cannot start obligation flow.
-func (classifier *cancellationClassifier) retainResultGuardsWithin(guards []lifecycle.ResultGuard, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func (classifier *cancellationClassifier) retainResultGuardsWithin(guards []lifecycle.ResultGuard, budget *proofs.SearchBudget) proofs.Proof {
 	var retained []lifecycle.ResultGuard
 	for _, guard := range guards {
 		if !budget.Spend() {
@@ -180,7 +181,7 @@ func (classifier *cancellationClassifier) retainResultGuardsWithin(guards []life
 		}
 		if closure, ok := guard.Defer.Call.Value.(*ssa.MakeClosure); ok {
 			capture := classifier.proveDeferredCaptureWithin(closure, budget)
-			if capture.State == ssaflow.EvidenceUnknown {
+			if capture.State == proofs.EvidenceUnknown {
 				return capture
 			}
 			if capture.Proven() {
@@ -198,7 +199,7 @@ func (classifier *cancellationClassifier) deferredCaptureStoreLabel(instruction 
 		return cancellationLabel{}, false
 	}
 	capture := classifier.proveDeferredCaptureCellWithin(store, classifier.budget())
-	if capture.State == ssaflow.EvidenceUnknown {
+	if capture.State == proofs.EvidenceUnknown {
 		return labelled(cancellationActionUnknown, reasonLabelStored), true
 	}
 	return cancellationLabel{}, capture.Proven()

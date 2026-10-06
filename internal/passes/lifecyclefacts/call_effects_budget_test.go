@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -22,12 +23,12 @@ func unreadable(p *resource) { opaque(p) }
 	evidence := NewLifecycleEvidence(nil, "test", "test/local-effects")
 	for _, test := range []struct {
 		name    string
-		state   ssaflow.EvidenceState
+		state   proofs.EvidenceState
 		effects ssaflow.CallEffect
 	}{
-		{"observed", ssaflow.EvidenceProven, ssaflow.EffectRead},
-		{"launched", ssaflow.EvidenceProven, ssaflow.EffectRead | ssaflow.EffectAsync},
-		{"unreadable", ssaflow.EvidenceUnknown, 0},
+		{"observed", proofs.EvidenceProven, ssaflow.EffectRead},
+		{"launched", proofs.EvidenceProven, ssaflow.EffectRead | ssaflow.EffectAsync},
+		{"unreadable", proofs.EvidenceUnknown, 0},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
@@ -36,11 +37,11 @@ func unreadable(p *resource) { opaque(p) }
 			if baseline.State != test.state || baseline.Effects != test.effects {
 				t.Fatalf("default effects = %+v, want state %v effects %v", baseline, test.state, test.effects)
 			}
-			for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := evidence.CallEffectsWithin(call, fn.Params[0], budget)
 				if budget.Exhausted() || limit == 0 {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted {
+					if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted {
 						t.Fatalf("allowance %d retained interrupted effects: %+v", limit, got)
 					}
 					continue
@@ -62,7 +63,7 @@ type resource struct { n int }
 func read(p *resource) { _ = p.n }
 func many(p *resource) {
 `)
-	for range ssaflow.QueryBudget + 100 {
+	for range proofs.QueryBudget + 100 {
 		source.WriteString("read(p)\n")
 	}
 	source.WriteString("}\nfunc caller(p *resource) { many(p) }")
@@ -70,9 +71,9 @@ func many(p *resource) {
 	fn := pkg.Func("caller")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
 	evidence := NewLifecycleEvidence(nil, "test", "test/local-effects")
-	budget := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	budget := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	got := evidence.CallEffectsWithin(call, fn.Params[0], budget)
-	if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted || budget.Exhausted() {
+	if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted || budget.Exhausted() {
 		t.Fatalf("child cutoff with available caller = %+v, caller exhausted %v", got, budget.Exhausted())
 	}
 	if baseline := evidence.CallEffectsWithin(call, fn.Params[0], nil); baseline != got {

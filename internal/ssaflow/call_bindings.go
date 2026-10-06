@@ -3,6 +3,7 @@ package ssaflow
 import (
 	"iter"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -30,7 +31,7 @@ func CallBindings(common *ssa.CallCommon, callee *ssa.Function, closure *ssa.Mak
 // consumer stops. A cutoff does not prove an unvisited binding is absent;
 // callers inspect budget availability. A nil budget retains default policy.
 func CallBindingsWithin(
-	common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure, budget *SearchBudget,
+	common *ssa.CallCommon, callee *ssa.Function, closure *ssa.MakeClosure, budget *proofs.SearchBudget,
 ) iter.Seq[CallBinding] {
 	return func(yield func(CallBinding) bool) {
 		if callee == nil {

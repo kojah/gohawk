@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -22,17 +23,17 @@ func TestReturnedCleanupCacheKeepsFixedPolicy(t *testing.T) {
 	evidence := NewLocalEvidenceWithReturnedCleanup(lookup)
 	request := CompletionRequest{
 		Instruction: ssaflow.InstructionsOf[*ssa.Defer](caller)[0], Target: caller.Params[0], Methods: []string{"Close"},
-		Budget: ssaflow.NewSearchBudget(1000),
+		Budget: proofs.NewSearchBudget(1000),
 	}
 	if proof := evidence.Completion(request); !proof.Proven() {
 		t.Fatalf("fixed imported relation unavailable: %+v", proof)
 	}
 	previous := lookups
-	request.Budget = ssaflow.NewSearchBudget(0)
+	request.Budget = proofs.NewSearchBudget(0)
 	if proof := evidence.Completion(request); !proof.Proven() || lookups != previous {
 		t.Fatalf("completed proof not cached: %+v, lookups %d -> %d", proof, previous, lookups)
 	}
-	request.Budget = ssaflow.NewSearchBudget(1000)
+	request.Budget = proofs.NewSearchBudget(1000)
 	request.ReturnedSummaries = func(*ssa.Function, string, bool) []ReturnedCleanupRelation { return nil }
 	if proof := evidence.Completion(request); proof.Proven() {
 		t.Fatalf("request override reused fixed-policy proof: %+v", proof)

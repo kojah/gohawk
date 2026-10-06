@@ -3,6 +3,7 @@ package heapmodel
 import (
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -27,7 +28,7 @@ func AccessPathFromParameter(value, parameter ssa.Value) ([]string, bool) {
 // questions with budget. A cutoff publishes no path, including an empty one;
 // callers retain budget availability. Replaced, ambiguous or exposed contents
 // cannot name the original parameter. Nil retains the default storage allowance.
-func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *ssaflow.SearchBudget) ([]string, bool) {
+func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *proofs.SearchBudget) ([]string, bool) {
 	if path, ok := ssaflow.AccessPathStepsWithin(value, parameter, budget); ok {
 		return path, true
 	}
@@ -62,7 +63,7 @@ func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *ssaflow.S
 // wrappers; the reaching-write query already owns that point-in-time proof.
 // An address has no snapshot, so every whole write must agree with the parameter
 // before it can stand for the parameter's field at an unknown later use.
-func spillStillContainsParameter(cell *ssa.Alloc, parameter ssa.Value, read *ssa.UnOp, budget *ssaflow.SearchBudget) bool {
+func spillStillContainsParameter(cell *ssa.Alloc, parameter ssa.Value, read *ssa.UnOp, budget *proofs.SearchBudget) bool {
 	storage := NewStorage(budget)
 	// Fact path discovery must not build a graph for an opaque aggregate.
 	// Exact load identities use the same reaching-write engine as contents.
@@ -118,7 +119,7 @@ func SelectionsOf(root ssa.Value, path []string) []ssa.Value {
 
 // SelectionsOfWithin shares path, address and referrer visits with budget.
 // Cutoff returns no selections and cannot establish that a path is absent.
-func SelectionsOfWithin(root ssa.Value, path []string, budget *ssaflow.SearchBudget) []ssa.Value {
+func SelectionsOfWithin(root ssa.Value, path []string, budget *proofs.SearchBudget) []ssa.Value {
 	frontier := []ssa.Value{root}
 	for _, step := range path {
 		if !budget.Spend() {
@@ -156,7 +157,7 @@ func SelectionsOfWithin(root ssa.Value, path []string, budget *ssaflow.SearchBud
 // StoredPathProof identifies the exact observed field/element path or preserves
 // an unavailable search. Possible containment does not establish this relation.
 type StoredPathProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Path []string
 }
 
@@ -164,7 +165,7 @@ type StoredPathProof struct {
 // storage queries with budget. The storage child retains its QueryBudget cap;
 // its cutoff is unknown even when the caller remains available. Graph/alias/type
 // internals remain separate costs. Nil retains the default storage allowance.
-func ProveStoredPathWithin(root, target ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) StoredPathProof {
+func ProveStoredPathWithin(root, target ssa.Value, observation ssa.Instruction, budget *proofs.SearchBudget) StoredPathProof {
 	if !budget.Spend() {
 		return storedPathProof(nil, budget, nil)
 	}
@@ -174,14 +175,14 @@ func ProveStoredPathWithin(root, target ssa.Value, observation ssa.Instruction, 
 	if load, ok := root.(*ssa.UnOp); ok && load.Op == token.MUL {
 		root = load.X
 	}
-	storageBudget := budget.Within(ssaflow.QueryBudget)
+	storageBudget := budget.Within(proofs.QueryBudget)
 	query := storedPathQuery{budget: budget, storageBudget: storageBudget, storage: NewStorage(storageBudget), target: target, observation: observation}
 	path := query.walk(root, nil, 2)
 	return storedPathProof(path, budget, storageBudget)
 }
 
 type storedPathQuery struct {
-	budget, storageBudget *ssaflow.SearchBudget
+	budget, storageBudget *proofs.SearchBudget
 	storage               *Storage
 	target                ssa.Value
 	observation           ssa.Instruction
@@ -217,12 +218,12 @@ func (query storedPathQuery) walk(address ssa.Value, prefix []string, depth int)
 	return nil
 }
 
-func storedPathProof(path []string, budget, storageBudget *ssaflow.SearchBudget) StoredPathProof {
+func storedPathProof(path []string, budget, storageBudget *proofs.SearchBudget) StoredPathProof {
 	if budget.Exhausted() || budget.PoolExhausted() || storageBudget.Exhausted() || storageBudget.PoolExhausted() {
-		return StoredPathProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}}
+		return StoredPathProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}}
 	}
 	if path == nil {
-		return StoredPathProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+		return StoredPathProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	}
-	return StoredPathProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceSameAccessPath}, Path: path}
+	return StoredPathProof{Proof: proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceSameAccessPath}, Path: path}
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -30,11 +31,11 @@ func root() {
 			continue
 		}
 		engine := concurrencyfacts.NewEngine()
-		summary := engine.AtCall(call, ssaflow.NewSearchBudget(2000))
+		summary := engine.AtCall(call, proofs.NewSearchBudget(2000))
 		if !summary.Complete() || len(summary.Operations) != 1 || summary.Operations[0].Kind != concurrencyfacts.Cancel {
 			t.Fatalf("cancellation not modeled: %+v", summary)
 		}
-		proof := proveSummaryJoin(engine, call, channels[0], trackedSignal, ssaflow.NewSearchBudget(2000))
+		proof := proveSummaryJoin(engine, call, channels[0], trackedSignal, proofs.NewSearchBudget(2000))
 		if proof.joined || proof.reason != summaryJoinConcurrencySummaryNoExactJoin {
 			t.Errorf("cancel became join: %+v", proof)
 		}

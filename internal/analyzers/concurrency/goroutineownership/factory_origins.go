@@ -2,6 +2,7 @@ package goroutineownership
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -30,7 +31,7 @@ func (analysis *spawnAnalysis) completionHandleProof() (GoroutineProof, bool) {
 	return GoroutineProof{}, false
 }
 
-func (analysis *spawnAnalysis) factoryOriginDecision(origin ssaflow.Proof, budget *ssaflow.SearchBudget) (GoroutineProof, bool) {
+func (analysis *spawnAnalysis) factoryOriginDecision(origin proofs.Proof, budget *proofs.SearchBudget) (GoroutineProof, bool) {
 	if !origin.Known() {
 		return analysis.lifetimeCutoff(budget, queryFactoryOrigin, reasonFactoryOriginBudgetExhausted), true
 	}
@@ -40,14 +41,14 @@ func (analysis *spawnAnalysis) factoryOriginDecision(origin ssaflow.Proof, budge
 	return GoroutineProof{}, false
 }
 
-func factoryOriginProof(found bool, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func factoryOriginProof(found bool, budget *proofs.SearchBudget) proofs.Proof {
 	if budget.Exhausted() {
-		return ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceBudgetExhausted}
+		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 	}
 	if found {
-		return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
+		return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
+	return proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 }
 
 // A channel supplied by a factory or registry may already have another owner.
@@ -55,7 +56,7 @@ func factoryOriginProof(found bool, budget *ssaflow.SearchBudget) ssaflow.Proof 
 // manufacture an exclusive receive obligation for this caller. This is not a
 // claim that an arbitrary factory channel is drained.
 // https://github.com/deckarep/golang-set/blob/711c30df0fdf98710a4ca0211e12ef7210967ad3/threadsafe.go#L268-L287
-func helperSignalOrigin(value ssa.Value, spawn *ssa.Go, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func helperSignalOrigin(value ssa.Value, spawn *ssa.Go, budget *proofs.SearchBudget) proofs.Proof {
 	storage := heapmodel.NewStorage(budget)
 	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
 	leaf = func(walk ssaflow.ReachingWalk, current ssa.Value) bool {
@@ -84,7 +85,7 @@ func helperSignalOrigin(value ssa.Value, spawn *ssa.Go, budget *ssaflow.SearchBu
 // Without its body we cannot assign the join obligation to this invocation.
 // This is uncertainty, not proof that the caller or registry actually waits.
 // https://github.com/i-love-flamingo/flamingo/blob/79a55d62bb7a1bffe11a4dea1444490b14785879/core/requesttask/filter.go#L28-L60
-func opaqueGroupOrigin(value ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func opaqueGroupOrigin(value ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
 	storage := heapmodel.NewStorage(budget)
 	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
 	leaf = func(walk ssaflow.ReachingWalk, current ssa.Value) bool {

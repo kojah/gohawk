@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -31,7 +32,7 @@ func releasesEachElement(function *ssa.Function, parameter ssa.Value, method str
 	if _, ok := parameter.Type().Underlying().(*types.Slice); !ok || parameter.Referrers() == nil {
 		return false
 	}
-	budget := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+	budget := proofs.NewSearchBudget(proofs.QueryBudget)
 	exits := map[[2]*ssa.BasicBlock]bool{}
 	for _, user := range *parameter.Referrers() {
 		switch typed := user.(type) {
@@ -70,7 +71,7 @@ func releasesEachElement(function *ssa.Function, parameter ssa.Value, method str
 
 // elementReleaseExit returns the exit edge of the range loop whose element
 // read is address, when that loop releases each element.
-func elementReleaseExit(function *ssa.Function, address *ssa.IndexAddr, method string, budget *ssaflow.SearchBudget) ([2]*ssa.BasicBlock, bool) {
+func elementReleaseExit(function *ssa.Function, address *ssa.IndexAddr, method string, budget *proofs.SearchBudget) ([2]*ssa.BasicBlock, bool) {
 	for _, header := range function.Blocks {
 		loop, ok := ssaflow.RangeElementLoop(header, budget)
 		if ok && loop.ReadsElement(address) && lifecycle.ElementLoopReleasesEach(loop, address, []string{method}) {

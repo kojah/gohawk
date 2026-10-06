@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -15,7 +16,7 @@ import (
 // be resolved through the documented sync.OnceFunc contract; a callback
 // invoked now may not, because an earlier invocation could already have
 // consumed the wrapper.
-func resolveCallees(instruction ssa.Instruction, budget *ssaflow.SearchBudget) ([]completionCallee, bool) {
+func resolveCallees(instruction ssa.Instruction, budget *proofs.SearchBudget) ([]completionCallee, bool) {
 	if !budget.Spend() {
 		return nil, false
 	}
@@ -40,7 +41,7 @@ func resolveCallees(instruction ssa.Instruction, budget *ssaflow.SearchBudget) (
 }
 
 func calleesOf(
-	common *ssa.CallCommon, launch launchKind, invocation ssa.Instruction, allowOnceFunc bool, budget *ssaflow.SearchBudget,
+	common *ssa.CallCommon, launch launchKind, invocation ssa.Instruction, allowOnceFunc bool, budget *proofs.SearchBudget,
 ) ([]completionCallee, bool) {
 	if !budget.Spend() {
 		return nil, false
@@ -70,7 +71,7 @@ func calleesOf(
 	return result, true
 }
 
-func closureCallees(value ssa.Value, launch launchKind, budget *ssaflow.SearchBudget) ([]completionCallee, bool) {
+func closureCallees(value ssa.Value, launch launchKind, budget *proofs.SearchBudget) ([]completionCallee, bool) {
 	if !budget.Spend() {
 		return nil, false
 	}
@@ -85,7 +86,7 @@ func closureCallees(value ssa.Value, launch launchKind, budget *ssaflow.SearchBu
 // exactCallbacks resolves a callback value to the function literals it may
 // hold. Loads require one dominating store, phi edges must all resolve, and
 // other call results are opaque.
-func exactCallbacks(value ssa.Value, invocation ssa.Instruction, allowOnceFunc bool, budget *ssaflow.SearchBudget) ([]*ssa.MakeClosure, bool) {
+func exactCallbacks(value ssa.Value, invocation ssa.Instruction, allowOnceFunc bool, budget *proofs.SearchBudget) ([]*ssa.MakeClosure, bool) {
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
 	var result []*ssa.MakeClosure
 	var resolve func(ssaflow.ReachingWalk, ssa.Value) bool

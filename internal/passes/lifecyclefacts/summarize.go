@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -25,7 +26,7 @@ func (callbacks *callbackInference) summarize(function *ssa.Function) Fact {
 	fact.Must.ReleasedFields = releasedFields(pass, function)
 	fact.Must.OwnedResults = ownedResults(pass, function)
 	fact.Must.RetainingResults = retainingResults(pass, function)
-	invocation := callbacks.invocations.Function(function, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	invocation := callbacks.invocations.Function(function, proofs.NewSearchBudget(proofs.SummaryBudget))
 	fact.Discharges = append(fact.Discharges, invocation.Discharges...)
 	// A fact is exported only when the action is unavoidable on every normal
 	// return. Each mask is therefore proved independently; evidence for Close,
@@ -107,7 +108,7 @@ func deferredCompletions(function *ssa.Function, parameter ssa.Value, method str
 	for _, instruction := range ssaflow.InstructionsOf[*ssa.Defer](function) {
 		proof := lifecycle.ProveCompletion(lifecycle.CompletionRequest{
 			Instruction: instruction, Target: parameter, Methods: []string{method},
-			Budget: ssaflow.NewSearchBudget(ssaflow.SummaryBudget),
+			Budget: proofs.NewSearchBudget(proofs.SummaryBudget),
 		})
 		if proof.Proven() && proof.PathKnown {
 			completions[instruction] = proof.Path
@@ -184,7 +185,7 @@ func invokesMethodCallback(instruction ssa.Instruction, target ssa.Value, method
 			continue
 		}
 		if lifecycle.ProveCompletion(lifecycle.CompletionRequest{
-			Instruction: instruction, Target: closure, InvokeTarget: true, Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
+			Instruction: instruction, Target: closure, InvokeTarget: true, Budget: proofs.NewSearchBudget(proofs.QueryBudget),
 		}).Proven() {
 			return true
 		}

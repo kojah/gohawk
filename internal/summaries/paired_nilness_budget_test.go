@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -37,17 +38,17 @@ func guarded(ok bool) *box {
 	provider := Select(Requirements{Results: true}).Provider(pass)
 	// Warm the callee alone so the small allowance isolates caller metadata
 	// and path evidence, rather than rediscovering the callee's result cases.
-	if _, availability := provider.ForFunction(pkg.Func("Open")).Results(ssaflow.NewSearchBudget(ssaflow.SummaryBudget)); availability != Available {
+	if _, availability := provider.ForFunction(pkg.Func("Open")).Results(proofs.NewSearchBudget(proofs.SummaryBudget)); availability != Available {
 		t.Fatal("fixture must publish complete conditional result cases")
 	}
-	pool := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 	cut := pool.Within(16)
 	if _, known := provider.pairedNilness(value, block, cut); known || !cut.Exhausted() || pool.Exhausted() {
 		t.Fatal("paired guard path bypassed its allowance or exhausted the outer pool")
 	}
 	complete := false
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		isNil, known := provider.pairedNilness(value, block, budget)
 		if budget.Exhausted() {
 			if known {
@@ -64,10 +65,10 @@ func guarded(ok bool) *box {
 	if !complete {
 		t.Fatal("fresh paired result never completed after cutoff")
 	}
-	if successors := provider.FeasibleSuccessors(block, nil, ssaflow.NewSearchBudget(16)); len(successors) != 2 {
+	if successors := provider.FeasibleSuccessors(block, nil, proofs.NewSearchBudget(16)); len(successors) != 2 {
 		t.Fatal("interrupted paired evidence pruned a feasible successor")
 	}
-	if successors := provider.FeasibleSuccessors(block, nil, ssaflow.NewSearchBudget(ssaflow.SummaryBudget)); len(successors) != 1 ||
+	if successors := provider.FeasibleSuccessors(block, nil, proofs.NewSearchBudget(proofs.SummaryBudget)); len(successors) != 1 ||
 		successors[0] != block.Succs[1] {
 		t.Fatal("fresh paired evidence lost the nonnil result branch")
 	}

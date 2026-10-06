@@ -29,7 +29,7 @@ func ConditionalRelease(
 	method string,
 	invoke bool,
 	predicate ssaflow.CallCondition,
-	budget *ssaflow.SearchBudget,
+	budget *proofs.SearchBudget,
 ) bool
 ```
 
@@ -42,7 +42,7 @@ evidence that the call leaves target open.
 [Source](../../../../internal/resourcemodel/conditional.go)
 
 ```go
-func ConditionalReleases(budget *ssaflow.SearchBudget) lifecycle.CompletionSummaryLookup
+func ConditionalReleases(budget *proofs.SearchBudget) lifecycle.CompletionSummaryLookup
 ```
 
 ConditionalReleases binds one search budget to the external state contracts.
@@ -141,7 +141,7 @@ before treating this state as a violation.
 [Source](../../../../internal/resourcemodel/relations.go)
 
 ```go
-func ProveRelation(owner, resource ssa.Value, observation ssa.Instruction, budget *ssaflow.SearchBudget) RelationProof
+func ProveRelation(owner, resource ssa.Value, observation ssa.Instruction, budget *proofs.SearchBudget) RelationProof
 ```
 
 ProveRelation resolves a direct identity or an exact field/element path
@@ -189,7 +189,7 @@ Owner and Resource are the same object.
 
 ```go
 type RelationProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Relation	Relation
 }
 ```

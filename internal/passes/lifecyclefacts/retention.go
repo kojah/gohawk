@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/ssaflow"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -44,7 +45,7 @@ type retention struct {
 	// budget bounds the instructions this question may examine. The shared
 	// type owns the counting; the polarity a bailout takes stays here, because
 	// only this walk knows which answer refuses to invent evidence.
-	budget *ssaflow.SearchBudget
+	budget *proofs.SearchBudget
 	// memo owns the cycle guard and the rule that an answer the guard or the
 	// budget cut short is not retained. It is shared for the whole package:
 	// summarizing every exported function asks about the same helpers again
@@ -77,7 +78,7 @@ func newRetentionCache() *retentionCache {
 }
 
 func (cache *retentionCache) retainedAnywhere(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	return (&retention{pass: pass, budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo, lookup: cache.lookup}).answer(function, parameter)
+	return (&retention{pass: pass, budget: proofs.NewSearchBudget(retentionBudget), memo: cache.memo, lookup: cache.lookup}).answer(function, parameter)
 }
 
 // Visible private helpers have no exported fact. Require a retention witness
@@ -85,7 +86,7 @@ func (cache *retentionCache) retainedAnywhere(pass *analysis.Pass, function *ssa
 func (cache *retentionCache) storedEveryReturn(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
 	return (&retention{
 		pass: pass, strict: true, everyReturn: true,
-		budget: ssaflow.NewSearchBudget(retentionBudget), memo: cache.memo, lookup: cache.lookup,
+		budget: proofs.NewSearchBudget(retentionBudget), memo: cache.memo, lookup: cache.lookup,
 	}).answer(function, parameter)
 }
 

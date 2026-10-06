@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -50,10 +51,10 @@ func TestResultReturnBindingAllowance(t *testing.T) {
 				}
 				checked++
 				baseline := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome)
-				if name == "earlierResult" && baseline != ssaflow.EvidenceUnknown {
+				if name == "earlierResult" && baseline != proofs.EvidenceUnknown {
 					t.Fatalf("earlier result=%v", baseline)
 				}
-				if name == "overwrittenResult" && baseline != ssaflow.EvidenceDisproven {
+				if name == "overwrittenResult" && baseline != proofs.EvidenceDisproven {
 					t.Fatalf("overwritten result=%v", baseline)
 				}
 				checkReturnStoresWithin(t, returned, guard.Cells)
@@ -79,26 +80,26 @@ func TestResultReturnCallbackChildAndFresh(t *testing.T) {
 		if !ssaflow.InstructionDominates(guard.Defer, returned) {
 			continue
 		}
-		pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+		pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 		request.Budget = pool.Within(1)
-		if got := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome); got != ssaflow.EvidenceUnknown || pool.Exhausted() {
+		if got := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome); got != proofs.EvidenceUnknown || pool.Exhausted() {
 			t.Fatalf("child=%v pool exhausted=%v", got, pool.Exhausted())
 		}
-		request.Budget = pool.Within(ssaflow.SummaryBudget)
+		request.Budget = pool.Within(proofs.SummaryBudget)
 		baseline := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome)
-		if baseline == ssaflow.EvidenceUnknown {
+		if baseline == proofs.EvidenceUnknown {
 			t.Fatal("fresh binding remained unknown")
 		}
-		request.Budget = pool.Within(ssaflow.SummaryBudget)
+		request.Budget = pool.Within(proofs.SummaryBudget)
 		outcome := func(value ssa.Value) (ssaflow.Outcome, bool) {
 			for request.Budget.Spend() {
 			}
 			return ssaflow.ValueOutcome(value)
 		}
-		if got := guard.CompletesAtReturn(request, returned, outcome); got != ssaflow.EvidenceUnknown || pool.Exhausted() {
+		if got := guard.CompletesAtReturn(request, returned, outcome); got != proofs.EvidenceUnknown || pool.Exhausted() {
 			t.Fatalf("callback cut=%v pool exhausted=%v", got, pool.Exhausted())
 		}
-		request.Budget = pool.Within(ssaflow.SummaryBudget)
+		request.Budget = pool.Within(proofs.SummaryBudget)
 		if got := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome); got != baseline {
 			t.Fatalf("fresh=%v want%v", got, baseline)
 		}
@@ -115,17 +116,17 @@ func TestResultGuardReturnReachabilityAllowance(t *testing.T) {
 		}
 		guard := guards[0]
 		for _, returned := range ssaflow.InstructionsOf[*ssa.Return](fn) {
-			want := ssaflow.EvidenceDisproven
+			want := proofs.EvidenceDisproven
 			if ssaflow.InstructionDominates(guard.Defer, returned) {
-				want = ssaflow.EvidenceProven
+				want = proofs.EvidenceProven
 			} else if ssaflow.InstructionMayFollow(guard.Defer, returned) {
-				want = ssaflow.EvidenceUnknown
+				want = proofs.EvidenceUnknown
 			}
-			for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 0; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				got := guard.ProveReachesReturn(returned, budget)
 				if budget.Exhausted() || limit == 0 {
-					if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted {
+					if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted {
 						t.Fatalf("cut%d=%+v", limit, got)
 					}
 					continue
@@ -170,8 +171,8 @@ func checkReturnStoresWithin(t *testing.T, returned *ssa.Return, cells []*ssa.Al
 	for _, cell := range cells {
 		want, found := ssaflow.ValueAtReturnWithin(returned, cell, nil)
 		completed := false
-		for limit := 0; limit <= ssaflow.QueryBudget; limit++ {
-			budget := ssaflow.NewSearchBudget(limit)
+		for limit := 0; limit <= proofs.QueryBudget; limit++ {
+			budget := proofs.NewSearchBudget(limit)
 			got, ok := ssaflow.ValueAtReturnWithin(returned, cell, budget)
 			if budget.Exhausted() || limit == 0 {
 				if got != nil || ok {
@@ -191,13 +192,13 @@ func checkReturnStoresWithin(t *testing.T, returned *ssa.Return, cells []*ssa.Al
 	}
 }
 
-func checkReturnCompletionWithin(t *testing.T, guard ResultGuard, request CompletionRequest, returned *ssa.Return, want ssaflow.EvidenceState) {
+func checkReturnCompletionWithin(t *testing.T, guard ResultGuard, request CompletionRequest, returned *ssa.Return, want proofs.EvidenceState) {
 	t.Helper()
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		request.Budget = ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		request.Budget = proofs.NewSearchBudget(limit)
 		got := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome)
 		if request.Budget.Exhausted() || limit == 0 {
-			if got != ssaflow.EvidenceUnknown {
+			if got != proofs.EvidenceUnknown {
 				t.Fatalf("cut%d completion=%v", limit, got)
 			}
 			continue

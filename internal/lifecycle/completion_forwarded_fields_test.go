@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -47,7 +48,7 @@ func TestCompletionForwardedFields(t *testing.T) {
 			t.Log(ir.String())
 			request := CompletionRequest{
 				Instruction: calls[1], Target: calls[0], Methods: []string{"Close"},
-				Budget: ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget),
+				Budget: proofs.NewSearchBudget(10 * proofs.SummaryBudget),
 			}
 			proof := ProveCompletion(request)
 			if proof.Proven() != test.completes {

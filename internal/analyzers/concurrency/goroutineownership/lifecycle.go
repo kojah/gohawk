@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
@@ -21,7 +22,7 @@ import (
 // group. Waiting independently on that group is an alternative completion
 // handle; extra calls, sends, defers, or control flow make that inference opaque.
 // https://github.com/ConduitIO/conduit/blob/9946a19b9fff997675f78bbc5ff437e760d39f4f/pkg/lifecycle/stream/parallel.go#L94-L103
-func (analysis *spawnAnalysis) relayCompletionGroup(budget *ssaflow.SearchBudget) ssa.Value { //nolint:ireturn // Retains the caller's exact group identity.
+func (analysis *spawnAnalysis) relayCompletionGroup(budget *proofs.SearchBudget) ssa.Value { //nolint:ireturn // Retains the caller's exact group identity.
 	function, closure := resolveSpawnedFunction(analysis.pass, analysis.spawn, budget)
 	if len(analysis.signals) == 0 || function == nil || len(function.Blocks) != 1 || len(function.Blocks[0].Instrs) > 64 {
 		return nil
@@ -67,7 +68,7 @@ func (analysis *spawnAnalysis) relayCompletionGroup(budget *ssaflow.SearchBudget
 // never group-count arithmetic or proof that every participant completes.
 // https://github.com/buchgr/bazel-remote/blob/a69b6b5ed933234d93b489ffd216bee5bb74aa06/cache/disk/findmissing.go#L122-L143
 // https://github.com/HM2899/grokcli-2api/blob/33a106d902d7627d1cdbc3359768a029112ea808/internal/proxy/chat.go#L445-L565
-func (analysis *spawnAnalysis) relayDependencyUncertain(budget *ssaflow.SearchBudget) bool {
+func (analysis *spawnAnalysis) relayDependencyUncertain(budget *proofs.SearchBudget) bool {
 	if analysis.relayGroup == nil {
 		return false
 	}
@@ -130,7 +131,7 @@ func callbackFunction(value ssa.Value) *ssa.Function {
 // a lifecycle method. This is the only name-based evidence in the analyzer and
 // it can only suppress a diagnostic, never establish an obligation. A WaitGroup
 // is excluded so its Wait cannot bypass the terminal Done proof.
-func spawnedLifecycleOwners(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) []ssa.Value {
+func spawnedLifecycleOwners(pass *analysis.Pass, spawn *ssa.Go, budget *proofs.SearchBudget) []ssa.Value {
 	var owners []ssa.Value
 	if receiver := ssaflow.CallReceiver(spawn.Common()); lifecycleOwnerWithin(receiver, budget) {
 		owners = append(owners, receiver)
@@ -150,7 +151,7 @@ func spawnedLifecycleOwners(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.
 	return owners
 }
 
-func lifecycleOwnerWithin(value ssa.Value, budget *ssaflow.SearchBudget) bool {
+func lifecycleOwnerWithin(value ssa.Value, budget *proofs.SearchBudget) bool {
 	if value == nil || syntax.NamedType(value.Type(), "sync", "WaitGroup") {
 		return false
 	}

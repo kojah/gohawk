@@ -1,6 +1,7 @@
 package resourcelifetime
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -16,14 +17,14 @@ import (
 // dominating acquisition counts; deadline expiry, deferred calls, and sleeps
 // do not establish cancellation before acquisition.
 // https://github.com/mariadb-operator/mariadb-operator/blob/e8ece7a8076954674e10e0381571bd80278ac35f/licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go#L2794-L2803
-func proveAcquisitionContextCanceledWithin(acquisition *ssa.Call, budget *ssaflow.SearchBudget) resourceProof {
+func proveAcquisitionContextCanceledWithin(acquisition *ssa.Call, budget *proofs.SearchBudget) resourceProof {
 	common := acquisition.Common()
 	if !sqlDatabaseCall(common, "PrepareContext", "QueryContext", "BeginTx") || len(common.Args) < 2 {
-		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonUntouched}
 	}
 	constructor := contextCancelConstructor(common.Args[1])
 	if constructor == nil {
-		return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonUntouched}
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonUntouched}
 	}
 	for instruction := range ssaflow.InstructionsWithin(acquisition.Parent(), budget) {
 		call, ok := instruction.(*ssa.Call)

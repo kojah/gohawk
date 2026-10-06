@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -14,16 +15,16 @@ import (
 
 // HEAD constructor and immutable-use queries share exact rebinding mechanics.
 // Only call and extract roots are transparent; phis remain outside this policy.
-func headConstructedWithin(request ssa.Value, budget *ssaflow.SearchBudget) bool {
+func headConstructedWithin(request ssa.Value, budget *proofs.SearchBudget) bool {
 	return (headRequestQuery{budget: budget}).prove(request)
 }
 
 type headRequestQuery struct {
-	budget       *ssaflow.SearchBudget
+	budget       *proofs.SearchBudget
 	preserveUses bool
 }
 
-func headRequestWithin(request ssa.Value, budget *ssaflow.SearchBudget) bool {
+func headRequestWithin(request ssa.Value, budget *proofs.SearchBudget) bool {
 	return (headRequestQuery{budget: budget, preserveUses: true}).prove(request)
 }
 
@@ -120,7 +121,7 @@ func requestFieldName(field *ssa.FieldAddr) string {
 // Only known header-map operations preserve the request contract. Sending the
 // map to opaque code is not a general purity proof, even if Method is untouched
 // by every use recognized so far; shortened use scans remain unavailable.
-func headerUsesAreEditsWithin(field *ssa.FieldAddr, budget *ssaflow.SearchBudget) bool {
+func headerUsesAreEditsWithin(field *ssa.FieldAddr, budget *proofs.SearchBudget) bool {
 	if field.Referrers() == nil {
 		return false
 	}

@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -82,15 +83,15 @@ func reusedCell(t *testing.T) { loopDB(t, func(w *wrapper){ w.db.Use() }) }
 				}
 			}
 			proof := ProveEnclosingCompletion(EnclosingCompletionRequest{
-				Function: fn, Value: receiver, Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(10000),
+				Function: fn, Value: receiver, Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(10000),
 			})
 			if proof.Proven() != test.proven {
 				t.Fatalf("proof = %+v, want proven %v", proof, test.proven)
 			}
 			limited := ProveEnclosingCompletion(EnclosingCompletionRequest{
-				Function: fn, Value: receiver, Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1),
+				Function: fn, Value: receiver, Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(1),
 			})
-			if limited.State != ssaflow.EvidenceUnknown || limited.Reason != ssaflow.EvidenceBudgetExhausted {
+			if limited.State != proofs.EvidenceUnknown || limited.Reason != proofs.EvidenceBudgetExhausted {
 				t.Fatalf("exhausted proof = %+v", limited)
 			}
 		})

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -58,12 +59,12 @@ func TestCompletionSpillReplacement(t *testing.T) {
 			}
 			t.Log(ir.String())
 			request := CompletionRequest{Instruction: calls[1], Target: calls[0], Methods: []string{"Close"}}
-			request.Budget = ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+			request.Budget = proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 			proof := ProveCompletion(request)
 			if proof.Proven() != test.completes {
 				t.Fatalf("completion=%+v, want %v", proof, test.completes)
 			}
-			if test.name == "runDynamic" && proof.Reason != ssaflow.EvidenceCompletionInCycle {
+			if test.name == "runDynamic" && proof.Reason != proofs.EvidenceCompletionInCycle {
 				t.Fatalf("dynamic cleanup lost loop uncertainty: %+v", proof)
 			}
 			if test.completes {
@@ -76,8 +77,8 @@ func TestCompletionSpillReplacement(t *testing.T) {
 func assertCompletionSpillCutoff(t *testing.T, request CompletionRequest) {
 	t.Helper()
 	sawCut := false
-	for limit := 1; limit <= 10*ssaflow.SummaryBudget; limit += 10 {
-		request.Budget = ssaflow.NewSearchBudget(limit)
+	for limit := 1; limit <= 10*proofs.SummaryBudget; limit += 10 {
+		request.Budget = proofs.NewSearchBudget(limit)
 		proof := ProveCompletion(request)
 		if request.Budget.Exhausted() {
 			sawCut = true

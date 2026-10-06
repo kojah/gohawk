@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -35,13 +36,13 @@ func registered(p, other *resource, pick bool) { held:=p; register(func(){held.C
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
 			cell, invocation := deferredCellCase(t, function)
-			full := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+			full := proofs.NewSearchBudget(proofs.QueryBudget)
 			got, known := DeferredCellRelationWithin(cell, function.Params[0], invocation, full)
 			if !known || got != test.want || full.Exhausted() {
 				t.Fatalf("full relation=%v, known=%v, want %v", got, known, test.want)
 			}
 			assertDeferredRelationCutoffs(t, cell, function.Params[0], invocation, test.want)
-			pool := ssaflow.NewSearchBudget(10 * ssaflow.QueryBudget)
+			pool := proofs.NewSearchBudget(10 * proofs.QueryBudget)
 			cut := pool.Within(1)
 			if got, known := DeferredCellRelationWithin(cell, function.Params[0], invocation, cut); known || got != DeferredCellUnknown {
 				t.Fatalf("cut published relation=%v, known=%v", got, known)
@@ -49,7 +50,7 @@ func registered(p, other *resource, pick bool) { held:=p; register(func(){held.C
 			if !cut.Exhausted() || pool.Exhausted() {
 				t.Fatal("independent child cutoff was not preserved")
 			}
-			fresh := pool.Within(ssaflow.QueryBudget)
+			fresh := pool.Within(proofs.QueryBudget)
 			if got, known := DeferredCellRelationWithin(cell, function.Params[0], invocation, fresh); !known || got != test.want {
 				t.Fatalf("fresh relation=%v, known=%v, want %v", got, known, test.want)
 			}
@@ -64,8 +65,8 @@ func registered(p, other *resource, pick bool) { held:=p; register(func(){held.C
 
 func assertDeferredRelationCutoffs(t *testing.T, cell *ssa.Alloc, target ssa.Value, invocation ssa.Instruction, want DeferredCellMatch) {
 	t.Helper()
-	for allowance := 2; allowance < ssaflow.QueryBudget; allowance++ {
-		budget := ssaflow.NewSearchBudget(allowance)
+	for allowance := 2; allowance < proofs.QueryBudget; allowance++ {
+		budget := proofs.NewSearchBudget(allowance)
 		got, known := DeferredCellRelationWithin(cell, target, invocation, budget)
 		if budget.Exhausted() {
 			if known || got != DeferredCellUnknown {
@@ -119,11 +120,11 @@ func probe(pick bool) { defer func(){}(); if pick{return} }
 	if firstRun == 0 || firstRun >= instructions {
 		t.Fatal("expected a deferred observation before the completed census")
 	}
-	cut := ssaflow.NewSearchBudget(firstRun)
+	cut := proofs.NewSearchBudget(firstRun)
 	if points, available := deferredObservationPoints(function, cut); available || len(points) != 0 || !cut.Exhausted() {
 		t.Fatalf("cut retained observation prefix: %d points, available=%v", len(points), available)
 	}
-	if points, available := deferredObservationPoints(function, ssaflow.NewSearchBudget(ssaflow.QueryBudget)); !available || len(points) < 2 {
+	if points, available := deferredObservationPoints(function, proofs.NewSearchBudget(proofs.QueryBudget)); !available || len(points) < 2 {
 		t.Fatalf("fresh census did not recover: %d points, available=%v", len(points), available)
 	}
 }

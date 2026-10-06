@@ -1,4 +1,4 @@
-package ssaflow
+package proof
 
 import "github.com/kojah/gohawk/internal/enumtext"
 

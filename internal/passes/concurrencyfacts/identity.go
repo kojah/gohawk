@@ -5,6 +5,7 @@ import (
 	"go/types"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -102,7 +103,7 @@ func (engine *Engine) fixedLoad(load *ssa.UnOp) (*ssa.UnOp, bool) {
 
 // capturedLoad returns the closure's first read of capture when every use of
 // the capture is a read.
-func capturedLoadWithin(load *ssa.UnOp, capture *ssa.FreeVar, budget *ssaflow.SearchBudget) (*ssa.UnOp, bool) {
+func capturedLoadWithin(load *ssa.UnOp, capture *ssa.FreeVar, budget *proofs.SearchBudget) (*ssa.UnOp, bool) {
 	var first *ssa.UnOp
 	for use := range ssaflow.ReferrersWithin(capture, budget) {
 		read, ok := use.(*ssa.UnOp)

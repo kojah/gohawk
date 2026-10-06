@@ -11,6 +11,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -47,7 +48,7 @@ type joinEdgeEvidence struct {
 	action ssaflow.ObligationAction
 }
 
-func resolveSpawnedFunction(pass *analysis.Pass, spawn *ssa.Go, budget *ssaflow.SearchBudget) (*ssa.Function, *ssa.MakeClosure) {
+func resolveSpawnedFunction(pass *analysis.Pass, spawn *ssa.Go, budget *proofs.SearchBudget) (*ssa.Function, *ssa.MakeClosure) {
 	function, closure := ssaflow.DirectCallee(spawn.Common())
 	if closure != nil {
 		return function, closure
@@ -108,7 +109,7 @@ func callbackTarget(value ssa.Value) (*ssa.Function, *ssa.MakeClosure) {
 func spawnedCompletionValues(
 	pass *analysis.Pass,
 	spawn *ssa.Go,
-	budget *ssaflow.SearchBudget,
+	budget *proofs.SearchBudget,
 ) (signals, groups []ssa.Value, unsettledDone ssa.Instruction) {
 	function, closure := resolveSpawnedFunction(pass, spawn, budget)
 	if function == nil {
@@ -136,7 +137,7 @@ func spawnedCompletionValues(
 // Keep that group as an alternative completion handle, so returning its owner
 // is visible even when the worker also sends on an unrelated output channel.
 // https://github.com/vbauerster/mpb/blob/ddeb4bb7bcb86e114648760018b10700841a081a/heap_manager.go#L46-L61
-func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, budget *ssaflow.SearchBudget) []ssa.Value {
+func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, budget *proofs.SearchBudget) []ssa.Value {
 	var groups []ssa.Value
 	for pair := range ssaflow.CallBindingsWithin(spawn.Common(), function, closure, budget) {
 		group := completionValueAtCall(spawn, function, closure, pair.Local, budget)
@@ -180,7 +181,7 @@ func spawnedCompletionSignal(
 	function *ssa.Function,
 	closure *ssa.MakeClosure,
 	instruction ssa.Instruction,
-	budget *ssaflow.SearchBudget,
+	budget *proofs.SearchBudget,
 ) ssa.Value { //nolint:ireturn // Completion signals retain their concrete SSA value types.
 	if channel := completionNotification(instruction, budget); channel != nil {
 		if _, send := instruction.(*ssa.Send); !send && !notifiesChannelOnEveryReturn(function, channel, budget) {
@@ -218,7 +219,7 @@ func spawnedCompletionSignal(
 // discovery, nested closures and return coverage. A detached notification
 // belongs to another worker and cannot settle this one.
 func completionNotification(
-	instruction ssa.Instruction, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, budget *proofs.SearchBudget,
 ) ssa.Value { //nolint:ireturn // Notifications retain their concrete SSA value types.
 	if _, launched := instruction.(*ssa.Go); launched {
 		return nil
@@ -249,7 +250,7 @@ func completionNotification(
 // Require exact notification coverage before treating the channel as completion;
 // otherwise the caller may legitimately observe a separate success event.
 // https://github.com/zmap/zgrab2/blob/a1231792c51576f1818825fae51db042b4dcd41e/lib/http2/transport.go#L3028-L3043
-func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value, budget *ssaflow.SearchBudget) bool {
+func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value, budget *proofs.SearchBudget) bool {
 	if !completionHasReturn(function, budget) {
 		return false
 	}
@@ -270,7 +271,7 @@ func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value, bud
 // invoked inner closure sends on or closes. A deferred inner closure is the
 // common shape: `defer func() { done <- recover() }()`.
 func nestedClosureSignal(
-	nested *ssa.MakeClosure, budget *ssaflow.SearchBudget,
+	nested *ssa.MakeClosure, budget *proofs.SearchBudget,
 ) ssa.Value { //nolint:ireturn // Join handles retain their concrete SSA value types.
 	function, _ := nested.Fn.(*ssa.Function)
 	if function == nil {
@@ -314,7 +315,7 @@ func waitGroupCompletionValues(
 	spawn *ssa.Go,
 	function *ssa.Function,
 	closure *ssa.MakeClosure,
-	budget *ssaflow.SearchBudget,
+	budget *proofs.SearchBudget,
 ) (groups []ssa.Value, unsettled ssa.Instruction) {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -364,7 +365,7 @@ func waitGroupCompletionValues(
 	return groups, unsettled
 }
 
-func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value, budget *ssaflow.SearchBudget) bool {
+func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value, budget *proofs.SearchBudget) bool {
 	if !completionHasReturn(function, budget) {
 		return false
 	}
@@ -418,7 +419,7 @@ func localChannel(function *ssa.Function, signal ssa.Value) *ssa.MakeChan {
 	return localChannelWithin(function, signal, nil)
 }
 
-func localChannelWithin(function *ssa.Function, signal ssa.Value, budget *ssaflow.SearchBudget) *ssa.MakeChan {
+func localChannelWithin(function *ssa.Function, signal ssa.Value, budget *proofs.SearchBudget) *ssa.MakeChan {
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		created, ok := instruction.(*ssa.MakeChan)
 		if !ok {

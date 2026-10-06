@@ -3,7 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -24,19 +24,19 @@ func pair() {
 }
 `)
 	for _, name := range []string{"mutable", "external"} {
-		got := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		got := NewEngine().Root(pkg.Func(name), proofs.NewSearchBudget(proofs.SummaryBudget))
 		if got.Complete() {
 			t.Errorf("%s accepted unstable channel identity: %+v", name, got)
 		}
 	}
-	got := NewEngine().Root(pkg.Func("root"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	got := NewEngine().Root(pkg.Func("root"), proofs.NewSearchBudget(proofs.SummaryBudget))
 	if !got.Complete() || len(got.Workers) != 1 || len(got.Operations) != 3 {
 		t.Fatalf("receiver channel protocol = %+v", got)
 	}
 	if got.Workers[0].Operations[1].Resource != got.Operations[1].Resource {
 		t.Error("worker completion and parent wait disagree on channel identity")
 	}
-	pair := NewEngine().Root(pkg.Func("pair"), ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	pair := NewEngine().Root(pkg.Func("pair"), proofs.NewSearchBudget(proofs.SummaryBudget))
 	if !pair.Complete() || len(pair.Workers) != 2 || len(pair.Operations) != 6 {
 		t.Fatalf("two-owner protocol = %+v", pair)
 	}

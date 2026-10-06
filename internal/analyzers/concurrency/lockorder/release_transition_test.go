@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -35,7 +36,7 @@ func TestCompletedUnlockTransition(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var evidence lifecycle.LocalEvidence
 			flow := lockFlowContext{
-				releases:   newLockReleaseQueries(&evidence, ssaflow.NewSearchBudget(lockStateWorkBudget)),
+				releases:   newLockReleaseQueries(&evidence, proofs.NewSearchBudget(lockStateWorkBudget)),
 				lockValues: map[string][]ssa.Value{"target": {fn.Params[0]}},
 				released:   map[string]bool{}, unprovenRelease: map[string]bool{},
 			}
@@ -43,7 +44,7 @@ func TestCompletedUnlockTransition(t *testing.T) {
 			state.held = flow.transferCompletedUnlocks(calls[test.index], state)
 			_, guarded := state.guards["target"]
 			if (len(state.held) == 0) != test.released || flow.released["target"] != test.released || guarded == test.released ||
-				flow.unprovenRelease["target"] != test.possible || flow.releases.cutoff.Reason != ssaflow.EvidenceNone {
+				flow.unprovenRelease["target"] != test.possible || flow.releases.cutoff.Reason != proofs.EvidenceNone {
 				t.Fatalf("held=%v released=%v guard=%v possible=%v cutoff=%+v", state.held, flow.released, guarded, flow.unprovenRelease, flow.releases.cutoff)
 			}
 		})

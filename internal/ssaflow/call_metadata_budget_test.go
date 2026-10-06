@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -22,18 +23,18 @@ func subject(first, second chan int) { go func(arg chan int) { <-arg; <-first; <
 		{Local: function.FreeVars[0], Supplied: closure.Bindings[0], Captured: true},
 		{Local: function.FreeVars[1], Supplied: closure.Bindings[1], Captured: true},
 	}
-	fresh := NewSearchBudget(3)
+	fresh := proofs.NewSearchBudget(3)
 	got := slices.Collect(CallBindingsWithin(spawn.Common(), function, closure, fresh))
 	if !slices.Equal(got, want) || fresh.Exhausted() || fresh.Spend() || !slices.Equal(CallBindings(spawn.Common(), function, closure), want) {
 		t.Fatal("fresh enumeration must preserve argument/capture order with exactly three visits")
 	}
-	pool := NewSearchBudget(1)
+	pool := proofs.NewSearchBudget(1)
 	limited := pool.Within(3)
 	got = slices.Collect(CallBindingsWithin(spawn.Common(), function, closure, limited))
 	if !slices.Equal(got, want[:1]) || !limited.PoolExhausted() {
 		t.Fatal("partial metadata must retain pool cutoff availability")
 	}
-	early := NewSearchBudget(1)
+	early := proofs.NewSearchBudget(1)
 	for binding := range CallBindingsWithin(spawn.Common(), function, closure, early) {
 		if binding != want[0] {
 			t.Fatal("early witness changed binding order")
@@ -43,7 +44,7 @@ func subject(first, second chan int) { go func(arg chan int) { <-arg; <-first; <
 	if early.Exhausted() || early.Spend() {
 		t.Fatal("early stop must spend exactly one metadata visit")
 	}
-	captures := NewSearchBudget(1)
+	captures := proofs.NewSearchBudget(1)
 	pairs := slices.Collect(ClosureBindingPairsWithin(function, closure, captures))
 	if len(pairs) != 1 || pairs[0].Free != function.FreeVars[0] || pairs[0].Binding != closure.Bindings[0] || !captures.Exhausted() {
 		t.Fatal("capture cutoff must retain only the inspected prefix")
@@ -66,28 +67,28 @@ func subject() (int,int,int,int) { a,b,c:=triple(); return a,b,c,single() }
 		t.Fatal("expected three actual tuple-result extracts")
 	}
 	last := refs[2].(*ssa.Extract)
-	cutoff := NewSearchBudget(2)
+	cutoff := proofs.NewSearchBudget(2)
 	if CallResultWithin(tuple, last.Index, cutoff) != nil || !cutoff.Exhausted() {
 		t.Fatal("an unvisited result must be unavailable at cutoff")
 	}
-	fresh := NewSearchBudget(3)
+	fresh := proofs.NewSearchBudget(3)
 	if CallResultWithin(tuple, last.Index, fresh) != last || fresh.Exhausted() || fresh.Spend() || CallResult(tuple, last.Index) != last {
 		t.Fatal("fresh result lookup must select the exact last result with three visits")
 	}
 	first := refs[0].(*ssa.Extract)
-	early := NewSearchBudget(1)
+	early := proofs.NewSearchBudget(1)
 	if CallResultWithin(tuple, first.Index, early) != first || early.Exhausted() || early.Spend() {
 		t.Fatal("result lookup must stop at its first exact witness")
 	}
-	absent := NewSearchBudget(3)
+	absent := proofs.NewSearchBudget(3)
 	if CallResultWithin(tuple, 7, absent) != nil || absent.Exhausted() {
 		t.Fatal("a completed absent-result scan must differ from cutoff")
 	}
-	zero := NewSearchBudget(0)
+	zero := proofs.NewSearchBudget(0)
 	if CallResultWithin(calls[1], -1, zero) != nil || !zero.Exhausted() {
 		t.Fatal("single-result lookup must charge its allowance")
 	}
-	if CallResultWithin(calls[1], -1, NewSearchBudget(1)) != calls[1] || CallResult(calls[1], -1) != calls[1] {
+	if CallResultWithin(calls[1], -1, proofs.NewSearchBudget(1)) != calls[1] || CallResult(calls[1], -1) != calls[1] {
 		t.Fatal("single-result representation must stay the call itself")
 	}
 }

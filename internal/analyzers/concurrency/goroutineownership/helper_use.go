@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -29,7 +30,7 @@ import (
 type helperSearch struct {
 	concurrency *concurrencyfacts.Engine
 	memo        *ssaflow.CallGraphMemo[helperKey, ownershipAction]
-	budget      *ssaflow.SearchBudget
+	budget      *proofs.SearchBudget
 }
 
 const helperUseBudget = 1000
@@ -41,10 +42,10 @@ type helperKey struct {
 }
 
 func newHelperSearch() *helperSearch {
-	return newHelperSearchWithin(ssaflow.NewSearchBudget(helperUseBudget))
+	return newHelperSearchWithin(proofs.NewSearchBudget(helperUseBudget))
 }
 
-func newHelperSearchWithin(budget *ssaflow.SearchBudget) *helperSearch {
+func newHelperSearchWithin(budget *proofs.SearchBudget) *helperSearch {
 	return &helperSearch{memo: ssaflow.NewCallGraphMemo[helperKey, ownershipAction](), budget: budget}
 }
 

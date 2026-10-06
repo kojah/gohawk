@@ -3,6 +3,7 @@ package resultfacts
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
@@ -30,9 +31,9 @@ func TestCrossPackageResults(t *testing.T) {
 				if !ok {
 					continue
 				}
-				local := engine.Function(function, ssaflow.NewSearchBudget(2000))
+				local := engine.Function(function, proofs.NewSearchBudget(2000))
 				call := ssaflow.InstructionsOf[*ssa.Call](function)[0]
-				imported := engine.Function(call.Common().StaticCallee(), ssaflow.NewSearchBudget(2000))
+				imported := engine.Function(call.Common().StaticCallee(), proofs.NewSearchBudget(2000))
 				if !local.Available || !imported.Available {
 					t.Errorf("%s: missing component", function)
 				}

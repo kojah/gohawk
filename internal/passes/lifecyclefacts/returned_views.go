@@ -6,7 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -239,6 +239,6 @@ func (fact *Fact) ReturnsView(instruction ssa.Instruction, target ssa.Value) boo
 // ProveReturnsViewWithin binds the returned-view mask using existing exact
 // storage and guarded containment policy. Visits share budget; storage keeps
 // its QueryBudget cap. Cutoff is unknown, never evidence of a non-view.
-func (fact *Fact) ProveReturnsViewWithin(instruction ssa.Instruction, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof {
+func (fact *Fact) ProveReturnsViewWithin(instruction ssa.Instruction, target ssa.Value, budget *proofs.SearchBudget) proofs.Proof {
 	return proveFactOwnsArgumentWithin(instruction, target, fact.Must.ReturnedView, nil, budget)
 }

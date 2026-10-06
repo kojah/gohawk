@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -18,7 +19,7 @@ type lockFlowContext struct {
 	fieldEvidence   readLockFieldEvidence
 	function        *ssa.Function
 	setup           *lockFunctionSetup
-	budget          *ssaflow.SearchBudget
+	budget          *proofs.SearchBudget
 	exclusive       *exclusiveCallers
 	releases        *lockReleaseQueries
 	relations       *lockOrders
@@ -139,7 +140,7 @@ func (flow lockFlowContext) applyMutexAction(
 		if proof.reason == lockReasonLockStateBudgetExhausted {
 			return state
 		}
-		if proof.state != ssaflow.EvidenceProven {
+		if proof.state != proofs.EvidenceProven {
 			flow.recordInitialAcquisition(instruction, receiver, acquired, state, guards)
 		}
 	}
@@ -185,7 +186,7 @@ func transferOpaqueUnlocks(
 	guards map[string]lockGuard,
 	lockValues map[string][]ssa.Value,
 	released map[string]bool,
-	budget *ssaflow.SearchBudget,
+	budget *proofs.SearchBudget,
 ) []string {
 	common := ssaflow.InstructionCall(instruction)
 	if _, _, _, direct := mutexActionWithin(instruction, budget); direct {
@@ -222,7 +223,7 @@ func transferOpaqueUnlocks(
 // asynchronously; that makes the previous held-lock state unknown. A local
 // callback merely created or saved in a local variable establishes no handoff.
 // https://github.com/Control-D-Inc/ctrld/blob/37c33315591632c5f08df8062d1c77e07b3a465f/resolver_test.go#L348-L364
-func handedUnlockCallback(instruction ssa.Instruction, lock ssa.Value, budget *ssaflow.SearchBudget) bool {
+func handedUnlockCallback(instruction ssa.Instruction, lock ssa.Value, budget *proofs.SearchBudget) bool {
 	var values []ssa.Value
 	switch typed := instruction.(type) {
 	case *ssa.Store:
@@ -281,11 +282,11 @@ func (flow lockFlowContext) recordInitialAcquisition(
 	// never exclusively owned. Other held owners retain their ordering edges.
 	// https://github.com/unstablebuild/rune/blob/3e2165f8983280542c985947378dfa740a397d03/internal/ide/idepkg/manager.go#L416-L422
 	publication := flow.initialPublicationGuard(instruction, receiver, state)
-	if publication.state == ssaflow.EvidenceUnknown {
+	if publication.state == proofs.EvidenceUnknown {
 		traceLockDiagnostic(flow.pass, check.LockContradictoryOrder, instruction.Pos(), publication.lockDiagnosticProof)
 	}
 	for _, owner := range state.held {
-		if publication.state == ssaflow.EvidenceUnknown && publication.identity == owner {
+		if publication.state == proofs.EvidenceUnknown && publication.identity == owner {
 			continue
 		}
 		flow.relations.record(flow.pass, state.origins[owner], acquired, guards...)

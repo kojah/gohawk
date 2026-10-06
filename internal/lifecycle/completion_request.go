@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"strings"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -30,7 +31,7 @@ type CompletionRequest struct {
 	// Unknown proof with EvidenceBudgetExhausted rather than a disproof,
 	// because the search stopped before it could decide; what an undecided
 	// answer permits is the caller's policy, not this package's.
-	Budget *ssaflow.SearchBudget
+	Budget *proofs.SearchBudget
 	// Summarized supplies exact completion guarantees for unavailable bodies.
 	// Its policy is fixed for this request and all nested summary queries.
 	Summarized CompletionSummaryLookup
@@ -58,12 +59,12 @@ type CompletionRequest struct {
 // callback resolution was incomplete, so callers may consult imported
 // summaries. A fully searched body that does not complete the target is
 // Disproven.
-func ProveCompletion(request CompletionRequest) ssaflow.CompletionProof {
+func ProveCompletion(request CompletionRequest) proofs.CompletionProof {
 	if request.Instruction == nil || request.Target == nil {
-		return ssaflow.CompletionProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+		return proofs.CompletionProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	}
 	if request.InvokeTarget && len(request.Methods) != 0 || !request.InvokeTarget && len(request.Methods) == 0 {
-		return ssaflow.CompletionProof{Proof: ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}}
+		return proofs.CompletionProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	}
 	searched := false
 	incomplete := false
@@ -93,16 +94,16 @@ func ProveCompletion(request CompletionRequest) ssaflow.CompletionProof {
 	return request.unprovenCompletion(searched, incomplete, inCycle)
 }
 
-func (request CompletionRequest) unprovenCompletion(searched, incomplete, inCycle bool) ssaflow.CompletionProof {
-	proof := ssaflow.Proof{State: ssaflow.EvidenceUnknown, Reason: ssaflow.EvidenceUnavailable}
+func (request CompletionRequest) unprovenCompletion(searched, incomplete, inCycle bool) proofs.CompletionProof {
+	proof := proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}
 	if searched {
-		proof.Provenance = ssaflow.EvidenceFromLocalSSA
+		proof.Provenance = proofs.EvidenceFromLocalSSA
 	}
 	switch {
 	case request.Budget.Exhausted():
 		// The walk stopped early, so a missing completion is not evidence
 		// that the callee fails to complete the target.
-		proof.Reason = ssaflow.EvidenceBudgetExhausted
+		proof.Reason = proofs.EvidenceBudgetExhausted
 	case searched && inCycle:
 		// A helper that releases every element of what it was handed inside
 		// a loop, as slackdump's Destroy closes each stored handle, is not
@@ -110,19 +111,19 @@ func (request CompletionRequest) unprovenCompletion(searched, incomplete, inCycl
 		// which element an iteration settles is decided by iteration. That
 		// is uncertainty about the element, not a missing completion.
 		// https://github.com/rusq/slackdump/blob/f7319928b0993b23d7e9bd8af5e4c69b6f1d2af4/internal/chunk/filemgr.go#L66-L73
-		proof.Reason = ssaflow.EvidenceCompletionInCycle
+		proof.Reason = proofs.EvidenceCompletionInCycle
 	case searched && incomplete:
 		// Unresolved nested work cannot establish missing completion.
 	case searched:
-		proof.State, proof.Reason = ssaflow.EvidenceDisproven, ssaflow.EvidenceNotFound
+		proof.State, proof.Reason = proofs.EvidenceDisproven, proofs.EvidenceNotFound
 	}
-	return request.giveUp(ssaflow.CompletionProof{Proof: proof})
+	return request.giveUp(proofs.CompletionProof{Proof: proof})
 }
 
 // giveUp reports a completion search that proved nothing to the budget's
 // observer, naming the launch site, the target, and the methods sought, and
 // returns the proof unchanged.
-func (request CompletionRequest) giveUp(proof ssaflow.CompletionProof) ssaflow.CompletionProof {
+func (request CompletionRequest) giveUp(proof proofs.CompletionProof) proofs.CompletionProof {
 	request.Budget.Observe(proof.Reason, request.Instruction.Pos(), func() map[string]string {
 		details := map[string]string{"instruction": request.Instruction.String(), "target": request.Target.Name()}
 		if len(request.Methods) != 0 {

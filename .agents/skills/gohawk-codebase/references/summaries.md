@@ -48,7 +48,7 @@ remain available through LifecycleEvidence rather than fabricated facts.
 [Source](../../../../internal/summaries/provider.go)
 
 ```go
-func (function Function) Results(budget *ssaflow.SearchBudget) (resultfacts.Summary, Availability)
+func (function Function) Results(budget *proofs.SearchBudget) (resultfacts.Summary, Availability)
 ```
 
 Results obtains unconditional per-result guarantees. Available summaries may
@@ -84,7 +84,7 @@ object facts from a sibling pass or retroactively requests dependency work.
 [Source](../../../../internal/summaries/results.go)
 
 ```go
-func (provider *Provider) ArgumentReturnedUnchanged(value ssa.Value, budget *ssaflow.SearchBudget) (ssa.Value, bool)
+func (provider *Provider) ArgumentReturnedUnchanged(value ssa.Value, budget *proofs.SearchBudget) (ssa.Value, bool)
 ```
 
 ArgumentReturnedUnchanged resolves a call result to the argument the callee
@@ -110,7 +110,7 @@ completeness rules and bounded call-site binding remain authoritative.
 [Source](../../../../internal/summaries/provider.go)
 
 ```go
-func (provider *Provider) ConcurrencyAtCall(call ssa.CallInstruction, budget *ssaflow.SearchBudget) (concurrencyfacts.Summary, Availability)
+func (provider *Provider) ConcurrencyAtCall(call ssa.CallInstruction, budget *proofs.SearchBudget) (concurrencyfacts.Summary, Availability)
 ```
 
 ConcurrencyAtCall binds ordered effects through the existing domain engine.
@@ -121,7 +121,7 @@ Missing or incomplete effects retain the engine's domain-specific Reason.
 [Source](../../../../internal/summaries/results.go)
 
 ```go
-func (provider *Provider) FeasibleSuccessors(block, predecessor *ssa.BasicBlock, budget *ssaflow.SearchBudget) []*ssa.BasicBlock
+func (provider *Provider) FeasibleSuccessors(block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) []*ssa.BasicBlock
 ```
 
 FeasibleSuccessors augments existing predecessor-sensitive literal evidence
@@ -155,7 +155,7 @@ formal parameter guarantee with an instantiated caller obligation.
 [Source](../../../../internal/summaries/results.go)
 
 ```go
-func (provider *Provider) OutcomeOf(value ssa.Value, budget *ssaflow.SearchBudget) (ssaflow.Outcome, bool)
+func (provider *Provider) OutcomeOf(value ssa.Value, budget *proofs.SearchBudget) (ssaflow.Outcome, bool)
 ```
 
 OutcomeOf combines a value's literal or construction outcome with an
@@ -168,7 +168,7 @@ ownership or cleanup, and arguments never strengthen a callee's guarantee.
 [Source](../../../../internal/summaries/provider.go)
 
 ```go
-func (provider *Provider) ProveCallReturnsViewWithin(call *ssa.Call, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+func (provider *Provider) ProveCallReturnsViewWithin(call *ssa.Call, target ssa.Value, budget *proofs.SearchBudget) proofs.Proof
 ```
 
 ProveCallReturnsViewWithin binds a selected lifecycle declaration using the
@@ -180,7 +180,7 @@ and binding cutoff remain unknown; graph/type and fact-copy costs are separate.
 [Source](../../../../internal/summaries/results.go)
 
 ```go
-func (provider *Provider) ResultOf(value ssa.Value, budget *ssaflow.SearchBudget) resultfacts.Guarantee
+func (provider *Provider) ResultOf(value ssa.Value, budget *proofs.SearchBudget) resultfacts.Guarantee
 ```
 
 ResultOf maps a direct result to its function-summary slot. This is not
@@ -215,7 +215,7 @@ as os.Exit does. A nil provider yields no hook.
 [Source](../../../../internal/summaries/results.go)
 
 ```go
-func (provider *Provider) TerminatesWithin(budget *ssaflow.SearchBudget) ssaflow.Terminator
+func (provider *Provider) TerminatesWithin(budget *proofs.SearchBudget) ssaflow.Terminator
 ```
 
 TerminatesWithin shares result inference with budget. A nil budget retains

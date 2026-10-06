@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
@@ -50,7 +51,7 @@ func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resour
 	}
 	// Retain reachability's existing per-question cap while charging all of its
 	// traversal and feasibility work to the candidate pool.
-	reachBudget := analysis.budget(ssaflow.SummaryBudget)
+	reachBudget := analysis.budget(proofs.SummaryBudget)
 	reachable := analysis.acquisitionReachable(reachBudget)
 	if resourceFlowExhausted(budget) || resourceFlowExhausted(reachBudget) {
 		return unknownResourceLifetime(resourceReasonBudgetExhausted)
@@ -71,7 +72,7 @@ func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resour
 			}
 			opaque = opaque || state.obligation.Unknown()
 			edges := resourceSuccessorStates(analysis, state, errorValue, budget)
-			incomplete = edges.State == ssaflow.EvidenceUnknown
+			incomplete = edges.State == proofs.EvidenceUnknown
 			return edges.states, !incomplete
 		}, budget)
 	// Cutoff cannot retain a leak witness or an exact release claim, even when
@@ -91,7 +92,7 @@ func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resour
 	return acceptedResourceLifetime(resourceReasonReleaseProven)
 }
 
-func resourceStateKey(state resourceFlowState, budget *ssaflow.SearchBudget) resourceFlowKey {
+func resourceStateKey(state resourceFlowState, budget *proofs.SearchBudget) resourceFlowKey {
 	return resourceFlowKey{
 		location:   ssaflow.FlowLocationKeyWithin(state.block, state.predecessor, state.index, state.guards, budget),
 		obligation: state.obligation,
@@ -100,11 +101,11 @@ func resourceStateKey(state resourceFlowState, budget *ssaflow.SearchBudget) res
 
 // A sibling classifier query can exhaust the shared parent without spending
 // through the walk's child again. Both limits must still invalidate its proof.
-func resourceFlowExhausted(budget *ssaflow.SearchBudget) bool {
+func resourceFlowExhausted(budget *proofs.SearchBudget) bool {
 	return budget.Exhausted() || budget.PoolExhausted()
 }
 
-func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState, budget *ssaflow.SearchBudget) (resourceFlowState, bool) {
+func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState, budget *proofs.SearchBudget) (resourceFlowState, bool) {
 	// A release or transfer anywhere before a return settles the path. An
 	// opaque consumption does not settle it but removes the proof: the
 	// return is then neither owned nor a defect.
@@ -150,10 +151,10 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState, b
 		}
 		if ok && state.obligation.Unsettled() {
 			proof := analysis.proveResourceReturn(returned, budget)
-			if proof.state == ssaflow.EvidenceUnknown {
+			if proof.state == proofs.EvidenceUnknown {
 				return state, false
 			}
-			if proof.state == ssaflow.EvidenceProven {
+			if proof.state == proofs.EvidenceProven {
 				analysis.leak = proof.leak
 				return state, true
 			}
@@ -168,7 +169,7 @@ type resourceSuccessorsProof struct {
 }
 
 func resourceSuccessorStates(
-	analysis *resourceAnalysis, state resourceFlowState, errorValue ssa.Value, budget *ssaflow.SearchBudget,
+	analysis *resourceAnalysis, state resourceFlowState, errorValue ssa.Value, budget *proofs.SearchBudget,
 ) resourceSuccessorsProof {
 	pass, resource, optionalAcquisition, candidate := analysis.pass, analysis.resource, analysis.optional, analysis.candidate
 	edges := analysis.successorPolicy().EdgesWithin(state.block, state.predecessor, state.guards, budget)
@@ -189,8 +190,8 @@ func resourceSuccessorStates(
 		successor := edge.To
 		obligation := state.obligation
 		branch := proveResourceSuccessBranch(pass, analysis.summaries, state.block, successor, errorValue, candidate,
-			budget.Within(ssaflow.SummaryBudget))
-		if branch.State == ssaflow.EvidenceUnknown {
+			budget.Within(proofs.SummaryBudget))
+		if branch.State == proofs.EvidenceUnknown {
 			return unavailableResourceSuccessors()
 		}
 		if branch.Proven() {
@@ -210,8 +211,8 @@ func resourceSuccessorStates(
 			obligation = obligation.Uncertain()
 			analysis.traceUncertainEdge(state.block, successor, resourceReasonRepeatedGuardEdgeUnknown)
 		}
-		rows := proveSQLRowsExhaustionEdge(state.block, successor, resource, budget.Within(ssaflow.QueryBudget))
-		if rows.State == ssaflow.EvidenceUnknown {
+		rows := proveSQLRowsExhaustionEdge(state.block, successor, resource, budget.Within(proofs.QueryBudget))
+		if rows.State == proofs.EvidenceUnknown {
 			return unavailableResourceSuccessors()
 		}
 		if rows.Proven() {
@@ -238,9 +239,9 @@ func resourceSuccessorStates(
 			block: successor, predecessor: state.block, obligation: obligation, guards: guards,
 		})
 	}
-	return resourceSuccessorsProof{resourceProof: resourceProof{State: ssaflow.EvidenceProven}, states: result}
+	return resourceSuccessorsProof{resourceProof: resourceProof{State: proofs.EvidenceProven}, states: result}
 }
 
 func unavailableResourceSuccessors() resourceSuccessorsProof {
-	return resourceSuccessorsProof{resourceProof: resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
+	return resourceSuccessorsProof{resourceProof: resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
 }

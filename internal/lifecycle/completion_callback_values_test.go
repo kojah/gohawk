@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 func TestCallbackCapabilityPoliciesAndAllowance(t *testing.T) {
@@ -37,34 +37,34 @@ func TestCallbackCapabilityPoliciesAndAllowance(t *testing.T) {
 	} {
 		fn := pkg.Func(test.name)
 		value := returnedValue(t, fn)
-		proof := ProveValueCallsMethodWithin(value, "Unlock", fn.Params[0], ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+		proof := ProveValueCallsMethodWithin(value, "Unlock", fn.Params[0], proofs.NewSearchBudget(proofs.SummaryBudget))
 		if proof.Proven() != test.may || ValueCallsMethod(value, "Unlock", fn.Params[0]) != test.may {
 			t.Fatalf("%s policy: %+v", test.name, proof)
 		}
-		zero := ssaflow.NewSearchBudget(0)
+		zero := proofs.NewSearchBudget(0)
 		if proof := ProveValueCallsMethodWithin(value, "Unlock", fn.Params[0], zero); proof.Proven() ||
-			proof.Reason != ssaflow.EvidenceBudgetExhausted || !zero.Exhausted() {
+			proof.Reason != proofs.EvidenceBudgetExhausted || !zero.Exhausted() {
 			t.Fatalf("%s zero allowance: %+v", test.name, proof)
 		}
 		if !test.may {
 			continue
 		}
 		finished := false
-		for limit := range ssaflow.SummaryBudget {
-			pool := ssaflow.NewSearchBudget(100 * ssaflow.SummaryBudget)
+		for limit := range proofs.SummaryBudget {
+			pool := proofs.NewSearchBudget(100 * proofs.SummaryBudget)
 			child := pool.Within(limit)
 			proof := ProveValueCallsMethodWithin(value, "Unlock", fn.Params[0], child)
 			if proof.Proven() {
-				if child.Exhausted() || proof.Reason != ssaflow.EvidenceCallbackCompletion {
+				if child.Exhausted() || proof.Reason != proofs.EvidenceCallbackCompletion {
 					t.Fatalf("%s proved interrupted capability: %+v", test.name, proof)
 				}
 				finished = true
 				break
 			}
-			if proof.Reason != ssaflow.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
+			if proof.Reason != proofs.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
 				t.Fatalf("%s cut%d: %+v exhausted=%v/%v", test.name, limit, proof, child.Exhausted(), pool.Exhausted())
 			}
-			if !ProveValueCallsMethodWithin(value, "Unlock", fn.Params[0], pool.Within(ssaflow.SummaryBudget)).Proven() {
+			if !ProveValueCallsMethodWithin(value, "Unlock", fn.Params[0], pool.Within(proofs.SummaryBudget)).Proven() {
 				t.Fatalf("%s fresh query fails", test.name)
 			}
 		}
@@ -82,16 +82,16 @@ func TestCallbackCapabilityNestedCoverageChargesAllowance(t *testing.T) {
  `)
 	fn := pkg.Func("padded")
 	value := returnedValue(t, fn)
-	pool := ssaflow.NewSearchBudget(100 * ssaflow.SummaryBudget)
+	pool := proofs.NewSearchBudget(100 * proofs.SummaryBudget)
 	child := pool.Within(30)
 	proof := ProveValueCallsMethodWithin(value, "Unlock", fn.Params[0], child)
-	if proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
+	if proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("nested coverage bypassed allowance: %+v exhausted=%v/%v", proof, child.Exhausted(), pool.Exhausted())
 	}
 	// Mapping the padded numeric capture now shares this allowance too.
 	// The thirty-step cutoff remains the coverage control; recovery gets
 	// a separate test allowance without changing any production limit.
-	fresh := pool.Within(2 * ssaflow.SummaryBudget)
+	fresh := pool.Within(2 * proofs.SummaryBudget)
 	if proof := ProveValueCallsMethodWithin(value, "Unlock", fn.Params[0], fresh); !proof.Proven() {
 		t.Fatalf("fresh nested coverage=%+v, exhausted=%v/%v", proof, fresh.Exhausted(), pool.Exhausted())
 	}
@@ -104,7 +104,7 @@ func TestCallbackOriginRevisitInvalidatesEnclosingMemo(t *testing.T) {
  `)
 	fn := pkg.Func("callback")
 	value, target := returnedValue(t, fn), fn.Params[0]
-	search := newCompletionSearch("Unlock", CoverageEveryReturn, ssaflow.NewSearchBudget(ssaflow.SummaryBudget))
+	search := newCompletionSearch("Unlock", CoverageEveryReturn, proofs.NewSearchBudget(proofs.SummaryBudget))
 	if !search.valueCallsMethod(value, target) {
 		t.Fatal("initial callback capability not found")
 	}

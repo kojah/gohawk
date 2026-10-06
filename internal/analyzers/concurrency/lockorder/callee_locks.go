@@ -3,6 +3,7 @@ package lockorder
 import (
 	"fmt"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -50,7 +51,7 @@ func newCalleeLockSearch() *calleeLockSearch {
 // locks reports the lock classes function may acquire, following the static
 // calls it makes.
 func (search *calleeLockSearch) locks(function *ssa.Function) calleeLocks {
-	return search.summaries.Function(function, ssaflow.NewSearchBudget(calleeLockSummaryBudget))
+	return search.summaries.Function(function, proofs.NewSearchBudget(calleeLockSummaryBudget))
 }
 
 // locksAt reports the locks call's callee may take, given the constant Boolean
@@ -61,10 +62,10 @@ func (search *calleeLockSearch) locks(function *ssa.Function) calleeLocks {
 // Nested calls keep their ordinary summaries.
 // https://github.com/ovn-kubernetes/libovsdb/blob/6acd868996b9393b932a1eeeec1ea4e6c722ebe8/client/client.go#L933-L941
 func (search *calleeLockSearch) locksAt(call *ssa.Call) calleeLocks {
-	return search.locksAtWithin(call, ssaflow.NewSearchBudget(calleeLockSummaryBudget))
+	return search.locksAtWithin(call, proofs.NewSearchBudget(calleeLockSummaryBudget))
 }
 
-func (search *calleeLockSearch) locksAtWithin(call *ssa.Call, budget *ssaflow.SearchBudget) calleeLocks {
+func (search *calleeLockSearch) locksAtWithin(call *ssa.Call, budget *proofs.SearchBudget) calleeLocks {
 	callee := call.Common().StaticCallee()
 	fixed := ssaflow.ProveFixedArgumentsWithin(call.Common(), nil, callee, nil, budget)
 	// A cutoff is not a complete empty binding set: unconstrained summaries
@@ -91,7 +92,7 @@ func (search *calleeLockSearch) locksAtWithin(call *ssa.Call, budget *ssaflow.Se
 // constant parameter, as a recursive retry does, keeps its constant; a
 // context already being searched adds nothing new to a may-acquire set.
 type constantContext struct {
-	budget   *ssaflow.SearchBudget
+	budget   *proofs.SearchBudget
 	visiting map[string]bool
 	depth    int
 }
@@ -153,7 +154,7 @@ func (search *calleeLockSearch) locksUnder(
 	return result, true
 }
 
-func (search *calleeLockSearch) searchLocks(function *ssa.Function, budget *ssaflow.SearchBudget) calleeLocks {
+func (search *calleeLockSearch) searchLocks(function *ssa.Function, budget *proofs.SearchBudget) calleeLocks {
 	var result calleeLocks
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -171,7 +172,7 @@ func (search *calleeLockSearch) searchLocks(function *ssa.Function, budget *ssaf
 	return result
 }
 
-func (locks *calleeLocks) observe(search *calleeLockSearch, instruction ssa.Instruction, budget *ssaflow.SearchBudget) {
+func (locks *calleeLocks) observe(search *calleeLockSearch, instruction ssa.Instruction, budget *proofs.SearchBudget) {
 	if operation, _, receiver, ok := mutexActionWithin(instruction, budget); ok {
 		// A mutex selected by a map or slice index may be a different lock on
 		// every iteration, which is why the acquisition walk declines it. The

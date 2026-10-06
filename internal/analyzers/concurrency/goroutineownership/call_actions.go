@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -35,7 +36,7 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 		return action, reason
 	}
 	owner := analysis.closesRetainedWorkerOwner(instruction, common)
-	if owner.Reason == ssaflow.EvidenceBudgetExhausted {
+	if owner.Reason == proofs.EvidenceBudgetExhausted {
 		return actionUnknown, reasonRetainedOwnerBudgetExhausted
 	}
 	if owner.Proven() {

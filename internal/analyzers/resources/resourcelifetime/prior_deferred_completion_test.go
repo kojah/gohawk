@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -19,7 +20,7 @@ func TestPriorDeferredCompletionAllowance(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			query, call := priorCleanupAnalysis(t, pkg.Func(test.name))
-			checkResourceProofAllowance(t, func(budget *ssaflow.SearchBudget) resourceProof {
+			checkResourceProofAllowance(t, func(budget *proofs.SearchBudget) resourceProof {
 				return query.proveDeferredBeforeAcquisitionWithin(call, budget)
 			}, test.want)
 		})
@@ -39,9 +40,9 @@ func TestPriorDeferredCompletionPoolCutoff(t *testing.T) {
  }
  `)
 	query, call := priorCleanupAnalysis(t, pkg.Func("multiple"))
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	got := query.proveDeferredBeforeAcquisitionWithin(call, pool.Within(2))
-	if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+	if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 		t.Fatalf("prior-defer child cutoff = %+v; parent exhausted %v", got, pool.Exhausted())
 	}
 	fresh := query.proveDeferredBeforeAcquisitionWithin(call, pool.Within(releaseSearchBudget))
@@ -64,9 +65,9 @@ func TestPriorDeferredCompletionSharesNestedBudget(t *testing.T) {
 	// This allowance covers the entire caller census but not its deferred body.
 	// A fresh independent completion allowance would incorrectly preserve a witness.
 	limit := len(ssaflow.InstructionsOf[ssa.Instruction](call.Parent())) + 1
-	pool := ssaflow.NewSearchBudget(resourcePoolBudget)
+	pool := proofs.NewSearchBudget(resourcePoolBudget)
 	got := query.proveDeferredBeforeAcquisitionWithin(call, pool.Within(limit))
-	if got.State != ssaflow.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
+	if got.State != proofs.EvidenceUnknown || got.Reason != resourceReasonBudgetExhausted || pool.Exhausted() {
 		t.Fatalf("nested completion escaped allowance = %+v; SSA:\n%s", got, carriedSSA(t, call.Parent()))
 	}
 	if fresh := query.proveDeferredBeforeAcquisitionWithin(call, pool.Within(releaseSearchBudget)); !fresh.Proven() {

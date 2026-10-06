@@ -3,6 +3,7 @@ package heapmodel
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -22,7 +23,7 @@ func pointerMixed(p,q *box,pick bool) *box { b := &box{next:p}; if pick { b.next
 		function := pkg.Func(name)
 		loads := ssaflow.InstructionsOf[*ssa.UnOp](function)
 		load := loads[len(loads)-1]
-		proof := NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget)).ContentFromWrites(load.X, load)
+		proof := NewStorage(proofs.NewSearchBudget(proofs.QueryBudget)).ContentFromWrites(load.X, load)
 		if proof.Proven() != (name == "stable") {
 			t.Errorf("%s: unexpected proof %+v", name, proof)
 		}

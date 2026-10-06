@@ -1,6 +1,7 @@
 package goroutineownership
 
 import (
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 )
@@ -9,9 +10,9 @@ import (
 // interrupted or temporally ambiguous alias search cannot establish that the
 // parent has an observation protocol, so it cannot revive a missing-join claim.
 
-func (analysis *spawnAnalysis) proveUnobservedSignalsWithin(budget *ssaflow.SearchBudget) ssaflow.Proof {
-	disproven := ssaflow.Proof{State: ssaflow.EvidenceDisproven, Reason: ssaflow.EvidenceNotFound}
-	unknown := ssaflow.Proof{Reason: ssaflow.EvidenceBudgetExhausted}
+func (analysis *spawnAnalysis) proveUnobservedSignalsWithin(budget *proofs.SearchBudget) proofs.Proof {
+	disproven := proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
+	unknown := proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	if len(analysis.signals) == 0 || len(analysis.groups) > 0 {
 		return disproven
 	}
@@ -39,5 +40,5 @@ func (analysis *spawnAnalysis) proveUnobservedSignalsWithin(budget *ssaflow.Sear
 			}
 		}
 	}
-	return ssaflow.Proof{State: ssaflow.EvidenceProven, Reason: ssaflow.EvidenceStructuralWalk, Provenance: ssaflow.EvidenceFromLocalSSA}
+	return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA}
 }

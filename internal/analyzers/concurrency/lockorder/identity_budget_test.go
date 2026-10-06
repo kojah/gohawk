@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -21,7 +22,7 @@ func subject(){global.Lock()}
 	operations[0].Resource.Value = pkg.Var("global")
 	// Operation selection, identity reaching/storage, and variant selection each
 	// require work. Two visits cannot complete them by hiding identity queries.
-	budget := ssaflow.NewSearchBudget(2)
+	budget := proofs.NewSearchBudget(2)
 	effects, complete := bindMutexEffects(call, operations, budget)
 	if complete || len(effects) != 0 || !budget.Exhausted() {
 		t.Fatalf("identity bypass: effects=%d complete=%v exhausted=%v", len(effects), complete, budget.Exhausted())
@@ -67,15 +68,15 @@ func mixed(yes bool){var lock sync.Locker=&first;if yes{lock=&second};lock.Lock(
 
 func checkMutexActionAllowances(t *testing.T, instruction ssa.Instruction, operation mutexOperation, identity string, receiver ssa.Value, known bool) {
 	t.Helper()
-	for limit := range ssaflow.SummaryBudget {
-		pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	for limit := range proofs.SummaryBudget {
+		pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 		budget := pool.Within(limit)
 		gotOperation, gotIdentity, gotReceiver, gotKnown := mutexActionWithin(instruction, budget)
 		if budget.Exhausted() {
 			if gotKnown || gotIdentity != "" || gotReceiver != nil || pool.Exhausted() {
 				t.Fatalf("cut%d supplied action identity=%q receiver=%v known=%v", limit, gotIdentity, gotReceiver, gotKnown)
 			}
-			_, freshIdentity, _, freshKnown := mutexActionWithin(instruction, pool.Within(ssaflow.SummaryBudget))
+			_, freshIdentity, _, freshKnown := mutexActionWithin(instruction, pool.Within(proofs.SummaryBudget))
 			if freshIdentity != identity || freshKnown != known {
 				t.Fatal("fresh action differs from default")
 			}
@@ -91,15 +92,15 @@ func checkMutexActionAllowances(t *testing.T, instruction ssa.Instruction, opera
 
 func checkMutexIdentityAllowances(t *testing.T, value ssa.Value, identity string) {
 	t.Helper()
-	for limit := range ssaflow.SummaryBudget {
-		pool := ssaflow.NewSearchBudget(10 * ssaflow.SummaryBudget)
+	for limit := range proofs.SummaryBudget {
+		pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 		budget := pool.Within(limit)
 		got := lockIdentityWithin(value, budget)
 		if budget.Exhausted() {
 			if got != "" || pool.Exhausted() {
 				t.Fatal("cutoff supplied identity or exhausted pool")
 			}
-			if fresh := lockIdentityWithin(value, pool.Within(ssaflow.SummaryBudget)); fresh != identity {
+			if fresh := lockIdentityWithin(value, pool.Within(proofs.SummaryBudget)); fresh != identity {
 				t.Fatal("fresh identity differs from default")
 			}
 			continue

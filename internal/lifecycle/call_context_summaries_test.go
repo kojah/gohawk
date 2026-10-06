@@ -3,6 +3,7 @@ package lifecycle_test
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -49,7 +50,7 @@ func TestSummaryBudgetPreservesOnlyMarkedPartialEvidence(t *testing.T) {
 	memo := ssaflow.NewCallGraphMemo[*ssa.Function, evidence]()
 	computations := 0
 	for _, limit := range []int{0, 1, 0} {
-		budget := ssaflow.NewSearchBudget(limit)
+		budget := proofs.NewSearchBudget(limit)
 		got := memo.Summarize(function, function, budget, func() evidence {
 			computations++
 			budget.Spend()

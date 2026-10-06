@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -23,9 +24,9 @@ import (
 // or replacement cannot establish even this narrow boundary.
 // https://github.com/openkruise/kruise-game/blob/16a0418780d8abd3ee871448116bbc5dc1e98d48/test/e2e/framework/framework.go#L549-L570
 func (analysis *resourceAnalysis) proveGuardedCapturedBodyWithin(
-	instruction ssa.Instruction, closure *ssa.MakeClosure, budget *ssaflow.SearchBudget,
+	instruction ssa.Instruction, closure *ssa.MakeClosure, budget *proofs.SearchBudget,
 ) resourceProof {
-	missing := resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonEvidenceNotFound}
+	missing := resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonEvidenceNotFound}
 	if _, called := instruction.(*ssa.Call); !called || analysis.contract.family != resourceFamilyHTTP {
 		return missing
 	}
@@ -35,8 +36,8 @@ func (analysis *resourceAnalysis) proveGuardedCapturedBodyWithin(
 			return capturedBodyResult(false, budget)
 		}
 		stored := heapmodel.NewStorage(budget).StableContent(binding.Binding, instruction)
-		if stored.Reason == ssaflow.EvidenceBudgetExhausted || resourceFlowExhausted(budget) {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		if stored.Reason == proofs.EvidenceBudgetExhausted || resourceFlowExhausted(budget) {
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if !stored.Proven() || stored.Value != analysis.resource {
 			continue
@@ -46,7 +47,7 @@ func (analysis *resourceAnalysis) proveGuardedCapturedBodyWithin(
 			continue
 		}
 		coverage := proveGuardedBodyCoverageWithin(function, binding.Free, budget)
-		if coverage.State == ssaflow.EvidenceUnknown {
+		if coverage.State == proofs.EvidenceUnknown {
 			return coverage
 		}
 		if coverage.Proven() {
@@ -56,17 +57,17 @@ func (analysis *resourceAnalysis) proveGuardedCapturedBodyWithin(
 	return capturedBodyResult(false, budget)
 }
 
-func capturedBodyResult(found bool, budget *ssaflow.SearchBudget) resourceProof {
+func capturedBodyResult(found bool, budget *proofs.SearchBudget) resourceProof {
 	if resourceFlowExhausted(budget) {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
 	if found {
-		return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonCapturedBodyGuardedCleanup}
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonCapturedBodyGuardedCleanup}
 	}
-	return resourceProof{State: ssaflow.EvidenceDisproven, Reason: resourceReasonEvidenceNotFound}
+	return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonEvidenceNotFound}
 }
 
-func proveGuardedBodyCoverageWithin(function *ssa.Function, captured ssa.Value, budget *ssaflow.SearchBudget) resourceProof {
+func proveGuardedBodyCoverageWithin(function *ssa.Function, captured ssa.Value, budget *proofs.SearchBudget) resourceProof {
 	for candidate := range ssaflow.InstructionsWithin(function, budget) {
 		load, ok := candidate.(*ssa.UnOp)
 		if !ok || !capturedResponseBody(load, captured) {
@@ -77,8 +78,8 @@ func proveGuardedBodyCoverageWithin(function *ssa.Function, captured ssa.Value, 
 			return budget.Spend() && common != nil && ssaflow.CallName(common) == "Close" &&
 				capturedResponseBody(ssaflow.CallReceiver(common), captured)
 		}, lifecycle.CoverageEveryReturn, load, budget)
-		if covered.Reason == ssaflow.EvidenceBudgetExhausted {
-			return resourceProof{State: ssaflow.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+		if covered.Reason == proofs.EvidenceBudgetExhausted {
+			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if covered.Proven() {
 			return carriedValueProof(true, resourceReasonCapturedBodyGuardedCleanup, budget)
@@ -101,7 +102,7 @@ func capturedResponseBody(value, captured ssa.Value) bool {
 // Other closures, pointer arguments and stores can hide Body replacement; even
 // a read-only-looking helper is outside this local uncertainty contract.
 func responseCaptureUnmodified(
-	function *ssa.Function, resource, cell ssa.Value, allowed *ssa.MakeClosure, budget *ssaflow.SearchBudget,
+	function *ssa.Function, resource, cell ssa.Value, allowed *ssa.MakeClosure, budget *proofs.SearchBudget,
 ) bool {
 	for _, block := range function.Blocks {
 		for _, instruction := range block.Instrs {
@@ -113,7 +114,7 @@ func responseCaptureUnmodified(
 	return true
 }
 
-func responseCaptureExposed(instruction ssa.Instruction, resource, cell ssa.Value, allowed *ssa.MakeClosure, budget *ssaflow.SearchBudget) bool {
+func responseCaptureExposed(instruction ssa.Instruction, resource, cell ssa.Value, allowed *ssa.MakeClosure, budget *proofs.SearchBudget) bool {
 	switch typed := instruction.(type) {
 	case *ssa.Store:
 		if typed.Addr == cell && typed.Val == resource && cell != resource {
@@ -135,7 +136,7 @@ func responseCaptureExposed(instruction ssa.Instruction, resource, cell ssa.Valu
 	})
 }
 
-func responsePointerUse(value, resource, cell ssa.Value, budget *ssaflow.SearchBudget) bool {
+func responsePointerUse(value, resource, cell ssa.Value, budget *proofs.SearchBudget) bool {
 	return ssaflow.NewReachingWalk(
 		ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType|ssaflow.TransparentConvert|ssaflow.TransparentMakeInterface,
 	).Within(budget).Any(value, func(_ ssaflow.ReachingWalk, value ssa.Value) bool {

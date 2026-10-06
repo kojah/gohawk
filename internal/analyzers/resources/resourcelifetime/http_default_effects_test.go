@@ -3,7 +3,7 @@ package resourcelifetime
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -29,7 +29,7 @@ func TestHTTPDefaultOverridePolicies(t *testing.T) {
 			if got := !proveDefaultClientUnmodifiedWithin(fn, nil).Proven(); got != test.root {
 				t.Fatalf("HEAD root override=%v, want %v; SSA:\n%s", got, test.root, carriedSSA(t, fn))
 			}
-			if got := newHTTPWriterEffects().overrides.Function(fn, ssaflow.NewSearchBudget(httpEffectsBudget)); got != test.strict {
+			if got := newHTTPWriterEffects().overrides.Function(fn, proofs.NewSearchBudget(httpEffectsBudget)); got != test.strict {
 				t.Fatalf("strict override=%v, want %v; SSA:\n%s", got, test.strict, carriedSSA(t, fn))
 			}
 		})
@@ -39,13 +39,13 @@ func TestHTTPDefaultOverridePolicies(t *testing.T) {
 func TestHTTPDefaultOverrideRootPolicyDoesNotChangeMemo(t *testing.T) {
 	fn := httpDefaultEffectsFixture(t).Func("directDo")
 	effects := newHTTPWriterEffects()
-	if !effects.overrides.Function(fn, ssaflow.NewSearchBudget(httpEffectsBudget)) {
+	if !effects.overrides.Function(fn, proofs.NewSearchBudget(httpEffectsBudget)) {
 		t.Fatal("strict default-effect summary lost the default-client load")
 	}
-	if effects.scanDefaultOverrides(fn, ssaflow.NewSearchBudget(httpEffectsBudget), true) {
+	if effects.scanDefaultOverrides(fn, proofs.NewSearchBudget(httpEffectsBudget), true) {
 		t.Fatal("cached strict summary intercepted the root-only Do allowance")
 	}
-	if !effects.overrides.Function(fn, ssaflow.NewSearchBudget(httpEffectsBudget)) {
+	if !effects.overrides.Function(fn, proofs.NewSearchBudget(httpEffectsBudget)) {
 		t.Fatal("root-only allowance replaced the strict declaration summary")
 	}
 }
@@ -54,8 +54,8 @@ func TestHTTPDefaultOverrideAllowance(t *testing.T) {
 	fn := httpDefaultEffectsFixture(t).Func("harmlessHelper")
 	for _, root := range []bool{false, true} {
 		completed := false
-		for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-			budget := ssaflow.NewSearchBudget(limit)
+		for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+			budget := proofs.NewSearchBudget(limit)
 			got := newHTTPWriterEffects().scanDefaultOverrides(fn, budget, root)
 			if resourceFlowExhausted(budget) {
 				if !got {
@@ -78,7 +78,7 @@ func TestHTTPDefaultOverrideAllowance(t *testing.T) {
 func TestHTTPDefaultOverrideFreshMemo(t *testing.T) {
 	fn := httpDefaultEffectsFixture(t).Func("harmlessHelper")
 	effects := newHTTPWriterEffects()
-	pool := ssaflow.NewSearchBudget(httpEffectsBudget)
+	pool := proofs.NewSearchBudget(httpEffectsBudget)
 	child := pool.Within(2)
 	if !effects.overrides.Function(fn, child) || !child.Exhausted() || pool.Exhausted() {
 		t.Fatal("child cutoff must retain possible modification and parent availability")

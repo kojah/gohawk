@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -106,7 +107,7 @@ func opaqueCell(s *T) {
 			deferred := ssaflow.InstructionsOf[*ssa.Defer](function)[0]
 			proof := ProveCompletion(CompletionRequest{
 				Instruction: deferred, Target: target, Methods: []string{"Unlock"},
-				Budget: ssaflow.NewSearchBudget(ssaflow.QueryBudget),
+				Budget: proofs.NewSearchBudget(proofs.QueryBudget),
 			})
 			if proof.Proven() != want {
 				t.Errorf("deferred embedded cleanup = %+v, want proven %t", proof, want)
@@ -120,8 +121,8 @@ func checkStorageOwnerAllowance(t *testing.T, target, argument ssa.Value, want b
 	if got := sameValueStorageOwner(target, argument, nil) != nil; got != want {
 		t.Fatalf("default owner=%v, want %v", got, want)
 	}
-	for limit := 1; limit <= ssaflow.QueryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 1; limit <= proofs.QueryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		owner := sameValueStorageOwner(target, argument, budget)
 		if budget.Exhausted() {
 			if owner != nil {

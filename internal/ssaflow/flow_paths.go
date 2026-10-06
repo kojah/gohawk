@@ -5,6 +5,7 @@ import (
 	"go/types"
 	"slices"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -20,7 +21,7 @@ func InstructionIndex(instruction ssa.Instruction) int {
 // InstructionIndexWithin charges each inspected instruction before selecting
 // its block position. At cutoff -1 is unavailable; callers inspect the budget.
 // A nil budget retains the default scan.
-func InstructionIndexWithin(instruction ssa.Instruction, budget *SearchBudget) int {
+func InstructionIndexWithin(instruction ssa.Instruction, budget *proofs.SearchBudget) int {
 	for index, candidate := range instruction.Block().Instrs {
 		if !budget.Spend() {
 			return -1
@@ -34,7 +35,7 @@ func InstructionIndexWithin(instruction ssa.Instruction, budget *SearchBudget) i
 
 // Same-block dominance and possible-follow queries use one instruction order
 // decision. An unindexed instruction never contributes ordering evidence.
-func instructionOrderedWithin(before, after ssa.Instruction, budget *SearchBudget) bool {
+func instructionOrderedWithin(before, after ssa.Instruction, budget *proofs.SearchBudget) bool {
 	first := InstructionIndexWithin(before, budget)
 	if first < 0 {
 		return false
@@ -52,7 +53,7 @@ func InstructionDominates(before, after ssa.Instruction) bool {
 // InstructionDominatesWithin shares the allowance across same-block indexing
 // or a constant-time dominator-tree comparison. False at cutoff is unavailable,
 // not evidence of an uncovered path. A nil budget retains default order policy.
-func InstructionDominatesWithin(before, after ssa.Instruction, budget *SearchBudget) bool {
+func InstructionDominatesWithin(before, after ssa.Instruction, budget *proofs.SearchBudget) bool {
 	if before == nil || after == nil || before.Parent() != after.Parent() {
 		return false
 	}
@@ -72,7 +73,7 @@ func InstructionMayFollow(before, after ssa.Instruction) bool {
 
 // InstructionMayFollowWithin applies the same order/reachability policy under
 // budget. A false result at exhaustion is unavailable, not disconnection.
-func InstructionMayFollowWithin(before, after ssa.Instruction, budget *SearchBudget) bool {
+func InstructionMayFollowWithin(before, after ssa.Instruction, budget *proofs.SearchBudget) bool {
 	if before == nil || after == nil || before.Parent() != after.Parent() {
 		return false
 	}
@@ -90,7 +91,7 @@ func BlockReachable(from, target *ssa.BasicBlock) bool {
 
 // BlockReachableWithin shares the allowance with the existing CFG traversal.
 // False at cutoff means unavailable, not proof that the target is unreachable.
-func BlockReachableWithin(from, target *ssa.BasicBlock, budget *SearchBudget) bool {
+func BlockReachableWithin(from, target *ssa.BasicBlock, budget *proofs.SearchBudget) bool {
 	if from == nil || target == nil || from.Parent() != target.Parent() {
 		return false
 	}
@@ -104,7 +105,7 @@ func BlockInCycle(start *ssa.BasicBlock) bool {
 
 // BlockInCycleWithin shares queued CFG visits with budget. False at cutoff
 // is unavailable, not proof of acyclic execution; callers check the allowance.
-func BlockInCycleWithin(start *ssa.BasicBlock, budget *SearchBudget) bool {
+func BlockInCycleWithin(start *ssa.BasicBlock, budget *proofs.SearchBudget) bool {
 	// Starting at successors requires at least one edge. Starting at the block
 	// itself would incorrectly classify every acyclic block as a cycle.
 	return blockReachableFromWithin(start.Succs, start, budget)
@@ -113,7 +114,7 @@ func BlockInCycleWithin(start *ssa.BasicBlock, budget *SearchBudget) bool {
 // blockReachableFromWithin owns raw CFG traversal; callers choose whether the
 // initial block or only its successors can count. Clone the seeds because
 // queue growth must not overwrite an SSA block's successor backing array.
-func blockReachableFromWithin(seeds []*ssa.BasicBlock, target *ssa.BasicBlock, budget *SearchBudget) bool {
+func blockReachableFromWithin(seeds []*ssa.BasicBlock, target *ssa.BasicBlock, budget *proofs.SearchBudget) bool {
 	seen := map[*ssa.BasicBlock]bool{}
 	queue := slices.Clone(seeds)
 	head := 0
@@ -251,7 +252,7 @@ func afterInstruction(start ssa.Instruction) ([]obligationState, bool) {
 // discovery order, sharing queued, branch and edge visits with budget. Cutoff
 // discards the census; nil is unavailable when budget exhausted,
 // not proof that the function has no reachable blocks. Nil budget is unbounded.
-func ReachableBlocksAssumingWithin(function *ssa.Function, constants FixedValues, budget *SearchBudget) []*ssa.BasicBlock {
+func ReachableBlocksAssumingWithin(function *ssa.Function, constants FixedValues, budget *proofs.SearchBudget) []*ssa.BasicBlock {
 	if function == nil || len(function.Blocks) == 0 {
 		return nil
 	}
@@ -281,7 +282,7 @@ func SuccessBranch(block, successor *ssa.BasicBlock, errorValue ssa.Value) (bool
 
 // SuccessBranchWithin shares derivation and nil-value folds with budget.
 // An interrupted comparison is undecided; it cannot remove an acquisition edge.
-func SuccessBranchWithin(block, successor *ssa.BasicBlock, errorValue ssa.Value, budget *SearchBudget) (bool, bool) {
+func SuccessBranchWithin(block, successor *ssa.BasicBlock, errorValue ssa.Value, budget *proofs.SearchBudget) (bool, bool) {
 	if !budget.Spend() {
 		return false, false
 	}

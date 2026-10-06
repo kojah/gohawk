@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/trace"
@@ -135,9 +136,9 @@ func abandonedProducerSend(
 		return producerProof{Reason: reasonReceiverObligationUnknown}
 	}
 	if count.count > receives.count {
-		return producerProof{State: ssaflow.EvidenceProven, Reason: reasonProducerExceedsReceives}
+		return producerProof{State: proofs.EvidenceProven, Reason: reasonProducerExceedsReceives}
 	}
-	return producerProof{State: ssaflow.EvidenceDisproven, Reason: reasonProducerWithinReceiveCount}
+	return producerProof{State: proofs.EvidenceDisproven, Reason: reasonProducerWithinReceiveCount}
 }
 
 type producerCountProof struct {
@@ -185,7 +186,7 @@ func countProducerSends(send producerSend, sends []producerSend) producerCountPr
 		}
 		count++
 	}
-	return producerCountProof{producerProof: producerProof{State: ssaflow.EvidenceProven, Reason: reasonProducerCountKnown}, count: count}
+	return producerCountProof{producerProof: producerProof{State: proofs.EvidenceProven, Reason: reasonProducerCountKnown}, count: count}
 }
 
 // A frontier represents a dominance chain. Every earlier member dominates
@@ -230,7 +231,7 @@ func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {
 }
 
 func channelReceives(function *ssa.Function, channel ssa.Value, origin *ssa.Go, engine *concurrencyfacts.Engine) receiveProof {
-	budget := ssaflow.NewSearchBudget(ssaflow.SummaryBudget)
+	budget := proofs.NewSearchBudget(proofs.SummaryBudget)
 	var result receiveProof
 	for _, block := range function.Blocks {
 		before := result.count

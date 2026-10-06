@@ -153,7 +153,7 @@ type CompletionRequest struct {
 	// Unknown proof with EvidenceBudgetExhausted rather than a disproof,
 	// because the search stopped before it could decide; what an undecided
 	// answer permits is the caller's policy, not this package's.
-	Budget	*ssaflow.SearchBudget
+	Budget	*proofs.SearchBudget
 	// Summarized supplies exact completion guarantees for unavailable bodies.
 	// Its policy is fixed for this request and all nested summary queries.
 	Summarized	CompletionSummaryLookup
@@ -255,7 +255,7 @@ type EnclosingCompletionRequest struct {
 	Function	*ssa.Function
 	Value		ssa.Value
 	Methods		[]string
-	Budget		*ssaflow.SearchBudget
+	Budget		*proofs.SearchBudget
 }
 ```
 
@@ -300,7 +300,7 @@ use; each analyzer function owns its evidence.
 [Source](../../../../internal/lifecycle/evidence_local.go)
 
 ```go
-func (evidence *LocalEvidence) Completion(request CompletionRequest) ssaflow.CompletionProof
+func (evidence *LocalEvidence) Completion(request CompletionRequest) proofs.CompletionProof
 ```
 
 ## LocalEvidence.OwnershipTransfer
@@ -308,7 +308,7 @@ func (evidence *LocalEvidence) Completion(request CompletionRequest) ssaflow.Com
 [Source](../../../../internal/lifecycle/evidence_transfer.go)
 
 ```go
-func (evidence *LocalEvidence) OwnershipTransfer(request OwnershipTransferRequest) ssaflow.OwnershipTransferProof
+func (evidence *LocalEvidence) OwnershipTransfer(request OwnershipTransferRequest) proofs.OwnershipTransferProof
 ```
 
 OwnershipTransfer proves and memoizes an ownership-transfer request.
@@ -381,7 +381,7 @@ transfer one analyzer's ownership obligation.
 [Source](../../../../internal/lifecycle/completion_request.go)
 
 ```go
-func ProveCompletion(request CompletionRequest) ssaflow.CompletionProof
+func ProveCompletion(request CompletionRequest) proofs.CompletionProof
 ```
 
 ProveCompletion answers one completion request. Each call runs its own
@@ -396,7 +396,7 @@ Disproven.
 [Source](../../../../internal/lifecycle/completion_predicates.go)
 
 ```go
-func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondition, request CompletionRequest) ssaflow.CompletionProof
+func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondition, request CompletionRequest) proofs.CompletionProof
 ```
 
 ProveCompletionForCase summarizes exact parameter cleanup on the normal
@@ -413,7 +413,7 @@ not known.
 [Source](../../../../internal/lifecycle/completion_conditions.go)
 
 ```go
-func ProveCompletionOnEdge(from, to *ssa.BasicBlock, request CompletionRequest) ssaflow.CompletionProof
+func ProveCompletionOnEdge(from, to *ssa.BasicBlock, request CompletionRequest) proofs.CompletionProof
 ```
 
 ProveCompletionOnEdge asks whether the call result tested by from establishes
@@ -426,7 +426,7 @@ The result says nothing about the opposite edge or an untested call.
 [Source](../../../../internal/lifecycle/completion_enclosing.go)
 
 ```go
-func ProveEnclosingCompletion(request EnclosingCompletionRequest) ssaflow.CompletionProof
+func ProveEnclosingCompletion(request EnclosingCompletionRequest) proofs.CompletionProof
 ```
 
 ProveEnclosingCompletion follows callback arguments from their lexical
@@ -438,7 +438,7 @@ guarantee. An incomplete traversal is Unknown, never a cleanup proof.
 [Source](../../../../internal/lifecycle/store_ownership.go)
 
 ```go
-func ProveMayContainValueAtWithin(owner, value ssa.Value, at ssa.Instruction, budget *ssaflow.SearchBudget) ssaflow.Proof
+func ProveMayContainValueAtWithin(owner, value ssa.Value, at ssa.Instruction, budget *proofs.SearchBudget) proofs.Proof
 ```
 
 ProveMayContainValueAtWithin asks structural may-containment with its graph
@@ -454,7 +454,7 @@ the graph cannot answer. A nil budget retains the existing default policy.
 [Source](../../../../internal/lifecycle/store_ownership.go)
 
 ```go
-func ProveMayContainValueWithin(owner, value ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+func ProveMayContainValueWithin(owner, value ssa.Value, budget *proofs.SearchBudget) proofs.Proof
 ```
 
 ProveMayContainValueWithin shares value, aggregate and capture traversal with
@@ -467,8 +467,8 @@ Cutoff is unknown; a negative means no modeled containment, not actual absence.
 
 ```go
 func ProveMethodCallCoverageWithin(
-	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, nonNil ssa.Value, budget *ssaflow.SearchBudget,
-) ssaflow.Proof
+	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, nonNil ssa.Value, budget *proofs.SearchBudget,
+) proofs.Proof
 ```
 
 ProveMethodCallCoverageWithin shares witness and normal-return coverage work
@@ -480,7 +480,7 @@ Callbacks should use the same budget. Nil retains the default unbounded walk.
 [Source](../../../../internal/lifecycle/store_ownership.go)
 
 ```go
-func ProvePossibleClosureCaptureWithin(callback, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+func ProvePossibleClosureCaptureWithin(callback, target ssa.Value, budget *proofs.SearchBudget) proofs.Proof
 ```
 
 ProvePossibleClosureCaptureWithin reports whether any closure reaching callback
@@ -506,7 +506,7 @@ completed opaque completion answers retain the ordinary discovery policy.
 [Source](../../../../internal/lifecycle/completion_returned.go)
 
 ```go
-func ProveReturnedCleanup(function *ssa.Function, relation ReturnedCleanupRelation, request CompletionRequest) ssaflow.CompletionProof
+func ProveReturnedCleanup(function *ssa.Function, relation ReturnedCleanupRelation, request CompletionRequest) proofs.CompletionProof
 ```
 
 ProveReturnedCleanup proves a factory relation using the completion request's
@@ -518,7 +518,7 @@ and Instruction are unused: relation identifies values inside the factory.
 [Source](../../../../internal/lifecycle/store_returns.go)
 
 ```go
-func ProveReturnedOwnershipWithin(returned *ssa.Return, value ssa.Value, summarized ReturnsOwner, budget *ssaflow.SearchBudget) ssaflow.Proof
+func ProveReturnedOwnershipWithin(returned *ssa.Return, value ssa.Value, summarized ReturnsOwner, budget *proofs.SearchBudget) proofs.Proof
 ```
 
 ProveReturnedOwnershipWithin asks the existing possible-ownership search with
@@ -531,7 +531,7 @@ this model found no owner. Graph/type and summary-hook internals remain separate
 [Source](../../../../internal/lifecycle/store_return_identity.go)
 
 ```go
-func ProveReturnedParameterWithin(function *ssa.Function, parameter ssa.Value, index int, budget *ssaflow.SearchBudget) ssaflow.Proof
+func ProveReturnedParameterWithin(function *ssa.Function, parameter ssa.Value, index int, budget *proofs.SearchBudget) proofs.Proof
 ```
 
 ProveReturnedParameterWithin requires a reachable normal return and exact
@@ -546,7 +546,7 @@ type-system internals have independent costs.
 [Source](../../../../internal/lifecycle/completion_callbacks.go)
 
 ```go
-func ProveSpawnedInvocation(spawn *ssa.Go, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.CompletionProof
+func ProveSpawnedInvocation(spawn *ssa.Go, target ssa.Value, budget *proofs.SearchBudget) proofs.CompletionProof
 ```
 
 ProveSpawnedInvocation observes the launched wrapper's body and requires
@@ -558,7 +558,7 @@ budget bounds this query; a cutoff stays unknown and proves no invocation.
 [Source](../../../../internal/lifecycle/completion_callback_values.go)
 
 ```go
-func ProveValueCallsMethodWithin(value ssa.Value, method string, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
+func ProveValueCallsMethodWithin(value ssa.Value, method string, target ssa.Value, budget *proofs.SearchBudget) proofs.Proof
 ```
 
 ProveValueCallsMethodWithin asks whether value may carry a callback whose
@@ -587,7 +587,7 @@ named results of the function that defers it.
 [Source](../../../../internal/lifecycle/completion_result_guards.go)
 
 ```go
-func (guard ResultGuard) Completes(request CompletionRequest, fixed ssaflow.FixedValues) ssaflow.EvidenceState
+func (guard ResultGuard) Completes(request CompletionRequest, fixed ssaflow.FixedValues) proofs.EvidenceState
 ```
 
 Completes asks whether the deferred literal completes the target on every
@@ -600,7 +600,7 @@ one of its returns, given what its captured named results hold.
 ```go
 func (guard ResultGuard) CompletesAtReturn(
 	request CompletionRequest, returned *ssa.Return, outcomeOf func(ssa.Value) (ssaflow.Outcome, bool),
-) ssaflow.EvidenceState
+) proofs.EvidenceState
 ```
 
 CompletesAtReturn asks whether the deferred literal completes the target
@@ -616,7 +616,7 @@ may not publish an outcome after exhausting that allowance.
 [Source](../../../../internal/lifecycle/completion_result_guards.go)
 
 ```go
-func (guard ResultGuard) ProveReachesReturn(returned *ssa.Return, budget *ssaflow.SearchBudget) ssaflow.Proof
+func (guard ResultGuard) ProveReachesReturn(returned *ssa.Return, budget *proofs.SearchBudget) proofs.Proof
 ```
 
 ProveReachesReturn distinguishes a defer registered on every path to
@@ -629,7 +629,7 @@ or reachability searches remain unknown, never evidence of disconnection.
 
 ```go
 type ResultGuardsProof struct {
-	ssaflow.Proof
+	proofs.Proof
 	Guards	[]ResultGuard
 }
 ```
@@ -669,7 +669,7 @@ the same factory invocation. TargetIsResult selects the target's namespace.
 [Source](../../../../internal/lifecycle/store_returns.go)
 
 ```go
-func ReturnedResultWithin(returned *ssa.Return, index int, budget *ssaflow.SearchBudget) ssa.Value
+func ReturnedResultWithin(returned *ssa.Return, index int, budget *proofs.SearchBudget) ssa.Value
 ```
 
 ReturnedResultWithin resolves the value handed back at index under budget.
@@ -759,7 +759,7 @@ stored value. No ordering or observation-time identity is promised.
 [Source](../../../../internal/lifecycle/store_values.go)
 
 ```go
-func StoredIntoWithin(address ssa.Value, budget *ssaflow.SearchBudget) iter.Seq[ssa.Value]
+func StoredIntoWithin(address ssa.Value, budget *proofs.SearchBudget) iter.Seq[ssa.Value]
 ```
 
 StoredIntoWithin shares address visits and referrer inspection with budget.

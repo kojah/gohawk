@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -107,7 +108,7 @@ func (fact *Fact) SynchronouslyInvoked() ParameterMask {
 // itself for an empty-path discharge, or the value the caller stored at the
 // discharge's path beneath the argument. Containment alone proves nothing
 // here; that is the whole point of the path.
-func (fact *Fact) dischargesArgument(instruction ssa.Instruction, target ssa.Value, method string, observer ssaflow.Observer) bool {
+func (fact *Fact) dischargesArgument(instruction ssa.Instruction, target ssa.Value, method string, observer proofs.Observer) bool {
 	return dischargesMatch(fact.unconditionalDischarges(), instruction, target, method, observer)
 }
 
@@ -115,12 +116,12 @@ func (fact *Fact) dischargesArgument(instruction ssa.Instruction, target ssa.Val
 // that the call's constant arguments select, with known fixing the caller's
 // own parameters when the call sits in a body searched under constants.
 func (fact *Fact) caseDischargesArgument(
-	instruction ssa.Instruction, target ssa.Value, method string, known ssaflow.FixedValues, observer ssaflow.Observer,
+	instruction ssa.Instruction, target ssa.Value, method string, known ssaflow.FixedValues, observer proofs.Observer,
 ) bool {
 	return dischargesMatch(fact.casesSelectedBy(method, suppliedCondition(instruction, known)), instruction, target, method, observer)
 }
 
-func dischargesMatch(discharges []Discharge, instruction ssa.Instruction, target ssa.Value, method string, observer ssaflow.Observer) bool {
+func dischargesMatch(discharges []Discharge, instruction ssa.Instruction, target ssa.Value, method string, observer proofs.Observer) bool {
 	common := ssaflow.InstructionCall(instruction)
 	if common == nil {
 		return false
@@ -130,7 +131,7 @@ func dischargesMatch(discharges []Discharge, instruction ssa.Instruction, target
 			continue
 		}
 		argument := common.Args[discharge.Parameter]
-		storage := heapmodel.NewStorage(ssaflow.NewSearchBudget(ssaflow.QueryBudget).Observed(observer))
+		storage := heapmodel.NewStorage(proofs.NewSearchBudget(proofs.QueryBudget).Observed(observer))
 		path := ssaflow.SplitAccessPath(discharge.Path)
 		if stored, ok := heapmodel.ValueAtPath(argument, path, instruction); ok && storage.Same(stored, target).Proven() {
 			return true

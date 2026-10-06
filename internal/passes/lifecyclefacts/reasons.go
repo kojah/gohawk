@@ -1,6 +1,8 @@
 package lifecyclefacts
 
-import "github.com/kojah/gohawk/internal/ssaflow"
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+)
 
 // Reason classifies summary evidence, independently of local SSA evidence.
 type Reason uint8
@@ -53,7 +55,7 @@ func (reason Reason) String() string {
 // Proof retains the underlying evidence and the summary rule, when applicable.
 // SummaryReason never replaces an SSA reason with a string from another domain.
 type Proof struct {
-	ssaflow.Proof
+	proofs.Proof
 	SummaryReason Reason
 }
 
@@ -66,6 +68,6 @@ func (proof Proof) traceReason() string {
 
 // CompletionProof retains path coverage along with its summary explanation.
 type CompletionProof struct {
-	ssaflow.CompletionProof
+	proofs.CompletionProof
 	SummaryReason Reason
 }

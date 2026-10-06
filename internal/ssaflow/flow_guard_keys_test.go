@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	proofs "github.com/kojah/gohawk/internal/proof"
 )
 
 func TestGuardKeyMemoPreservesBytesAndChanges(t *testing.T) {
@@ -45,15 +47,15 @@ func TestGuardKeyMemoPreservesBudget(t *testing.T) {
 	var keys guardKeys
 	warm := keys.keyWithin(guards, nil)
 	for allowance := range 4 {
-		original, cached := NewSearchBudget(allowance), NewSearchBudget(allowance)
+		original, cached := proofs.NewSearchBudget(allowance), proofs.NewSearchBudget(allowance)
 		if left, right := guards.KeyWithin(original), keys.keyWithin(guards, cached); left != right ||
-			original.remaining != cached.remaining || original.Exhausted() != cached.Exhausted() {
+			original.Remaining() != cached.Remaining() || original.Exhausted() != cached.Exhausted() {
 			t.Fatalf("memo changed local allowance %d", allowance)
 		}
-		poolA, poolB := NewSearchBudget(allowance), NewSearchBudget(allowance)
+		poolA, poolB := proofs.NewSearchBudget(allowance), proofs.NewSearchBudget(allowance)
 		childA, childB := poolA.Within(4), poolB.Within(4)
 		if left, right := guards.KeyWithin(childA), keys.keyWithin(guards, childB); left != right ||
-			childA.remaining != childB.remaining || poolA.remaining != poolB.remaining ||
+			childA.Remaining() != childB.Remaining() || poolA.Remaining() != poolB.Remaining() ||
 			childA.Exhausted() != childB.Exhausted() || childA.PoolExhausted() != childB.PoolExhausted() {
 			t.Fatalf("memo changed shared allowance %d", allowance)
 		}
@@ -61,7 +63,7 @@ func TestGuardKeyMemoPreservesBudget(t *testing.T) {
 			t.Fatal("partial key poisoned the memo")
 		}
 	}
-	zero := NewSearchBudget(0)
+	zero := proofs.NewSearchBudget(0)
 	if got := keys.keyWithin(nil, zero); got != "" || zero.Exhausted() {
 		t.Fatal("empty key spent allowance")
 	}

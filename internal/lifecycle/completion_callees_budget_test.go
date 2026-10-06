@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -60,7 +61,7 @@ func TestCompletionCalleeResolutionAllowance(t *testing.T) {
 			}
 			request := CompletionRequest{Instruction: launch, Target: fn.Params[0], Methods: []string{"Close"}}
 			if test.name == "alternatives" || test.name == "stored" {
-				budget := ssaflow.NewSearchBudget(2)
+				budget := proofs.NewSearchBudget(2)
 				callbacks, resolved := exactCallbacks(launch.Common().Value, launch, false, budget)
 				if resolved || len(callbacks) != 0 || !budget.Exhausted() {
 					t.Fatalf("origin cutoff callbacks=%d resolved=%v exhausted=%v", len(callbacks), resolved, budget.Exhausted())
@@ -70,9 +71,9 @@ func TestCompletionCalleeResolutionAllowance(t *testing.T) {
 			if proof.Proven() != test.completes {
 				t.Fatalf("completion=%+v", proof)
 			}
-			pool := ssaflow.NewSearchBudget(200000)
+			pool := proofs.NewSearchBudget(200000)
 			assertCompletionCalleeCutoffs(t, launch, baseline, ok, pool)
-			request.Budget = pool.Within(ssaflow.QueryBudget)
+			request.Budget = pool.Within(proofs.QueryBudget)
 			freshProof := ProveCompletion(request)
 			if request.Budget.Exhausted() || freshProof.Proof != proof.Proof {
 				t.Fatalf("fresh completion=%+v baseline=%+v", freshProof, proof)
@@ -117,7 +118,7 @@ f:=func(){p.Close()}
 	if !ok || len(baseline) != 41 {
 		t.Fatalf("baseline targets=%d available=%v", len(baseline), ok)
 	}
-	pool := ssaflow.NewSearchBudget(200000)
+	pool := proofs.NewSearchBudget(200000)
 	originsBudget := pool.Within(30)
 	callbacks, resolved := exactCallbacks(launch.Common().Value, launch, false, originsBudget)
 	if resolved || len(callbacks) != 0 || !originsBudget.Exhausted() {
@@ -128,19 +129,19 @@ f:=func(){p.Close()}
 	if available || len(targets) != 0 || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("cut targets=%d available=%v exhausted=%v", len(targets), available, child.Exhausted())
 	}
-	targets, available = resolveCallees(launch, pool.Within(ssaflow.SummaryBudget))
+	targets, available = resolveCallees(launch, pool.Within(proofs.SummaryBudget))
 	assertCompletionCallees(t, targets, available, baseline, ok)
 	request := CompletionRequest{Instruction: launch, Target: fn.Params[0], Methods: []string{"Close"}, Budget: pool.Within(30)}
-	if proof := ProveCompletion(request); proof.Proven() || proof.Reason != ssaflow.EvidenceBudgetExhausted {
+	if proof := ProveCompletion(request); proof.Proven() || proof.Reason != proofs.EvidenceBudgetExhausted {
 		t.Fatalf("cut proof=%+v", proof)
 	}
 }
 
-func assertCompletionCalleeCutoffs(t *testing.T, launch ssa.Instruction, baseline []completionCallee, ok bool, pool *ssaflow.SearchBudget) {
+func assertCompletionCalleeCutoffs(t *testing.T, launch ssa.Instruction, baseline []completionCallee, ok bool, pool *proofs.SearchBudget) {
 	t.Helper()
 
 	finished := false
-	for limit := range ssaflow.SummaryBudget {
+	for limit := range proofs.SummaryBudget {
 		child := pool.Within(limit)
 		targets, available := resolveCallees(launch, child)
 		if child.Exhausted() {
@@ -151,7 +152,7 @@ func assertCompletionCalleeCutoffs(t *testing.T, launch ssa.Instruction, baselin
 			assertCompletionCallees(t, targets, available, baseline, ok)
 			finished = true
 		}
-		fresh := pool.Within(ssaflow.SummaryBudget)
+		fresh := pool.Within(proofs.SummaryBudget)
 		targets, available = resolveCallees(launch, fresh)
 		if fresh.Exhausted() || pool.Exhausted() {
 			t.Fatal("fresh or parent exhausted")

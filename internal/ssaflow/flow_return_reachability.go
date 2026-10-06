@@ -1,9 +1,12 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	proofs "github.com/kojah/gohawk/internal/proof"
+	"golang.org/x/tools/go/ssa"
+	// NormalReturnReachableFrom reports whether block can reach a normal return
+	// without first invoking a control-flow terminating API.
+)
 
-// NormalReturnReachableFrom reports whether block can reach a normal return
-// without first invoking a control-flow terminating API.
 func NormalReturnReachableFrom(block *ssa.BasicBlock) bool {
 	return NormalReturnReachableWith(block, nil)
 }
@@ -18,7 +21,7 @@ func NormalReturnReachableWith(block *ssa.BasicBlock, terminates Terminator) boo
 // finding none. Unknown, including cutoff, never proves absence. Witness is
 // present only when reachability is proven.
 type NormalReturnProof struct {
-	Proof
+	proofs.Proof
 	Witness *ssa.Return
 }
 
@@ -26,9 +29,9 @@ type NormalReturnProof struct {
 // termination queries with budget. It retains the default CFG policy: no
 // branch assumptions, and terminating calls stop only their own paths.
 // A nil budget leaves the search unbounded; a missing block is unknown.
-func ProveNormalReturnWithin(block *ssa.BasicBlock, terminates Terminator, budget *SearchBudget) NormalReturnProof {
+func ProveNormalReturnWithin(block *ssa.BasicBlock, terminates Terminator, budget *proofs.SearchBudget) NormalReturnProof {
 	if block == nil {
-		return NormalReturnProof{Proof: Proof{Reason: EvidenceUnavailable}}
+		return NormalReturnProof{Proof: proofs.Proof{Reason: proofs.EvidenceUnavailable}}
 	}
 	var witness *ssa.Return
 	WalkStatesWithin([]*ssa.BasicBlock{block}, func(candidate *ssa.BasicBlock) *ssa.BasicBlock { return candidate },
@@ -52,14 +55,14 @@ func ProveNormalReturnWithin(block *ssa.BasicBlock, terminates Terminator, budge
 			return candidate.Succs, true
 		}, budget)
 	if budget.Exhausted() {
-		return NormalReturnProof{Proof: Proof{Reason: EvidenceBudgetExhausted}}
+		return NormalReturnProof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
 	}
 	if witness != nil {
-		return NormalReturnProof{Proof: Proof{
-			State: EvidenceProven, Reason: EvidenceStructuralWalk, Provenance: EvidenceFromLocalSSA,
+		return NormalReturnProof{Proof: proofs.Proof{
+			State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA,
 		}, Witness: witness}
 	}
-	return NormalReturnProof{Proof: Proof{
-		State: EvidenceDisproven, Reason: EvidenceNotFound, Provenance: EvidenceFromLocalSSA,
+	return NormalReturnProof{Proof: proofs.Proof{
+		State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound, Provenance: proofs.EvidenceFromLocalSSA,
 	}}
 }

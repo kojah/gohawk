@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 )
@@ -33,8 +34,8 @@ func TestConditionalCoverageCutCannotPublish(t *testing.T) {
 	}
 	fn := pkg.Func("Small")
 	condition := ssaflow.CallCondition{Outcome: ssaflow.OutcomeTrue}
-	for limit := 0; limit <= ssaflow.SummaryBudget; limit++ {
-		budget := ssaflow.NewSearchBudget(limit)
+	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
 		_, ok := provenCasePath(fn, condition, lifecycle.CompletionRequest{Target: fn.Params[0], Methods: []string{"Close"}, Budget: budget, ExactTarget: true})
 		if budget.Exhausted() {
 			if ok {

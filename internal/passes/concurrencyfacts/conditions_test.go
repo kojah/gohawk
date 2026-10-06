@@ -3,7 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -16,7 +16,7 @@ func twice(a, b chan int, x, y bool) { branch(a, b, x); branch(a, b, y) }
 func worker(a, b chan int, flag bool) { go branch(a, b, flag) }
 `)
 	engine := NewEngine()
-	budget := func() *ssaflow.SearchBudget { return ssaflow.NewSearchBudget(4000) }
+	budget := func() *proofs.SearchBudget { return proofs.NewSearchBudget(4000) }
 	function := pkg.Func("branch")
 	got := engine.Function(function, budget())
 	if len(got.Paths) != 2 {

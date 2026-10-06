@@ -3,7 +3,7 @@ package concurrencyfacts
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -87,7 +87,7 @@ func replaced() {
 func TestCancellationUnknownBoundaries(t *testing.T) {
 	pkg := cancellationPackage(t)
 	for _, name := range []string{"unknown", "parentUnknown", "nested", "customContext", "customCancel", "without", "timed", "after", "replaced"} {
-		result := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(2000))
+		result := NewEngine().Root(pkg.Func(name), proofs.NewSearchBudget(2000))
 		if result.Complete() || result.AlternativesComplete {
 			t.Errorf("%s = %+v, want unknown", name, result)
 		}
@@ -97,7 +97,7 @@ func TestCancellationUnknownBoundaries(t *testing.T) {
 func TestCancellationBindsHelpersAndCaptures(t *testing.T) {
 	pkg := cancellationPackage(t)
 	for _, name := range []string{"root", "deferred", "captured", "cause"} {
-		result := NewEngine().Root(pkg.Func(name), ssaflow.NewSearchBudget(2000))
+		result := NewEngine().Root(pkg.Func(name), proofs.NewSearchBudget(2000))
 		if !result.Complete() || len(result.Operations) != 1 || len(result.Workers) != 1 || len(result.Workers[0].Operations) != 1 {
 			t.Errorf("%s = %+v, want cancel and one receiving worker", name, result)
 			continue
@@ -110,7 +110,7 @@ func TestCancellationBindsHelpersAndCaptures(t *testing.T) {
 }
 
 func TestCancellationSelectRetainsEscape(t *testing.T) {
-	result := NewEngine().Root(cancellationPackage(t).Func("choice"), ssaflow.NewSearchBudget(2000))
+	result := NewEngine().Root(cancellationPackage(t).Func("choice"), proofs.NewSearchBudget(2000))
 	if result.Complete() || !result.AlternativesComplete || !result.CancellationBound() || len(result.Workers) != 1 ||
 		len(result.Workers[0].Alternatives) != 2 || len(result.Operations) != 1 {
 		t.Fatalf("select = %+v", result)
@@ -122,7 +122,7 @@ func TestCancellationSelectRetainsEscape(t *testing.T) {
 }
 
 func TestDistinctCancellationIdentities(t *testing.T) {
-	result := NewEngine().Root(cancellationPackage(t).Func("distinct"), ssaflow.NewSearchBudget(2000))
+	result := NewEngine().Root(cancellationPackage(t).Func("distinct"), proofs.NewSearchBudget(2000))
 	if !result.Complete() || len(result.Workers) != 2 || len(result.Operations) != 2 {
 		t.Fatalf("distinct = %+v", result)
 	}

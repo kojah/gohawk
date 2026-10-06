@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
@@ -30,22 +31,22 @@ func TestUnobservedSignalCensusCutoff(t *testing.T) {
 	source := `package signalcut
  func ignore(done chan int){}
  func finish(done chan int){close(done)}
- func subject(){done:=make(chan int);` + strings.Repeat("ignore(done);", ssaflow.QueryBudget+1) + `go finish(done)}
+ func subject(){done:=make(chan int);` + strings.Repeat("ignore(done);", proofs.QueryBudget+1) + `go finish(done)}
  `
 	pkg := ssaflowtest.BuildPackage(t, "signalcut", source)
 	fn := pkg.Func("subject")
 	pass := &analysis.Pass{Fset: pkg.Prog.Fset, Pkg: pkg.Pkg}
 	candidate := newSpawnAnalysis(pass, fn, ssaflow.InstructionsOf[*ssa.Go](fn)[0])
-	child := candidate.pool.Within(ssaflow.QueryBudget)
+	child := candidate.pool.Within(proofs.QueryBudget)
 	got := candidate.proveUnobservedSignalsWithin(child)
-	if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted || !child.Exhausted() || candidate.pool.Exhausted() {
+	if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted || !child.Exhausted() || candidate.pool.Exhausted() {
 		t.Fatalf("cut=%+v", got)
 	}
 	cutoff := candidate.lifetimeCutoff(child, querySignalCensus, reasonSignalCensusUnavailable)
 	if cutoff.Outcome != GoroutineUnknown || cutoff.Reason != reasonSignalCensusUnavailable {
 		t.Fatalf("signal cutoff projection: %+v", cutoff)
 	}
-	fresh := candidate.proveUnobservedSignalsWithin(candidate.pool.Within(2 * ssaflow.SummaryBudget))
+	fresh := candidate.proveUnobservedSignalsWithin(candidate.pool.Within(2 * proofs.SummaryBudget))
 	if !fresh.Proven() {
 		t.Fatalf("fresh=%+v", fresh)
 	}

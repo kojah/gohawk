@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
 )
@@ -102,9 +103,9 @@ func callback(a, b func(), pick bool) {
 		return ssaflow.CallName(ssaflow.InstructionCall(i)) == "helper"
 	})
 	proof := ProveCompletion(CompletionRequest{
-		Instruction: call, Target: fn.Params[0], Methods: []string{"Close"}, Budget: ssaflow.NewSearchBudget(1000),
+		Instruction: call, Target: fn.Params[0], Methods: []string{"Close"}, Budget: proofs.NewSearchBudget(1000),
 	})
-	if proof.State != ssaflow.EvidenceUnknown {
+	if proof.State != proofs.EvidenceUnknown {
 		t.Errorf("mixed receiver completion = %#v, want unknown", proof)
 	}
 	fn = pkg.Func("callback")

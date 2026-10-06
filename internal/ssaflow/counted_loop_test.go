@@ -3,6 +3,7 @@ package ssaflow_test
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
@@ -28,7 +29,7 @@ func nonzero(f func()) { for i := 1; i < 3; i++ { f() } }
 		{"decrement", 4, ssaflow.LoopShapeUnknown, false},
 		{"nonzero", 4, ssaflow.LoopShapeUnknown, false},
 	} {
-		got := ssaflow.ProveCountedLoop(pkg.Func(test.name).Blocks[1], test.limit, ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+		got := ssaflow.ProveCountedLoop(pkg.Func(test.name).Blocks[1], test.limit, proofs.NewSearchBudget(proofs.QueryBudget))
 		if got.Reason != test.reason || got.CounterUsed != test.used {
 			t.Errorf("%s limit=%d: %+v", test.name, test.limit, got)
 		}
@@ -36,7 +37,7 @@ func nonzero(f func()) { for i := 1; i < 3; i++ { f() } }
 			t.Errorf("missing exact count/body/exit: %+v", got)
 		}
 	}
-	cut := ssaflow.ProveCountedLoop(pkg.Func("fixed").Blocks[1], 4, ssaflow.NewSearchBudget(1))
+	cut := ssaflow.ProveCountedLoop(pkg.Func("fixed").Blocks[1], 4, proofs.NewSearchBudget(1))
 	if cut.Reason != ssaflow.LoopBudgetExhausted {
 		t.Errorf("budget cut = %+v", cut)
 	}
@@ -68,7 +69,7 @@ func dynamic(f func(), n int) { for i := 0; i < n; i++ { f() } }
 		{"returned", ssaflow.LoopShapeUnknown, 0},
 		{"dynamic", ssaflow.LoopShapeUnknown, 0},
 	} {
-		got := ssaflow.ProveCountedRegion(pkg.Func(test.name).Blocks[1], 4, ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+		got := ssaflow.ProveCountedRegion(pkg.Func(test.name).Blocks[1], 4, proofs.NewSearchBudget(proofs.QueryBudget))
 		if got.Reason != test.reason || got.Count != test.count {
 			t.Errorf("%s: %+v", test.name, got)
 		}
@@ -77,7 +78,7 @@ func dynamic(f func(), n int) { for i := 0; i < n; i++ { f() } }
 		}
 	}
 	// The straight-line form must still reject a branching body.
-	if got := ssaflow.ProveCountedLoop(pkg.Func("branching").Blocks[1], 4, ssaflow.NewSearchBudget(ssaflow.QueryBudget)); got.Proven() {
+	if got := ssaflow.ProveCountedLoop(pkg.Func("branching").Blocks[1], 4, proofs.NewSearchBudget(proofs.QueryBudget)); got.Proven() {
 		t.Errorf("ProveCountedLoop accepted a branching body: %+v", got)
 	}
 }

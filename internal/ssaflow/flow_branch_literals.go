@@ -4,6 +4,7 @@ import (
 	"go/constant"
 	"go/token"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -15,7 +16,7 @@ import (
 // FeasibleSuccessorsWithin shares allowance through incoming phi selection
 // and literal helper return inspection. Cutoff keeps all successors; callers
 // retain availability before judging paths. A nil budget preserves defaults.
-func FeasibleSuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *SearchBudget) []*ssa.BasicBlock {
+func FeasibleSuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) []*ssa.BasicBlock {
 	if len(block.Succs) != 2 || len(block.Instrs) == 0 {
 		return block.Succs
 	}
@@ -37,7 +38,7 @@ func FeasibleSuccessorsWithin(block, predecessor *ssa.BasicBlock, budget *Search
 // an operand from a phi in block for the exact predecessor. Missing or foreign
 // predecessors and phis from earlier blocks leave value unchanged. Nil at
 // cutoff is unavailable; callers inspect the budget. A nil budget is unbounded.
-func BranchValueWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *SearchBudget) ssa.Value {
+func BranchValueWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) ssa.Value {
 	if !budget.Spend() {
 		return nil
 	}
@@ -59,7 +60,7 @@ func BranchValueWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budg
 // BranchBoolWithin decides the existing literal-only branch policy under a
 // shared allowance. Exhaustion supplies no decided truth value. A nil budget
 // retains the default policy.
-func BranchBoolWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *SearchBudget) (bool, bool) {
+func BranchBoolWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) (bool, bool) {
 	incoming := BranchValueWithin(value, block, predecessor, budget)
 	if budget.Exhausted() {
 		return false, false
@@ -84,7 +85,7 @@ func BranchBoolWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budge
 	return false, false
 }
 
-func compareBranchLiteralsWithin(comparison *ssa.BinOp, block, predecessor *ssa.BasicBlock, budget *SearchBudget) (bool, bool) {
+func compareBranchLiteralsWithin(comparison *ssa.BinOp, block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) (bool, bool) {
 	left := branchLiteralWithin(comparison.X, block, predecessor, budget)
 	if budget.Exhausted() {
 		return false, false
@@ -107,7 +108,7 @@ func compareBranchLiteralsWithin(comparison *ssa.BinOp, block, predecessor *ssa.
 	}
 }
 
-func branchLiteralWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *SearchBudget) *ssa.Const {
+func branchLiteralWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) *ssa.Const {
 	value = BranchValueWithin(value, block, predecessor, budget)
 	if budget.Exhausted() {
 		return nil
@@ -126,7 +127,7 @@ func branchLiteralWithin(value ssa.Value, block, predecessor *ssa.BasicBlock, bu
 // deferred mutation, merged results, unavailable bodies, and recursion through
 // returned calls remain opaque. No callee traversal or path enumeration occurs.
 // https://github.com/raskrebs/sonar/blob/9c963b8447d6ca08dd4a3c0bc6c0bf27527cd793/internal/spawn/spawn_unix.go#L27
-func callResultLiteralWithin(value ssa.Value, budget *SearchBudget) *ssa.Const {
+func callResultLiteralWithin(value ssa.Value, budget *proofs.SearchBudget) *ssa.Const {
 	index := 0
 	if result, ok := value.(*ssa.Extract); ok {
 		value, index = result.Tuple, result.Index

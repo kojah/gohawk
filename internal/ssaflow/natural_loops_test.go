@@ -3,6 +3,7 @@ package ssaflow_test
 import (
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -23,7 +24,7 @@ func breakPath(n int, early bool) { for i:=0; i<n; i++ { if early { break }; mar
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
-			loops, ok := ssaflow.OutermostLoops(function, ssaflow.NewSearchBudget(ssaflow.QueryBudget))
+			loops, ok := ssaflow.OutermostLoops(function, proofs.NewSearchBudget(proofs.QueryBudget))
 			if !ok || len(loops) != 1 {
 				t.Fatal("expected one natural loop")
 			}
@@ -77,12 +78,12 @@ func done([]int) bool { return true }
 		"slice": true, "integer": true, "counted": true, "nested": true, "lengths": true, "queued": false,
 		"growing": false, "reset": false, "stepTwo": false, "down": false, "flag": false, "mapped": false, "unbounded": false,
 	} {
-		loops, ok := ssaflow.OutermostLoops(pkg.Func(name), ssaflow.NewSearchBudget(1000))
+		loops, ok := ssaflow.OutermostLoops(pkg.Func(name), proofs.NewSearchBudget(1000))
 		if !ok || len(loops) != 1 {
 			t.Errorf("%s: loops = %v, %t, want one outermost loop", name, loops, ok)
 			continue
 		}
-		if got := ssaflow.BoundedLoop(loops[0], ssaflow.NewSearchBudget(1000)); got != want {
+		if got := ssaflow.BoundedLoop(loops[0], proofs.NewSearchBudget(1000)); got != want {
 			t.Errorf("%s: BoundedLoop = %t, want %t", name, got, want)
 		}
 	}

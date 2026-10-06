@@ -3,7 +3,7 @@ package goroutineownership
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -25,11 +25,11 @@ func recursive(ch chan struct{}) { recursive(ch); receive(ch) }
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
 			search := newHelperSearch()
-			search.budget = ssaflow.NewSearchBudget(test.limit)
+			search.budget = proofs.NewSearchBudget(test.limit)
 			if got := search.use(function, function.Params[0], trackedSignal); got != actionUnknown {
 				t.Fatalf("shortened answer = %v, want unknown (neither join nor absence)", got)
 			}
-			search.budget = ssaflow.NewSearchBudget(helperUseBudget)
+			search.budget = proofs.NewSearchBudget(helperUseBudget)
 			if got := search.use(function, function.Params[0], trackedSignal); got != test.want {
 				t.Errorf("fresh budget = %v, want %v; incomplete answer must not be cached", got, test.want)
 			}
@@ -37,7 +37,7 @@ func recursive(ch chan struct{}) { recursive(ch); receive(ch) }
 	}
 	function := pkg.Func("recursive")
 	search := newHelperSearch()
-	search.budget = ssaflow.NewSearchBudget(1)
+	search.budget = proofs.NewSearchBudget(1)
 	if got := search.use(function, function.Params[0], trackedSignal); got != actionUnknown || !search.budget.Exhausted() {
 		t.Errorf("recursive query = %v, exhausted=%v", got, search.budget.Exhausted())
 	}

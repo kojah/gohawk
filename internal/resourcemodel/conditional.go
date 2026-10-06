@@ -6,6 +6,7 @@ package resourcemodel
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -16,7 +17,7 @@ var rowsNextResultSet = syntax.PackageMethod(syntax.MethodSymbol{
 })
 
 // ConditionalReleases binds one search budget to the external state contracts.
-func ConditionalReleases(budget *ssaflow.SearchBudget) lifecycle.CompletionSummaryLookup {
+func ConditionalReleases(budget *proofs.SearchBudget) lifecycle.CompletionSummaryLookup {
 	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssaflow.CallCondition) bool {
 		return ConditionalRelease(instruction, target, method, invoke, predicate, budget)
 	}
@@ -31,7 +32,7 @@ func ConditionalRelease(
 	method string,
 	invoke bool,
 	predicate ssaflow.CallCondition,
-	budget *ssaflow.SearchBudget,
+	budget *proofs.SearchBudget,
 ) bool {
 	call, synchronous := instruction.(*ssa.Call)
 	if !synchronous || invoke || method != "Close" ||
@@ -67,7 +68,7 @@ func resultSetCall(common *ssa.CallCommon, target ssa.Value) bool {
 // exact. A different field, mutation, branch, or extra call declines proof.
 // https://github.com/ecodeclub/ekit/blob/a7e05db26220f9cef930579b39237cb09ae7b513/sqlx/scanner.go#L62-L64
 func forwardedConditionalRelease(
-	call *ssa.Call, target ssa.Value, budget *ssaflow.SearchBudget,
+	call *ssa.Call, target ssa.Value, budget *proofs.SearchBudget,
 	contract func(*ssa.CallCommon, ssa.Value) bool,
 ) bool {
 	callee := call.Common().StaticCallee()

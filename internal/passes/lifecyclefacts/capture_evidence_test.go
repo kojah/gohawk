@@ -4,6 +4,7 @@ import (
 	"go/types"
 	"testing"
 
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -53,11 +54,11 @@ func multiple(p,q *int) func() { return func() { read(q); opaque(p) } }
 			if got := evidence.ClosureHandsValueToUnreadableCallee(closures[0], function.Params[0]); got != test.unreadable {
 				t.Errorf("ClosureHandsValueToUnreadableCallee() = %t, want %t", got, test.unreadable)
 			}
-			cutoff := ssaflow.NewSearchBudget(0)
+			cutoff := proofs.NewSearchBudget(0)
 			if !evidence.ClosureHandsValueToUnreadableCalleeWithin(closures[0], function.Params[0], cutoff) || !cutoff.Exhausted() {
 				t.Fatal("capture cutoff must preserve possible opaque consumption")
 			}
-			fresh := ssaflow.NewSearchBudget(ssaflow.QueryBudget)
+			fresh := proofs.NewSearchBudget(proofs.QueryBudget)
 			if got := evidence.ClosureHandsValueToUnreadableCalleeWithin(closures[0], function.Params[0], fresh); got != test.unreadable || fresh.Exhausted() {
 				t.Fatalf("fresh handoff=%v exhausted=%v, want %v", got, fresh.Exhausted(), test.unreadable)
 			}

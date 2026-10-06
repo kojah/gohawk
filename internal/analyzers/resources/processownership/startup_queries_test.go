@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
@@ -18,20 +19,22 @@ func TestSuccessfulStartReturnAllowance(t *testing.T) {
  `)
 	for _, test := range []struct {
 		name string
-		want ssaflow.EvidenceState
+		want proofs.EvidenceState
 	}{
-		{"returning", ssaflow.EvidenceDisproven}, {"looping", ssaflow.EvidenceProven}, {"panicking", ssaflow.EvidenceProven},
+		{"returning", proofs.EvidenceDisproven}, {"looping", proofs.EvidenceProven}, {"panicking", proofs.EvidenceProven},
 	} {
 		start := startupTestCall(t, pkg.Func(test.name))
 		if test.name == "looping" {
-			pool := ssaflow.NewSearchBudget(processPoolBudget)
+			pool := proofs.NewSearchBudget(processPoolBudget)
 			child := pool.Within(8)
 			got := successfulStartCannotReturn(start, child)
-			if got.State != ssaflow.EvidenceUnknown || got.Reason != ssaflow.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
+			if got.State != proofs.EvidenceUnknown || got.Reason != proofs.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
 				t.Fatalf("successful branch bypassed its allowance: %+v", got)
 			}
 		}
-		checkProcessQuery(t, test.name, test.want, func(budget *ssaflow.SearchBudget) ssaflow.Proof { return successfulStartCannotReturn(start, budget) })
+		checkProcessQuery(t, test.name, test.want, func(budget *proofs.SearchBudget) proofs.Proof {
+			return successfulStartCannotReturn(start, budget)
+		})
 	}
 }
 
@@ -45,9 +48,9 @@ func TestLaterWatcherAllowance(t *testing.T) {
  `)
 	for _, test := range []struct {
 		name string
-		want ssaflow.EvidenceState
+		want proofs.EvidenceState
 	}{
-		{"watched", ssaflow.EvidenceProven}, {"before", ssaflow.EvidenceDisproven}, {"unrelated", ssaflow.EvidenceDisproven},
+		{"watched", proofs.EvidenceProven}, {"before", proofs.EvidenceDisproven}, {"unrelated", proofs.EvidenceDisproven},
 	} {
 		fn := pkg.Func(test.name)
 		start := startupTestCall(t, fn)
@@ -56,21 +59,21 @@ func TestLaterWatcherAllowance(t *testing.T) {
 			for range ssaflow.InstructionsWithin(fn, nil) {
 				count++
 			}
-			child := ssaflow.NewSearchBudget(processQueryBudget).Within(count)
+			child := proofs.NewSearchBudget(processQueryBudget).Within(count)
 			result := laterProcessOwnerWatcher(fn, start, []ssa.Value{fn.Params[1]}, child)
-			if result.State != ssaflow.EvidenceUnknown || result.Reason != ssaflow.EvidenceBudgetExhausted || !child.Exhausted() {
+			if result.State != proofs.EvidenceUnknown || result.Reason != proofs.EvidenceBudgetExhausted || !child.Exhausted() {
 				t.Fatalf("containment bypassed body-only allowance: %+v", result)
 			}
 		}
-		checkProcessQuery(t, test.name, test.want, func(budget *ssaflow.SearchBudget) ssaflow.Proof {
+		checkProcessQuery(t, test.name, test.want, func(budget *proofs.SearchBudget) proofs.Proof {
 			return laterProcessOwnerWatcher(fn, start, []ssa.Value{fn.Params[1]}, budget)
 		})
 	}
 }
 
-func checkProcessQuery(t *testing.T, name string, want ssaflow.EvidenceState, query func(*ssaflow.SearchBudget) ssaflow.Proof) {
+func checkProcessQuery(t *testing.T, name string, want proofs.EvidenceState, query func(*proofs.SearchBudget) proofs.Proof) {
 	t.Helper()
-	pool := ssaflow.NewSearchBudget(processPoolBudget)
+	pool := proofs.NewSearchBudget(processPoolBudget)
 	for limit := range 1000 {
 		child := pool.Within(limit)
 		result := query(child)
@@ -83,11 +86,11 @@ func checkProcessQuery(t *testing.T, name string, want ssaflow.EvidenceState, qu
 			}
 			return
 		}
-		if result.State != ssaflow.EvidenceUnknown || result.Reason != ssaflow.EvidenceBudgetExhausted || pool.Exhausted() {
+		if result.State != proofs.EvidenceUnknown || result.Reason != proofs.EvidenceBudgetExhausted || pool.Exhausted() {
 			t.Fatalf("%s cutoff: %+v", name, result)
 		}
 		fresh := query(pool.Within(processQueryBudget))
-		if fresh.State != want || fresh.Reason == ssaflow.EvidenceBudgetExhausted {
+		if fresh.State != want || fresh.Reason == proofs.EvidenceBudgetExhausted {
 			t.Fatalf("%s fresh: %+v", name, fresh)
 		}
 	}
@@ -139,7 +142,7 @@ func TestStartupWrapperDeferredLaunches(t *testing.T) {
 				before = append(before, instruction)
 			}
 			for _, limit := range []int{0, processPoolBudget} {
-				proof := &commandProof{pool: ssaflow.NewSearchBudget(limit), evidence: lifecyclefacts.NewLifecycleEvidence(nil, "test", "startup-wrapper")}
+				proof := &commandProof{pool: proofs.NewSearchBudget(limit), evidence: lifecyclefacts.NewLifecycleEvidence(nil, "test", "startup-wrapper")}
 				got := processOwnerDominatesStart(proof, fn, start, []ssa.Value{fn.Params[1]}, before)
 				want := test.want
 				if limit == 0 {

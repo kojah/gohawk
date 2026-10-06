@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -32,12 +32,12 @@ func TestStrictParameterProjectionKeepsReadPath(t *testing.T) {
 			fn := pkg.Func(test.name)
 			value := strictObservedValue(t, fn)
 			sawCut := false
-			for limit := 1; limit <= ssaflow.QueryBudget; limit++ {
-				budget := ssaflow.NewSearchBudget(limit)
+			for limit := 1; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
 				proof := ProveStrictProjectionPathWithin(value, fn.Params[0], budget)
 				if budget.Exhausted() {
 					sawCut = true
-					if proof.State != ssaflow.EvidenceUnknown || proof.Path != nil {
+					if proof.State != proofs.EvidenceUnknown || proof.Path != nil {
 						t.Fatalf("cutoff %d published %+v", limit, proof)
 					}
 					continue
