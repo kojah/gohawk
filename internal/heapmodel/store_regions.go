@@ -107,6 +107,24 @@ func (set pointees) add(target slot, stale bool) {
 		set[target] = set[target] || stale
 		return
 	}
+	switch len(set) {
+	case 0:
+		set[target] = stale
+		return
+	case 1:
+		for previous, previousStale := range set {
+			if previous.region.kind == regionUnknown {
+				return
+			}
+			// The sole member is known. Only that exact member can contribute
+			// an existing stale bit; a different target is a new addition.
+			if previous == target {
+				stale = stale || previousStale
+			}
+			set[target] = stale
+			return
+		}
+	}
 	if set.unknown() {
 		return
 	}

@@ -1324,3 +1324,78 @@ summary paths redirected into RAM; the README badge remains accurate. Small
 receipts stay in `.build/perf-proof-small-20261006/`. No local race tests or
 full precision replay were run; hosted checks for the new commit remain
 separate. The broader performance goal remains active.
+
+
+## Avoid redundant unknown scans for empty and singleton pointee additions
+
+Known additions now inspect empty and singleton destinations directly. An
+empty destination has no prior stale bit; a singleton is visited once to
+check unknown absorption and, for an exact duplicate, retain its stale bit.
+A different known target adds a second member without a second unknown scan.
+Larger sets keep the original full unknown scan. Unknown-target additions keep
+their original absorbing deletion behavior. This requires no global invariant
+about mixed maps, no cached unknown flag and no change to graph budgets.
+
+Regression tests cover empty maps, duplicate and distinct known singletons,
+monotone stale bits, absorbing unknown singletons, mixed known/unknown duplicate
+inputs, and widening multiple known members to unknown. An initial variant
+looked up the requested target before discovering an unknown singleton and
+regressed that case from roughly 34 to 49 ns; it was replaced with direct
+inspection of the sole entry.
+
+Three-sample medians of the final variant are:
+
+| Known addition to | Before | Final | Allocations |
+| --- | ---: | ---: | ---: |
+| Empty map | 45.53 ns | 33.31 ns | 0 both |
+| Duplicate known singleton | 81.32 ns | 55.08 ns | 0 both |
+| Different known singleton | 100.5 ns | 76.31 ns | 0 both |
+| Unknown singleton | 33.69 ns | 34.69 ns | 0 both |
+| Mixed known/unknown map | 35.66 ns | 36.65 ns | 0 both |
+
+Empty/different benchmarks include their reset work. These are primitive
+results, not a general end-to-end speedup. The complete all-check Caddy scan
+preserves diagnostic JSON, exit 3 and empty stderr, takes 100.989 seconds and
+writes 12 KiB physically. Raw artifacts stay in the RAM workspace's
+`pointee-add/`; heavy work remains serial with the retained cache and reduced
+priority.
+
+### Runner and projection source review
+
+The runner review now includes `selection.go` and `selection_resolve.go` in
+addition to dispatch/delegated output. Selection traverses flag inputs and the
+small analyzer/group/check catalog; it does not rescan SSA or re-run passes.
+Its cloned base selection preserves the distinction between ordinary analyzer
+selection and checks' added owners. Package scheduling and caching remain owned
+by `go vet`, as verified by the prior cold/cached/fresh-action experiments and
+larger Caddy pairs. Dump modes are outside this bounded normal-run review.
+
+Projection review includes address/root stability, summary requirements,
+return/history edges, call-site substitution and publication sorting. DFS visit
+order, independent seen sets, charged feasibility queries and deterministic
+publication/proof limits constrain traversal shortcuts. `ProjectHeap`'s private
+build on graph-lock contention prevents schedule-dependent truncation; simply
+returning unavailable or waiting on a recursive shared graph changes its
+contract.
+
+Five reflective sorts remain: `SortedSlots`, result holds, edges, effects and
+bounded requirements. Replacing their sorting mechanism while preserving the
+existing less relations and equal-key behavior is a concrete remaining
+candidate. In particular, publication ordering and requirement proof order
+must not change bounded selection. This work is still unmeasured and keeps the
+broader completion audit open. Graph tools remain unavailable; these are exact
+source reads and call-site searches, with their bounded scope stated above.
+
+Prerequisite entry-point review also reads result/concurrency fact import and
+publication. Each constructs one engine per pass and filters export candidates
+by declaration identity. The repeated concurrency `published.Value()` calls
+read the already decoded `factcodec.Envelope` value; they do not deserialize
+it twice, so no decoding-removal candidate is retained there.
+
+The first local gate catches a benchmark-style condition; a tagged switch
+fixes it. All eight final canonical gates pass, including all-check self-analysis
+and the ordinary suite. Coverage passes at 92.5% with output paths redirected
+into RAM; the README badge remains accurate. Small receipts are retained under
+`.build/perf-pointee-add-20261006/`. No local race tests or full precision replay
+were run; hosted checks for the new commit remain separate. The broader
+performance goal remains active.
