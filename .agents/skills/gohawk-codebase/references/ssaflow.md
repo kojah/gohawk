@@ -3417,6 +3417,7 @@ WalkStatesWithin charges queued visits before key construction, including
 revisits. It stops if key or step exhausts the shared allowance, before
 admitting a partial key or successor list. Callers retain cutoff availability;
 a nil budget preserves default expansion and early-stop policy.
+The initial and callback successor slices remain owned by their callers.
 
 ## WholeWrittenCell
 

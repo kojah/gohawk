@@ -1,6 +1,10 @@
 package ssaflow
 
-import "golang.org/x/tools/go/ssa"
+import (
+	"slices"
+
+	"golang.org/x/tools/go/ssa"
+)
 
 // FlowLocationKey identifies one guarded instruction position within a
 // function. It does not include the caller's obligation or other domain state;
@@ -40,15 +44,21 @@ func WalkStates[S any, K comparable](initial []S, key func(S) K, step func(S) ([
 // revisits. It stops if key or step exhausts the shared allowance, before
 // admitting a partial key or successor list. Callers retain cutoff availability;
 // a nil budget preserves default expansion and early-stop policy.
+// The initial and callback successor slices remain owned by their callers.
 func WalkStatesWithin[S any, K comparable](initial []S, key func(S) K, step func(S) ([]S, bool), budget *SearchBudget) {
-	queue := initial
+	queue := slices.Clone(initial)
+	head := 0
 	expanded := map[K]bool{}
-	for len(queue) > 0 {
+	for head < len(queue) {
 		if !budget.Spend() {
 			return
 		}
-		state := queue[0]
-		queue = queue[1:]
+		state := queue[head]
+		head++
+		if head == len(queue) {
+			queue = queue[:0]
+			head = 0
+		}
 		identity := key(state)
 		if budget.Exhausted() {
 			return
@@ -60,6 +70,12 @@ func WalkStatesWithin[S any, K comparable](initial []S, key func(S) K, step func
 		successors, ok := step(state)
 		if !ok || budget.Exhausted() {
 			return
+		}
+		// Reuse consumed slots before growing, without borrowing either the
+		// initial states or the callback's successor storage.
+		if len(successors) > cap(queue)-len(queue) && head > 0 {
+			queue = queue[:copy(queue, queue[head:])]
+			head = 0
 		}
 		queue = append(queue, successors...)
 	}

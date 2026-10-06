@@ -365,3 +365,99 @@ successful isolated profile. The applicable ordinary dependency profiles are
 Profile matching and variant selection are explicit in the retained wrapper.
 The broader completion audit remains outstanding; these measurements identify
 and improve two costs rather than prove there are no easy wins left.
+
+
+## Current cold comparison and state-worklist queue
+
+The latest comparison uses the same archived source target at `10aa0f67`
+for both executable versions. The baseline executable is v0.6.0; the candidate
+includes the five committed optimizations and state-worklist queue reuse.
+Each executable gets its own empty `GOCACHE`. Module downloads are already
+cached and executable construction is excluded. Go 1.27.0, all checks, default
+parallelism, and complete JSON output are used for both. No benchmark or
+validation from this investigation runs concurrently with these controlled
+scans. Other host activity remains uncontrolled, so the single pair cannot
+establish a reliable speedup.
+
+| Cache state | v0.6.0 | Candidate |
+| --- | ---: | ---: |
+| Empty build and analysis cache | 21.031 s | 20.190 s |
+| Immediate cached repeat | 0.417 s | 0.392 s |
+| Build cache populated, analysis forced fresh | 16.033 s | 14.092 s |
+
+These are one sample per state, not a reliable speedup estimate. Both versions
+exit successfully with identical complete JSON diagnostics in all three states.
+The forced-fresh run uses a previously unused timing-file flag and includes its
+instrumentation overhead. Reported child-process peak RSS is 278756 versus
+285936 KiB cold; it is not aggregate concurrent-process memory. An earlier
+attempt used the mutable working tree and overlapped benchmark work and a test
+edit; its numbers are exploratory and excluded from this comparison.
+
+The ordinary `math/big` dependency allocation profile also points to append
+allocations in the generic state worklist. That queue previously discarded
+capacity at every pop. It now clones the initial slice, keeps a head, reuses a
+drained buffer, and compacts consumed entries before growth. Callback successor
+slices remain caller-owned. FIFO order, queued revisit charges, expansion keys,
+early termination, and key/step cutoff policy are unchanged. A regression
+combines branches, duplicate keys and a cycle with exact eight/nine-step budgets,
+and checks sentinel storage beyond the initial slice and successor storage.
+The ownership regression fails against the previous implementation.
+
+Isolated three-sample benchmark medians, with only this production file overlaid
+back to its previous revision for the baseline, are:
+
+| 128-state shape | Before | After | Before bytes / allocations | After bytes / allocations |
+| --- | ---: | ---: | ---: | ---: |
+| Chain | 14858 ns | 14307 ns | 10368 / 138 | 9360 / 12 |
+| Binary tree | 14842 ns | 13893 ns | 11952 / 22 | 10368 / 18 |
+
+A serial ordinary-dependency profile samples about 12.49 versus 6.84 MiB of
+flat allocation in the obligation-state worklist instantiation. Whole-process
+sampled allocation is 268.14 versus 284.57 MiB, so this experiment does not
+establish an overall memory reduction. Allocation profiles include the process
+before the lifecycle snapshot and are affected by map order and sampling.
+The retained baseline executable predates the source edit; its line listings
+against current source are not used as exact line attribution.
+
+Artifacts, archived target, provenance, complete diagnostics, isolated benchmark
+outputs, previous-code counterfactual and per-process profiles are under
+`.build/perf-current-cold-20261006/`. The completion audit still needs broader
+profile and source coverage; this optimization does not prove that easy wins
+have been exhausted.
+
+Hosted CI for `10aa0f67` passes all behavior, compatibility and targeted race
+jobs. Its coverage badge check fails because hosted measurement generates
+92.5% while the locally regenerated badge reads 92.4%; the aggregate test job
+fails solely on that prerequisite. This is recorded separately from behavior.
+
+
+### Remaining completion evidence
+
+The investigation must cover the runner, prerequisites and all eight analyzer
+engines before concluding that no straightforward improvement remains.
+Current evidence and remaining questions are:
+
+| Scope | Current evidence | Remaining work |
+| --- | --- | --- |
+| Runner and cache behavior | Controlled cold, cached and forced-fresh pairs; identical diagnostics | Repeat representative larger targets; distinguish build work from pass work |
+| Shared prerequisites | Actual unitchecker timing across 290 package actions; lifecycle inference dominates summed prerequisite time | Profile more expensive ordinary package actions, not just `math/big` |
+| Heap snapshots and content joins | Ownership regressions, counterfactuals, paired microbenchmarks and real-target measurements | Review remaining pointee-set union/unknown scans and projection work |
+| Shared control flow | Reachability and state queues improved with exact-order/budget tests | Review remaining key-builder growth and visited-map costs |
+| Reaching-value folds | Production allocation profile identifies `Every`; branches already clone with `maps.Clone` | Preserve branch independence and shared leaf visit semantics while investigating allocation |
+| Trace metadata | Disabled/enabled allocation tests and 36261-record complete evidence comparison | Review any remaining unconditional metadata construction in profiled paths |
+| Lifecycle type vocabulary | Profile includes repeated resource-type construction; source recreates cleanup slices | Measure rejected and matched lookups before choosing storage/ownership changes |
+| Catalog analyzers | Fresh-action baseline timings for all eight; lock/resource fixture profiles and Caddy scans | Inspect the remaining six proof engines against representative uncached production profiles |
+
+These are incomplete audit items, not findings that the remaining costs can
+necessarily be removed cheaply. For example, reusing a reaching-value branch's
+visited map would change sibling independence, and skipping revisit charges
+would change conservative cutoff behavior. Such changes are outside the
+performance-only scope even if they benchmark faster.
+
+
+Final state-worklist source passes all eight canonical `make verify` gates
+(`verify.log`) and `make coverage` (`coverage.log`). Local coverage now reads
+92.5%; the README badge was regenerated with the pinned hosted-CI generator.
+The generated shared-helper reference includes the slice ownership contract.
+No local race tests or full precision replay were run; previous-commit hosted
+targeted races passed, and current-commit hosted verification will be separate.
