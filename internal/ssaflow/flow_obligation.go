@@ -138,8 +138,12 @@ type obligationKey struct {
 }
 
 func (state obligationState) keyWithin(budget *SearchBudget) obligationKey {
+	return state.keyWithMemo(budget, nil)
+}
+
+func (state obligationState) keyWithMemo(budget *SearchBudget, keys *guardKeys) obligationKey {
 	return obligationKey{
-		location: FlowLocationKeyWithin(state.block, state.predecessor, state.index, state.guards, budget),
+		location: flowLocationKeyWithMemo(state.block, state.predecessor, state.index, state.guards, budget, keys),
 		covered:  state.covered,
 	}
 }
@@ -157,7 +161,10 @@ func (state obligationState) keyWithin(budget *SearchBudget) obligationKey {
 func obligationOutcome(initial []obligationState, flow ObligationFlow) (ObligationOutcome, *ssa.Return) {
 	walk := obligationWalk{flow: flow, policy: flow.successorPolicy(), outcome: ObligationHonored}
 	WalkStatesWithin(initial, func(state obligationState) obligationKey {
-		return state.keyWithin(flow.Budget)
+		if len(state.guards) == 0 {
+			return state.keyWithin(flow.Budget)
+		}
+		return state.keyWithMemo(flow.Budget, &walk.keys)
 	}, walk.step, flow.Budget)
 	walk.stopAtCutoff()
 	return walk.outcome, walk.witness
@@ -166,6 +173,7 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) (Obligati
 // One walk owns the outcome and witness. Every callback and shared guard query
 // must retain availability before it can settle, violate or prune a path.
 type obligationWalk struct {
+	keys    guardKeys
 	formats guardFormats
 	flow    ObligationFlow
 	policy  SuccessorPolicy

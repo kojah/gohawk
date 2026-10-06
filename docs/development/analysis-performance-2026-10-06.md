@@ -1004,3 +1004,50 @@ remains accurate. Small benchmark, final gate, coverage summary, Caddy receipt
 and focused profile summaries are retained in `.build/perf-guard-formats-20261006/`.
 No local race tests or full precision replay were run. New-commit hosted checks
 remain separate from these passing local receipts.
+
+## Reuse consecutive bounded guard keys
+
+One obligation walk now retains the last bounded guard list's rendered key.
+It compares identity bytes, values and count, deliberately omitting stability
+just as the authoritative key format does. Each hit still spends one charge
+per guard before returning bytes. A miss delegates rendering to `KeyWithin`
+with no second set of charges; empty lists spend nothing and oversized lists
+use the original implementation. Input mutation changes the comparison parts,
+and cutoff cannot publish or poison a partial key. Different walks own their
+own single-entry memo, with no global state or unbounded collection.
+
+Visited-state keys retain `FlowLocationKey` and its exact guard string. Using
+structural or numeric identifiers directly would distinguish old delimiter
+collisions and change which paths merge, so this performance change preserves
+that existing equivalence. Tests cover collision equality, stability omission,
+identity/value changes, input mutation, empty/oversized lists, local and shared
+allowances, and cutoff leaving the prior complete key intact. Existing location
+tests preserve predecessor, position and coverage distinctions.
+
+A repeated eight-guard benchmark has three-sample medians of 327.1 ns and
+1536 bytes/one allocation uncached, versus 42.44 ns and zero allocation warm.
+These are repeated keys; setup and the initial render are excluded. The first
+canonical gate catches test-table formatting; after correction, all eight
+local gates pass, including self-analysis with all checks and the full suite.
+
+The real all-check Caddy scan preserves full diagnostic JSON, exit 3, empty
+stderr and all 14924 action records, writing 24 KiB physically. The certmagic
+process allocation snapshot falls from 2702.46 to 2431.88 MiB, about 271 MiB
+less; byte-builder flat allocation on lifecycle-focused stacks falls from
+856.41 to 396.69 MiB. Other allocation categories vary between sampled runs,
+so the total reduction is smaller than the builder reduction. The selected
+Run takes 9.572 seconds versus 13.766 previously and the full command 111.828
+seconds versus 138.913; these single profiles do not establish a general
+end-to-end speedup. CPU profiles include all goroutines during the interval;
+allocation snapshots accumulate since process startup. Map hashing, guard
+filtering and visited-state storage remain substantial costs to review.
+
+Raw artifacts stay in the RAM workspace's `guard-keys/`; heavy jobs remain
+serialized with the reusable RAM cache and reduced priority. The broader
+performance completion audit remains open.
+
+Coverage also passes at 92.5%, with the profile and summary output paths in RAM;
+the README badge remains accurate. Small benchmark, final gate, coverage summary,
+Caddy receipt and focused profile summaries are retained in
+`.build/perf-guard-keys-20261006/`. No local race tests or full precision replay
+were run. New-commit hosted checks remain separate from these local receipts.

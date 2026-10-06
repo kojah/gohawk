@@ -22,11 +22,17 @@ type FlowLocationKey struct {
 // functions. Guard cutoff makes the key unavailable; WalkStatesWithin checks
 // that allowance before admitting it. A nil budget preserves guard rendering.
 func FlowLocationKeyWithin(block, predecessor *ssa.BasicBlock, index int, guards PathGuards, budget *SearchBudget) FlowLocationKey {
+	return flowLocationKeyWithMemo(block, predecessor, index, guards, budget, nil)
+}
+
+func flowLocationKeyWithMemo(
+	block, predecessor *ssa.BasicBlock, index int, guards PathGuards, budget *SearchBudget, keys *guardKeys,
+) FlowLocationKey {
 	predecessorIndex := -1
 	if predecessor != nil {
 		predecessorIndex = predecessor.Index
 	}
-	return FlowLocationKey{block: block.Index, predecessor: predecessorIndex, index: index, guards: guards.KeyWithin(budget)}
+	return FlowLocationKey{block: block.Index, predecessor: predecessorIndex, index: index, guards: keys.keyWithin(guards, budget)}
 }
 
 // WalkStates drives a keyed work list over path-sensitive states. The caller
