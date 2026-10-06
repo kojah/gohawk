@@ -810,3 +810,56 @@ capacity, and its ordering controls which slots publication bounds retain.
 skipped. Two remaining measurement candidates are reflected sorting in
 `orderedSlots` and the split used only to count path depth in `boundedSlot`.
 Their source shape alone does not establish a worthwhile improvement.
+
+## Projection: sort slots directly and count separators
+
+Focused benchmarks confirm two small projection improvements. `orderedSlots`
+now uses `slices.SortFunc` instead of reflected `sort.Slice`, preserving the
+region-serial comparison and lexical path comparison. It still copies map keys
+into its own slice with capacity reserved for every key, and returns a nonnil
+empty slice for empty input. Neither the input map nor its evidence changes.
+
+`summaryPathTooDeep` shares the publication depth check across named slots,
+result contents and requirement candidates. For nonempty serialized paths,
+the step count is one greater than the separator count. Empty paths remain
+inside the fixed positive bound; empty components still count as before.
+Counting separators avoids materializing a split that those checks never use.
+Queries that need actual components retain `SplitAccessPath`. Path limits,
+slot limits, proof budgets, truncation policy and root naming remain unchanged.
+
+Three-sample medians use the same warmed RAM cache, two workers and reduced
+priority. Benchmark setup, including labels, is outside the timed sections:
+
+| Primitive | Before | Candidate | Allocations before/after |
+| --- | ---: | ---: | ---: |
+| Sort zero slots | 34.79 ns | 12.34 ns | 1 / 0 |
+| Sort one slot | 85.05 ns | 61.97 ns | 2 / 1 |
+| Sort eight slots | 530.1 ns | 211.9 ns | 4 / 1 |
+| Sort thirty-two slots | 2059 ns | 1040 ns | 4 / 1 |
+| Check root depth | 18.87 ns | 18.60 ns | 0 / 0 |
+| Check depth at limit | 46.62 ns | 17.68 ns | 1 / 0 |
+| Reject depth beyond limit | 62.26 ns | 16.30 ns | 1 / 0 |
+
+The depth checks remove 48 bytes at the limit and 64 bytes beyond it. Sorting
+eight or thirty-two slots removes 96 bytes per call. These measurements are
+primitive results, not a whole-program speedup claim. Regression tests preserve
+serial order, lexical rather than numeric path order, unchanged source evidence,
+empty output ownership, exact accepted/rejected depths, placeholder prefixes,
+named roots, unknown roots and empty path components. Existing projection
+fixtures cover state/history/escape publication at the boundary.
+
+The first completion gate catches `fmt.Sprint` in benchmark labels; switching
+them to `strconv.Itoa` changes no timed code. Raw benchmark and gate receipts
+remain in the RAM workspace's `projection/`. The overall audit remains open:
+these two measured candidates are addressed, while other projection costs,
+guard filtering, visited maps and catalog engine profiles remain to review.
+
+After the label correction, all eight canonical `make verify` gates pass.
+Coverage passes at 92.5% using the target's commands with its output paths
+redirected into RAM; the README badge remains accurate. Self-analysis with all
+checks stays clean. Small benchmark, final gate and coverage-summary receipts
+are retained in `.build/perf-projection-20261006/`; caches and the large coverage
+profile remain in RAM. No local race test or full precision replay was run.
+Hosted CI for parent `b88b8be1` is fully green; new-commit hosted results remain
+separate. The broader completion audit still needs representative catalog
+profiles beyond the lock/process evidence and a larger controlled target pair.

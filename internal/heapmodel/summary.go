@@ -16,6 +16,14 @@ import (
 // SummaryPaths bounds the paths a projected summary names beneath a root.
 const SummaryPaths = 3
 
+// summaryPathTooDeep counts serialized steps without materializing them.
+// A nonempty path has one more step than separators; an empty path remains
+// within the positive bound. Empty components count just as SplitAccessPath
+// counts them, so this preserves the publication boundary for every string.
+func summaryPathTooDeep(path string) bool {
+	return strings.Count(path, "/") >= SummaryPaths
+}
+
 // SummarySlots bounds the slots projected per root before truncation.
 const SummarySlots = 16
 

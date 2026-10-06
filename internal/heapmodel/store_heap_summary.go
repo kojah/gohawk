@@ -1,7 +1,10 @@
 package heapmodel
 
 import (
+	"cmp"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
@@ -368,11 +371,11 @@ func orderedSlots[Value any](entries map[slot]Value) []slot {
 	for target := range entries {
 		slots = append(slots, target)
 	}
-	sort.Slice(slots, func(i, j int) bool {
-		if slots[i].region != slots[j].region {
-			return slots[i].region.serial < slots[j].region.serial
+	slices.SortFunc(slots, func(left, right slot) int {
+		if left.region != right.region {
+			return cmp.Compare(left.region.serial, right.region.serial)
 		}
-		return slots[i].path < slots[j].path
+		return strings.Compare(left.path, right.path)
 	})
 	return slots
 }
@@ -386,7 +389,7 @@ func (projection *heapProjection) boundedSlot(target slot) (HeapSlot, bool) {
 		return HeapSlot{}, false
 	}
 	named.Path = joinSlotPath(named.Path, target.path)
-	if len(ssaflow.SplitAccessPath(named.Path)) > SummaryPaths {
+	if summaryPathTooDeep(named.Path) {
 		return HeapSlot{}, false
 	}
 	return named, true
@@ -500,7 +503,7 @@ func (projection *heapProjection) projectResults(state *regionState, returned *s
 		contents := projection.resultContents(state, object, result.Type(), root)
 		count := 0
 		for _, target := range orderedSlots(contents) {
-			if target.region != object.region || target.path == "" || len(ssaflow.SplitAccessPath(target.path)) > SummaryPaths {
+			if target.region != object.region || target.path == "" || summaryPathTooDeep(target.path) {
 				continue
 			}
 			count++

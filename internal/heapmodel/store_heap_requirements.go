@@ -73,7 +73,7 @@ func (projection *heapProjection) requirements() []HeapRequirement {
 			continue
 		}
 		at := HeapSlot{Root: named.Root, Path: joinSlotPath(named.Path, key.slot.path)}
-		if truncated[HeapSlot{Root: at.Root}] || len(ssaflow.SplitAccessPath(at.Path)) > SummaryPaths ||
+		if truncated[HeapSlot{Root: at.Root}] || summaryPathTooDeep(at.Path) ||
 			key.kind == HeapRequiresNonNil && requirementSlotMayBeWritten(written, at) {
 			continue
 		}
