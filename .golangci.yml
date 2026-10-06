@@ -120,7 +120,7 @@ linters:
         text: "G30(1|4|6):"
         linters:
           - gosec
-      - path: ^internal/docexamples/examples\.go$
+      - path: ^internal/testsupport/docexamples/examples\.go$
         text: "G(122|304):"
         linters:
           - gosec

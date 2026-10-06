@@ -6,7 +6,7 @@ import (
 	"maps"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
+	analysisTrace "github.com/kojah/gohawk/internal/reporting/trace"
 
 	"golang.org/x/tools/go/analysis"
 )

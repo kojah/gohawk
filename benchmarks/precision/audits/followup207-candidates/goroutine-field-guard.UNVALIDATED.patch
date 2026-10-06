@@ -16,10 +16,10 @@ index fd0e8d2..2af77d6 100644
  ### Checks
  
  {/* gohawk:generated-checks:start */}
-diff --git a/internal/analyzers/concurrency/goroutineownership/classify.go b/internal/analyzers/concurrency/goroutineownership/classify.go
+diff --git a/internal/analysis/analyzers/concurrency/goroutineownership/classify.go b/internal/analysis/analyzers/concurrency/goroutineownership/classify.go
 index 294b727..c179b96 100644
---- a/internal/analyzers/concurrency/goroutineownership/classify.go
-+++ b/internal/analyzers/concurrency/goroutineownership/classify.go
+--- a/internal/analysis/analyzers/concurrency/goroutineownership/classify.go
++++ b/internal/analysis/analyzers/concurrency/goroutineownership/classify.go
 @@ -76,6 +76,10 @@ func (analysis *spawnAnalysis) classify(instruction ssa.Instruction) ownershipAc
  		return actionJoin
  	}
@@ -31,10 +31,10 @@ index 294b727..c179b96 100644
  	case *ssa.MakeClosure:
  		// Capturing a value has no effect by itself. The closure's defer,
  		// return, store, launch, or opaque call is classified where it happens.
-diff --git a/internal/analyzers/concurrency/goroutineownership/guarded_joins.go b/internal/analyzers/concurrency/goroutineownership/guarded_joins.go
+diff --git a/internal/analysis/analyzers/concurrency/goroutineownership/guarded_joins.go b/internal/analysis/analyzers/concurrency/goroutineownership/guarded_joins.go
 index 6419ddf..1cdcc4e 100644
---- a/internal/analyzers/concurrency/goroutineownership/guarded_joins.go
-+++ b/internal/analyzers/concurrency/goroutineownership/guarded_joins.go
+--- a/internal/analysis/analyzers/concurrency/goroutineownership/guarded_joins.go
++++ b/internal/analysis/analyzers/concurrency/goroutineownership/guarded_joins.go
 @@ -19,6 +19,8 @@ import (
  // diagnostic because the correlation is not modeled, it does not prove the
  // join runs. A counted receive loop is the same shape read at the loop
@@ -139,11 +139,11 @@ index 6419ddf..1cdcc4e 100644
  // deferredClosureFlagGuardsJoin recognizes the same correlation inside a
  // deferred closure: `defer func() { if wait4compl { wg.Wait() } }()` with
  // wait4compl assigned beside the launch. gocoin verifies transaction scripts
-diff --git a/internal/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/field_guards.go b/internal/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/field_guards.go
+diff --git a/internal/analysis/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/field_guards.go b/internal/analysis/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/field_guards.go
 new file mode 100644
 index 0000000..d410641
 --- /dev/null
-+++ b/internal/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/field_guards.go
++++ b/internal/analysis/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/field_guards.go
 @@ -0,0 +1,116 @@
 +package goroutineownership
 +

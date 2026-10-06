@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/factcodec"
-	"github.com/kojah/gohawk/internal/passes/resultfacts"
+	"github.com/kojah/gohawk/internal/analysis/factcodec"
+	"github.com/kojah/gohawk/internal/analysis/passes/resultfacts"
 	"github.com/kojah/gohawk/tools/codecbench/resultpb"
 	"google.golang.org/protobuf/proto"
 )

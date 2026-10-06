@@ -1,16 +1,16 @@
 package analyzers
 
 import (
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/concurrentcapture"
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/goroutineownership"
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/lockorder"
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/producerlifecycle"
-	"github.com/kojah/gohawk/internal/analyzers/resources/cancellationownership"
-	"github.com/kojah/gohawk/internal/analyzers/resources/deferinloop"
-	"github.com/kojah/gohawk/internal/analyzers/resources/processownership"
-	"github.com/kojah/gohawk/internal/analyzers/resources/resourcelifetime"
-	"github.com/kojah/gohawk/internal/catalog"
-	"github.com/kojah/gohawk/internal/check"
+	"github.com/kojah/gohawk/internal/analysis/analyzers/concurrency/concurrentcapture"
+	"github.com/kojah/gohawk/internal/analysis/analyzers/concurrency/goroutineownership"
+	"github.com/kojah/gohawk/internal/analysis/analyzers/concurrency/lockorder"
+	"github.com/kojah/gohawk/internal/analysis/analyzers/concurrency/producerlifecycle"
+	"github.com/kojah/gohawk/internal/analysis/analyzers/resources/cancellationownership"
+	"github.com/kojah/gohawk/internal/analysis/analyzers/resources/deferinloop"
+	"github.com/kojah/gohawk/internal/analysis/analyzers/resources/processownership"
+	"github.com/kojah/gohawk/internal/analysis/analyzers/resources/resourcelifetime"
+	"github.com/kojah/gohawk/internal/analysis/catalog"
+	"github.com/kojah/gohawk/internal/reporting/check"
 )
 
 func concurrencySpecs() []catalog.AnalyzerSpec {

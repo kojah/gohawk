@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/lockorder"
+	"github.com/kojah/gohawk/internal/analysis/analyzers/concurrency/lockorder"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"

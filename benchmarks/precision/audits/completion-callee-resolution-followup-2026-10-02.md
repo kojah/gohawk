@@ -1,7 +1,7 @@
 # Bounded completion callee resolution
 
 Beads `gohawk-dho.44.11.5.27.5` consolidates completion launch dispatch and
-exact callback resolution into `internal/lifecycle/completion_callees.go`.
+exact callback resolution into `internal/engine/lifecycle/completion_callees.go`.
 The parent is `270f201`. This is shared-engine consolidation, with no credited
 production FP removal. Graph tools were unavailable; bounded source searches
 covered every caller of resolveCallees, calleesOf, closureCallees and

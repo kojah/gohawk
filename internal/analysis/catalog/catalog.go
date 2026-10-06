@@ -1,0 +1,303 @@
+// Package catalog provides the validated internal analyzer registry.
+package catalog
+
+import (
+	"fmt"
+	"slices"
+	"strings"
+
+	"github.com/kojah/gohawk/internal/reporting/check"
+
+	"golang.org/x/tools/go/analysis"
+)
+
+// AnalyzerID identifies an analyzer in the catalog.
+type AnalyzerID string
+
+// GroupID identifies a related set of analyzers.
+type GroupID string
+
+// CheckInfo describes one independently configurable diagnostic rule.
+type CheckInfo struct {
+	ID  check.ID
+	Doc string
+	// Help is one sentence on the usual fix, printed under each diagnostic.
+	Help string
+	Kind CheckKind
+	Tier CheckTier
+	// Delisted withdraws the check from the catalog while leaving its
+	// implementation in the tree. A delisted check is not listed, not
+	// documented, and cannot be selected by any means, including -enable-all
+	// and an explicit check ID. The analyzer still computes and reports it, so
+	// the reporting boundary drops it; every other path sees a catalog in which
+	// it does not appear. An analyzer whose checks are all delisted is
+	// withdrawn with them, and so is a group left with no analyzers.
+	//
+	// This is for a rule that no longer fits what gohawk claims to be, kept in
+	// the tree because the implementation and its fixtures are worth preserving
+	// even when the diagnostic is not one the tool wants to make.
+	Delisted bool
+}
+
+// EnabledAt reports whether the check runs when its analyzer is selected
+// under ceiling.
+func (info CheckInfo) EnabledAt(ceiling CheckTier) bool {
+	return info.Tier.Within(ceiling)
+}
+
+// EnabledByDefault reports whether the check runs when its analyzer is selected.
+func (info CheckInfo) EnabledByDefault() bool {
+	return info.EnabledAt(TierCore)
+}
+
+// AnalyzerSpec is the complete declaration of one analyzer.
+type AnalyzerSpec struct {
+	Analyzer *analysis.Analyzer
+	Checks   []CheckInfo
+	// Withdrawn names the checks delisted from this analyzer. They are absent
+	// from Checks, so nothing can select or document them, but the analyzer
+	// still contains their implementation and still reports them, so the
+	// reporting boundary needs to recognise and drop them rather than treat
+	// them as an identity it has never heard of.
+	Withdrawn []check.ID
+	// Group is the catalog group the analyzer was declared in.
+	Group GroupID
+	// DocPath is the group's path on the documentation site, where the
+	// analyzer's page lives.
+	DocPath string
+}
+
+// Tier is the most trusted tier among the analyzer's checks: the analyzer
+// runs whenever a check at that tier is selected.
+func (spec AnalyzerSpec) Tier() CheckTier {
+	return MostTrustedTier(spec.Checks, func(info CheckInfo) CheckTier { return info.Tier })
+}
+
+// EnabledAt reports whether the analyzer has a check that runs under ceiling.
+func (spec AnalyzerSpec) EnabledAt(ceiling CheckTier) bool {
+	return spec.Tier().Within(ceiling)
+}
+
+// EnabledByDefault reports whether the analyzer runs without explicit selection.
+func (spec AnalyzerSpec) EnabledByDefault() bool {
+	return spec.EnabledAt(TierCore)
+}
+
+// GroupSpec declares a catalog group and its analyzers.
+type GroupSpec struct {
+	ID        GroupID
+	Doc       string
+	DocPath   string
+	Analyzers []AnalyzerSpec
+}
+
+// Catalog is a validated analyzer registry in presentation and execution order.
+type Catalog struct {
+	groups         []GroupSpec
+	executionOrder []AnalyzerID
+	byAnalyzer     map[AnalyzerID]AnalyzerSpec
+	checkOwner     map[check.ID]AnalyzerID
+	// withdrawn records analyzers declared in a group whose checks were all
+	// delisted, so the execution order can drop them while still rejecting an
+	// identity that was never declared.
+	withdrawn map[AnalyzerID]bool
+}
+
+// NewCatalog validates and constructs an analyzer catalog.
+func NewCatalog(groups []GroupSpec, executionOrder []AnalyzerID) (*Catalog, error) {
+	catalog := &Catalog{
+		groups:         cloneGroups(groups),
+		executionOrder: slices.Clone(executionOrder),
+		byAnalyzer:     make(map[AnalyzerID]AnalyzerSpec),
+		checkOwner:     make(map[check.ID]AnalyzerID),
+		withdrawn:      make(map[AnalyzerID]bool),
+	}
+	seenGroups := make(map[GroupID]bool)
+	seenPaths := make(map[string]bool)
+	for groupIndex := range catalog.groups {
+		if err := catalog.addGroup(groupIndex, seenGroups, seenPaths); err != nil {
+			return nil, err
+		}
+	}
+	// A group whose analyzers are all delisted is withdrawn with them, so it
+	// cannot be selected and does not appear as an empty heading.
+	populated := make([]GroupSpec, 0, len(catalog.groups))
+	for _, group := range catalog.groups {
+		if len(group.Analyzers) > 0 {
+			populated = append(populated, group)
+		}
+	}
+	catalog.groups = populated
+	if err := catalog.validateExecutionOrder(); err != nil {
+		return nil, err
+	}
+	return catalog, nil
+}
+
+func (catalog *Catalog) addGroup(index int, seenGroups map[GroupID]bool, seenPaths map[string]bool) error {
+	group := &catalog.groups[index]
+	if group.ID == "" || strings.TrimSpace(group.Doc) == "" || strings.TrimSpace(group.DocPath) == "" {
+		return fmt.Errorf("catalog group %d has incomplete identity or documentation", index)
+	}
+	if seenGroups[group.ID] {
+		return fmt.Errorf("catalog group %q is declared more than once", group.ID)
+	}
+	if seenPaths[group.DocPath] {
+		return fmt.Errorf("catalog documentation path %q is used more than once", group.DocPath)
+	}
+	seenGroups[group.ID], seenPaths[group.DocPath] = true, true
+	listed := make([]AnalyzerSpec, 0, len(group.Analyzers))
+	for analyzerIndex := range group.Analyzers {
+		spec := group.Analyzers[analyzerIndex]
+		spec.DocPath = group.DocPath
+		added, err := catalog.addAnalyzer(group.ID, &spec)
+		if err != nil {
+			return err
+		}
+		if added {
+			listed = append(listed, spec)
+		}
+	}
+	// Presentation order is independent of declaration and execution order.
+	// New analyzers stay alphabetized in every catalog-backed navigation view.
+	slices.SortFunc(listed, func(left, right AnalyzerSpec) int {
+		return strings.Compare(left.Analyzer.Name, right.Analyzer.Name)
+	})
+	group.Analyzers = listed
+	return nil
+}
+
+// addAnalyzer registers spec unless every one of its checks is delisted, and
+// reports whether the analyzer remains in the catalog.
+func (catalog *Catalog) addAnalyzer(groupID GroupID, spec *AnalyzerSpec) (bool, error) {
+	spec.Group = groupID
+	if spec.Analyzer == nil || spec.Analyzer.Name == "" {
+		return false, fmt.Errorf("catalog group %q contains an analyzer without an identity", groupID)
+	}
+	id := AnalyzerID(spec.Analyzer.Name)
+	// Withdrawal changes selection, not declaration identity. A wholly delisted
+	// analyzer is absent from byAnalyzer but still reserves its catalog name.
+	if _, exists := catalog.byAnalyzer[id]; exists || catalog.withdrawn[id] {
+		return false, fmt.Errorf("analyzer %q is declared more than once", id)
+	}
+	if len(spec.Checks) == 0 {
+		return false, fmt.Errorf("analyzer %q declares no checks", id)
+	}
+	listed := make([]CheckInfo, 0, len(spec.Checks))
+	var withdrawn []check.ID
+	for checkIndex := range spec.Checks {
+		if spec.Checks[checkIndex].Delisted {
+			withdrawn = append(withdrawn, spec.Checks[checkIndex].ID)
+			continue
+		}
+		if err := catalog.addCheck(id, &spec.Checks[checkIndex]); err != nil {
+			return false, err
+		}
+		listed = append(listed, spec.Checks[checkIndex])
+	}
+	if len(listed) == 0 {
+		catalog.withdrawn[id] = true
+		return false, nil
+	}
+	spec.Checks = listed
+	spec.Withdrawn = withdrawn
+	catalog.byAnalyzer[id] = cloneAnalyzerSpec(*spec)
+	return true, nil
+}
+
+func (catalog *Catalog) addCheck(analyzerID AnalyzerID, info *CheckInfo) error {
+	if info.ID == "" || !strings.HasPrefix(string(info.ID), string(analyzerID)+"/") {
+		return fmt.Errorf("analyzer %q has invalid check identity %q", analyzerID, info.ID)
+	}
+	if strings.TrimSpace(info.Doc) == "" {
+		return fmt.Errorf("check %q has no description", info.ID)
+	}
+	if !validCheckKind(info.Kind) {
+		return fmt.Errorf("check %q has invalid kind %q", info.ID, info.Kind)
+	}
+	if tierRank(info.Tier) < 0 {
+		return fmt.Errorf("check %q has invalid tier %q", info.ID, info.Tier)
+	}
+	if owner, exists := catalog.checkOwner[info.ID]; exists {
+		return fmt.Errorf("check %q belongs to both %q and %q", info.ID, owner, analyzerID)
+	}
+	catalog.checkOwner[info.ID] = analyzerID
+	return nil
+}
+
+func validCheckKind(kind CheckKind) bool {
+	return kind == KindDefect || kind == KindHazard || kind == KindPolicy
+}
+
+func (catalog *Catalog) validateExecutionOrder() error {
+	// A fully delisted analyzer stays in the declared order so withdrawing one
+	// does not require editing the order, and is dropped here. An identity that
+	// was never declared at all is still an error: silently ignoring it would
+	// turn a typo into a missing analyzer.
+	ordered := make([]AnalyzerID, 0, len(catalog.executionOrder))
+	for _, id := range catalog.executionOrder {
+		if !catalog.withdrawn[id] {
+			ordered = append(ordered, id)
+		}
+	}
+	catalog.executionOrder = ordered
+	seenOrder := make(map[AnalyzerID]bool)
+	for _, id := range catalog.executionOrder {
+		if _, exists := catalog.byAnalyzer[id]; !exists {
+			return fmt.Errorf("execution order contains unknown analyzer %q", id)
+		}
+		if seenOrder[id] {
+			return fmt.Errorf("execution order repeats analyzer %q", id)
+		}
+		seenOrder[id] = true
+	}
+	if len(seenOrder) != len(catalog.byAnalyzer) {
+		return fmt.Errorf("execution order contains %d analyzers; catalog declares %d", len(seenOrder), len(catalog.byAnalyzer))
+	}
+	return nil
+}
+
+// Groups returns catalog groups in stable presentation order.
+func (catalog *Catalog) Groups() []GroupSpec {
+	return cloneGroups(catalog.groups)
+}
+
+// Analyzers returns analyzer specs in stable execution order.
+func (catalog *Catalog) Analyzers() []AnalyzerSpec {
+	result := make([]AnalyzerSpec, 0, len(catalog.executionOrder))
+	for _, id := range catalog.executionOrder {
+		result = append(result, cloneAnalyzerSpec(catalog.byAnalyzer[id]))
+	}
+	return result
+}
+
+// Analyzer returns the declaration for id.
+func (catalog *Catalog) Analyzer(id AnalyzerID) (AnalyzerSpec, bool) {
+	spec, ok := catalog.byAnalyzer[id]
+	return cloneAnalyzerSpec(spec), ok
+}
+
+// CheckOwner returns the analyzer that owns check.
+func (catalog *Catalog) CheckOwner(check check.ID) (AnalyzerID, bool) {
+	owner, ok := catalog.checkOwner[check]
+	return owner, ok
+}
+
+func cloneGroups(groups []GroupSpec) []GroupSpec {
+	cloned := make([]GroupSpec, len(groups))
+	for index, group := range groups {
+		cloned[index] = GroupSpec{ID: group.ID, Doc: group.Doc, DocPath: group.DocPath, Analyzers: make([]AnalyzerSpec, len(group.Analyzers))}
+		for analyzerIndex, analyzer := range group.Analyzers {
+			cloned[index].Analyzers[analyzerIndex] = cloneAnalyzerSpec(analyzer)
+		}
+	}
+	return cloned
+}
+
+func cloneAnalyzerSpec(spec AnalyzerSpec) AnalyzerSpec {
+	checks := make([]CheckInfo, len(spec.Checks))
+	copy(checks, spec.Checks)
+	spec.Checks = checks
+	spec.Withdrawn = slices.Clone(spec.Withdrawn)
+	return spec
+}

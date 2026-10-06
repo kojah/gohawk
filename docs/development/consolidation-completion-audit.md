@@ -909,7 +909,7 @@ absence of differently structured duplication elsewhere.
 found that `returnObligation` ran outside the cached instruction classifier in
 both `spawnAnalysis.prove` and its guarded non-nil retry. The shared obligation
 walk visits return instructions before its optional return callback
-(`internal/ssaflow/flow_obligation.go`); therefore return ownership can use the
+(`internal/engine/ssaflow/flow_obligation.go`); therefore return ownership can use the
 ordinary classifier without introducing another flow query or acceptance rule.
 The selected source scope is those two flow calls, `classify.go`, its
 containment adapters in `carries.go`, reason definitions and local tracing tests.
@@ -2047,7 +2047,7 @@ at `store/manager.go:193:2`. Hashes identify immutable pre-commit binaries.
 
 Parent `gohawk-dho.44.11.5` remains active for heap identity, access paths,
 dominance and initial flow setup. In particular, heap graph result publication
-in `internal/heapmodel/store_heap_apply.go` retains its own unbounded result
+in `internal/engine/heapmodel/store_heap_apply.go` retains its own unbounded result
 lookup; this change is not a whole-engine bound. Graph tools remain unavailable;
 evidence uses scoped source and actual SSA. No production FP correction is
 credited; the 15-site queue and broader goal remain open. No full
@@ -3980,7 +3980,7 @@ result analysis supplies such outcomes after the return assigns them. Lexical
 forwarding of an established free-variable binding remains unchanged.
 
 The fixed-capture timing cases in
-[fixed_arguments_timing_test.go](../../internal/ssaflow/fixed_arguments_timing_test.go)
+[fixed_arguments_timing_test.go](../../internal/engine/ssaflow/fixed_arguments_timing_test.go)
 record caller and callee SSA for ten contexts:
 initialization before capture, an early deferred return, invocation before the
 store, late initialization before invocation, initialization on the sole path
@@ -3993,7 +3993,7 @@ local query's worth of unrelated instructions: ordering exhausts the child
 while the parent remains available, and a fresh query recovers the binding.
 
 The
-[completion_capture_timing_test.go](../../internal/lifecycle/completion_capture_timing_test.go)
+[completion_capture_timing_test.go](../../internal/engine/lifecycle/completion_capture_timing_test.go)
 controls check eight cleanup contexts at the
 consumer boundary, including both supplied named-result outcomes. The original
 implementation fails the temporal controls before the change. An ignored source
@@ -4064,7 +4064,7 @@ the candidate's `signal-census` phase. There is no alternate tracing decision
 or ordinary-summary fallback that can revive a truncated answer.
 
 The
-[channel_aliases_budget_test.go](../../internal/ssaflow/channel_aliases_budget_test.go)
+[channel_aliases_budget_test.go](../../internal/engine/ssaflow/channel_aliases_budget_test.go)
 controls record actual parent/closure SSA for ordinary capture, static
 send-only forwarding, escaping storage, older snapshots, late captures,
 conditional initialization, unsupported nested captures and cyclic pre-store
@@ -4073,12 +4073,12 @@ retains unavailable evidence afterward. Every allowance
 boundary agrees with the completed default census or discards both outputs.
 A larger census discards an already collected close use on child cutoff while
 leaving its parent available; a fresh request completes. Consumer controls in
-[signal_census_test.go](../../internal/analyzers/concurrency/goroutineownership/signal_census_test.go)
+[signal_census_test.go](../../internal/analysis/analyzers/concurrency/goroutineownership/signal_census_test.go)
 prove that the old nil snapshot creates no observation protocol, check
 child/fresh behavior, and keep cutoff from reporting an unowned return. The
 cutoff test also checks its attributed structured evidence event. Accepted
 pre-store and diagnostic post-store receive snapshots are adjacent in
-[unobserved_signals.go](../../internal/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/unobserved_signals.go).
+[unobserved_signals.go](../../internal/analysis/analyzers/concurrency/goroutineownership/testdata/src/goroutineownership/unobserved_signals.go).
 
 Four ignored source overlays test the decision boundaries: restoring old
 snapshot aliases revives the false diagnostic, ignoring the census allowance
@@ -4142,7 +4142,7 @@ query; new dho.44.11.5.25.5 owns that separate allowance boundary. Package
 write-once inventory construction, heap graph and type internals also retain
 independent costs; this is not an all-query cost claim.
 
-[spill_paths_budget_test.go](../../internal/passes/concurrencyfacts/spill_paths_budget_test.go)
+[spill_paths_budget_test.go](../../internal/analysis/passes/concurrencyfacts/spill_paths_budget_test.go)
 records SSA for pre-store, post-store, entry-spill and reassigned snapshots,
 checks every allowance boundary, and verifies canonical-cache child/fresh
 recovery. Large read-only captures discard interrupted reads. A padded spill
@@ -5957,7 +5957,7 @@ collection boundaries. A concrete command-support defect is tracked in
 the error. The wrapper now returns the authoritative collection error first;
 target validation remains solely in `CollectAll`.
 
-The [nil-target regression](../../internal/docexamples/examples_test.go)
+The [nil-target regression](../../internal/testsupport/docexamples/examples_test.go)
 reproduces a nil dereference on the parent and requires an error and no published examples on the correction. The owning
 package and generator tests pass. This correction changes invalid-target
 handling, not analyzer decisions, facts, traces or generated example contents.
@@ -6022,7 +6022,7 @@ Declaration validation now checks both stores at that same decision point.
 Withdrawal still removes an analyzer from selection and an empty group from
 presentation; it does not release the declared name for reuse. No new registry,
 validation path or analyzer policy is introduced. The
-[withdrawal controls](../../internal/catalog/withdrawal_test.go) require single
+[withdrawal controls](../../internal/analysis/catalog/withdrawal_test.go) require single
 active and withdrawn declarations to remain valid, and duplicate declarations
 to be rejected for all four active/withdrawn combinations. The two previously
 missed cases fail on the parent.
@@ -6224,33 +6224,33 @@ semantic ownership by themselves.
 
 | Source owner | Files | Concern and source-backed review |
 | --- | ---: | --- |
-| `internal/analyzers/concurrency/concurrentcapture` | 4 | Source candidate collection, mutation proof and serialization uncertainty. The deferred-loop/producer/capture reconciliation covers all four files, including the sole reporting proof and numeric reasons. |
-| `internal/analyzers/concurrency/goroutineownership` | 23 | Obligation discovery, exact bindings, one cached instruction classifier, guarded/count witnesses and final lifecycle proof. The worker-output and finite goroutine reconciliation maps every input/proof family; the observed-discovery review maps its transitive queries. |
-| `internal/analyzers/concurrency/lockorder` | 27 | Lock state, release/write proofs, caller/class identity and order graph. Lock setup, return-contract/retention, caller/writer, exact release and slot-query reviews cover those responsibilities. The graph mode boundary now keeps presentation consumers typed. |
-| `internal/analyzers/concurrency/producerlifecycle` | 3 | Positive send obligation, exact normalized counts and receiver uncertainty. The three-family reconciliation covers attribution, coexistence/order and cutoff polarity; no guessed loop count or second completion solver. |
-| `internal/analyzers/resources/cancellationownership` | 8 | Cancellation labels, parent/returned cleanup and one release obligation. Return-classification, cached action, guard and deferred-capture reviews distinguish exact releases from parent/owner uncertainty. |
-| `internal/analyzers/resources/deferinloop` | 4 | Repeating acquisition/defer relation and live-backedge proof. The three-family reconciliation distinguishes exact settlement, monotone uncertainty and iterator cutoff from all-return lifecycle coverage. |
-| `internal/analyzers/resources/processownership` | 12 | Startup obligation, observed command/handle ownership, cached instruction actions and one post-Start proof. The process startup/guard/handle reconciliation covers all twelve files and preserves capture-time versus evaluated-argument identities. |
-| `internal/analyzers/resources/resourcelifetime` | 36 | Acquisition/API contracts, cached cleanup/transfer classifications, owner/collection/capture evidence and path resource state. Resource/cancellation, pre-flow, result-guard, SQL, HTTP and captured-body reviews map these families to one final resource proof. |
-| `internal/syntax` | 6 | AST source/assignment/range queries, canonical production selection, exact symbol declarations and type shapes. All six current files were read during owner reconciliation. Symbol receiver matching resolves aliases; the raw named-type query keeps its declared shape policy. Neither supplies ownership or cleanup evidence. |
-| `internal/ssaflow` | 56 | Selected reaching/identity/call mechanics, result/guard feasibility, instruction censuses, counted regions, budgets and state/obligation walks. The 31-stage transitive review, summary/call-cycle and short-body reconciliations assign these to shared mechanics while preserving caller-selected forms and leaves. |
-| `internal/heapmodel` | 43 | Read-time storage, graph build/replay/cache, heap projection, alias/type and containment queries. Graph core/containment, deferred-cell, backing-path, by-value, structural-identity and selected-slot reviews distinguish current identity from historical possible containment and reject shortened publication. |
-| `internal/lifecycle` | 28 | Completion binding/target/coverage search, local/summary evidence, returned-owner and transfer contracts. Completion coverage, callee resolution, binding/metadata, named-result and storage-owner reviews assign these families without forwarding heap/SSA APIs or adding another analyzer policy. |
-| `internal/resourcemodel` | 3 | Exact external owner/resource relations, conditional transitions and comparable resource state. The resource-flow and summary-transition reviews retain per-path state beside its relation contract; this is richer than a generic join lattice. |
-| `internal/passes/concurrencyfacts` | 22 | Declaration concurrency effects, field/capture binding, path/case materialization, completion and inertness. Binding/field census, spill, deferred-contract and selected-slot reviews retain complete summary publication and caller-bound instantiation as separate stages. |
-| `internal/passes/lifecyclefacts` | 22 | Cleanup/retention/returned-owner inference, heap projection and defining-package fact publication. Returned-result, fixed/captured outcome, once-cell and fact-consumer reviews preserve exact versus possible masks and complete publication. |
-| `internal/passes/resultfacts` | 6 | Scalar/result guarantees and correlated cases over storage evidence, plus domain-owned fact rendering. Conditional result, result census and shared success-branch reviews retain literal and bound-call guarantees without inferring mutable-global caller preconditions. |
-| `internal/passes/testvariant` | 1 | Execution prerequisite marks the driver's canonical augmented variant. Current full source read confirms it only copies Requires and supplies the syntax-owned marker; it does not infer analyzer behavior. |
-| `internal/summaries` | 2 | Setup-time component selection and typed declaration/call evidence. The 71-reference consumer inventory and transitive reconciliation preserve separate inference passes; the broker neither schedules packages nor duplicates their proofs. |
-| `internal/catalog` | 2 | Validated registry, identity/withdrawal and numeric trust/kind policy. Current declaration and classification source plus withdrawn-identity and execution-adapter reviews preserve one registry and one tier fold. Open catalog IDs are identities, not a closed enum. |
-| `internal/check` | 7 | Diagnostic identity/ranges, suppression/test-file reporting backstop, buffered publication and execution filtering. Current source and the final reporting/adapter reviews preserve one filter, one emission boundary and one evidence formatter; display witnesses do not decide the analyzer proof. |
+| `internal/analysis/analyzers/concurrency/concurrentcapture` | 4 | Source candidate collection, mutation proof and serialization uncertainty. The deferred-loop/producer/capture reconciliation covers all four files, including the sole reporting proof and numeric reasons. |
+| `internal/analysis/analyzers/concurrency/goroutineownership` | 23 | Obligation discovery, exact bindings, one cached instruction classifier, guarded/count witnesses and final lifecycle proof. The worker-output and finite goroutine reconciliation maps every input/proof family; the observed-discovery review maps its transitive queries. |
+| `internal/analysis/analyzers/concurrency/lockorder` | 27 | Lock state, release/write proofs, caller/class identity and order graph. Lock setup, return-contract/retention, caller/writer, exact release and slot-query reviews cover those responsibilities. The graph mode boundary now keeps presentation consumers typed. |
+| `internal/analysis/analyzers/concurrency/producerlifecycle` | 3 | Positive send obligation, exact normalized counts and receiver uncertainty. The three-family reconciliation covers attribution, coexistence/order and cutoff polarity; no guessed loop count or second completion solver. |
+| `internal/analysis/analyzers/resources/cancellationownership` | 8 | Cancellation labels, parent/returned cleanup and one release obligation. Return-classification, cached action, guard and deferred-capture reviews distinguish exact releases from parent/owner uncertainty. |
+| `internal/analysis/analyzers/resources/deferinloop` | 4 | Repeating acquisition/defer relation and live-backedge proof. The three-family reconciliation distinguishes exact settlement, monotone uncertainty and iterator cutoff from all-return lifecycle coverage. |
+| `internal/analysis/analyzers/resources/processownership` | 12 | Startup obligation, observed command/handle ownership, cached instruction actions and one post-Start proof. The process startup/guard/handle reconciliation covers all twelve files and preserves capture-time versus evaluated-argument identities. |
+| `internal/analysis/analyzers/resources/resourcelifetime` | 36 | Acquisition/API contracts, cached cleanup/transfer classifications, owner/collection/capture evidence and path resource state. Resource/cancellation, pre-flow, result-guard, SQL, HTTP and captured-body reviews map these families to one final resource proof. |
+| `internal/engine/syntax` | 6 | AST source/assignment/range queries, canonical production selection, exact symbol declarations and type shapes. All six current files were read during owner reconciliation. Symbol receiver matching resolves aliases; the raw named-type query keeps its declared shape policy. Neither supplies ownership or cleanup evidence. |
+| `internal/engine/ssaflow` | 56 | Selected reaching/identity/call mechanics, result/guard feasibility, instruction censuses, counted regions, budgets and state/obligation walks. The 31-stage transitive review, summary/call-cycle and short-body reconciliations assign these to shared mechanics while preserving caller-selected forms and leaves. |
+| `internal/engine/heapmodel` | 43 | Read-time storage, graph build/replay/cache, heap projection, alias/type and containment queries. Graph core/containment, deferred-cell, backing-path, by-value, structural-identity and selected-slot reviews distinguish current identity from historical possible containment and reject shortened publication. |
+| `internal/engine/lifecycle` | 28 | Completion binding/target/coverage search, local/summary evidence, returned-owner and transfer contracts. Completion coverage, callee resolution, binding/metadata, named-result and storage-owner reviews assign these families without forwarding heap/SSA APIs or adding another analyzer policy. |
+| `internal/engine/resourcemodel` | 3 | Exact external owner/resource relations, conditional transitions and comparable resource state. The resource-flow and summary-transition reviews retain per-path state beside its relation contract; this is richer than a generic join lattice. |
+| `internal/analysis/passes/concurrencyfacts` | 22 | Declaration concurrency effects, field/capture binding, path/case materialization, completion and inertness. Binding/field census, spill, deferred-contract and selected-slot reviews retain complete summary publication and caller-bound instantiation as separate stages. |
+| `internal/analysis/passes/lifecyclefacts` | 22 | Cleanup/retention/returned-owner inference, heap projection and defining-package fact publication. Returned-result, fixed/captured outcome, once-cell and fact-consumer reviews preserve exact versus possible masks and complete publication. |
+| `internal/analysis/passes/resultfacts` | 6 | Scalar/result guarantees and correlated cases over storage evidence, plus domain-owned fact rendering. Conditional result, result census and shared success-branch reviews retain literal and bound-call guarantees without inferring mutable-global caller preconditions. |
+| `internal/analysis/passes/testvariant` | 1 | Execution prerequisite marks the driver's canonical augmented variant. Current full source read confirms it only copies Requires and supplies the syntax-owned marker; it does not infer analyzer behavior. |
+| `internal/analysis/summaries` | 2 | Setup-time component selection and typed declaration/call evidence. The 71-reference consumer inventory and transitive reconciliation preserve separate inference passes; the broker neither schedules packages nor duplicates their proofs. |
+| `internal/analysis/catalog` | 2 | Validated registry, identity/withdrawal and numeric trust/kind policy. Current declaration and classification source plus withdrawn-identity and execution-adapter reviews preserve one registry and one tier fold. Open catalog IDs are identities, not a closed enum. |
+| `internal/reporting/check` | 7 | Diagnostic identity/ranges, suppression/test-file reporting backstop, buffered publication and execution filtering. Current source and the final reporting/adapter reviews preserve one filter, one emission boundary and one evidence formatter; display witnesses do not decide the analyzer proof. |
 | `internal/cli` | 16 | Invocation/selection, dump execution and output views. Execution-adapter, ordering, parser/input and graph-mode reviews assign these concerns. Dump views consume reported cycles and traced decisions rather than reconstructing policy. |
-| `internal/trace` | 3 | Candidate-attributed events, numeric phase/outcome and serialized labels. Phase/reportability reviews and current source preserve proof ownership in the caller; diagnostic-polarity projection is presentation only. |
-| `internal/enumtext` | 1 | Shared numeric label naming/encoding/decoding. Current full source read confirms invalid values remain visible, invalid encodings fail and invalid labels preserve the previous receiver; domain label sets stay with their owners. |
-| `internal/factcodec` | 2 | Immutable cached versioned envelopes and deterministic bounded encoding. Current full source read and transitive codec review retain atomic fresh decode, shared cache indirection and domain-owned validation; the codec grants no proven/unknown semantics. |
-| `internal/docexamples` | 2 | Fixture-region collection, analyzer execution and timing/extraction. Collector preparation and nil-input correction reviews retain one acquisition pipeline and error propagation before selection. |
-| `internal/analyzertest` | 1 | Behavioral fixture harness verifies diagnostic identity/ranges and honors explicit suppression. Current full source read confirms it restores the reporter and returns existing results rather than rerunning evidence. |
-| `internal/ssaflow/ssaflowtest` | 1 | Shared source-to-SSA test construction. Current full source read confirms it parses/type-checks/builds one package and reports failures through the supplied test handle. |
+| `internal/reporting/trace` | 3 | Candidate-attributed events, numeric phase/outcome and serialized labels. Phase/reportability reviews and current source preserve proof ownership in the caller; diagnostic-polarity projection is presentation only. |
+| `internal/engine/enumtext` | 1 | Shared numeric label naming/encoding/decoding. Current full source read confirms invalid values remain visible, invalid encodings fail and invalid labels preserve the previous receiver; domain label sets stay with their owners. |
+| `internal/analysis/factcodec` | 2 | Immutable cached versioned envelopes and deterministic bounded encoding. Current full source read and transitive codec review retain atomic fresh decode, shared cache indirection and domain-owned validation; the codec grants no proven/unknown semantics. |
+| `internal/testsupport/docexamples` | 2 | Fixture-region collection, analyzer execution and timing/extraction. Collector preparation and nil-input correction reviews retain one acquisition pipeline and error propagation before selection. |
+| `internal/testsupport/analyzertest` | 1 | Behavioral fixture harness verifies diagnostic identity/ranges and honors explicit suppression. Current full source read confirms it restores the reporter and returns existing results rather than rerunning evidence. |
+| `internal/engine/ssaflow/ssaflowtest` | 1 | Shared source-to-SSA test construction. Current full source read confirms it parses/type-checks/builds one package and reports failures through the supplied test handle. |
 | `analyzers` | 4 | Compiled catalog, public metadata and analyzer/report wrappers. The non-internal inventory and shared filtering/tier review cover all four; public registration is a policy boundary above the evidence engines. |
 | Repository root | 2 | Executable exit boundary and generation declaration. The non-internal inventory verifies delegation to CLI and command-level failure handling. |
 | `plugin/golangci` | 1 | External settings and canonical variant/execution adaptation. The non-internal inventory verifies shared report filtering and local validation/precedence. |

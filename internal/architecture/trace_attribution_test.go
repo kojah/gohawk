@@ -12,14 +12,14 @@ import (
 // for work that belongs to no candidate. Each use is listed here so widening
 // the escape is a review decision rather than a convenience.
 var packageScopedTraceProbes = map[string]string{
-	"internal/passes/lifecyclefacts/evidence.go": "the shared evidence layer is built once per package and rebound to each candidate through ForCandidate",
+	"internal/analysis/passes/lifecyclefacts/evidence.go": "shared evidence is built once per package; ForCandidate rebinds it to each candidate",
 }
 
 func TestTraceEventsAreAttributedToACandidate(t *testing.T) {
 	t.Parallel()
 	inventory := newRepositorySourceInventory(t)
 	for _, source := range inventory.productionGoFiles(t, "internal") {
-		if source.repositoryPath == "internal/trace/trace.go" {
+		if source.repositoryPath == "internal/reporting/trace/trace.go" {
 			continue
 		}
 		ast.Inspect(source.file, func(node ast.Node) bool {

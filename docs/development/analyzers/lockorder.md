@@ -373,7 +373,7 @@ two loads are one value, as it is for a cell written once. centrifuge-go locks
 `s.mu` and calls `moveToUnsubscribedLocked`, which unlocks it, in a function
 whose callback captures `s`:
 https://github.com/centrifugal/centrifuge-go/blob/080126041ccc71654718bd0601b920ff8b22a8bf/subscription.go#L1156-L1183
-The mapping is pinned by a unit test in `internal/lifecycle`, and
+The mapping is pinned by a unit test in `internal/engine/lifecycle`, and
 `lockorder/captured_receiver_release.go` covers the shape with a helper that
 always unlocks and one that may not. A `Lock` with a deferred `Unlock` inside a
 callback closure, reported against the enclosing function in the same

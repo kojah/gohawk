@@ -49,13 +49,13 @@ func TestSummaryInfrastructureBoundaries(t *testing.T) {
 }
 
 func summaryRuleApplies(path, reason string) bool {
-	if reason == "" || path == "internal/ssaflow/calls/call_graph_memo.go" || path == "internal/ssaflow/calls/call_summaries.go" {
+	if reason == "" || path == "internal/engine/ssaflow/calls/call_graph_memo.go" || path == "internal/engine/ssaflow/calls/call_summaries.go" {
 		return false
 	}
 	// Shared searches retain the optional-budget contract of existing callers.
 	// The mandatory-budget rule is for analyzer query sites; it does not change
 	// fact inference semantics by silently imposing a new shared cutoff.
-	return reason != summaryNilBudget || strings.HasPrefix(path, "internal/analyzers/")
+	return reason != summaryNilBudget || strings.HasPrefix(path, "internal/analysis/analyzers/")
 }
 
 const summaryNilBudget = "summary query passes nil budget; share a bounded SearchBudget with nested computation and binding"
@@ -104,7 +104,7 @@ func summaryInfrastructureType(candidate types.Type) bool {
 		candidate = types.Unalias(pointer.Elem())
 	}
 	named, ok := candidate.(*types.Named)
-	if !ok || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != internalImportPrefix+"ssaflow/calls" {
+	if !ok || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != internalImportPrefix+"engine/ssaflow/calls" {
 		return false
 	}
 	return named.Obj().Name() == "FunctionSummaries" || named.Obj().Name() == "CallGraphMemo"

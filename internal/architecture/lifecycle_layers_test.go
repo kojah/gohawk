@@ -11,7 +11,7 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// lifecycleFamilies names the layers inside internal/lifecycle from lowest to
+// lifecycleFamilies names the layers inside internal/engine/lifecycle from lowest to
 // highest. A file's family is the prefix of its name, and a file may
 // reference package-level declarations only from its own family or a lower
 // one. The package stays one Go package, so nothing needs exporting to
@@ -27,12 +27,12 @@ func TestLifecycleFamiliesLayerDownward(t *testing.T) {
 		Mode: packages.NeedName | packages.NeedCompiledGoFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo,
 		Dir:  inventory.root,
 	}
-	loaded, err := packages.Load(config, "./internal/lifecycle")
+	loaded, err := packages.Load(config, "./internal/engine/lifecycle")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if errors := packages.PrintErrors(loaded); errors > 0 || len(loaded) != 1 {
-		t.Fatalf("load internal/lifecycle: %d packages, %d errors", len(loaded), errors)
+		t.Fatalf("load internal/engine/lifecycle: %d packages, %d errors", len(loaded), errors)
 	}
 	pkg := loaded[0]
 	familyOf := make(map[string]int, len(pkg.CompiledGoFiles))
@@ -74,7 +74,7 @@ func lifecycleFamily(t *testing.T, name string) int {
 	prefix, _, _ := strings.Cut(name, "_")
 	index := slices.Index(lifecycleFamilies, prefix)
 	if index < 0 {
-		t.Fatalf("internal/lifecycle/%s does not start with a family prefix (%s)", name, strings.Join(lifecycleFamilies, ", "))
+		t.Fatalf("internal/engine/lifecycle/%s does not start with a family prefix (%s)", name, strings.Join(lifecycleFamilies, ", "))
 	}
 	return index
 }

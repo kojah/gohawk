@@ -14,7 +14,7 @@ to interprocedural analysis (Sharir and Pnueli, "Two approaches to
 interprocedural data flow analysis", 1981), and the idea Meta's Infer is built
 around.
 
-- Summaries are computed by the prerequisite passes in `internal/passes`:
+- Summaries are computed by the prerequisite passes in `internal/analysis/passes`:
   `lifecyclefacts` for ownership and cleanup, `resultfacts` for what results
   guarantee, `concurrencyfacts` for ordered synchronization effects.
 - They cross package boundaries as go/analysis object facts, so a caller in one
@@ -48,7 +48,7 @@ References: the [Infer documentation](https://fbinfer.com/), its
 ## Heap model: points-to and escape summaries
 
 Each function gets a flow-sensitive points-to graph over its SSA, with may and
-must edges, in `internal/heapmodel` (the region graph). Its projection onto
+must edges, in `internal/engine/heapmodel` (the region graph). Its projection onto
 what a caller can name, meaning parameters, results, and globals, becomes the
 exported `Fact.Heap`: where each slot may point on return, how each object
 escaped, what was released, and where the projection was cut. A caller's graph

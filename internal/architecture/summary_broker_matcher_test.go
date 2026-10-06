@@ -19,15 +19,15 @@ func TestSummaryBrokerMatchesDeclarationIdentity(t *testing.T) {
 		name, path, source string
 		want               int
 	}{
-		{"alias", internalImportPrefix + "passes/lifecyclefacts", `package p; import f "domain"; var _ = f.NewLifecycleEvidence`, 1},
-		{"dot", internalImportPrefix + "passes/lifecyclefacts", `package p; import . "domain"; var _ = NewLifecycleEvidence`, 1},
-		{"prerequisite", internalImportPrefix + "passes/lifecyclefacts", `package p; import f "domain"; var _ = f.Analyzer`, 1},
-		{"structure", internalImportPrefix + "passes/lifecyclefacts", `package p; import f "domain"; var _ = f.ResourceCleanup`, 0},
+		{"alias", internalImportPrefix + "analysis/passes/lifecyclefacts", `package p; import f "domain"; var _ = f.NewLifecycleEvidence`, 1},
+		{"dot", internalImportPrefix + "analysis/passes/lifecyclefacts", `package p; import . "domain"; var _ = NewLifecycleEvidence`, 1},
+		{"prerequisite", internalImportPrefix + "analysis/passes/lifecyclefacts", `package p; import f "domain"; var _ = f.Analyzer`, 1},
+		{"structure", internalImportPrefix + "analysis/passes/lifecyclefacts", `package p; import f "domain"; var _ = f.ResourceCleanup`, 0},
 		{"lookalike", "example.org/lifecyclefacts", `package p; import f "domain"; var _ = f.NewLifecycleEvidence`, 0},
-		{"literal", internalImportPrefix + "passes/lifecyclefacts", `package p; import f "domain"; var _ = f.Engine{}`, 1},
-		{"new", internalImportPrefix + "passes/lifecyclefacts", `package p; import f "domain"; var _ = new(f.Engine)`, 1},
-		{"type-alias", internalImportPrefix + "passes/lifecyclefacts", `package p; import f "domain"; type E = f.Engine; var _ = E{}`, 1},
-		{"result-assertion", internalImportPrefix + "passes/lifecyclefacts", `package p; import f "domain"; var v any; var _ = v.(*f.Engine)`, 1},
+		{"literal", internalImportPrefix + "analysis/passes/lifecyclefacts", `package p; import f "domain"; var _ = f.Engine{}`, 1},
+		{"new", internalImportPrefix + "analysis/passes/lifecyclefacts", `package p; import f "domain"; var _ = new(f.Engine)`, 1},
+		{"type-alias", internalImportPrefix + "analysis/passes/lifecyclefacts", `package p; import f "domain"; type E = f.Engine; var _ = E{}`, 1},
+		{"result-assertion", internalImportPrefix + "analysis/passes/lifecyclefacts", `package p; import f "domain"; var v any; var _ = v.(*f.Engine)`, 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			domain := types.NewPackage(test.path, "domain")

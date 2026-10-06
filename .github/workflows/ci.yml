@@ -134,6 +134,14 @@ jobs:
         # Measure product analysis behavior, not CLI and documentation tooling.
         run: make coverage
 
+      - name: Upload coverage receipts
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: |
+            coverage.out
+            coverage-summary.out
+
       - name: Generate coverage badge
         uses: tj-actions/coverage-badge-go@481919ec72da287775fef015fd9011dc75a5db05 # v3
         with:

@@ -36,10 +36,10 @@ Build from each checkout root:
 
 ```sh
 GOMAXPROCS=4 go test -c -o /absolute/output/resource.test \
-  ./internal/analyzers/resources/resourcelifetime
+  ./internal/analysis/analyzers/resources/resourcelifetime
 ```
 
-Run from that checkout's `internal/analyzers/resources/resourcelifetime`:
+Run from that checkout's `internal/analysis/analyzers/resources/resourcelifetime`:
 
 ```sh
 /usr/bin/time -v -o /absolute/output/sample.time \
@@ -100,7 +100,7 @@ encodes and one decode. Three samples on Xenia give:
 | Exposed summary with JSON payload | 102.6 µs | ~48226 | 467 | 2094 |
 | Opaque cached CBOR envelope | 25.0 µs | 13560 | 200 | 623 |
 
-Run `GOMAXPROCS=4 go test ./internal/factcodec -run '^$' -bench . -benchmem -count=3`
+Run `GOMAXPROCS=4 go test ./internal/analysis/factcodec -run '^$' -bench . -benchmem -count=3`
 to reproduce the fixture comparison. This is not a representative distribution
 of every production fact and does not establish a whole-analyzer speedup.
 The combined change includes removing gob descriptor work and caching, not just

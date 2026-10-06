@@ -19,11 +19,11 @@ func TestDevelopmentBlocksRenderFromSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pkg, err := parsePackageDoc(root, "internal/ssaflow/cfg")
+	pkg, err := parsePackageDoc(root, "internal/engine/ssaflow/cfg")
 	if err != nil {
 		t.Fatal(err)
 	}
-	helpers, err := helperReference(root, "internal/ssaflow/cfg", pkg)
+	helpers, err := helperReference(root, "internal/engine/ssaflow/cfg", pkg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,11 +33,11 @@ func TestDevelopmentBlocksRenderFromSource(t *testing.T) {
 			t.Errorf("helper index lacks %q", want)
 		}
 	}
-	core, err := parsePackageDoc(root, "internal/ssaflow")
+	core, err := parsePackageDoc(root, "internal/engine/ssaflow")
 	if err != nil {
 		t.Fatal(err)
 	}
-	coreHelpers, err := helperReference(root, "internal/ssaflow", core)
+	coreHelpers, err := helperReference(root, "internal/engine/ssaflow", core)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -28,7 +28,7 @@ func TestAnalyzerCommentaryCoverage(t *testing.T) {
 	t.Parallel()
 	inventory := newRepositorySourceInventory(t)
 	findings := make(map[string]commentaryStats)
-	for _, source := range inventory.productionGoFiles(t, "internal/analyzers", "internal/passes") {
+	for _, source := range inventory.productionGoFiles(t, "internal/analysis/analyzers", "internal/analysis/passes") {
 		path := strings.TrimPrefix(source.repositoryPath, "internal/")
 		inspectCommentaryFile(path, source, findings)
 	}

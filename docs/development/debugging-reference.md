@@ -232,7 +232,7 @@ are exported in cross-package facts.
 
 ### Give-up events from the shared engine
 
-The shared proofs in `internal/ssaflow` never call the tracer, but they report
+The shared proofs in `internal/engine/ssaflow` never call the tracer, but they report
 where they stopped through the search budget that scopes each query. When an
 analyzer attaches its probe to a budget, every give-up inside that query
 appears as an `evidence` event with outcome `unknown`, attributed to the same

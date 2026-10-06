@@ -98,7 +98,7 @@ were not run.
 - Actual SSA dumps were inspected for Murphysec, tusd, cdebug, Galene, Envoy,
   and goflow before relying on the changed evidence. Traced pinned invocations
   confirmed the rejected/unknown boundary, and `-json` remained parseable.
-- `go test ./internal/analyzers/concurrency/goroutineownership -count=1`
+- `go test ./internal/analysis/analyzers/concurrency/goroutineownership -count=1`
   passes, including eleven stable decision reason/outcome/candidate assertions.
 - Focused golangci-lint reports zero issues. Focused race tests pass in 25.481s.
 - The parent-run final combined `make verify` passes; receipt:

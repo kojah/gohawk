@@ -44,7 +44,7 @@ unknown.
 
 ## What remains
 
-- `internal/passes/concurrencyfacts` still composes complete, bounded ordered
+- `internal/analysis/passes/concurrencyfacts` still composes complete, bounded ordered
   effects per function and binds them to caller values. `producerlifecycle`,
   `goroutineownership`, `concurrentcapture`, and `lockorder`
   consume its linear summaries.

@@ -1,0 +1,621 @@
+package lifecyclefacts
+
+import (
+	"go/types"
+	"slices"
+	"testing"
+
+	"github.com/kojah/gohawk/internal/engine/ssaflow"
+	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
+
+	proofs "github.com/kojah/gohawk/internal/engine/proof"
+	"golang.org/x/tools/go/analysis"
+	"golang.org/x/tools/go/ssa"
+)
+
+func TestParameterMask(t *testing.T) {
+	mask := parameterMaskFor(1) | parameterMaskFor(63)
+	for _, test := range []struct {
+		index int
+		want  bool
+	}{
+		{index: -1},
+		{index: 0},
+		{index: 1, want: true},
+		{index: 63, want: true},
+		{index: 64},
+	} {
+		if got := mask.contains(test.index); got != test.want {
+			t.Errorf("mask.contains(%d) = %t, want %t", test.index, got, test.want)
+		}
+	}
+}
+
+func TestLifecycleEvidenceImportedProvenanceAndUncertainty(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+type closer struct{}
+
+func (*closer) Close() {}
+func helper(value *closer) {}
+func caller(value *closer) { helper(value) }
+`)
+	caller := pkg.Func("caller")
+	instruction := findLifecycleCall(t, caller, "helper")
+	callee := instruction.Common().StaticCallee()
+	pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
+		Analyzer: Summaries{callee: {Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}},
+	}}
+	request := EvidenceRequest{
+		Instruction: instruction,
+		Target:      caller.Params[0],
+		SelectMask: func(fact Fact) ParameterMask {
+			return fact.MethodMask("Close")
+		},
+	}
+	proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
+	if !proof.Proven() || proof.Provenance != proofs.EvidenceFromImportedFact || proof.SummaryReason != reasonLifecycleSummary {
+		t.Fatalf("imported proof = %#v, want lifecycle-summary provenance", proof)
+	}
+
+	pass.ResultOf[Analyzer] = Summaries{callee: {}}
+	rejected := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
+	if rejected.State != proofs.EvidenceDisproven || rejected.Provenance != proofs.EvidenceFromImportedFact {
+		t.Fatalf("empty summary proof = %#v, want imported disproof", rejected)
+	}
+
+	pass.ResultOf[Analyzer] = Summaries{}
+	unknown := NewLifecycleEvidence(pass, "test", "test/check").Prove(request)
+	if unknown.State != proofs.EvidenceUnknown || unknown.Reason != proofs.EvidenceUnavailable {
+		t.Fatalf("missing summary proof = %#v, want unknown", unknown)
+	}
+}
+
+func TestLifecycleEvidenceStrictImportedProjectionIsOptIn(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+type closer struct{}
+type owner struct { body *closer }
+
+func acquire() *owner { return nil }
+func helper(*closer) {}
+func accepted() {
+	value := acquire()
+	helper(value.body)
+}
+
+func reassigned() {
+	value := acquire()
+	value.body = &closer{}
+	helper(value.body)
+}
+`)
+	prove := func(t *testing.T, functionName string, enabled bool) Proof {
+		t.Helper()
+		function := pkg.Func(functionName)
+		acquisition := findLifecycleCall(t, function, "acquire")
+		instruction := findLifecycleCall(t, function, "helper")
+		pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
+			Analyzer: Summaries{instruction.Common().StaticCallee(): {Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}},
+		}}
+		return NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
+			Instruction:              instruction,
+			Target:                   acquisition,
+			StrictImportedProjection: enabled,
+			SelectMask: func(fact Fact) ParameterMask {
+				return fact.MethodMask("Close")
+			},
+		})
+	}
+
+	withoutOptIn := prove(t, "accepted", false)
+	if withoutOptIn.Proven() {
+		t.Fatalf("ordinary imported proof = %#v, want projection rejected", withoutOptIn)
+	}
+	projected := prove(t, "accepted", true)
+	if !projected.Proven() || projected.SummaryReason != reasonLifecycleSummaryProjectedArgument ||
+		projected.Provenance != proofs.EvidenceFromImportedFact {
+		t.Fatalf("projected imported proof = %#v, want strict projected lifecycle summary", projected)
+	}
+	reassigned := prove(t, "reassigned", true)
+	if reassigned.Proven() {
+		t.Fatalf("reassigned projection proof = %#v, want rejected", reassigned)
+	}
+}
+
+func TestLifecycleSummaryDeferredCallbackBoundaries(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+type closer struct{}
+func (*closer) Close() {}
+
+type owner struct { body *closer }
+
+func Exported(value *owner) {
+	defer func() { value.body.Close() }()
+}
+
+func Conditional(value *owner, enabled bool) {
+	defer func() {
+		if enabled {
+			value.body.Close()
+		}
+	}()
+}
+
+func Sibling(value, other *owner) {
+	defer func() { other.body.Close() }()
+}
+
+func Guarded(value *owner) {
+	if value != nil && value.body != nil {
+		value.body.Close()
+	}
+}
+
+func invoke(closeFn func()) { closeFn() }
+func maybeInvoke(closeFn func(), enabled bool) { if enabled { closeFn() } }
+func ignore(closeFn func()) {}
+func selectCallback(closeFn func(), enabled bool) {
+	if enabled { closeFn = func() {} }
+	closeFn()
+}
+
+func Bound(value interface{ Close() }) { invoke(value.Close) }
+func BoundConditional(value *closer, enabled bool) { maybeInvoke(value.Close, enabled) }
+func BoundIgnored(value *closer) { ignore(value.Close) }
+func BoundSibling(value, other *closer) { invoke(other.Close) }
+func BoundAsync(value *closer) { go invoke(value.Close) }
+func BoundSelected(value *closer, enabled bool) { selectCallback(value.Close, enabled) }
+func BoundOwnerSelected(value, other *closer, enabled bool) {
+	if enabled { value = other }
+	invoke(value.Close)
+}
+`)
+	for _, test := range []struct {
+		name string
+		want bool
+	}{
+		{name: "Exported", want: true},
+		{name: "Conditional"},
+		{name: "Sibling"},
+		{name: "Guarded", want: true},
+		{name: "Bound", want: true},
+		{name: "BoundConditional"},
+		{name: "BoundIgnored"},
+		{name: "BoundSibling"},
+		{name: "BoundAsync"},
+		{name: "BoundSelected"},
+		{name: "BoundOwnerSelected"},
+	} {
+		function := pkg.Func(test.name)
+		fact := summarize(
+			&analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }},
+			function,
+		)
+		// A close of the parameter itself, through a deferred literal or a
+		// bound callback, is the whole-parameter claim; a guarded direct
+		// close of its field is claimed at that field's path.
+		got := fact.MethodMask("Close").contains(0) || slices.Contains(fact.Discharges, Discharge{Parameter: 0, Method: "Close", Path: "field:0"})
+		if got != test.want {
+			t.Errorf("%s Closed parameter = %t, want %t (%+v)", test.name, got, test.want, fact.Discharges)
+		}
+	}
+}
+
+// Commit and Rollback are the cleanup pair of a transaction; each is
+// summarized independently, so a helper that settles the transaction one way
+// or the other on different paths exports neither mask.
+func TestLifecycleSummaryTransactionMasks(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+type transaction struct{}
+func (*transaction) Commit() error { return nil }
+func (*transaction) Rollback() error { return nil }
+
+func Finish(tx *transaction) { _ = tx.Rollback() }
+
+func Save(tx *transaction, ok bool) error {
+	if ok {
+		return tx.Commit()
+	}
+	return tx.Rollback()
+}
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	finish := summarize(pass, pkg.Func("Finish"))
+	if !finish.MethodMask("Rollback").contains(0) || finish.MethodMask("Commit").contains(0) {
+		t.Errorf("Finish masks = committed %t rolled back %t, want rolled back only",
+			finish.MethodMask("Commit").contains(0), finish.MethodMask("Rollback").contains(0))
+	}
+	save := summarize(pass, pkg.Func("Save"))
+	if save.MethodMask("Rollback").contains(0) || save.MethodMask("Commit").contains(0) {
+		t.Errorf("Save masks = committed %t rolled back %t, want neither", save.MethodMask("Commit").contains(0), save.MethodMask("Rollback").contains(0))
+	}
+}
+
+// Retention is over-approximate: storing, capturing, returning, or handing
+// the parameter to an opaque callee marks it, while invoking it does not.
+func TestLifecycleSummaryRetention(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+var handlers []func()
+
+func Register(handler func()) { handlers = append(handlers, handler) }
+func Invoke(handler func()) { handler() }
+func Return(handler func()) func() { return handler }
+func keep(handler func()) { handlers = append(handlers, handler) }
+func read(handler func()) { _ = handler == nil }
+func ViaKeeper(handler func()) { keep(handler) }
+func ViaReader(handler func()) { read(handler) }
+func DeferCapture(handler func()) { defer func() { handler() }() }
+
+type holder struct{ run func() }
+
+func IntoLocalStruct(handler func()) { h := holder{run: handler}; h.run() }
+
+type sink interface{ Add(func()) }
+
+var registry sink
+
+func ViaInterface(handler func()) { registry.Add(handler) }
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	for name, want := range map[string]bool{"Register": true, "Invoke": false, "Return": true, "ViaKeeper": true, "ViaReader": false} {
+		summary := summarize(pass, pkg.Func(name))
+		if got := summary.Retained().contains(0); got != want {
+			t.Errorf("%s Retained parameter = %t, want %t", name, got, want)
+		}
+		if got := summary.Stored().contains(0); got != (want && name != "Return") {
+			t.Errorf("%s Stored parameter = %t, want %t", name, got, want && name != "Return")
+		}
+	}
+	// An unresolved interface retains loosely but does not prove storage.
+	// Exact deferred closures now preserve the invocation-only effect: calling
+	// a captured function does not establish that anyone retains it. The same
+	// holds for a local aggregate that never escapes.
+	for name, want := range map[string][2]bool{"DeferCapture": {false, false}, "ViaInterface": {true, false}, "IntoLocalStruct": {false, false}} {
+		retained, stored := want[0], want[1]
+		fact := summarize(pass, pkg.Func(name))
+		if got := fact.Retained().contains(0); got != retained {
+			t.Errorf("%s Retained parameter = %t, want %t", name, got, retained)
+		}
+		if got := fact.Stored().contains(0); got != stored {
+			t.Errorf("%s Stored parameter = %t, want %t", name, got, stored)
+		}
+	}
+}
+
+// A constructor owns the fields it fills with resources it acquired, not
+// with resources it received; a method releases the fields it closes on every
+// return.
+func TestLifecycleSummaryFieldMasks(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+import "os"
+
+type Journal struct {
+	file *os.File
+	name string
+}
+
+func Open(path string) (*Journal, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return &Journal{file: file, name: path}, nil
+}
+
+func Wrap(file *os.File) *Journal { return &Journal{file: file} }
+
+func NestedWrap(file *os.File) *Journal { return Wrap(file) }
+
+type Envelope struct { journal *Journal }
+
+func WrappedEnvelope(file *os.File) *Envelope {
+	return &Envelope{journal: NestedWrap(file)}
+}
+
+func FreshEnvelope(path string) (*Envelope, error) {
+	j, err := Open(path)
+	if err != nil { return nil, err }
+	return &Envelope{journal: j}, nil
+}
+
+func MixedResults(file *os.File, path string) (*Journal, *Journal, error) {
+	fresh, err := Open(path)
+	if err != nil {
+		var absent *Journal
+		return absent, nil, err
+	}
+	return Wrap(file), fresh, nil
+}
+
+func AmbiguousEnvelope(file *os.File, path string) (*Envelope, error) {
+	_, fresh, err := MixedResults(file, path)
+	if err != nil { return nil, err }
+	return &Envelope{journal: fresh}, nil
+}
+
+func (j *Journal) Close() error { return j.file.Close() }
+
+func (j *Journal) MaybeClose(ok bool) error {
+	if ok {
+		return j.file.Close()
+	}
+	return nil
+}
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	if got := summarize(pass, pkg.Func("Open")).Must.OwnedFields; !got.contains(0) || got.contains(1) {
+		t.Errorf("Open OwnedFields = %#x, want field 0 only", uint64(got))
+	}
+	if got := summarize(pass, pkg.Func("Wrap")).Must.OwnedFields; got != 0 {
+		t.Errorf("Wrap OwnedFields = %#x, want none", uint64(got))
+	}
+	if got := summarize(pass, pkg.Func("WrappedEnvelope")).Must.OwnedFields; got != 0 {
+		t.Errorf("WrappedEnvelope OwnedFields = %#x, want no new acquisition", uint64(got))
+	}
+	// A nested custom Close method is not an acquisition contract. Until an
+	// exact nested-acquisition summary exists, even real owners remain unknown.
+	if got := summarize(pass, pkg.Func("FreshEnvelope")).Must.OwnedFields; got != 0 {
+		t.Errorf("FreshEnvelope OwnedFields = %#x, want unknown nested acquisition", uint64(got))
+	}
+	// ReturnedOwner cannot distinguish which result owns the argument. Decline
+	// fresh inference for the other result rather than inventing a relationship.
+	if got := summarize(pass, pkg.Func("AmbiguousEnvelope")).Must.OwnedFields; got != 0 {
+		t.Errorf("AmbiguousEnvelope OwnedFields = %#x, want unknown ownership", uint64(got))
+	}
+	journal := pkg.Type("Journal").Type()
+	closeMethod := pkg.Prog.LookupMethod(types.NewPointer(journal), pkg.Pkg, "Close")
+	if got := summarize(pass, closeMethod).Must.ReleasedFields; !got.contains(0) {
+		t.Errorf("Close ReleasedFields = %#x, want field 0", uint64(got))
+	}
+	maybe := pkg.Prog.LookupMethod(types.NewPointer(journal), pkg.Pkg, "MaybeClose")
+	if got := summarize(pass, maybe).Must.ReleasedFields; got != 0 {
+		t.Errorf("MaybeClose ReleasedFields = %#x, want none", uint64(got))
+	}
+}
+
+// A parameter stored in a returned struct is a view when no method of that
+// type releases the field, and an owner otherwise.
+func TestLifecycleSummaryReturnedViews(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+import "os"
+
+type Reader struct{ file *os.File }
+
+func NewReader(file *os.File) *Reader { return &Reader{file: file} }
+
+type Owner struct{ file *os.File }
+
+func Adopt(file *os.File) *Owner { return &Owner{file: file} }
+
+func (o *Owner) Close() error { return o.file.Close() }
+
+type Link struct{ next *Link }
+
+func (l *Link) Close() error { return nil }
+
+func ReturnLink(link *Link) *Link { return link }
+
+func WrapLink(link *Link) *Link { return &Link{next: link} }
+
+func MaybeWrapLink(link *Link, wrap bool) *Link {
+	if wrap {
+		return &Link{next: link}
+	}
+	return link
+}
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	summaries := Summaries{}
+	for _, name := range []string{"NewReader", "Adopt"} {
+		summaries[pkg.Func(name)] = summarize(pass, pkg.Func(name))
+	}
+	owner := pkg.Type("Owner").Type()
+	closeMethod := pkg.Prog.LookupMethod(types.NewPointer(owner), pkg.Pkg, "Close")
+	summaries[closeMethod] = summarize(pass, closeMethod)
+	link := pkg.Type("Link").Type()
+	linkClose := pkg.Prog.LookupMethod(types.NewPointer(link), pkg.Pkg, "Close")
+	summaries[linkClose] = summarize(pass, linkClose)
+	if got := returnedViews(pass, pkg.Func("NewReader"), summaries[pkg.Func("NewReader")], summaries); !got.contains(0) {
+		t.Errorf("NewReader ReturnedView = %#x, want parameter 0", uint64(got))
+	}
+	if got := returnedViews(pass, pkg.Func("Adopt"), summaries[pkg.Func("Adopt")], summaries); got != 0 {
+		t.Errorf("Adopt ReturnedView = %#x, want none", uint64(got))
+	}
+	for _, name := range []string{"ReturnLink", "WrapLink", "MaybeWrapLink"} {
+		function := pkg.Func(name)
+		summaries[function] = summarize(pass, function)
+		summary := summaries[function]
+		if !summary.ReturnedOwner().contains(0) {
+			t.Errorf("%s ReturnedOwner = %#x, want parameter 0", name, uint64(summary.ReturnedOwner()))
+		}
+	}
+	if got := returnedViews(pass, pkg.Func("ReturnLink"), summaries[pkg.Func("ReturnLink")], summaries); got != 0 {
+		t.Errorf("ReturnLink ReturnedView = %#x, want none for an unchanged same-type return", uint64(got))
+	}
+	for _, name := range []string{"WrapLink", "MaybeWrapLink"} {
+		if got := returnedViews(pass, pkg.Func(name), summaries[pkg.Func(name)], summaries); !got.contains(0) {
+			t.Errorf("%s ReturnedView = %#x, want parameter 0 for a same-type wrapper", name, uint64(got))
+		}
+	}
+}
+
+func buildLifecycleTestSSA(t *testing.T, source string) *ssa.Package {
+	t.Helper()
+	return ssaflowtest.BuildPackage(t, "example.com/lifecyclefactstest", source)
+}
+
+func findLifecycleCall(t *testing.T, function *ssa.Function, name string) *ssa.Call {
+	t.Helper()
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			call, ok := instruction.(*ssa.Call)
+			if ok && ssaflow.CallName(call.Common()) == name {
+				return call
+			}
+		}
+	}
+	t.Fatalf("call %s not found", name)
+	return nil
+}
+
+// A constructor that keeps its argument in the value it returns has not taken
+// over releasing it, and the summary has to say so. The store is commonly
+// performed by an unexported helper rather than by the constructor itself, as
+// bufio.NewReader reaches its reader through (*bufio.Reader).reset. That
+// helper is never summarized, so the answer has to come from following the
+// call into its body, and until it did the constructor was summarized as
+// keeping the argument for itself.
+func TestLifecycleSummaryDelegatingConstructorReturnsOwner(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+import "io"
+
+type reader struct{ source io.Reader }
+
+func (r *reader) reset(source io.Reader) { r.source = source }
+
+func (r *reader) Read(p []byte) (int, error) { return r.source.Read(p) }
+
+func Inline(source io.Reader) *reader { return &reader{source: source} }
+
+func Delegating(source io.Reader) *reader {
+	wrapped := new(reader)
+	wrapped.reset(source)
+	return wrapped
+}
+
+func TwoLevel(source io.Reader) *reader { return Delegating(source) }
+
+func Sometimes(source io.Reader, wrap bool) *reader {
+	if wrap {
+		return &reader{source: source}
+	}
+	return new(reader)
+}
+
+func ThroughSometimes(source io.Reader, wrap bool) *reader { return Sometimes(source, wrap) }
+
+func FastPath(source io.Reader) *reader {
+	if already, ok := source.(*reader); ok {
+		return already
+	}
+	wrapped := new(reader)
+	wrapped.reset(source)
+	return wrapped
+}
+
+var sink []io.Reader
+
+// Elsewhere keeps the argument where the caller cannot reach it, which is a
+// transfer rather than a view over the returned value.
+func Elsewhere(source io.Reader) *reader {
+	sink = append(sink, source)
+	return new(reader)
+}
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	for name, want := range map[string]bool{
+		"Inline":           true,
+		"Delegating":       true,
+		"TwoLevel":         true,
+		"FastPath":         true,
+		"Elsewhere":        false,
+		"ThroughSometimes": false,
+	} {
+		fact := summarize(pass, pkg.Func(name))
+		if got := fact.ReturnedOwner().contains(0); got != want {
+			t.Errorf("%s returned owner = %t, want %t", name, got, want)
+		}
+	}
+}
+
+// A constructor whose result cannot release the parameter leaves the caller
+// holding the obligation, and the result does not have to be a struct to say
+// so. zap's AddSync returns its argument as a WriteSyncer, which has Write and
+// Sync but no Close, and a file handed to it was credited as transferred until
+// the view narrowing learned to answer for a non-struct result.
+func TestLifecycleSummaryInterfaceResultIsAView(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+import "io"
+
+type Syncer interface {
+	io.Writer
+	Sync() error
+}
+
+type wrapper struct{ w io.Writer }
+
+func (wrapper) Sync() error { return nil }
+
+func (o wrapper) Write(p []byte) (int, error) { return o.w.Write(p) }
+
+// AddSync hands the argument back, wrapped or as itself, through a type that
+// cannot close it.
+func AddSync(w io.Writer) Syncer {
+	if s, ok := w.(Syncer); ok {
+		return s
+	}
+	return wrapper{w}
+}
+
+// IdentityWriter still returns a non-closing interface, so the caller keeps
+// ownership even though the interface value itself is unchanged.
+func IdentityWriter(w io.Writer) io.Writer { return w }
+
+type closerSyncer interface {
+	Syncer
+	Close() error
+}
+
+type closingWrapper struct{ w io.Writer }
+
+func (closingWrapper) Sync() error  { return nil }
+func (closingWrapper) Close() error { return nil }
+
+func (o closingWrapper) Write(p []byte) (int, error) { return o.w.Write(p) }
+
+// AddClosing returns a type that CAN close, so the obligation genuinely moves.
+func AddClosing(w io.Writer) closerSyncer { return closingWrapper{w} }
+`)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	summaries := Summaries{}
+	for _, name := range []string{"AddSync", "AddClosing", "IdentityWriter"} {
+		function := pkg.Func(name)
+		summaries[function] = summarize(pass, function)
+	}
+	addSync := pkg.Func("AddSync")
+	views := returnedViews(pass, addSync, summaries[addSync], summaries)
+	if !views.contains(0) {
+		t.Errorf("AddSync ReturnedView = %#x, want the parameter narrowed to a view: "+
+			"Syncer cannot close what it was handed", uint64(views))
+	}
+	addClosing := pkg.Func("AddClosing")
+	if got := returnedViews(pass, addClosing, summaries[addClosing], summaries); got.contains(0) {
+		t.Errorf("AddClosing ReturnedView = %#x, want no view: its result can close the parameter", uint64(got))
+	}
+	identityWriter := pkg.Func("IdentityWriter")
+	if got := returnedViews(pass, identityWriter, summaries[identityWriter], summaries); !got.contains(0) {
+		t.Errorf("IdentityWriter ReturnedView = %#x, want parameter 0: its unchanged interface cannot close the resource", uint64(got))
+	}
+}
+
+// summarize gives body-level tests an independent package inference context.
+func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
+	return newCallbackInference(pass, nil).summarize(function)
+}

@@ -57,7 +57,7 @@ func loadAnalyzerLayoutPackages(
 	}
 	var catalogPackage *packages.Package
 	for _, pkg := range loaded {
-		if strings.HasSuffix(pkg.PkgPath, "/analyzers") && !strings.Contains(pkg.PkgPath, "/internal/analyzers/") {
+		if strings.HasSuffix(pkg.PkgPath, "/analyzers") && !strings.Contains(pkg.PkgPath, "/internal/analysis/analyzers/") {
 			catalogPackage = pkg
 			break
 		}
@@ -66,7 +66,7 @@ func loadAnalyzerLayoutPackages(
 		t.Fatal("public analyzers package was not loaded")
 	}
 	modulePath := strings.TrimSuffix(catalogPackage.PkgPath, "/analyzers")
-	prefix := modulePath + "/internal/analyzers/"
+	prefix := modulePath + "/internal/analysis/analyzers/"
 	result := make([]analyzerLayoutPackage, 0)
 	for _, pkg := range loaded {
 		relative, internalAnalyzer := strings.CutPrefix(pkg.PkgPath, prefix)
@@ -75,7 +75,7 @@ func loadAnalyzerLayoutPackages(
 		}
 		parts := strings.Split(relative, "/")
 		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-			t.Errorf("%s must be exactly internal/analyzers/<group>/<name>; group directories must not be Go packages", pkg.PkgPath)
+			t.Errorf("%s must be exactly internal/analysis/analyzers/<group>/<name>; group directories must not be Go packages", pkg.PkgPath)
 			continue
 		}
 		if pkg.Name != parts[1] {
@@ -99,11 +99,11 @@ func assertAnalyzerSourceDepth(t *testing.T, inventory repositorySourceInventory
 	for _, analyzerPackage := range layout {
 		known[analyzerPackage.group+"/"+analyzerPackage.name] = true
 	}
-	for _, source := range inventory.productionGoFiles(t, "internal/analyzers") {
-		relative := strings.TrimPrefix(source.repositoryPath, "internal/analyzers/")
+	for _, source := range inventory.productionGoFiles(t, "internal/analysis/analyzers") {
+		relative := strings.TrimPrefix(source.repositoryPath, "internal/analysis/analyzers/")
 		parts := strings.Split(relative, "/")
 		if len(parts) != 3 || parts[0] == "" || parts[1] == "" {
-			t.Errorf("%s must be directly inside internal/analyzers/<group>/<name>", source.repositoryPath)
+			t.Errorf("%s must be directly inside internal/analysis/analyzers/<group>/<name>", source.repositoryPath)
 			continue
 		}
 		identity := parts[0] + "/" + parts[1]
@@ -118,19 +118,19 @@ func assertAnalyzerSourceDepth(t *testing.T, inventory repositorySourceInventory
 
 func assertInfrastructureAnalyzerPlacement(t *testing.T, loaded []*packages.Package, modulePath string) {
 	t.Helper()
-	passesPrefix := modulePath + "/internal/passes/"
+	passesPrefix := modulePath + "/internal/analysis/passes/"
 	for _, pkg := range loaded {
 		object := pkg.Types.Scope().Lookup("Analyzer")
 		variable, analyzerVariable := object.(*types.Var)
 		if analyzerVariable && analysisAnalyzerPointer(variable.Type()) && !strings.HasPrefix(pkg.PkgPath, passesPrefix) {
-			t.Errorf("%s exports an Analyzer variable outside internal/passes/<name>", pkg.PkgPath)
+			t.Errorf("%s exports an Analyzer variable outside internal/analysis/passes/<name>", pkg.PkgPath)
 		}
 		relative, passPackage := strings.CutPrefix(pkg.PkgPath, passesPrefix)
 		if !passPackage {
 			continue
 		}
 		if relative == "" || strings.Contains(relative, "/") {
-			t.Errorf("%s prerequisite pass must be exactly internal/passes/<name>", pkg.PkgPath)
+			t.Errorf("%s prerequisite pass must be exactly internal/analysis/passes/<name>", pkg.PkgPath)
 		}
 		if !analyzerVariable || !analysisAnalyzerPointer(variable.Type()) {
 			t.Errorf("%s must export an Analyzer variable of type *analysis.Analyzer", pkg.PkgPath)
@@ -253,7 +253,7 @@ func assertCatalogFactories(
 				return true
 			}
 			path := factory.Pkg().Path()
-			if strings.HasPrefix(path, modulePath+"/internal/analyzers/") && !known[path] {
+			if strings.HasPrefix(path, modulePath+"/internal/analysis/analyzers/") && !known[path] {
 				t.Errorf("catalog calls unrecognized analyzer factory %s.Analyzer", path)
 				return true
 			}
@@ -356,7 +356,7 @@ func assertPrerequisitePlacement(t *testing.T, analyzerPackage analyzerLayoutPac
 				}
 				if !prerequisitePackage(provider.Pkg().Path(), modulePath) {
 					t.Errorf(
-						"%s Requires entry %s must come from internal/passes or x/tools analysis/passes",
+						"%s Requires entry %s must come from internal/analysis/passes or x/tools analysis/passes",
 						analyzerPackage.pkg.PkgPath,
 						provider.Pkg().Path(),
 					)
@@ -383,7 +383,7 @@ func summarySelectionRequires(info *types.Info, expression ast.Expr, modulePath 
 		return false
 	}
 	function := calledFunction(info, call.Fun)
-	if function == nil || function.Pkg() == nil || function.Pkg().Path() != modulePath+"/internal/summaries" || function.Name() != "Requires" {
+	if function == nil || function.Pkg() == nil || function.Pkg().Path() != modulePath+"/internal/analysis/summaries" || function.Name() != "Requires" {
 		return false
 	}
 	signature, ok := function.Type().(*types.Signature)
@@ -420,7 +420,7 @@ func expressionObject(info *types.Info, expression ast.Expr) types.Object {
 }
 
 func prerequisitePackage(packagePath, modulePath string) bool {
-	for _, prefix := range []string{"golang.org/x/tools/go/analysis/passes/", modulePath + "/internal/passes/"} {
+	for _, prefix := range []string{"golang.org/x/tools/go/analysis/passes/", modulePath + "/internal/analysis/passes/"} {
 		if relative, ok := strings.CutPrefix(packagePath, prefix); ok {
 			return relative != "" && !strings.Contains(relative, "/")
 		}

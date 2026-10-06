@@ -4,6 +4,26 @@ This note extends the public [codebase layout](../architecture.md) with the
 shared engine's layering, the rules the architecture tests enforce, and the
 tooling details a contributor needs while working on it.
 
+## Internal hierarchy
+
+`internal/` groups packages by responsibility. The group directories contain
+no umbrella Go package; existing child packages retain their own vocabulary
+and dependency contracts.
+
+| Directory | Responsibility |
+|---|---|
+| `internal/engine` | Proof outcomes, value and control-flow mechanics, heap evidence and lifecycle/resource models |
+| `internal/analysis` | Domain fact inference/publication, summary access, analyzer policy and catalog metadata |
+| `internal/reporting` | Diagnostic construction and structured evidence tracing |
+| `internal/testsupport` | Shared analyzer fixture support and executable documentation examples |
+| `internal/cli` | Configuration, execution and presentation at the command boundary |
+| `internal/architecture` | Repository-wide source and dependency invariants |
+
+Domain navigation remains under `analysis/analyzers/concurrency` and
+`analysis/analyzers/resources`. SSA mechanics retain their own sublayers under
+`engine/ssaflow`. Moving a package into a container does not grant new dependency
+rights: architecture checks resolve the underlying layer below the container.
+
 ## Generation and verification timings
 
 Documentation generation prints phase timings by default, including fixture
@@ -17,7 +37,7 @@ for each; these times include each check's prerequisite passes.
 ## Implementation boundaries
 
 Lifecycle field-contract inference and result-method composition live in
-`internal/passes/lifecyclefacts/fields.go`. Borrowed returned-view inference
+`internal/analysis/passes/lifecyclefacts/fields.go`. Borrowed returned-view inference
 lives in `returned_views.go`; caller-side retention and summary-availability
 queries live in `call_retention.go`. They share the same masks and proof helpers
 without combining acquisition evidence, view classification and call binding
@@ -50,12 +70,12 @@ immutable imported-argument completion. The same proof entry point consumes
 these answers and preserves abandoned searches as unknown.
 
 Trace event selection, attribution and serialization live in
-`internal/trace/trace.go`. `configuration.go` owns process-wide flags,
+`internal/reporting/trace/trace.go`. `configuration.go` owns process-wide flags,
 destinations and temporary capture; `timing.go` owns independently enabled
 measurement output. Their shared lock and disabled fast paths are unchanged.
 
 Synchronization evidence contracts and completeness live in
-`internal/passes/concurrencyfacts/summary.go`. `engine.go` owns serialized
+`internal/analysis/passes/concurrencyfacts/summary.go`. `engine.go` owns serialized
 queries, cache policy and collection retries; `effects.go` accounts for ordered
 instruction effects and the passive whitelist. Linear fact publication and
 rich local queries retain their separate caches and shared evidence contract.
@@ -67,24 +87,24 @@ malformed JSON and analyzer errors keep their existing distinct handling.
 
 ## Shared engine
 
-- `internal/proof` owns shared evidence outcomes, reason/provenance vocabulary,
+- `internal/engine/proof` owns shared evidence outcomes, reason/provenance vocabulary,
   observers and work budgets. It has no dependency on SSA, heap or lifecycle
   engines; those consumers import it directly.
 
-- `internal/ssaflow` owns value provenance (`ReachingWalk`), structural identity,
+- `internal/engine/ssaflow` owns value provenance (`ReachingWalk`), structural identity,
   source metadata and natural-loop mechanics. It does not depend on call or
   path-proof packages.
-- `internal/ssaflow/cfg` owns structural reachability, instruction ordering,
+- `internal/engine/ssaflow/cfg` owns structural reachability, instruction ordering,
   keyed work lists and selection from already-feasible edges. It depends only
   on shared work budgets; value, call and path-proof layers cannot become its
   dependencies. Its work-list caller owns state and successor feasibility.
-- `internal/ssaflow/calls` owns callee resolution, positional argument/capture
+- `internal/engine/ssaflow/calls` owns callee resolution, positional argument/capture
   bindings, reusable API contracts and memoized call-effect summaries. It
   consumes value and CFG mechanics and never depends on path proofs.
-- `internal/ssaflow/path` combines value and call evidence into feasible path
+- `internal/engine/ssaflow/path` combines value and call evidence into feasible path
   guards, exact counted regions and obligation coverage (`EvaluateObligation`).
   It provides proof mechanics; analyzers retain their reporting policy.
-- `internal/lifecycle` builds completion and ownership-transfer
+- `internal/engine/lifecycle` builds completion and ownership-transfer
   proofs from `ssaflow` and `heapmodel`. Analyzers import the layer that owns
   the query they need; neither package forwards the other's API.
   Direct callee resolution and positional argument/capture pairing use
@@ -177,7 +197,7 @@ malformed JSON and analyzer errors keep their existing distinct handling.
   and additional transitions remain separate: general transfer follows local
   cell loads and same-type fluent receivers, while field-storage stops there.
   `store_uses_test.go` pins these distinctions alongside opaque and cyclic uses.
-- `internal/heapmodel` owns demand-driven storage queries, the per-function
+- `internal/engine/heapmodel` owns demand-driven storage queries, the per-function
   points-to graph and its cache, heap-summary projection and registration,
   and application at call sites. `heapmodel.Storage` combines reaching-write
   and graph evidence without making unknown contents or truncated summaries
@@ -186,7 +206,7 @@ malformed JSON and analyzer errors keep their existing distinct handling.
   distinguish confinement within an explicit scope, possible publication, and
   unknown evidence. Escape destinations never establish cleanup ownership;
   interpreting a transfer remains lifecycle policy.
-- `internal/resourcemodel` proves exact owner-to-resource relationships over
+- `internal/engine/resourcemodel` proves exact owner-to-resource relationships over
   the existing heap/storage model and tracks a comparable per-path resource
   obligation. External API contracts can establish state transitions through
   those relationships; the consuming analyzer still decides whether to report.
@@ -230,17 +250,17 @@ malformed JSON and analyzer errors keep their existing distinct handling.
   lifecycle facts, and analyzer-local identity checks use the same query rather
   than selecting stores independently. Historical containment remains a
   different question: it can justify uncertainty, never exact cleanup.
-- `internal/passes/lifecyclefacts` exports a per-function summary of what a
+- `internal/analysis/passes/lifecyclefacts` exports a per-function summary of what a
   callee does to its parameters, so an analyzer can see through a call into
   another package. Consumers use `LifecycleEvidence`, which consults local
   evidence first and imported facts second. See
   [Inferred facts](fact-model.md).
-- `internal/summaries` brokers typed function-summary components selected at
+- `internal/analysis/summaries` brokers typed function-summary components selected at
   analyzer setup. Result guarantees, lifecycle effects, and concurrency effects
   retain independent inference and fact passes. The broker selects ordinary
   prerequisites and exposes declaration summaries separately from bound
   call-site evidence; it is not another scheduler or a universal proof model.
-- `internal/check` and `internal/trace` provide reporting and evidence
+- `internal/reporting/check` and `internal/reporting/trace` provide reporting and evidence
   tracing. Every diagnostic flows through `check.Report`, which is what lets
   the tracer record whether a candidate was reported, suppressed, or removed.
   CLI and plugin execution share `check.FilterAnalyzerReports`: exact check
@@ -264,9 +284,9 @@ the code cannot drift apart silently.
 | `TestProductionFileLimitCountingScope` | generated production files count; tests, fixtures, hidden/underscore trees and external dependency trees do not |
 | `TestInternalPackagesRespectDependencyDirection` | analyzers may use shared tools; shared tools never depend on analyzers or the catalog |
 | `TestSSADependencyBoundaries` | CFG and value mechanics sit below calls, and calls below path proofs; reverse dependencies are forbidden |
-| `TestAnalyzerPackageLayout` | one package per analyzer under `internal/analyzers/<group>/<name>` |
+| `TestAnalyzerPackageLayout` | one package per analyzer under `internal/analysis/analyzers/<group>/<name>` |
 | `TestAnalyzersUseSharedReporting` | diagnostics only through `check.Report` or `check.Reportf`, never `analysis.Pass.Report` directly |
-| `TestAnalyzerCodeUsesStructuredTracing` | production analyzer and analysis-pass code uses `internal/trace` rather than `fmt.Print`, `fmt.Printf`, or `fmt.Println` probes |
+| `TestAnalyzerCodeUsesStructuredTracing` | production analyzer and analysis-pass code uses `internal/reporting/trace` rather than `fmt.Print`, `fmt.Printf`, or `fmt.Println` probes |
 | `TestNoPublicCheckIsAConvention` | no listed check is kind `policy`: a diagnostic a reader must first agree with is withdrawn from the catalog rather than published |
 | `TestTraceEventsAreAttributedToACandidate` | every trace event names the candidate whose proof it serves, so one finding's evidence can be selected out of a package's trace |
 | `TestTransparentFormsAreNamedAtTheCallSite` | each proof names the SSA wrappers it may look through, so a form added later cannot widen a proof nobody reviewed for it |
@@ -322,9 +342,9 @@ or display boundaries; keep free-form explanations separate. Do not place
 analyzer-specific vocabulary in a single global reason catalog.
 
 Check kinds and tiers have one owning numeric implementation in
-`internal/catalog/classification.go`; the public analyzer API aliases these
+`internal/analysis/catalog/classification.go`; the public analyzer API aliases these
 same domains. Proof provenance and trace outcomes likewise use numeric domains.
-`internal/enumtext` supplies their text codec, preserving existing JSON labels
+`internal/engine/enumtext` supplies their text codec, preserving existing JSON labels
 and empty labels for unset zero values. The codec also owns updating a decoded
 receiver only on success, so domain adapters do not repeat that state rule.
 Unknown labels and invalid numeric wire values are rejected. Go callers use
@@ -349,7 +369,7 @@ to move it between proof layers; only trace rendering chooses its external code.
 
 The guard covers production Go code repository-wide, including analyzer wrappers
 and the golangci plugin, with no migration-debt baseline. Only
-`internal/trace/trace.go` and `internal/proof/observer.go` retain textual
+`internal/reporting/trace/trace.go` and `internal/engine/proof/observer.go` retain textual
 reason transport. These are output boundaries, not inference APIs. Syntax checks
 cannot infer every string's purpose: review unnamed helper return values and
 dynamically synthesized codes too. Keep golden trace tests and enum-to-code
@@ -362,9 +382,9 @@ gosec's practice of splitting a substantial analyzer into focused files within
 its package. Analyzer groups are catalog metadata mirrored by container
 directories, not Go package boundaries.
 
-Shared source-level helpers live under `internal/syntax`, while SSA traversal
-mechanics live under `internal/ssaflow`, storage queries under `internal/heapmodel`,
-and completion and transfer proofs under `internal/lifecycle`; they are implementation
+Shared source-level helpers live under `internal/engine/syntax`, while SSA traversal
+mechanics live under `internal/engine/ssaflow`, storage queries under `internal/engine/heapmodel`,
+and completion and transfer proofs under `internal/engine/lifecycle`; they are implementation
 details rather than an external integration API. Cross-cutting
 diagnostic, catalog, flag, and trace infrastructure lives in its own focused
 internal package instead of being folded into analysis utilities.

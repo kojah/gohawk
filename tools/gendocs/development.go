@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/kojah/gohawk/internal/cli"
-	"github.com/kojah/gohawk/internal/trace"
+	"github.com/kojah/gohawk/internal/reporting/trace"
 )
 
 const (
@@ -116,7 +116,7 @@ func parseHelperSource(root, directory string, fset *token.FileSet) (*doc.Packag
 // one.
 func factFieldsBlock(root string) (string, error) {
 	fset := token.NewFileSet()
-	path := filepath.Join(root, "internal", "passes", "lifecyclefacts", "fact.go")
+	path := filepath.Join(root, "internal", "analysis", "passes", "lifecyclefacts", "fact.go")
 	file, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
 	if err != nil {
 		return "", err

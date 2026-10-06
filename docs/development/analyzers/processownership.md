@@ -197,7 +197,7 @@ and bounded completion under the same allowance. Both capture and return-query
 cutoffs remain unknown. Graph/type/alias internals retain independent costs.
 `processchoices/choices.go` pins accepted mixed captures and dynamic launches,
 with unrelated commands, early bypass returns and converted callables diagnostic.
-`internal/lifecycle/closure_capture_test.go` checks actual SSA, negative captures
+`internal/engine/lifecycle/closure_capture_test.go` checks actual SSA, negative captures
 and fresh allowance recovery. `handoff_test.go` retains nonreturning waiter
 allowance controls.
 

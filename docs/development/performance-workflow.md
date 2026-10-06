@@ -31,7 +31,9 @@ Put timing files, CPU/allocation profiles, and verbose temporary output in
 the RAM workspace too. Copy only the useful final receipts and summaries to
 the repository after a job ends. Module downloads and explicit result paths
 retain their configured locations; reuse already downloaded dependencies.
-Run verification, coverage, and benchmarks sequentially. Request a fresh
+Run local verification and benchmarks sequentially. Coverage and race testing
+run only in GitHub Actions CI; the Makefile rejects local instrumented targets.
+Do not bypass the guard with CI markers or direct Go commands. Request a fresh
 analysis cache only when the experiment needs it; retain compiled artifacts.
 
 The workspace consumes RAM and shares the tmpfs filesystem's capacity. Check

@@ -11,7 +11,7 @@ import (
 	"slices"
 	"time"
 
-	proofs "github.com/kojah/gohawk/internal/proof"
+	proofs "github.com/kojah/gohawk/internal/engine/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"
 )

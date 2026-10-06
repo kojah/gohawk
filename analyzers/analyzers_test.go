@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/catalog"
+	"github.com/kojah/gohawk/internal/analysis/catalog"
 	"golang.org/x/tools/go/analysis"
 )
 

@@ -12,7 +12,7 @@ func TestAnalyzersUseSharedReporting(t *testing.T) {
 	t.Parallel()
 	inventory := newRepositorySourceInventory(t)
 	production := make(map[string]string)
-	for _, source := range inventory.productionGoFiles(t, "internal/analyzers") {
+	for _, source := range inventory.productionGoFiles(t, "internal/analysis/analyzers") {
 		production[source.absolutePath] = source.repositoryPath
 	}
 	config := &packages.Config{
@@ -20,7 +20,7 @@ func TestAnalyzersUseSharedReporting(t *testing.T) {
 			packages.NeedTypes | packages.NeedTypesInfo,
 		Dir: inventory.root,
 	}
-	loaded, err := packages.Load(config, "./internal/analyzers/...")
+	loaded, err := packages.Load(config, "./internal/analysis/analyzers/...")
 	if err != nil {
 		t.Fatal(err)
 	}

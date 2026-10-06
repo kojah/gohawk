@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kojah/gohawk/internal/docexamples"
+	"github.com/kojah/gohawk/internal/testsupport/docexamples"
 )
 
 // docsTimings separates fixture analysis from page work so a slow generated

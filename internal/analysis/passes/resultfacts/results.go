@@ -1,0 +1,208 @@
+// Package resultfacts proves bounded declaration guarantees about results and
+// normal termination. Result cases relate outcomes to exact parameters or
+// sibling results; these guarantees establish no ownership or cleanup.
+package resultfacts
+
+import (
+	"go/constant"
+	"go/types"
+	"sync"
+
+	proofs "github.com/kojah/gohawk/internal/engine/proof"
+	"github.com/kojah/gohawk/internal/engine/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/engine/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/engine/ssaflow/path"
+	"golang.org/x/tools/go/ssa"
+)
+
+// Guarantee describes one result on every normal return. Unknown includes
+// conflicting evidence, unsupported values, and absence of a return witness.
+type Guarantee uint8
+
+const (
+	Unknown Guarantee = iota
+	AlwaysNil
+	AlwaysNonNil
+	AlwaysTrue
+	AlwaysFalse
+)
+
+// Outcome projects a known unconditional guarantee into flow evidence. Unknown
+// and invalid guarantees leave the outcome unconstrained; this projection
+// establishes neither ownership nor that a cleanup action occurred.
+func (guarantee Guarantee) Outcome() (ssacall.Outcome, bool) {
+	switch guarantee {
+	case AlwaysNil:
+		return ssacall.OutcomeNil, true
+	case AlwaysNonNil:
+		return ssacall.OutcomeNonNil, true
+	case AlwaysTrue:
+		return ssacall.OutcomeTrue, true
+	case AlwaysFalse:
+		return ssacall.OutcomeFalse, true
+	case Unknown:
+	}
+	return ssacall.OutcomeAny, false
+}
+
+const maxResults = 16
+
+// Summary is immutable after publication. Available means inference could be
+// consulted, not that all results are understood. Reason explains a boundary.
+type Summary struct {
+	Available bool
+	Reason    Reason
+	results   []Guarantee
+	cases     []ResultCase
+	returned  []ReturnedParameter
+	// neverReturns records that no normal return is reachable from the
+	// entry: every path ends in a terminating call, a panic, or a loop that
+	// never exits. See NeverReturns.
+	neverReturns bool
+}
+
+// NeverReturns reports whether the function is proven never to return
+// normally, so a call to it terminates the caller's path as os.Exit does.
+// It is a claim about every path, proven from the body or imported; a
+// function that merely may exit does not carry it.
+func (summary Summary) NeverReturns() bool {
+	return summary.Available && summary.neverReturns
+}
+
+// Result returns the unconditional guarantee at index, or Unknown.
+func (summary Summary) Result(index int) Guarantee {
+	if index < 0 || index >= len(summary.results) {
+		return Unknown
+	}
+	return summary.results[index]
+}
+
+// Engine shares result inference for a package. Public queries serialize cache
+// access; recursion and budget handling are owned by FunctionSummaries.
+type Engine struct {
+	mu        sync.Mutex
+	summaries *ssacall.FunctionSummaries[Summary]
+	imported  map[*types.Func]Fact
+}
+
+// NewEngine creates local-only result inference with no library-name guesses.
+func NewEngine() *Engine {
+	engine := &Engine{}
+	engine.summaries = ssacall.NewFunctionSummaries(engine.compute, func(reason ssacall.SummaryUnavailable) Summary {
+		return Summary{Reason: ReasonSummaryUnavailable}
+	})
+	return engine
+}
+
+// Function returns local or imported, context-independent result guarantees.
+func (engine *Engine) Function(function *ssa.Function, budget *proofs.SearchBudget) Summary {
+	engine.mu.Lock()
+	defer engine.mu.Unlock()
+	return engine.function(function, budget)
+}
+
+func (engine *Engine) function(function *ssa.Function, budget *proofs.SearchBudget) Summary {
+	if function == nil || !budget.Spend() {
+		return Summary{Reason: ReasonSummaryUnavailable}
+	}
+	if len(function.Blocks) == 0 {
+		object, _ := function.Object().(*types.Func)
+		if fact, ok := engine.imported[object]; ok && fact.Version == factVersion {
+			return Summary{Available: true, results: fact.Results, cases: fact.Cases, returned: fact.Returned, neverReturns: fact.NeverReturns}
+		}
+		return Summary{Reason: ReasonBodyUnavailable}
+	}
+	return engine.summaries.Function(function, budget)
+}
+
+func (engine *Engine) compute(function *ssa.Function, budget *proofs.SearchBudget) Summary {
+	count := function.Signature.Results().Len()
+	if count > maxResults {
+		return Summary{Reason: ReasonCountLimit}
+	}
+	result := Summary{Available: true, results: make([]Guarantee, count)}
+	witness := false
+	// Include recovery returns too. Ignoring the detached recovery block could
+	// claim a literal result even when a recovering defer returns a zero value.
+	for instruction := range ssaflow.InstructionsWithin(function, budget) {
+		returned, ok := instruction.(*ssa.Return)
+		if !ok {
+			continue
+		}
+		for index, value := range returned.Results {
+			guarantee := engine.value(value, budget)
+			if !witness {
+				result.results[index] = guarantee
+			} else if result.results[index] != guarantee {
+				result.results[index] = Unknown
+			}
+		}
+		witness = true
+	}
+	if budget.Exhausted() {
+		return Summary{Reason: ReasonBudgetExhausted}
+	}
+	// A terminating callee is one the catalog names or one whose own summary
+	// says it never returns, so the claim composes through a project's
+	// fatal wrapper and across packages. A body with a recover block can
+	// return normally from a panic the entry never reaches, so it makes no
+	// claim.
+	if function.Recover == nil {
+		proof := ssapath.ProveNormalReturnWithin(function.Blocks[0], func(call *ssa.Call) bool {
+			return engine.function(ssacall.ResolvedCallee(call.Common()), budget).NeverReturns()
+		}, budget)
+		if !proof.Known() {
+			return Summary{Reason: ReasonBudgetExhausted}
+		}
+		result.neverReturns = proof.State == proofs.EvidenceDisproven
+	}
+	if !witness {
+		result.Reason = ReasonNoNormalReturnWitness
+		return result
+	}
+	result.cases, result.returned = engine.relations(function, budget)
+	return result
+}
+
+func (engine *Engine) value(value ssa.Value, budget *proofs.SearchBudget) Guarantee {
+	query := storedResultQuery{engine: engine, budget: budget}
+	result, ok := query.resolve(ssaflow.NewReachingWalk(ssaflow.TransparentChangeInterface|ssaflow.TransparentChangeType), value)
+	if !ok || budget.Exhausted() {
+		return Unknown
+	}
+	return result
+}
+
+func (engine *Engine) leaf(value ssa.Value, budget *proofs.SearchBudget) Guarantee {
+	if !budget.Spend() {
+		return Unknown
+	}
+	if call, index, ok := ssacall.CallResultSource(value); ok {
+		return engine.function(ssacall.ResolvedCallee(call.Common()), budget).Result(index)
+	}
+	switch value := value.(type) {
+	case *ssa.Const:
+		if value.IsNil() {
+			return AlwaysNil
+		}
+		if value.Value != nil && value.Value.Kind() == constant.Bool {
+			if constant.BoolVal(value.Value) {
+				return AlwaysTrue
+			}
+			return AlwaysFalse
+		}
+	case *ssa.MakeInterface:
+		// Boxing a typed nil pointer still produces a nonnil interface.
+		// A type parameter can itself instantiate to an interface, however;
+		// its unknown dynamic type must not become a concrete boxing proof.
+		if _, abstract := value.X.Type().Underlying().(*types.Interface); abstract {
+			return Unknown
+		}
+		return AlwaysNonNil
+	case *ssa.Alloc, *ssa.MakeChan, *ssa.MakeMap, *ssa.MakeSlice, *ssa.Function, *ssa.MakeClosure:
+		return AlwaysNonNil
+	}
+	// The value fold handles loads through point-in-time storage evidence.
+	// Unresolved values never inherit a guarantee from a possible initializer.
+	return Unknown
+}

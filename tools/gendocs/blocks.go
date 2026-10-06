@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/docexamples"
+	"github.com/kojah/gohawk/internal/testsupport/docexamples"
 )
 
 func synchronizeChecks(contents []byte, block string) ([]byte, error) {

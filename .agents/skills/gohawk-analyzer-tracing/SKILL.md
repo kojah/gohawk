@@ -7,7 +7,7 @@ name: gohawk-analyzer-tracing
 
 # Tracing gohawk analyzer decisions
 
-Use GoHawk's existing `internal/trace` package to make one focused rerun explain
+Use GoHawk's existing `internal/reporting/trace` package to make one focused rerun explain
 why an analyzer accepted, rejected, or could not prove a candidate. Tracing is
 developer diagnostics, not analyzer policy: the proof remains authoritative and
 the trace describes that proof without changing it.
@@ -78,7 +78,7 @@ candidate association rather than the complete serialized line.
 Run:
 
 1. The changed analyzer package tests.
-2. `go test ./internal/trace` when the shared tracer changes.
+2. `go test ./internal/reporting/trace` when the shared tracer changes.
 3. A focused traced invocation proving the expected event appears.
 4. A `-json` invocation proving tracing does not corrupt diagnostic output.
 

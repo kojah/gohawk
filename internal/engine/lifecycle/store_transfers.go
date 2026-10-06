@@ -1,0 +1,250 @@
+package lifecycle
+
+import (
+	"go/types"
+	"strings"
+
+	"github.com/kojah/gohawk/internal/engine/heapmodel"
+	"github.com/kojah/gohawk/internal/engine/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/engine/ssaflow/calls"
+	cfg "github.com/kojah/gohawk/internal/engine/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/engine/ssaflow/path"
+	"golang.org/x/tools/go/ssa"
+)
+
+// Transfer evidence recognizes calls that hand a lifecycle obligation to a
+// returned owner, receiver, deferred cleanup, or escaping container. A call is
+// considered consuming only when its value flow and lifecycle use are visible.
+
+// Preserve argument-first alias dispatch: the graph query selects its context
+// from the first value. Possible aliasing is only call consumption here, never
+// a guarantee that the callee completes or takes ownership of that value.
+func callHasAliasedArgument(common *ssa.CallCommon, value ssa.Value) bool {
+	for _, argument := range common.Args {
+		if heapmodel.MayAlias(argument, value) {
+			return true
+		}
+	}
+	return false
+}
+
+// CallReturnsDeferredCleanup reports whether a call consumes value and one of
+// its function results is subsequently deferred by the caller.
+func CallReturnsDeferredCleanup(instruction ssa.Instruction, value ssa.Value) bool {
+	call, ok := instruction.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	if !callHasAliasedArgument(call.Common(), value) || call.Referrers() == nil {
+		return false
+	}
+	for _, reference := range *call.Referrers() {
+		if deferred, ok := reference.(*ssa.Defer); ok && heapmodel.MayAlias(deferred.Common().Value, call) {
+			return true
+		}
+		result, ok := reference.(ssa.Value)
+		if !ok || result.Referrers() == nil {
+			continue
+		}
+		for _, use := range *result.Referrers() {
+			deferred, ok := use.(*ssa.Defer)
+			if ok && heapmodel.MayAlias(deferred.Common().Value, result) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// CallTransfersArgumentToReturnedOwner reports whether a source-visible
+// callee hands the argument back inside every value it returns, and the
+// caller then lets that result escape. Both halves are required: a callee
+// that returns the owner on only some paths may drop it on the others, and a
+// result the caller keeps local is still the caller's to release. Cilium's
+// statedb wraps a response body in a returned iterator this way:
+// https://github.com/cilium/statedb/blob/3546c463bfbb8afa5263b692be472bfb958bedcf/http_client.go#L78-L89
+func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa.Value) bool {
+	call, ok := instruction.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	callee := staticCalleeBody(call.Common())
+	if callee == nil || !valueTransferred(call) {
+		return false
+	}
+	for index, argument := range call.Common().Args {
+		if index >= len(callee.Params) || !heapmodel.ValueDerivesFrom(argument, value) && !MayContainValue(argument, value) {
+			continue
+		}
+		parameter := callee.Params[index]
+		owned := false
+		unowned := ssapath.UnownedReturn(ssapath.UnownedReturnQuery{
+			Entry: callee,
+			Owns:  func(ssa.Instruction) bool { return false },
+			AllowReturn: func(returned *ssa.Return) bool {
+				if ReturnedValueOwnsValue(returned, parameter) {
+					owned = true
+					return true
+				}
+				return false
+			},
+		}) != nil
+		if owned && !unowned {
+			return true
+		}
+	}
+	return false
+}
+
+// staticCalleeBody returns the callee whose body can be analyzed. Generic
+// instantiations may carry no blocks of their own; the origin has the same
+// parameter positions and the source body.
+func staticCalleeBody(common *ssa.CallCommon) *ssa.Function {
+	callee := ssacall.ResolvedCallee(common)
+	if callee == nil {
+		return nil
+	}
+	if len(callee.Blocks) == 0 {
+		return nil
+	}
+	return callee
+}
+
+// CallTransfersArgumentToReceiver reports whether a source-visible method
+// stores an argument in a receiver that outlives the call.
+func CallTransfersArgumentToReceiver(instruction ssa.Instruction, value ssa.Value) bool {
+	call, ok := instruction.(*ssa.Call)
+	if !ok || call.Common().StaticCallee() == nil {
+		return false
+	}
+	common, callee := call.Common(), call.Common().StaticCallee()
+	receiver := ssaflow.CallReceiver(common)
+	if receiver == nil || len(callee.Params) == 0 || !ssaflow.ExternallyOwnedValue(receiver) && !valueTransferred(receiver) {
+		return false
+	}
+	for index, argument := range common.Args {
+		if index == 0 || index >= len(callee.Params) {
+			continue
+		}
+		if !heapmodel.ValueDerivesFrom(argument, value) && !MayContainValue(argument, value) {
+			continue
+		}
+		parameter := callee.Params[index]
+		for _, block := range callee.Blocks {
+			for _, candidate := range block.Instrs {
+				if storesParameterInReceiverField(candidate, callee.Params[0], parameter) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// storesParameterInReceiverField reports whether candidate stores parameter,
+// or an aggregate holding it, into a field reached from receiver. append packs
+// its variadic arguments into an array before the call, so a stored slice
+// contains the parameter without deriving from it operand by operand. Fabric
+// appends profile closers this way:
+// https://github.com/hyperledger-labs/fabric-smart-client/blob/cb202fc2768b3e72b0197bbaf401b9c2287098e8/node/start/profile/profile.go#L150-L152
+func storesParameterInReceiverField(candidate ssa.Instruction, receiver, parameter ssa.Value) bool {
+	store, ok := candidate.(*ssa.Store)
+	if !ok {
+		return false
+	}
+	field, ok := store.Addr.(*ssa.FieldAddr)
+	if !ok || !heapmodel.ValueDerivesFrom(field.X, receiver) {
+		return false
+	}
+	return heapmodel.ValueDerivesFrom(store.Val, parameter) || MayContainValue(store.Val, parameter)
+}
+
+// ValueHasTransferUse recognizes the structural return, field-store, or fluent
+// receiver uses supported by the lifecycle transfer policy. It is not a
+// confinement proof: false says nothing about opaque retention or other escapes.
+// Use heapmodel.QueryEscape when the question is whether an object stays local.
+func ValueHasTransferUse(value ssa.Value) bool {
+	return valueTransferred(value)
+}
+
+// CallTransfersArgumentToLifecycleOwner recognizes a consumed value only when
+// the call returns an escaping object with an explicit cleanup lifecycle.
+// Receiver method names are not ownership evidence. Source-visible receiver
+// stores are proved separately by CallTransfersArgumentToReceiver, while
+// imported receiver stores require an exported lifecycle fact.
+// https://github.com/flowexec/flow/blob/958773d81d410dd71e21460abb77da302617f96c/main.go#L48-L51
+func CallTransfersArgumentToLifecycleOwner(instruction ssa.Instruction, value ssa.Value) bool {
+	call, ok := instruction.(*ssa.Call)
+	if !ok {
+		return false
+	}
+	common := call.Common()
+	name := strings.ToLower(ssaflow.CallName(common))
+	if !callConsumesLifecycleValue(common, name, value) {
+		return false
+	}
+	return callReturnsLifecycleOwner(call, instruction)
+}
+
+func callConsumesLifecycleValue(common *ssa.CallCommon, name string, value ssa.Value) bool {
+	for _, argument := range common.Args {
+		if heapmodel.MayAlias(argument, value) || MayContainValue(argument, value) {
+			return true
+		}
+	}
+	if !strings.HasPrefix(name, "with") {
+		return false
+	}
+	for _, argument := range common.Args {
+		if hasLifecycleMethod(argument) && heapmodel.ValueDerivesFrom(argument, value) {
+			return true
+		}
+	}
+	return false
+}
+
+func callReturnsLifecycleOwner(call *ssa.Call, instruction ssa.Instruction) bool {
+	return hasLifecycleMethod(call) && lifecycleOwnerEscapes(call, instruction)
+}
+
+func lifecycleOwnerEscapes(owner ssa.Value, instruction ssa.Instruction) bool {
+	return ssaflow.ExternallyOwnedValue(owner) ||
+		valueTransferred(owner) ||
+		valueLifecycleUsed(owner, instruction)
+}
+
+func hasLifecycleMethod(value ssa.Value) bool {
+	if value == nil {
+		return false
+	}
+	methods := types.NewMethodSet(value.Type())
+	for method := range methods.Methods() {
+		switch method.Obj().Name() {
+		case "Cancel", "Close", "Finalize", "Release", "Shutdown", "Stop":
+			return true
+		}
+	}
+	return false
+}
+
+func valueLifecycleUsed(value ssa.Value, after ssa.Instruction) bool {
+	if value == nil || value.Parent() == nil {
+		return false
+	}
+	for _, block := range value.Parent().Blocks {
+		for _, instruction := range block.Instrs {
+			if !cfg.InstructionMayFollow(after, instruction) {
+				continue
+			}
+			common := ssaflow.InstructionCall(instruction)
+			if common == nil || !heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), value) {
+				continue
+			}
+			switch ssaflow.CallName(common) {
+			case "Cancel", "Close", "Finalize", "Release", "Shutdown", "Stop":
+				return true
+			}
+		}
+	}
+	return false
+}

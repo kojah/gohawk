@@ -9,7 +9,7 @@ maintained Go source were catalog CheckKind/CheckTier, their independent public
 analyzer definitions, SSA EvidenceProvenance and trace Outcome. They now use
 numeric domains with an unset zero. The public analyzer names alias the catalog
 owners; tier ordering and option parsing retain one implementation. The shared
-`internal/enumtext` codec handles numeric-to-text boundaries. The four remaining
+`internal/engine/enumtext` codec handles numeric-to-text boundaries. The four remaining
 direct string types are analyzer, group and check identities, rather than closed
 decision domains.
 

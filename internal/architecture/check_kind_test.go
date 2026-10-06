@@ -12,7 +12,7 @@ import (
 // project rests on: that a gohawk diagnostic is actionable. Every one of them
 // was withdrawn from the catalog, and this keeps the catalog that way.
 //
-// The kind itself deliberately survives in internal/catalog. Removing the word
+// The kind itself deliberately survives in internal/analysis/catalog. Removing the word
 // would not stop a convention being shipped; it would only mean the next one
 // arrives labelled hazard, where nothing distinguishes it from a real one.
 // Keeping the vocabulary is what lets a proposal be named policy, and declined

@@ -30,6 +30,13 @@ gohawk diagnostic is actionable.
 
 ## Development commands
 
+Coverage and race testing must run only in GitHub Actions CI. Never run local
+`go test` with `-race`, `-cover`, `-covermode`, `-coverpkg`, or `-coverprofile`,
+including through wrappers or `GOFLAGS`. Do not spoof CI environment variables
+to bypass the Makefile guard. `make coverage`, `make test-race`, and `make ci`
+reject local invocation; use `make verify` for local completion. Report pending
+CI coverage/race checks separately from passing local validation.
+
 Prefer existing Makefile targets for repository-wide validation so local and
 CI workflows use the same commands. Run `make help` to discover available
 targets. Direct commands remain appropriate for focused testing and debugging.
@@ -232,7 +239,7 @@ policy.
 - Do not independently reproduce the same `ChangeInterface`, `ChangeType`,
   `Convert`, `MakeInterface`, `Phi`, or similar traversal in several analyzers.
   When multiple analyzers need the same mechanics, add one narrowly named
-  helper under `internal/ssaflow`.
+  helper under `internal/engine/ssaflow`.
 - Do not create a universal "unwrap everything" helper. Callers must select the
   exact transparent forms that are sound for their proof, and fixtures must
   cover a wrapper that remains intentionally opaque.
@@ -251,7 +258,7 @@ policy.
 - Keep analyzer-specific acceptance policy beside the analyzer. Shared SSA code
   should provide identity and traversal mechanics, not silently decide whether
   evidence is sufficient for a diagnostic.
-- Lifecycle completion is one search in `internal/lifecycle`: resolve the
+- Lifecycle completion is one search in `internal/engine/lifecycle`: resolve the
   callee an instruction launches, map the target onto its parameters and
   captures, and require the cleanup call before every normal return. Callers
   choose the instructions they submit and whether they need a must-complete
@@ -324,7 +331,7 @@ evidence engines behind focused implementation files.
   vocabulary or invariants, such as source-level API contracts versus SSA flow
   analysis; file length alone is not a reason to split.
 - Give every analyzer its own package under
-  `internal/analyzers/<group>/<name>`. Group directories mirror the catalog
+  `internal/analysis/analyzers/<group>/<name>`. Group directories mirror the catalog
   for navigation but remain organizational containers, not shared Go
   packages. Name focused files by their concern, such as `timer.go`,
   `contracts.go`, or `immutability.go`; do not create a package per helper or
@@ -332,11 +339,11 @@ evidence engines behind focused implementation files.
 - Keep registry and runner code small. It should select configuration,
   construct shared inputs, invoke evidence helpers, and report diagnostics—not
   contain the full proof itself.
-- Promote a helper to `internal/syntax`, `internal/ssaflow`, or `internal/lifecycle` only after multiple analyzers
+- Promote a helper to `internal/engine/syntax`, `internal/engine/ssaflow`, or `internal/engine/lifecycle` only after multiple analyzers
   need the same general contract. Analyzer-specific precision policy belongs
   beside the analyzer even when its implementation looks reusable.
 - Put shared prerequisite `analysis.Analyzer` passes under
-  `internal/passes`; these are execution infrastructure, not catalog
+  `internal/analysis/passes`; these are execution infrastructure, not catalog
   analyzers or general-purpose source and flow helpers.
 - Keep each analyzer's minimized accepted and diagnostic cases under its local
   `testdata` tree. Place fixture-only dependency stubs there as well.

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
-	"github.com/kojah/gohawk/internal/docexamples"
+	"github.com/kojah/gohawk/internal/testsupport/docexamples"
 )
 
 const (

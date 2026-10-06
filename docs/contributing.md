@@ -34,7 +34,7 @@ Suppose the new analyzer is called `examplepolicy`.
 ### 1. Write the analyzer
 
 Choose the matching catalog group, then create
-`internal/analyzers/<group>/examplepolicy/analyzer.go`. The group directory is
+`internal/analysis/analyzers/<group>/examplepolicy/analyzer.go`. The group directory is
 only an organizational container; `examplepolicy` remains its own Go package.
 Export an `Analyzer` constructor, then put the analysis in a separate run
 function:
@@ -71,7 +71,7 @@ bounded proof model. Then add its analyzer ID to the stable order in
 `analyzers/analyzers.go`.
 
 Define each stable check identity alongside the existing check constants in
-`internal/check/check.go`.
+`internal/reporting/check/check.go`.
 
 Give every diagnostic rule a stable check identity in its `AnalyzerSpec`.
 Report each diagnostic through `check.Report` or `check.Reportf` with that
@@ -86,9 +86,9 @@ Then update `analyzers/analyzers_test.go`:
 ### 3. Add fixtures
 
 Create
-`internal/analyzers/<group>/examplepolicy/testdata/src/examplepolicy/examplepolicy.go`.
+`internal/analysis/analyzers/<group>/examplepolicy/testdata/src/examplepolicy/examplepolicy.go`.
 Add a package-local `analyzer_test.go` that runs it through the shared
-`internal/analyzertest` harness. Put small examples that should be reported in
+`internal/testsupport/analyzertest` harness. Put small examples that should be reported in
 the fixture and mark each expected diagnostic with a `want` comment:
 
 ```go
@@ -108,7 +108,7 @@ behavior, put those packages beneath its fixture directory. Existing
 ### 4. Add the living documentation example
 
 Add
-`internal/analyzers/<group>/examplepolicy/testdata/src/examplepolicy/doc_examples.go`
+`internal/analysis/analyzers/<group>/examplepolicy/testdata/src/examplepolicy/doc_examples.go`
 with one or more flagged regions and exactly one OK region. Give multiple
 flagged regions short titles that distinguish the behavior each snippet
 demonstrates:
@@ -183,10 +183,16 @@ dogfooding benchmarks.
 Run the analyzer on a few real Go projects too. Investigate every new finding
 and fix recurring false-positive patterns before enabling broader coverage.
 
-Finally, refresh the coverage badge so the CI check agrees with the new tests:
+Coverage and race testing run only in GitHub Actions CI. Local
+`make coverage`, `make test-race`, and `make ci` fail before starting work; use
+`make verify` locally. Direct instrumented Go commands are also prohibited by
+repository policy. The guard is a workflow constraint, not a restriction on the
+system Go binary.
+
+To refresh the badge, download `coverage-summary.out` from the CI coverage
+job and run:
 
 ```sh
-make coverage
 go run github.com/AlexBeauchemin/gobadge@v0.4.0 \
   -filename=coverage-summary.out \
   -target=README.md \

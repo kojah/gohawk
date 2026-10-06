@@ -7,7 +7,7 @@ import (
 	"unicode"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
-	"github.com/kojah/gohawk/internal/docexamples"
+	"github.com/kojah/gohawk/internal/testsupport/docexamples"
 )
 
 func collectManifest(root string, includeExamples bool, metrics *docexamples.Metrics) (manifest, error) {
@@ -29,7 +29,7 @@ func collectManifest(root string, includeExamples bool, metrics *docexamples.Met
 			}
 			if includeExamples {
 				targets = append(targets, docexamples.Target{
-					TestRoot: filepath.Join(root, "internal", "analyzers", analyzerGroup.Name, registered.Name, "testdata"),
+					TestRoot: filepath.Join(root, "internal", "analysis", "analyzers", analyzerGroup.Name, registered.Name, "testdata"),
 					Analyzer: registered,
 				})
 			}

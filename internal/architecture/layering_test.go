@@ -15,16 +15,16 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 	inventory := newRepositorySourceInventory(t)
 	for _, source := range inventory.productionGoFiles(
 		t,
-		"internal/proof",
-		"internal/syntax",
-		"internal/ssaflow",
-		"internal/heapmodel",
-		"internal/lifecycle",
-		"internal/resourcemodel",
-		"internal/passes",
-		"internal/summaries",
-		"internal/check",
-		"internal/analyzers",
+		"internal/engine/proof",
+		"internal/engine/syntax",
+		"internal/engine/ssaflow",
+		"internal/engine/heapmodel",
+		"internal/engine/lifecycle",
+		"internal/engine/resourcemodel",
+		"internal/analysis/passes",
+		"internal/analysis/summaries",
+		"internal/reporting/check",
+		"internal/analysis/analyzers",
 	) {
 		from := internalLayer(strings.TrimPrefix(path.Dir(source.repositoryPath), "internal/"))
 		for _, imported := range source.file.Imports {
@@ -46,6 +46,12 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 }
 
 func internalLayer(packagePath string) string {
+	for _, container := range []string{"engine/", "analysis/", "reporting/", "testsupport/"} {
+		if nested, ok := strings.CutPrefix(packagePath, container); ok {
+			packagePath = nested
+			break
+		}
+	}
 	if nested, ok := strings.CutPrefix(packagePath, "ssaflow/"); ok {
 		component, _, _ := strings.Cut(nested, "/")
 		switch component {
@@ -121,11 +127,13 @@ func TestSemanticModelDependencyBoundaries(t *testing.T) {
 	}
 }
 
+type layerDependencyCase struct {
+	from, to string
+	forbid   bool
+}
+
 func TestSSADependencyBoundaries(t *testing.T) {
-	for _, test := range []struct {
-		from, to string
-		forbid   bool
-	}{
+	for _, test := range []layerDependencyCase{
 		{"ssaflow", "ssaflow/cfg", false},
 		{"ssaflow/cfg", "proof", false},
 		{"ssaflow/cfg", "ssaflow", true},
@@ -144,6 +152,12 @@ func TestSSADependencyBoundaries(t *testing.T) {
 		{"check", "ssaflow/cfg", true},
 		{"check", "ssaflow/calls", true},
 		{"check", "ssaflow/path", true},
+		{"engine/ssaflow", "engine/ssaflow/calls", true},
+		{"engine/ssaflow/calls", "engine/ssaflow/path", true},
+		{"engine/ssaflow/path", "engine/ssaflow/calls", false},
+		{"reporting/check", "engine/ssaflow/path", true},
+		{"analysis/passes/lifecyclefacts", "analysis/analyzers/resources/resourcelifetime", true},
+		{"analysis/summaries", "analysis/passes/lifecyclefacts", false},
 	} {
 		t.Run(test.from+"/"+test.to, func(t *testing.T) {
 			if got := forbiddenLayerDependency(internalLayer(test.from), internalLayer(test.to)); got != test.forbid {

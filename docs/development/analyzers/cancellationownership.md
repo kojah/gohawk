@@ -228,5 +228,5 @@ precedence over unavailable owner evidence. The proof is cached only for the
 current classifier, including its stopping reason; a fresh candidate has a new
 classifier and allowance. Actual SSA contract, child/parent/fresh, padded capture,
 ordering and sibling-field controls, and flow cut/cleanup precedence are in
-[owner_budget_test.go](../../../internal/analyzers/resources/cancellationownership/owner_budget_test.go).
+[owner_budget_test.go](../../../internal/analysis/analyzers/resources/cancellationownership/owner_budget_test.go).
 No package or callee guarantee is inferred from this caller-local owner proof.

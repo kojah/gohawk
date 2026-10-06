@@ -3,9 +3,9 @@
 # line when its function is deleted; the gate fails on stale entries so this
 # list can only shrink. Do not add entries: new unreachable code should be
 # deleted instead.
-internal/catalog/catalog.go Catalog.Analyzer
-internal/catalog/catalog.go Catalog.CheckOwner
+internal/analysis/catalog/catalog.go Catalog.Analyzer
+internal/analysis/catalog/catalog.go Catalog.CheckOwner
 internal/cli/selection.go withAnalyzerCheckSelection
 internal/cli/selection.go withAnalyzerSelection
 internal/cli/selection_flags.go requestedDisabledChecks
-internal/docexamples/examples.go Collect
+internal/testsupport/docexamples/examples.go Collect

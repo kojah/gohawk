@@ -30,7 +30,7 @@ func (*CallGraphMemo[K,V]) Cut() {}
 `
 
 func TestSummaryBoundaryMatcher(t *testing.T) {
-	api, _, _ := checkSummarySource(t, internalImportPrefix+"ssaflow/calls", summaryAPIFixture, nil)
+	api, _, _ := checkSummarySource(t, internalImportPrefix+"engine/ssaflow/calls", summaryAPIFixture, nil)
 	for _, test := range []struct {
 		name, body, reason string
 	}{
@@ -60,7 +60,7 @@ func TestSummaryBoundaryMatcher(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			source := `package consumer
-import flow "github.com/kojah/gohawk/internal/ssaflow/calls"
+import flow "github.com/kojah/gohawk/internal/engine/ssaflow/calls"
 type Alias = flow.CallGraphMemo[int,int]
 type Wrapper struct { *flow.CallGraphMemo[int,int] }
 type unrelated struct{}
@@ -88,19 +88,19 @@ func use(s *flow.FunctionSummaries[int], m *flow.CallGraphMemo[int,int], budget 
 
 func testSummaryRuleScopes(t *testing.T) {
 	for _, path := range []string{
-		"internal/analyzers/example/proof.go", "internal/lifecycle/completion_search.go", "internal/passes/lifecyclefacts/fields.go",
+		"internal/analysis/analyzers/example/proof.go", "internal/engine/lifecycle/completion_search.go", "internal/analysis/passes/lifecyclefacts/fields.go",
 	} {
 		if !summaryRuleApplies(path, "raw guard operation") || !summaryRuleApplies(path, "cache field access") {
 			t.Errorf("%s escaped shared infrastructure enforcement", path)
 		}
 	}
-	for _, path := range []string{"internal/ssaflow/calls/call_graph_memo.go", "internal/ssaflow/calls/call_summaries.go"} {
+	for _, path := range []string{"internal/engine/ssaflow/calls/call_graph_memo.go", "internal/engine/ssaflow/calls/call_summaries.go"} {
 		if summaryRuleApplies(path, "raw guard operation") {
 			t.Errorf("implementation owner %s rejected", path)
 		}
 	}
-	if !summaryRuleApplies("internal/analyzers/example/proof.go", summaryNilBudget) ||
-		summaryRuleApplies("internal/lifecycle/completion_search.go", summaryNilBudget) {
+	if !summaryRuleApplies("internal/analysis/analyzers/example/proof.go", summaryNilBudget) ||
+		summaryRuleApplies("internal/engine/lifecycle/completion_search.go", summaryNilBudget) {
 		t.Error("analyzer budget requirement must not silently redefine optional-budget shared APIs")
 	}
 }

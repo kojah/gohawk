@@ -33,23 +33,23 @@ Walk the decision in order and stop at the first fit.
 1. **Analyzer-local.** Precision policy — what counts as a join, a transfer,
    an obligation — always stays beside the analyzer that owns it, even when the
    implementation looks reusable.
-2. **`internal/proof`** for shared outcomes, provenance and work budgets;
-   **`internal/ssaflow/cfg`** for structural control-flow mechanics;
-   **`internal/ssaflow`** for shared value provenance and source metadata;
-   **`internal/ssaflow/calls`** for callee bindings, contracts and effect summaries;
-   **`internal/ssaflow/path`** for feasible paths and obligation coverage;
-   **`internal/heapmodel`** for storage, identity, and heap queries;
-   **`internal/lifecycle`** for completion and transfer proofs using that evidence;
-   **`internal/resourcemodel`**
+2. **`internal/engine/proof`** for shared outcomes, provenance and work budgets;
+   **`internal/engine/ssaflow/cfg`** for structural control-flow mechanics;
+   **`internal/engine/ssaflow`** for shared value provenance and source metadata;
+   **`internal/engine/ssaflow/calls`** for callee bindings, contracts and effect summaries;
+   **`internal/engine/ssaflow/path`** for feasible paths and obligation coverage;
+   **`internal/engine/heapmodel`** for storage, identity, and heap queries;
+   **`internal/engine/lifecycle`** for completion and transfer proofs using that evidence;
+   **`internal/engine/resourcemodel`**
    for per-path resource obligations and exact reusable external state
    transitions. Share *how to prove*, never an analyzer's reporting policy.
-3. **`internal/syntax`** for source-level helpers and well-known symbol
+3. **`internal/engine/syntax`** for source-level helpers and well-known symbol
    identity.
-4. **`internal/summaries`** for brokered access to function-summary components.
+4. **`internal/analysis/summaries`** for brokered access to function-summary components.
    Analyzer consumers declare their requirements here, not on domain passes.
-5. **`internal/passes`** for a prerequisite `analysis.Analyzer` that several
+5. **`internal/analysis/passes`** for a prerequisite `analysis.Analyzer` that several
    analyzers require, such as `lifecyclefacts`.
-6. **`internal/check` and `internal/trace`** for cross-cutting reporting and
+6. **`internal/reporting/check` and `internal/reporting/trace`** for cross-cutting reporting and
    evidence tracing.
 
 Promote a helper out of an analyzer only after a second analyzer needs the same

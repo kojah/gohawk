@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/analyzers/concurrency/lockorder"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
+	"github.com/kojah/gohawk/internal/analysis/analyzers/concurrency/lockorder"
+	analysisTrace "github.com/kojah/gohawk/internal/reporting/trace"
 	"golang.org/x/tools/go/analysis"
 )
 

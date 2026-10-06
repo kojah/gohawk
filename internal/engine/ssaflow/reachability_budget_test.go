@@ -1,0 +1,32 @@
+package ssaflow
+
+import (
+	"slices"
+	"testing"
+
+	proofs "github.com/kojah/gohawk/internal/engine/proof"
+	cfg "github.com/kojah/gohawk/internal/engine/ssaflow/cfg"
+	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
+	"golang.org/x/tools/go/ssa"
+)
+
+func TestReachabilityBudgetAvailability(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "reachability", `package reachability
+func marker() {}
+func subject(branch bool) { marker(); if branch { marker() }; marker() }
+`)
+	start := InstructionsOf[*ssa.Call](pkg.Func("subject"))[0]
+	cutoff := proofs.NewSearchBudget(0)
+	if got := cfg.InstructionsReachableAfterWithin(start, cutoff); len(got) != 0 || !cutoff.Exhausted() {
+		t.Fatalf("cutoff = %v, exhausted=%v", got, cutoff.Exhausted())
+	}
+	partial := proofs.NewSearchBudget(2)
+	if got := cfg.InstructionsReachableAfterWithin(start, partial); len(got) == 0 || !partial.Exhausted() {
+		t.Fatalf("expected partial census, got %v exhausted=%v", got, partial.Exhausted())
+	}
+	fresh := proofs.NewSearchBudget(proofs.QueryBudget)
+	got := cfg.InstructionsReachableAfterWithin(start, fresh)
+	if fresh.Exhausted() || !slices.Equal(got, cfg.InstructionsReachableAfter(start)) {
+		t.Fatal("fresh census must share the default reachability policy")
+	}
+}

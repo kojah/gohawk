@@ -72,7 +72,7 @@ The benchmark populates five scalar maps; it is a controlled workload rather
 than a measured distribution of production state sizes. Run it with:
 
 ```sh
-go test ./internal/heapmodel -run '^TestRegionStateScalarClone' \
+go test ./internal/engine/heapmodel -run '^TestRegionStateScalarClone' \
   -bench '^BenchmarkRegionStateClone$' -benchmem -count=3
 ```
 
@@ -1152,7 +1152,7 @@ workspace's `guard-addresses/` and heavy jobs remain serialized.
 ### Bounded source review alongside the profile
 
 Graph tools are unavailable in this session, so this review uses exact source
-and call-site searches. `internal/ssaflow/value_reaching.go` shares visits with
+and call-site searches. `internal/engine/ssaflow/value_reaching.go` shares visits with
 leaf callbacks and clones them for `EveryOf`/`ResolveReachingValue` siblings.
 The sibling/revisit and shared-budget fixtures in `reaching_revisit_test.go`
 and `reaching_budget_test.go` confirm these distinctions. Replacing those
@@ -1247,11 +1247,11 @@ ignore those inputs. This is bounded source evidence, not an exhaustive claim
 about each analyzer's auxiliary proof files.
 
 Two straightforward candidates remain to measure. In
-`internal/analyzers/resources/deferinloop/flow.go`, `advanceDeferState` continues
+`internal/analysis/analyzers/resources/deferinloop/flow.go`, `advanceDeferState` continues
 incrementing to the block end after status is settled or unknown, without
 further classification or budget charges. A direct jump to the same end index
 may remove that counter-only suffix. In
-`internal/analyzers/resources/processownership/flow.go`, the proven immediate
+`internal/analysis/analyzers/resources/processownership/flow.go`, the proven immediate
 process guard formats `function.String()` for an evidence event even when its
 probe is disabled. Gating that presentation alone may avoid an allocation
 without changing the constant assumption. These are not yet implementation or
@@ -1427,7 +1427,7 @@ receipts remain in the RAM workspace's `summary-sort/`. Four reflective sorts
 remain in holds, edges, effects and requirements; their own performance and
 tie/selection behavior still require assessment. The broader goal stays open.
 
-A broader literal inventory of `sort.Slice` in `internal/heapmodel` also finds
+A broader literal inventory of `sort.Slice` in `internal/engine/heapmodel` also finds
 the escape proof's event ordering (`escape_query.go`) and the dump renderer's
 escape-origin ordering (`store_regions_render.go`). The former is an additional
 normal-query candidate, distinct from the four remaining summary sorts. Its

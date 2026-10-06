@@ -16,18 +16,18 @@ not an exhaustive certification of every helper in those packages.
 | `regionGraph.view` in `store_regions_transfer.go` | Index selection, slicing and selected aggregate snapshots share recorded-window lookup and the full-array fallback. Existing offsets, lengths and capacities are returned unchanged; an unrecorded slice remains unknown and an empty array remains known. The consumers retain index bounds, slice-bound validation and snapshot size/staleness checks. This later consolidation is tracked by `gohawk-dho.34`. |
 | `ssaflow.HasReturnAndAction` in `value_instructions.go` | Heap requirements and lifecycle completion share the independent return/action witness scan. The predicate stops after its first match but return enumeration continues. Callers retain their selected block sets, entry assumptions, budgets and following path-coverage queries. This later consolidation is tracked by `gohawk-dho.35`. |
 
-The [projection tests](../../internal/heapmodel/store_projection_test.go)
+The [projection tests](../../internal/engine/heapmodel/store_projection_test.go)
 cover unchanged roots/slots, mutation, retention, later escapes, ambiguous
 roots, unrelated owners, and converted roots/slot addresses. Converted cases
 check that the built SSA actually retains a `ChangeType` wrapper. The
-[capture evidence tests](../../internal/passes/lifecyclefacts/capture_evidence_test.go)
+[capture evidence tests](../../internal/analysis/passes/lifecyclefacts/capture_evidence_test.go)
 compare visible retention, opaque handoff, read-only use, unrelated captures,
 derived captures and multiple captures. Both sets pass against the parent
 implementation and the consolidated implementation.
 
-Existing [storage snapshot tests](../../internal/heapmodel/store_model_test.go),
-[field stability tests](../../internal/heapmodel/store_field_stability_test.go)
-and [give-up observer tests](../../internal/heapmodel/store_observer_test.go)
+Existing [storage snapshot tests](../../internal/engine/heapmodel/store_model_test.go),
+[field stability tests](../../internal/engine/heapmodel/store_field_stability_test.go)
+and [give-up observer tests](../../internal/engine/heapmodel/store_observer_test.go)
 retain aggregate-copy, ancestor/sibling-write, observation and budget checks.
 No fact schema or audited production FP count changes in this consolidation.
 

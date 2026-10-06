@@ -16,13 +16,13 @@ func TestAnalyzersUseSummaryBroker(t *testing.T) {
 	t.Parallel()
 	inventory := newRepositorySourceInventory(t)
 	production := make(map[string]string)
-	for _, source := range inventory.productionGoFiles(t, "internal/analyzers") {
+	for _, source := range inventory.productionGoFiles(t, "internal/analysis/analyzers") {
 		production[source.absolutePath] = source.repositoryPath
 	}
 	loaded, err := packages.Load(&packages.Config{
 		Mode: packages.NeedName | packages.NeedCompiledGoFiles | packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo,
 		Dir:  inventory.root,
-	}, "./internal/analyzers/...")
+	}, "./internal/analysis/analyzers/...")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestAnalyzersUseSummaryBroker(t *testing.T) {
 			}
 			ast.Inspect(file, func(node ast.Node) bool {
 				if summaryBrokerNodeForbidden(pkg.TypesInfo, node) {
-					t.Errorf("%s:%d bypasses the summary broker; obtain selected knowledge through internal/summaries",
+					t.Errorf("%s:%d bypasses the summary broker; obtain selected knowledge through internal/analysis/summaries",
 						path, pkg.Fset.Position(node.Pos()).Line)
 				}
 				return true
@@ -67,8 +67,8 @@ func summaryBrokerNodeForbidden(info *types.Info, node ast.Node) bool {
 }
 
 func summaryDomainPackage(path string) bool {
-	return path == internalImportPrefix+"passes/lifecyclefacts" || path == internalImportPrefix+"passes/concurrencyfacts" ||
-		path == internalImportPrefix+"passes/resultfacts"
+	return path == internalImportPrefix+"analysis/passes/lifecyclefacts" || path == internalImportPrefix+"analysis/passes/concurrencyfacts" ||
+		path == internalImportPrefix+"analysis/passes/resultfacts"
 }
 
 func summaryBrokerObjectForbidden(object types.Object) bool {
@@ -89,10 +89,10 @@ func summaryBrokerObjectForbidden(object types.Object) bool {
 	// These helpers inspect type/value structure without obtaining summaries
 	// or reading pass-owned knowledge. New exceptions require explicit review.
 	path := function.Pkg().Path()
-	if path == internalImportPrefix+"passes/lifecyclefacts" && (function.Name() == "ResourceCleanup" || function.Name() == "ResponseBodyField") {
+	if path == internalImportPrefix+"analysis/passes/lifecyclefacts" && (function.Name() == "ResourceCleanup" || function.Name() == "ResponseBodyField") {
 		return false
 	}
-	if path == internalImportPrefix+"passes/concurrencyfacts" && function.Name() == "MutexPointer" {
+	if path == internalImportPrefix+"analysis/passes/concurrencyfacts" && function.Name() == "MutexPointer" {
 		return false
 	}
 	return true

@@ -16,14 +16,14 @@ to own a cohesive responsibility and preserve dependency direction.
 
 | Directory | Production Go files |
 |---|---:|
-| internal/ssaflow | 59 |
-| internal/heapmodel | 43 |
-| internal/analyzers/resources/resourcelifetime | 37 |
-| internal/lifecycle | 28 |
-| internal/passes/lifecyclefacts | 28 |
-| internal/analyzers/concurrency/lockorder | 27 |
-| internal/analyzers/concurrency/goroutineownership | 26 |
-| internal/passes/concurrencyfacts | 24 |
+| internal/engine/ssaflow | 59 |
+| internal/engine/heapmodel | 43 |
+| internal/analysis/analyzers/resources/resourcelifetime | 37 |
+| internal/engine/lifecycle | 28 |
+| internal/analysis/passes/lifecyclefacts | 28 |
+| internal/analysis/analyzers/concurrency/lockorder | 27 |
+| internal/analysis/analyzers/concurrency/goroutineownership | 26 |
+| internal/analysis/passes/concurrencyfacts | 24 |
 
 The prior type-resolved dependency census groups SSA files into proof/budget,
 value, control-flow and call families. The six-file proof/budget family has no
@@ -35,7 +35,7 @@ those families into separate packages.
 ## Implementation sequence
 
 1. Extract shared proof outcomes, reasons, provenance, observers and budgets
-   into `internal/proof`. Migrate consumers directly; retain no re-export facade.
+   into `internal/engine/proof`. Migrate consumers directly; retain no re-export facade.
 2. Separate basic SSA and CFG mechanics from value queries, call analysis and
    richer path/obligation proofs. Resolve reverse dependencies at the owning
    mechanism rather than introducing forwarding packages.
@@ -50,9 +50,9 @@ those families into separate packages.
 ## First completed extraction
 
 Shared evidence outcomes, reasons, provenance, observers and work budgets now
-live in `internal/proof`, with direct consumer imports and no compatibility
+live in `internal/engine/proof`, with direct consumer imports and no compatibility
 facade. Its seven production files depend on neither SSA nor higher engines.
-That extraction left `internal/ssaflow` with fifty-three direct production files; the remaining
+That extraction left `internal/engine/ssaflow` with fifty-three direct production files; the remaining
 layers and the twenty-file architecture gate are still outstanding.
 
 `make verify` passed after the extraction: generation, module verification,
@@ -65,7 +65,7 @@ completion of the repository-wide limit or a fresh external precision audit.
 
 Raw reachability and instruction ordering, generic keyed work lists,
 instruction censuses after a point, and selection from already-feasible edges
-now live in `internal/ssaflow/cfg`. These mechanisms have no value, call or path
+now live in `internal/engine/ssaflow/cfg`. These mechanisms have no value, call or path
 proof dependency. Path guards and obligation state remain with their proofs.
 Consumers import the new owner directly; no forwarding API remains in
 `ssaflow`. Architecture tests enforce the lower layer's dependency boundary.
@@ -101,11 +101,11 @@ engine through the package under test.
 
 | Directory | Direct production Go files |
 |---|---:|
-| internal/proof | 7 |
-| internal/ssaflow/cfg | 5 |
-| internal/ssaflow | 20 |
-| internal/ssaflow/calls | 17 |
-| internal/ssaflow/path | 16 |
+| internal/engine/proof | 7 |
+| internal/engine/ssaflow/cfg | 5 |
+| internal/engine/ssaflow | 20 |
+| internal/engine/ssaflow/calls | 17 |
+| internal/engine/ssaflow/path | 16 |
 
 Focused engine, consumer, architecture and documentation tests pass. The four
 consumer test fixtures repaired after import-name collisions retain their
@@ -167,7 +167,7 @@ the new owners and counting scope.
 
 `make verify` passed generation, module verification, formatting, vet, dead-code
 checking, lint, all-checks repository self-analysis and the full ordinary test
-suite. Canonical coverage, now including `internal/proof`, passed at 92.6%.
+suite. Canonical coverage, now including `internal/engine/proof`, passed at 92.6%.
 Local race testing was not run; it remains a CI gate.
 
 Round 2 was replayed against the pinned Workpool, Amboy, Vekil and Cerberus
@@ -187,8 +187,36 @@ Validation artifacts are retained in the task's RAM workspace at
 The independent declaration-token comparison verifies that the final seven
 directory consolidations retained their implementation bodies and original
 comment groups. Every requirement of the requested layout and file limit is
-implemented and verified; the broader suggested grouping of all `internal/`
-packages remains a separate follow-up proposal.
+implemented and verified at commit `07a6c44f`. The user subsequently accepted
+the broader internal hierarchy described below.
+
+## Accepted internal hierarchy follow-up
+
+Status: complete; final local verification passed.
+
+Packages now live under six top-level directories: `engine`, `analysis`,
+`reporting`, `testsupport`, `cli` and `architecture`. The first four are
+organizational containers, with no umbrella package. Engine mechanics remain
+below domain passes and analyzer policy; reporting and test support keep their
+own roles. Public analyzer registration remains at the existing public path.
+
+Imports, source inventories, synthetic architecture fixtures, generation paths,
+coverage scopes, scripts and maintained helper references were migrated to
+their new owners. The layer resolver recognizes containers before applying the
+same dependency rules, with fixtures for real hierarchical paths. Full module
+compilation, focused architecture/generator tests and full `make verify` pass.
+The final inventory contains 40 production directories with a maximum of 20
+files directly in each. The hierarchy precision replay retains the same five
+accepted false-positive labels and three true-positive labels, with only the
+existing Cerberus recall gap described above.
+
+Coverage measured 92.6% before the user requested CI-only instrumentation.
+Coverage and race testing now run only in GitHub Actions: Make rejects local
+instrumented targets before prerequisites start, and repository/agent policy
+prohibits direct instrumented Go commands or spoofing CI markers. The guard
+is tested with a fake Go command and CI dry runs, without executing local
+instrumentation. Hierarchy receipts live under
+`/dev/shm/gohawk-perf-01a0f86c/internal-hierarchy`.
 
 The source graph tools are unavailable in this session. Dependency evidence
 comes from type-resolved references and exact source reads; no graph-index

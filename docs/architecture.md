@@ -20,10 +20,10 @@ The main parts are:
   analyzers to run.
 - `analyzers` is the public list of analyzers. It records their names, groups,
   checks, and whether they run by default.
-- `internal/analyzers/<group>/<analyzer>` contains the analyzer
+- `internal/analysis/analyzers/<group>/<analyzer>` contains the analyzer
   implementations. Each analyzer has its own package.
-- `internal/check` reports diagnostics and handles ignore comments.
-- `internal/passes`, `internal/syntax`, and `internal/ssaflow` provide analysis
+- `internal/reporting/check` reports diagnostics and handles ignore comments.
+- `internal/analysis/passes`, `internal/engine/syntax`, and `internal/engine/ssaflow` provide analysis
   tools used by more than one analyzer.
 - `tools` contains development commands. It is not part of the shipped
   application.
@@ -109,8 +109,8 @@ program in its two roles.
 ## Where to start
 
 For a compact concurrency analyzer, start with
-`internal/analyzers/concurrency/concurrentcapture`. For a lifecycle analyzer that follows
-program flow, start with `internal/analyzers/resources/deferinloop`.
+`internal/analysis/analyzers/concurrency/concurrentcapture`. For a lifecycle analyzer that follows
+program flow, start with `internal/analysis/analyzers/resources/deferinloop`.
 
 Continue with [How to contribute](../contributing/) for the steps involved in
 adding or changing an analyzer.

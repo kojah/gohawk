@@ -27,7 +27,7 @@ not defect counts or proof that semantic duplication is absent. The reviewed
 collector, lifecycle-consumption and slot-naming block groups are absent from
 this refreshed candidate set; the intentional CLI scaffold remains.
 
-Focused `go test ./internal/passes/concurrencyfacts` passes (4.270 seconds),
+Focused `go test ./internal/analysis/passes/concurrencyfacts` passes (4.270 seconds),
 including existing detached-recovery and collector behavior controls.
 No implementation-mirroring tests were added for this small guard relocation.
 `make fmt` passes. Terminal canonical and scoped comparison receipts are

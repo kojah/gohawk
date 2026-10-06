@@ -14,8 +14,8 @@ Each feasibility question has the provider's existing summary allowance.
 This is not a bound for the whole obligation query.
 
 Graph tools were unavailable; material source review covered
-`internal/summaries/results.go`, `internal/ssaflow/flow_paths.go`,
-`internal/ssaflow/flow_successors.go`, and the process reporting decision.
+`internal/analysis/summaries/results.go`, `internal/engine/ssaflow/flow_paths.go`,
+`internal/engine/ssaflow/flow_successors.go`, and the process reporting decision.
 This is a bounded review, not a complete architecture audit.
 
 ## Controls

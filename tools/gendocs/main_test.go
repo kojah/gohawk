@@ -9,7 +9,7 @@ import (
 	"time"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
-	"github.com/kojah/gohawk/internal/docexamples"
+	"github.com/kojah/gohawk/internal/testsupport/docexamples"
 )
 
 func TestGeneratedManifestMatchesCatalog(t *testing.T) {

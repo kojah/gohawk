@@ -25,7 +25,7 @@ func TestObjectFactsStayInTheirDefiningPackage(t *testing.T) {
 	t.Parallel()
 	inventory := newRepositorySourceInventory(t)
 	production := make(map[string]string)
-	for _, source := range inventory.productionGoFiles(t, "internal/analyzers", "internal/passes", "internal/summaries") {
+	for _, source := range inventory.productionGoFiles(t, "internal/analysis/analyzers", "internal/analysis/passes", "internal/analysis/summaries") {
 		production[source.absolutePath] = source.repositoryPath
 	}
 	config := &packages.Config{
@@ -33,7 +33,7 @@ func TestObjectFactsStayInTheirDefiningPackage(t *testing.T) {
 			packages.NeedTypes | packages.NeedTypesInfo,
 		Dir: inventory.root,
 	}
-	loaded, err := packages.Load(config, "./internal/analyzers/...", "./internal/passes/...", "./internal/summaries")
+	loaded, err := packages.Load(config, "./internal/analysis/analyzers/...", "./internal/analysis/passes/...", "./internal/analysis/summaries")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,8 +9,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/kojah/gohawk/internal/heapmodel"
-	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/analysis/passes/lifecyclefacts"
+	"github.com/kojah/gohawk/internal/engine/heapmodel"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/checker"

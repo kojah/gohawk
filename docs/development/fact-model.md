@@ -7,14 +7,14 @@ sidebar:
 
 Function summaries are the consumer-facing model. Analysis facts publish
 supported summary components across package boundaries; they are not a separate
-kind of knowledge. `internal/summaries` brokers access to independently computed
+kind of knowledge. `internal/analysis/summaries` brokers access to independently computed
 result, lifecycle, and concurrency components. Each domain keeps its inference
 and publication in `resultfacts`, `lifecyclefacts`, or `concurrencyfacts`.
 
 ### Binary publication
 
 Domain-owned publication types wrap the existing Go summaries in an opaque
-`internal/factcodec` envelope. The envelope uses deterministic CBOR, not JSON,
+`internal/analysis/factcodec` envelope. The envelope uses deterministic CBOR, not JSON,
 and hides nested summary schemas from gob's per-stream type descriptors.
 Published values and their reachable slices, maps, and pointers are immutable;
 copied envelopes share a concurrency-safe encoding cache. Decoding constructs
@@ -64,7 +64,7 @@ engine's `AtCall`. The broker does not copy and bind a formal declaration first:
 the domain owns imported lookup, exact argument substitution, field
 materialization and cutoff reasons in one call path. The unused formal concurrency
 view and its declaration-copy adapter are removed. The imported/local two-mutex
-controls in `internal/summaries/concurrency_binding_test.go` pin effect order,
+controls in `internal/analysis/summaries/concurrency_binding_test.go` pin effect order,
 caller values, call-site provenance, unavailable declarations and interrupted
 binding; an available component does not make an incomplete sequence complete.
 
@@ -86,7 +86,7 @@ from unavailable ones. Visible private bodies reuse receiver-field inference
 rather than requiring an exported fact. An unavailable method cannot supply
 negative release evidence; the field-based claim is withheld. A valid package marker can still
 supply a known empty summary. Type-only view rules do not consume that field
-census. See `internal/passes/lifecyclefacts/returned_views.go` and its focused
+census. See `internal/analysis/passes/lifecyclefacts/returned_views.go` and its focused
 unavailable-method regression.
 
 ## Unconditional result guarantees
@@ -227,7 +227,7 @@ components described later additionally express specific relationships):
   reached through an interface.
 
 The declaration below is regenerated from
-`internal/passes/lifecyclefacts/fact.go` by `go generate ./...`, so the mask
+`internal/analysis/passes/lifecyclefacts/fact.go` by `go generate ./...`, so the mask
 list is always the one the code has; do not edit it by hand.
 
 <!-- gohawk:generated-fact-fields:start -->
@@ -478,7 +478,7 @@ hands them back.
 ## Serialization
 
 Every fact type encodes itself as deterministic CBOR inside the gob stream
-go/analysis uses, through `internal/factcodec`, with a versioned header and
+go/analysis uses, through `internal/analysis/factcodec`, with a versioned header and
 no JSON fallback. Decoding rejects unknown fields and duplicate keys. gob
 compiles a decoding engine per type for every stream it opens, and the
 analysis test harness round-trips every inherited fact through a fresh
@@ -884,7 +884,7 @@ not prove completion. Export considers four result slots and shares a
 
 ### Ordered concurrency facts
 
-`internal/passes/concurrencyfacts` shares the complete ordered-effect model
+`internal/analysis/passes/concurrencyfacts` shares the complete ordered-effect model
 used by the ordered helper path in `lockorder` and the helper-effect paths in
 `goroutineownership` and `producerlifecycle`.
 It records channel send/receive/close, `WaitGroup.Add(1)`/`Done`/`Wait`, and
@@ -1056,7 +1056,7 @@ from an interrupted search; a fresh request can recover the same canonical load.
 Complete positive field identities remain reusable.
 
 The actual SSA and child/fresh controls are in
-[spill_paths_budget_test.go](../../internal/passes/concurrencyfacts/spill_paths_budget_test.go).
+[spill_paths_budget_test.go](../../internal/analysis/passes/concurrencyfacts/spill_paths_budget_test.go).
 Existing imported formal-field guarantees and the fact schema remain unchanged.
 
 ### Concurrency publication allowance
@@ -1074,7 +1074,7 @@ cancellation requirements, workers or path alternatives. A pre-inferred projecti
 cannot rescue an interrupted field-path search. Actual SSA cold/cache queries,
 child/parent/fresh controls, cancellation requirements, a padded spill path, and
 an alternative cut after an earlier path are covered in
-[publication_budget_test.go](../../internal/passes/concurrencyfacts/publication_budget_test.go).
+[publication_budget_test.go](../../internal/analysis/passes/concurrencyfacts/publication_budget_test.go).
 
 Imported `Declaration` lookup also shares its allowance with metadata copying.
 One copy path detaches effects and nested fields, cancellation inputs and worker
@@ -1084,7 +1084,7 @@ immutable values. Empty slices retain their shape, and an absent or incompatible
 fact remains unavailable rather than a complete empty declaration. A cutoff
 returns no declaration and leaves cached publication data unchanged, so a fresh
 query can recover it. Mutation and child/parent/fresh controls are in
-[declaration_copy_test.go](../../internal/passes/concurrencyfacts/declaration_copy_test.go).
+[declaration_copy_test.go](../../internal/analysis/passes/concurrencyfacts/declaration_copy_test.go).
 
 Package write-once inventory setup, heap graph and type-system internals,
 constant/string formatting, fact encoding and decoding retain their independent

@@ -27,7 +27,7 @@ import (
 
 // callGraphMemoImplementation is the one file allowed to un-mark a call-graph
 // visited set, because it is the shared guard every other walk delegates to.
-const callGraphMemoImplementation = "internal/ssaflow/calls/call_graph_memo.go"
+const callGraphMemoImplementation = "internal/engine/ssaflow/calls/call_graph_memo.go"
 
 func TestCallGraphGuardsGoThroughTheSharedMemo(t *testing.T) {
 	t.Parallel()

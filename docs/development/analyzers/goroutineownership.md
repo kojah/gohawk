@@ -422,7 +422,7 @@ allowance. Leaf queries that exhaust it cannot return positive fold evidence;
 callers retain the existing authoritative unknown outcome at cutoff. Leaf-only
 charges are removed from these routes to avoid charging one visit twice.
 
-`internal/ssaflow/reaching_budget_test.go` uses actual SSA wrappers and phis to
+`internal/engine/ssaflow/reaching_budget_test.go` uses actual SSA wrappers and phis to
 check branch sharing, candidate-pool cutoffs, early possible witnesses,
 unchanged opaque forms and nested-leaf exhaustion. This bounds value visits;
 it does not bound visited-map cloning, all heap queries, metadata scans or
@@ -479,7 +479,7 @@ through `CallResultWithin`, charging referrer inspection and stopping at the
 exact selected result. Cleanup and cancellation stop before downstream queries
 when selection exhausts the allowance. Cutoffs retain the existing authoritative
 unknown decisions; a missing result at cutoff is not evidence of absence.
-`internal/ssaflow/call_metadata_budget_test.go` pins actual SSA argument/capture
+`internal/engine/ssaflow/call_metadata_budget_test.go` pins actual SSA argument/capture
 order, shared-pool partial census, early stop, tuple lookup and single-result
 representation. Heap identity, access paths, dominance and flow setup remain
 open in `gohawk-dho.44.11.5`; this is not a complete wall-clock bound.

@@ -6,9 +6,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/kojah/gohawk/internal/catalog"
-	"github.com/kojah/gohawk/internal/check"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
+	"github.com/kojah/gohawk/internal/analysis/catalog"
+	"github.com/kojah/gohawk/internal/reporting/check"
+	analysisTrace "github.com/kojah/gohawk/internal/reporting/trace"
 
 	"golang.org/x/tools/go/analysis"
 )
@@ -174,7 +174,7 @@ func withCheckFilter(
 				return
 			}
 			if check.TestFilePosition(pass, diagnostic.Pos) {
-				// Test files are never reported; see internal/check/testfiles.go.
+				// Test files are never reported; see internal/reporting/check/testfiles.go.
 				analysisTrace.EmitDiagnostic(pass, analysisTrace.DiagnosticEvent{
 					Analyzer: analyzer.Name, Phase: analysisTrace.PhaseDecision, Reason: check.ReportingTestFileSkipped.String(),
 					Outcome: analysisTrace.OutcomeAccepted, Diagnostic: diagnostic,

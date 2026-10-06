@@ -1,72 +1,72 @@
 path	line	function	symbol	review
-internal/analyzers/concurrency/concurrentcapture/analyzer.go	20	<package>	Select	setup: explicit component requirements
-internal/analyzers/concurrency/concurrentcapture/analyzer.go	32	Analyzer	Requires	setup: same selection provides prerequisites
-internal/analyzers/concurrency/concurrentcapture/analyzer.go	42	runConcurrentCapture	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/concurrentcapture/guard.go	67	lockGuard	ConcurrencyAtCall	complete call-bound effects; engine owns imported binding
-internal/analyzers/concurrency/goroutineownership/analyzer.go	17	<package>	Select	setup: explicit component requirements
-internal/analyzers/concurrency/goroutineownership/analyzer.go	24	Analyzer	Requires	setup: same selection provides prerequisites
-internal/analyzers/concurrency/goroutineownership/caller_bounds.go	178	goroutineReceivesLocallyCanceledContext	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/goroutineownership/caller_bounds.go	178	goroutineReceivesLocallyCanceledContext	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
-internal/analyzers/concurrency/goroutineownership/classify.go	383	helperAction	Concurrency	complete effects consumed by local classifier; interrupted prefix discarded
-internal/analyzers/concurrency/goroutineownership/classify.go	383	helperAction	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/goroutineownership/concurrency.go	25	summarizedJoin	Concurrency	complete effects consumed by local classifier; interrupted prefix discarded
-internal/analyzers/concurrency/goroutineownership/concurrency.go	25	summarizedJoin	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/goroutineownership/concurrency.go	57	returnedGroupJoin	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/goroutineownership/concurrency.go	57	returnedGroupJoin	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
-internal/analyzers/concurrency/goroutineownership/obligation.go	59	resolveSpawnedFunction	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
-internal/analyzers/concurrency/goroutineownership/obligation.go	59	resolveSpawnedFunction	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/goroutineownership/proof.go	89	prove	Successors	feasibility only; unknown preserves edges
-internal/analyzers/concurrency/goroutineownership/proof.go	89	prove	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/goroutineownership/proof.go	89	prove	Terminates	proven nonreturn only; no cleanup claim
-internal/analyzers/concurrency/goroutineownership/proof.go	89	prove	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/goroutineownership/proof.go	380	guardedLocalJoin	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/goroutineownership/proof.go	380	guardedLocalJoin	Successors	feasibility only; unknown preserves edges
-internal/analyzers/concurrency/goroutineownership/proof.go	380	guardedLocalJoin	Terminates	proven nonreturn only; no cleanup claim
-internal/analyzers/concurrency/goroutineownership/proof.go	380	guardedLocalJoin	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/goroutineownership/retained_owners.go	63	observesOpaqueWorkerContextWithin	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
-internal/analyzers/concurrency/goroutineownership/retained_owners.go	63	observesOpaqueWorkerContextWithin	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/goroutineownership/retained_owners.go	201	retainedWorkerOwner	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
-internal/analyzers/concurrency/goroutineownership/retained_owners.go	201	retainedWorkerOwner	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/lockorder/analyzer.go	58	<package>	Select	setup: explicit component requirements
-internal/analyzers/concurrency/lockorder/analyzer.go	65	Analyzer	Requires	setup: same selection provides prerequisites
-internal/analyzers/concurrency/lockorder/flow_successors.go	26	lockSuccessorStates	FeasibleSuccessors	feasibility only; unknown preserves edges
-internal/analyzers/concurrency/lockorder/flow_successors.go	26	lockSuccessorStates	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/lockorder/flow_walk.go	77	run	TerminatesWithin	proven nonreturn only; caller allowance preserved
-internal/analyzers/concurrency/lockorder/flow_walk.go	77	run	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/lockorder/setup.go	77	summarize	Concurrency	complete effects consumed by local classifier; interrupted prefix discarded
-internal/analyzers/concurrency/lockorder/setup.go	77	summarize	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/producerlifecycle/analyzer.go	19	<package>	Select	setup: explicit component requirements
-internal/analyzers/concurrency/producerlifecycle/analyzer.go	26	Analyzer	Requires	setup: same selection provides prerequisites
-internal/analyzers/concurrency/producerlifecycle/analyzer.go	53	reportAbandonedProducerSends	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/concurrency/producerlifecycle/analyzer.go	53	reportAbandonedProducerSends	Concurrency	complete effects consumed by local classifier; interrupted prefix discarded
-internal/analyzers/resources/cancellationownership/analyzer.go	15	<package>	Select	setup: explicit component requirements
-internal/analyzers/resources/cancellationownership/analyzer.go	22	Analyzer	Requires	setup: same selection provides prerequisites
-internal/analyzers/resources/cancellationownership/analyzer.go	48	runCancellationOwnership	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
-internal/analyzers/resources/cancellationownership/analyzer.go	48	runCancellationOwnership	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/resources/cancellationownership/analyzer.go	50	runCancellationOwnership	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/resources/cancellationownership/proof.go	116	proveCancellation	Successors	feasibility only; unknown preserves edges
-internal/analyzers/resources/cancellationownership/proof.go	116	proveCancellation	Terminates	proven nonreturn only; no cleanup claim
-internal/analyzers/resources/cancellationownership/result_guards.go	150	resultGuardedReturn	OutcomeOf	shared literal-first unconditional result lookup; no ownership
-internal/analyzers/resources/deferinloop/analyzer.go	17	<package>	Select	setup: explicit component requirements
-internal/analyzers/resources/deferinloop/analyzer.go	24	Analyzer	Requires	setup: same selection provides prerequisites
-internal/analyzers/resources/deferinloop/analyzer.go	34	runDeferInLoop	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/resources/deferinloop/analyzer.go	36	runDeferInLoop	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
-internal/analyzers/resources/deferinloop/flow.go	76	proveDeferLifetime	FeasibleSuccessors	feasibility only; unknown preserves edges
-internal/analyzers/resources/processownership/analyzer.go	20	<package>	Select	setup: explicit component requirements
-internal/analyzers/resources/processownership/analyzer.go	27	Analyzer	Requires	setup: same selection provides prerequisites
-internal/analyzers/resources/processownership/analyzer.go	38	runProcessOwnership	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/resources/processownership/analyzer.go	38	runProcessOwnership	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
-internal/analyzers/resources/processownership/analyzer.go	171	reportStartedCommand	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/resources/processownership/analyzer.go	171	reportStartedCommand	Successors	feasibility only; unknown preserves edges
-internal/analyzers/resources/resourcelifetime/acquisition_errors.go	186	errorPredicateAcquisition	Results	selected result component; caller policy stays local
-internal/analyzers/resources/resourcelifetime/acquisition_errors.go	186	errorPredicateAcquisition	ForFunction	unconditional/case guarantees; exact error-argument implication
-internal/analyzers/resources/resourcelifetime/analyzer.go	18	<package>	Select	setup: explicit component requirements
-internal/analyzers/resources/resourcelifetime/analyzer.go	24	Analyzer	Requires	setup: same selection provides prerequisites
-internal/analyzers/resources/resourcelifetime/analyzer.go	39	runResourceLifetime	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/resources/resourcelifetime/analyzer.go	44	runResourceLifetime	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
-internal/analyzers/resources/resourcelifetime/contracts.go	188	cleanupReceiver	ArgumentReturnedUnchanged	same typed parameter forwarding; exact receiver identity only
-internal/analyzers/resources/resourcelifetime/flow.go	76	evaluateResourceFlow	Provider	selected broker access; domain policy retained (see family review)
-internal/analyzers/resources/resourcelifetime/flow_returns.go	175	proveReturnedProjection	ProveCallReturnsViewWithin	complete projection; view evidence cannot establish cleanup
-internal/analyzers/resources/resourcelifetime/flow_walk.go	129	advanceResourceState	TerminatesWithin	proven nonreturn only; caller allowance preserved
-internal/analyzers/resources/resourcelifetime/result_guarded_defers.go	97	resultGuardedReturn	OutcomeOf	shared literal-first unconditional result lookup; no ownership
-internal/analyzers/resources/resourcelifetime/result_guards.go	16	successorPolicy	FeasibleSuccessors	feasibility only; unknown preserves edges
+internal/analysis/analyzers/concurrency/concurrentcapture/analyzer.go	20	<package>	Select	setup: explicit component requirements
+internal/analysis/analyzers/concurrency/concurrentcapture/analyzer.go	32	Analyzer	Requires	setup: same selection provides prerequisites
+internal/analysis/analyzers/concurrency/concurrentcapture/analyzer.go	42	runConcurrentCapture	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/concurrentcapture/guard.go	67	lockGuard	ConcurrencyAtCall	complete call-bound effects; engine owns imported binding
+internal/analysis/analyzers/concurrency/goroutineownership/analyzer.go	17	<package>	Select	setup: explicit component requirements
+internal/analysis/analyzers/concurrency/goroutineownership/analyzer.go	24	Analyzer	Requires	setup: same selection provides prerequisites
+internal/analysis/analyzers/concurrency/goroutineownership/caller_bounds.go	178	goroutineReceivesLocallyCanceledContext	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/goroutineownership/caller_bounds.go	178	goroutineReceivesLocallyCanceledContext	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
+internal/analysis/analyzers/concurrency/goroutineownership/classify.go	383	helperAction	Concurrency	complete effects consumed by local classifier; interrupted prefix discarded
+internal/analysis/analyzers/concurrency/goroutineownership/classify.go	383	helperAction	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/goroutineownership/concurrency.go	25	summarizedJoin	Concurrency	complete effects consumed by local classifier; interrupted prefix discarded
+internal/analysis/analyzers/concurrency/goroutineownership/concurrency.go	25	summarizedJoin	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/goroutineownership/concurrency.go	57	returnedGroupJoin	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/goroutineownership/concurrency.go	57	returnedGroupJoin	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
+internal/analysis/analyzers/concurrency/goroutineownership/obligation.go	59	resolveSpawnedFunction	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
+internal/analysis/analyzers/concurrency/goroutineownership/obligation.go	59	resolveSpawnedFunction	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/goroutineownership/proof.go	89	prove	Successors	feasibility only; unknown preserves edges
+internal/analysis/analyzers/concurrency/goroutineownership/proof.go	89	prove	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/goroutineownership/proof.go	89	prove	Terminates	proven nonreturn only; no cleanup claim
+internal/analysis/analyzers/concurrency/goroutineownership/proof.go	89	prove	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/goroutineownership/proof.go	380	guardedLocalJoin	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/goroutineownership/proof.go	380	guardedLocalJoin	Successors	feasibility only; unknown preserves edges
+internal/analysis/analyzers/concurrency/goroutineownership/proof.go	380	guardedLocalJoin	Terminates	proven nonreturn only; no cleanup claim
+internal/analysis/analyzers/concurrency/goroutineownership/proof.go	380	guardedLocalJoin	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/goroutineownership/retained_owners.go	63	observesOpaqueWorkerContextWithin	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
+internal/analysis/analyzers/concurrency/goroutineownership/retained_owners.go	63	observesOpaqueWorkerContextWithin	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/goroutineownership/retained_owners.go	201	retainedWorkerOwner	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
+internal/analysis/analyzers/concurrency/goroutineownership/retained_owners.go	201	retainedWorkerOwner	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/lockorder/analyzer.go	58	<package>	Select	setup: explicit component requirements
+internal/analysis/analyzers/concurrency/lockorder/analyzer.go	65	Analyzer	Requires	setup: same selection provides prerequisites
+internal/analysis/analyzers/concurrency/lockorder/flow_successors.go	26	lockSuccessorStates	FeasibleSuccessors	feasibility only; unknown preserves edges
+internal/analysis/analyzers/concurrency/lockorder/flow_successors.go	26	lockSuccessorStates	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/lockorder/flow_walk.go	77	run	TerminatesWithin	proven nonreturn only; caller allowance preserved
+internal/analysis/analyzers/concurrency/lockorder/flow_walk.go	77	run	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/lockorder/setup.go	77	summarize	Concurrency	complete effects consumed by local classifier; interrupted prefix discarded
+internal/analysis/analyzers/concurrency/lockorder/setup.go	77	summarize	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/producerlifecycle/analyzer.go	19	<package>	Select	setup: explicit component requirements
+internal/analysis/analyzers/concurrency/producerlifecycle/analyzer.go	26	Analyzer	Requires	setup: same selection provides prerequisites
+internal/analysis/analyzers/concurrency/producerlifecycle/analyzer.go	53	reportAbandonedProducerSends	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/concurrency/producerlifecycle/analyzer.go	53	reportAbandonedProducerSends	Concurrency	complete effects consumed by local classifier; interrupted prefix discarded
+internal/analysis/analyzers/resources/cancellationownership/analyzer.go	15	<package>	Select	setup: explicit component requirements
+internal/analysis/analyzers/resources/cancellationownership/analyzer.go	22	Analyzer	Requires	setup: same selection provides prerequisites
+internal/analysis/analyzers/resources/cancellationownership/analyzer.go	48	runCancellationOwnership	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
+internal/analysis/analyzers/resources/cancellationownership/analyzer.go	48	runCancellationOwnership	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/resources/cancellationownership/analyzer.go	50	runCancellationOwnership	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/resources/cancellationownership/proof.go	116	proveCancellation	Successors	feasibility only; unknown preserves edges
+internal/analysis/analyzers/resources/cancellationownership/proof.go	116	proveCancellation	Terminates	proven nonreturn only; no cleanup claim
+internal/analysis/analyzers/resources/cancellationownership/result_guards.go	150	resultGuardedReturn	OutcomeOf	shared literal-first unconditional result lookup; no ownership
+internal/analysis/analyzers/resources/deferinloop/analyzer.go	17	<package>	Select	setup: explicit component requirements
+internal/analysis/analyzers/resources/deferinloop/analyzer.go	24	Analyzer	Requires	setup: same selection provides prerequisites
+internal/analysis/analyzers/resources/deferinloop/analyzer.go	34	runDeferInLoop	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/resources/deferinloop/analyzer.go	36	runDeferInLoop	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
+internal/analysis/analyzers/resources/deferinloop/flow.go	76	proveDeferLifetime	FeasibleSuccessors	feasibility only; unknown preserves edges
+internal/analysis/analyzers/resources/processownership/analyzer.go	20	<package>	Select	setup: explicit component requirements
+internal/analysis/analyzers/resources/processownership/analyzer.go	27	Analyzer	Requires	setup: same selection provides prerequisites
+internal/analysis/analyzers/resources/processownership/analyzer.go	38	runProcessOwnership	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/resources/processownership/analyzer.go	38	runProcessOwnership	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
+internal/analysis/analyzers/resources/processownership/analyzer.go	171	reportStartedCommand	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/resources/processownership/analyzer.go	171	reportStartedCommand	Successors	feasibility only; unknown preserves edges
+internal/analysis/analyzers/resources/resourcelifetime/acquisition_errors.go	186	errorPredicateAcquisition	Results	selected result component; caller policy stays local
+internal/analysis/analyzers/resources/resourcelifetime/acquisition_errors.go	186	errorPredicateAcquisition	ForFunction	unconditional/case guarantees; exact error-argument implication
+internal/analysis/analyzers/resources/resourcelifetime/analyzer.go	18	<package>	Select	setup: explicit component requirements
+internal/analysis/analyzers/resources/resourcelifetime/analyzer.go	24	Analyzer	Requires	setup: same selection provides prerequisites
+internal/analysis/analyzers/resources/resourcelifetime/analyzer.go	39	runResourceLifetime	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/resources/resourcelifetime/analyzer.go	44	runResourceLifetime	LifecycleEvidence	local/imported completion or retention evidence; caller chooses proof polarity
+internal/analysis/analyzers/resources/resourcelifetime/contracts.go	188	cleanupReceiver	ArgumentReturnedUnchanged	same typed parameter forwarding; exact receiver identity only
+internal/analysis/analyzers/resources/resourcelifetime/flow.go	76	evaluateResourceFlow	Provider	selected broker access; domain policy retained (see family review)
+internal/analysis/analyzers/resources/resourcelifetime/flow_returns.go	175	proveReturnedProjection	ProveCallReturnsViewWithin	complete projection; view evidence cannot establish cleanup
+internal/analysis/analyzers/resources/resourcelifetime/flow_walk.go	129	advanceResourceState	TerminatesWithin	proven nonreturn only; caller allowance preserved
+internal/analysis/analyzers/resources/resourcelifetime/result_guarded_defers.go	97	resultGuardedReturn	OutcomeOf	shared literal-first unconditional result lookup; no ownership
+internal/analysis/analyzers/resources/resourcelifetime/result_guards.go	16	successorPolicy	FeasibleSuccessors	feasibility only; unknown preserves edges

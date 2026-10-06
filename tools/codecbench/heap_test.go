@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/factcodec"
-	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/analysis/factcodec"
+	"github.com/kojah/gohawk/internal/engine/heapmodel"
 )
 
 func heapFixture(count int) heapmodel.HeapSummary {

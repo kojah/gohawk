@@ -128,7 +128,7 @@ a candidate slot is free; none was launched during this read-only task.
    before the defer in either source. Later map entries carry decoded bytes or
    scalar logging fields, not ownership of the response body.
 
-The exact `git diff c9b65a6..5a56fb4 -- internal/analyzers/resources/deferinloop`
+The exact `git diff c9b65a6..5a56fb4 -- internal/analysis/analyzers/resources/deferinloop`
 contains only the aggregate-store changes to flow.go and the new collection
 fixtures. The obligation finder is unchanged. Changes to shared infrastructure
 elsewhere can affect indirect evidence, so this source comparison should not

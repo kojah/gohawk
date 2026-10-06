@@ -10,8 +10,8 @@ import (
 
 	"github.com/golangci/plugin-module-register/register"
 	"github.com/kojah/gohawk/analyzers"
-	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/passes/testvariant"
+	"github.com/kojah/gohawk/internal/analysis/passes/testvariant"
+	"github.com/kojah/gohawk/internal/reporting/check"
 	"golang.org/x/tools/go/analysis"
 )
 

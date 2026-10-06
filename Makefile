@@ -14,14 +14,14 @@ BENCHMARK_ARGS ?=
 VERIFY_JOBS ?= 4
 VERIFY_TIMINGS ?= 1
 
-VERIFY_BASE_TARGETS := mod-verify fmt-check vet deadcode
+VERIFY_BASE_TARGETS := mod-verify fmt-check vet deadcode ci-policy-check
 # Local generation skips expensive analyzer example validation. CI checks both
 # ordinary generated content and live analyzer examples against committed pages.
 VERIFY_STATIC_TARGETS := $(strip $(VERIFY_BASE_TARGETS) lint dogfood $(if $(CI),generated-check))
 # CI runs lint and dogfood in dedicated jobs; its fast job must not repeat them.
 VERIFY_CI_FAST_TARGETS := $(VERIFY_BASE_TARGETS) generated-check
-# The race detector stays out of the routine local gate: gohawk is almost
-# entirely synchronous, and CI runs test-race as its own job. make ci keeps it.
+# Coverage and race instrumentation run only in GitHub Actions. Local
+# verification uses ordinary tests to avoid expensive instrumented builds.
 VERIFY_TARGETS := $(VERIFY_STATIC_TARGETS) test
 # GNU Make before 4.0, including the version shipped with macOS, does not
 # support grouped parallel output. Parallel scheduling itself remains required.
@@ -33,8 +33,18 @@ verify_targets = $(if $(filter 1,$(VERIFY_TIMINGS)),$(addprefix verify-timed-,$(
 
 .DEFAULT_GOAL := help
 
+# Reject at parse time, before prerequisites or parallel recipes can start.
+# Environment markers identify the supported runner, not a security boundary.
+CI_ONLY_GOALS := coverage test-race ci verify-timed-coverage verify-timed-test-race verify-timed-ci
+CI_INSTRUMENTATION_FLAGS := $(filter -race% -cover%,$(GOFLAGS))
+ifneq ($(strip $(filter $(CI_ONLY_GOALS),$(MAKECMDGOALS)) $(CI_INSTRUMENTATION_FLAGS)),)
+ifneq ($(CI):$(GITHUB_ACTIONS),true:true)
+$(error Coverage and race testing are CI-only (GitHub Actions); use make verify locally)
+endif
+endif
+
 .PHONY: help build fmt fmt-check generate generate-examples generated-check mod-verify lint deadcode vuln test \
-	test-exhaustive test-race vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
+	test-exhaustive test-race ci-policy-check vet coverage plugin-test dogfood skills-check verify-static verify ci benchmark site-install \
 	precision-regression site-check site-build site-audit site-audit-production site-shot site-links site-links-external site-review generated-sync
 
 help:
@@ -47,6 +57,9 @@ help:
 		'  make deadcode        Fail on internal functions unreachable from any entry point' \
 		'  make vuln            Check reachable dependencies for known vulnerabilities' \
 		'  make test            Run the Go test suite' \
+		'  make test-race       Run targeted race tests (GitHub Actions only)' \
+		'  make coverage        Collect coverage (GitHub Actions only)' \
+		'  make ci              Run aggregate CI gates (GitHub Actions only)' \
 		'  make test-exhaustive Run the CI-only exhaustive CLI subprocess matrix' \
 		'  make verify          Run the complete local verification suite in parallel' \
 		'                       Timings are shown by default; set VERIFY_TIMINGS=0 to hide them' \
@@ -99,10 +112,13 @@ test:
 test-exhaustive:
 	$(GO) test -tags=exhaustive ./internal/cli -run '^TestCLIIntegrationExhaustive$$' -count=1
 
+ci-policy-check:
+	python3 scripts/ci_policy_test.py
+
 test-race:
 	# Sibling analyzers share tracing, ordered effects, and immutable fact
 	# encoding caches. Exercise those concurrency contracts in CI.
-	$(GO) test -race ./internal/trace ./internal/passes/concurrencyfacts ./internal/factcodec
+	$(GO) test -race ./internal/reporting/trace ./internal/analysis/passes/concurrencyfacts ./internal/analysis/factcodec
 
 vet:
 	$(GO) vet ./...
@@ -122,7 +138,7 @@ vuln:
 
 coverage:
 	$(GO) test ./... -covermode=count \
-		-coverpkg=./internal/proof/...,./internal/syntax/...,./internal/ssaflow/...,./internal/lifecycle,./internal/heapmodel,./internal/catalog,./internal/check,./internal/trace,./internal/cli,./analyzers,./internal/passes/...,./internal/analyzers/...,./internal/docexamples,./plugin/golangci \
+		-coverpkg=./internal/engine/proof/...,./internal/engine/syntax/...,./internal/engine/ssaflow/...,./internal/engine/lifecycle,./internal/engine/heapmodel,./internal/analysis/catalog,./internal/reporting/check,./internal/reporting/trace,./internal/cli,./analyzers,./internal/analysis/passes/...,./internal/analysis/analyzers/...,./internal/testsupport/docexamples,./plugin/golangci \
 		-coverprofile=coverage.out
 	$(GO) tool cover -func=coverage.out -o=coverage-summary.out
 
@@ -157,8 +173,8 @@ verify-static: generated-sync
 verify: generated-sync
 	+$(MAKE) $(VERIFY_MAKE_ARGS) $(call verify_targets,$(VERIFY_TARGETS))
 
-# The aggregate local CI target adds coverage. Hosted CI and release workflows
-# run the custom golangci-lint plugin test as a separate gate.
+# The CI-only aggregate adds coverage and race tests. Hosted CI and release
+# workflows run the custom golangci-lint plugin test as a separate gate.
 ci: generated-sync
 	+$(MAKE) $(VERIFY_MAKE_ARGS) $(call verify_targets,$(VERIFY_TARGETS) test-race coverage)
 

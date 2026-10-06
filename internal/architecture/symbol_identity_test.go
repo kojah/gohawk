@@ -18,13 +18,13 @@ func TestAnalyzersUseSymbolIdentity(t *testing.T) {
 		"*types.Builtin",
 		"BuiltinClose",
 	}
-	for _, source := range inventory.productionGoFiles(t, "internal/analyzers") {
+	for _, source := range inventory.productionGoFiles(t, "internal/analysis/analyzers") {
 		text := string(source.source)
 		escapes := 0
 		for _, pattern := range rawIdentityPatterns {
 			escapes += strings.Count(text, pattern)
 		}
-		relative := strings.TrimPrefix(source.repositoryPath, "internal/analyzers/")
+		relative := strings.TrimPrefix(source.repositoryPath, "internal/analysis/analyzers/")
 		if escapes != 0 {
 			t.Errorf("%s has %d raw package-identity escapes; use Symbol", relative, escapes)
 		}

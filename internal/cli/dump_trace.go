@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
+	analysisTrace "github.com/kojah/gohawk/internal/reporting/trace"
 
 	"golang.org/x/tools/go/analysis/checker"
 )

@@ -1,0 +1,153 @@
+package heapmodel
+
+import (
+	"strings"
+	"testing"
+
+	proofs "github.com/kojah/gohawk/internal/engine/proof"
+	"github.com/kojah/gohawk/internal/engine/ssaflow"
+	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
+	"golang.org/x/tools/go/ssa"
+)
+
+const projectionBoundaryFixture = `
+package ssaflowtest
+
+type closer struct{}
+func (*closer) Close() {}
+type owner struct { body *closer }
+type ownerView owner
+type slotView **closer
+
+func acquire() *owner { return nil }
+func cleanup(*closer) {}
+func mutateOwner(*owner)
+func mutateSlot(**closer)
+func inspectOwner(p *owner) *closer { return p.body }
+func inspectSlot(p **closer) bool { return *p != nil }
+func inspectView(p *ownerView) *closer { return p.body }
+func mutateView(*ownerView)
+func mutateSlotView(slotView)
+var retained *owner
+func retainOwner(p *owner) { retained=p }
+
+func accepted() {
+	value := acquire()
+	cleanup(value.body)
+}
+func readOnlyRoot() {
+	value := acquire()
+	inspectOwner(value)
+	cleanup(value.body)
+}
+func readOnlySlot() {
+	value := acquire()
+	inspectSlot(&value.body)
+	cleanup(value.body)
+}
+func convertedReadOnlyRoot() {
+	value := acquire()
+	inspectView((*ownerView)(value))
+	cleanup(value.body)
+}
+func convertedEscapedRoot() {
+	value := acquire()
+	mutateView((*ownerView)(value))
+	cleanup(value.body)
+}
+func convertedEscapedSlot() {
+	value := acquire()
+	mutateSlotView(slotView(&value.body))
+	cleanup(value.body)
+}
+func retainedRoot() {
+	value := acquire()
+	retainOwner(value)
+	cleanup(value.body)
+}
+func escapedLater() {
+	value := acquire()
+	cleanup(value.body)
+	mutateOwner(value)
+}
+func reassigned() {
+	value := acquire()
+	value.body = &closer{}
+	cleanup(value.body)
+}
+func escapedRoot() {
+	value := acquire()
+	mutateOwner(value)
+	cleanup(value.body)
+}
+func escapedAddress() {
+	value := acquire()
+	mutateSlot(&value.body)
+	cleanup(value.body)
+}
+func selectedOwner(choose bool) {
+	value := acquire()
+	other := acquire()
+	selected := other
+	if choose { selected = value }
+	cleanup(selected.body)
+}
+func sibling() {
+	value := acquire()
+	other := acquire()
+	_ = value
+	cleanup(other.body)
+}
+`
+
+func TestUnmodifiedNonEmptyAccessPathAtBoundaries(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "example.com/ssaflowtest", projectionBoundaryFixture)
+	for _, test := range []struct {
+		name string
+		want bool
+	}{
+		{name: "accepted", want: true},
+		{name: "readOnlyRoot", want: true},
+		{name: "readOnlySlot", want: true},
+		{name: "convertedReadOnlyRoot", want: true},
+		{name: "convertedEscapedRoot"},
+		{name: "convertedEscapedSlot"},
+		{name: "retainedRoot"},
+		{name: "escapedLater", want: true},
+		{name: "reassigned"},
+		{name: "escapedRoot"},
+		{name: "escapedAddress"},
+		{name: "selectedOwner"},
+		{name: "sibling"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			function := pkg.Func(test.name)
+			if strings.HasPrefix(test.name, "converted") && len(ssaflow.InstructionsOf[*ssa.ChangeType](function)) == 0 {
+				t.Fatal("fixture did not retain a conversion wrapper")
+			}
+			var root ssa.Value
+			for _, block := range function.Blocks {
+				for _, instruction := range block.Instrs {
+					common := ssaflow.InstructionCall(instruction)
+					if common != nil && ssaflow.CallName(common) == "acquire" && root == nil {
+						root, _ = instruction.(ssa.Value)
+					}
+				}
+			}
+			var cleanupCall *ssa.Call
+			for _, call := range ssaflow.InstructionsOf[*ssa.Call](function) {
+				if ssaflow.CallName(call.Common()) == "cleanup" {
+					cleanupCall = call
+					break
+				}
+			}
+			if cleanupCall == nil {
+				t.Fatal("missing cleanup call")
+			}
+			argument := ssaflow.InstructionCall(cleanupCall).Args[0]
+			if got := NewStorage(proofs.NewSearchBudget(1000)).Projection(argument, root, cleanupCall).Proven(); got != test.want {
+				t.Fatalf("UnmodifiedNonEmptyAccessPathAt() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}

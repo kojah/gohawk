@@ -14,7 +14,7 @@ func TestAnalyzerCodeUsesStructuredTracing(t *testing.T) {
 	t.Run("typed identity", testForbiddenAnalyzerPrintIdentity)
 	inventory := newRepositorySourceInventory(t)
 	production := make(map[string]string)
-	for _, source := range inventory.productionGoFiles(t, "internal/analyzers", "internal/passes") {
+	for _, source := range inventory.productionGoFiles(t, "internal/analysis/analyzers", "internal/analysis/passes") {
 		production[source.absolutePath] = source.repositoryPath
 	}
 	config := &packages.Config{
@@ -22,7 +22,7 @@ func TestAnalyzerCodeUsesStructuredTracing(t *testing.T) {
 			packages.NeedTypes | packages.NeedTypesInfo,
 		Dir: inventory.root,
 	}
-	loaded, err := packages.Load(config, "./internal/analyzers/...", "./internal/passes/...")
+	loaded, err := packages.Load(config, "./internal/analysis/analyzers/...", "./internal/analysis/passes/...")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func inspectUnstructuredPrints(t *testing.T, pkg *packages.Package, file *ast.Fi
 			return true
 		}
 		position := pkg.Fset.Position(identifier.Pos())
-		t.Errorf("%s:%d uses %s in analyzer code; use internal/trace for diagnostic instrumentation", repositoryPath, position.Line, printName)
+		t.Errorf("%s:%d uses %s in analyzer code; use internal/reporting/trace for diagnostic instrumentation", repositoryPath, position.Line, printName)
 		return true
 	})
 }

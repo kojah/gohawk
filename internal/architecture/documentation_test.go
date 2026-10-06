@@ -392,7 +392,8 @@ func ssaFormsHandled(t *testing.T) []string {
 	forms := map[string]bool{}
 	pattern := regexp.MustCompile(`\*ssa\.([A-Z][A-Za-z]+)`)
 	for _, directory := range []string{
-		"internal/analyzers", "internal/ssaflow", "internal/lifecycle", "internal/heapmodel", "internal/resourcemodel", "internal/passes",
+		"internal/analysis/analyzers", "internal/engine/ssaflow", "internal/engine/lifecycle",
+		"internal/engine/heapmodel", "internal/engine/resourcemodel", "internal/analysis/passes",
 	} {
 		for _, source := range inventory.productionGoFiles(t, directory) {
 			for _, match := range pattern.FindAllStringSubmatch(readFile(t, source.absolutePath), -1) {

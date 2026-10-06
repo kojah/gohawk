@@ -3,7 +3,7 @@ package codecbench
 import (
 	"slices"
 
-	"github.com/kojah/gohawk/internal/heapmodel"
+	"github.com/kojah/gohawk/internal/engine/heapmodel"
 	"github.com/kojah/gohawk/tools/codecbench/heappb"
 	"google.golang.org/protobuf/proto"
 )

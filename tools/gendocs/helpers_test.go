@@ -20,8 +20,9 @@ func TestHelperReferencesCoverContractsAndDetectDrift(t *testing.T) {
 		}
 	}
 	for _, name := range []string{
-		"proof", "heapmodel", "resourcemodel", "ssaflow", "ssaflow/cfg", "ssaflow/calls", "ssaflow/path",
-		"lifecycle", "syntax", "summaries", "passes/newfacts",
+		"engine/proof", "engine/heapmodel", "engine/resourcemodel", "engine/ssaflow",
+		"engine/ssaflow/cfg", "engine/ssaflow/calls", "engine/ssaflow/path",
+		"engine/lifecycle", "engine/syntax", "analysis/summaries", "analysis/passes/newfacts",
 	} {
 		write("internal/"+name+"/api.go", "package "+filepath.Base(name)+`;
 // State is a proof outcome.
@@ -54,7 +55,7 @@ func hidden() {}
 	}
 	for _, want := range []string{
 		"## Unknown", "## Default", "## Box", "## Box.Get", "## NewBox", "NewBox[T any](value T) Box[T]",
-		"NewBox creates a box.", "../../../../internal/passes/newfacts/api.go)", "[the broker](summaries.md)",
+		"NewBox creates a box.", "../../../../internal/analysis/passes/newfacts/api.go)", "[the broker](summaries.md)",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("generated reference lacks %q", want)
@@ -71,7 +72,7 @@ func hidden() {}
 	if err := checkHelperReferences(root); err != nil {
 		t.Fatalf("fresh references: %v", err)
 	}
-	write("internal/passes/newfacts/api.go", "package newfacts; func Added() {}")
+	write("internal/analysis/passes/newfacts/api.go", "package newfacts; func Added() {}")
 	if err := checkHelperReferences(root); err == nil {
 		t.Fatal("changed source was accepted without regeneration")
 	}

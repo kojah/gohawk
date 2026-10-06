@@ -1,6 +1,6 @@
 package analyzers
 
-import "github.com/kojah/gohawk/internal/catalog"
+import "github.com/kojah/gohawk/internal/analysis/catalog"
 
 // AnalyzerCheck identifies one independently configurable diagnostic rule.
 type AnalyzerCheck string
