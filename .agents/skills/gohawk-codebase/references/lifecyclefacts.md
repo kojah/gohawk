@@ -27,7 +27,7 @@ Analyzer is an internal prerequisite shared by lifecycle analyzers.
 
 ## CallReturnsView
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+[Source](../../../../internal/passes/lifecyclefacts/returned_views.go)
 
 ```go
 func CallReturnsView(pass *analysis.Pass, instruction ssa.Instruction, target ssa.Value) bool
@@ -321,7 +321,7 @@ cleanup of something beneath the parameter is not included.
 
 ## Fact.ProveReturnsViewWithin
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+[Source](../../../../internal/passes/lifecyclefacts/returned_views.go)
 
 ```go
 func (fact *Fact) ProveReturnsViewWithin(instruction ssa.Instruction, target ssa.Value, budget *ssaflow.SearchBudget) ssaflow.Proof
@@ -365,7 +365,7 @@ normal return with a non-nil result.
 
 ## Fact.ReturnsView
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+[Source](../../../../internal/passes/lifecyclefacts/returned_views.go)
 
 ```go
 func (fact *Fact) ReturnsView(instruction ssa.Instruction, target ssa.Value) bool
@@ -493,7 +493,7 @@ no summary is available, which callers must treat as unknown.
 
 ## LifecycleEvidence.ArgumentRetainedByCallee
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+[Source](../../../../internal/passes/lifecyclefacts/call_retention.go)
 
 ```go
 func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Instruction, target ssa.Value) bool
@@ -507,7 +507,7 @@ returned aggregate is decided by the returned-owner and view rules instead.
 
 ## LifecycleEvidence.ArgumentReturnedAsView
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+[Source](../../../../internal/passes/lifecyclefacts/returned_views.go)
 
 ```go
 func (evidence *LifecycleEvidence) ArgumentReturnedAsView(instruction ssa.Instruction, target ssa.Value) bool
@@ -538,7 +538,7 @@ through the same authoritative trace path.
 
 ## LifecycleEvidence.CalleeClaims
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+[Source](../../../../internal/passes/lifecyclefacts/call_retention.go)
 
 ```go
 func (evidence *LifecycleEvidence) CalleeClaims(
@@ -556,7 +556,7 @@ discharged must not read silence as proof that it was not.
 
 ## LifecycleEvidence.CalleeSummarized
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+[Source](../../../../internal/passes/lifecyclefacts/call_retention.go)
 
 ```go
 func (evidence *LifecycleEvidence) CalleeSummarized(instruction ssa.Instruction) bool
@@ -635,7 +635,7 @@ Absence remains unknown; only exact parameter binding can settle the target.
 
 ## LifecycleEvidence.ContentsKeptAt
 
-[Source](../../../../internal/passes/lifecyclefacts/fields.go)
+[Source](../../../../internal/passes/lifecyclefacts/call_retention.go)
 
 ```go
 func (evidence *LifecycleEvidence) ContentsKeptAt(instruction ssa.Instruction, index int, path string) (kept bool, known bool)

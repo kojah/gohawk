@@ -14,6 +14,20 @@ for each; these times include each check's prerequisite passes.
 `VERIFY_TIMINGS=0` to hide these measurements in Makefile workflows, or pass
 `-timings=false` directly to `tools/gendocs`.
 
+## Implementation boundaries
+
+Lifecycle field-contract inference and result-method composition live in
+`internal/passes/lifecyclefacts/fields.go`. Borrowed returned-view inference
+lives in `returned_views.go`; caller-side retention and summary-availability
+queries live in `call_retention.go`. They share the same masks and proof helpers
+without combining acquisition evidence, view classification and call binding
+in one implementation file.
+
+The CLI's delegated process boundary lives in `internal/cli/delegated_run.go`.
+`diagnostic_json.go` merges and normalizes go vet output; `diagnostic_render.go`
+formats the normalized diagnostics and source context. Process failure,
+malformed JSON and analyzer errors keep their existing distinct handling.
+
 ## Shared engine
 
 - `internal/ssaflow` owns the reusable SSA mechanics: proof outcomes and

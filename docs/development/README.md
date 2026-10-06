@@ -23,6 +23,8 @@ Start with [Understanding SSA](../understanding-ssa.md) and the public
   SSA form they handle.
 - [Architecture in detail](architecture.md) — the shared engine, how a run is
   driven, and the invariants the architecture tests enforce.
+- [Codebase cleanliness review](cleanliness-review-2026-10-06.md) — reviewed
+  boundaries, completed cleanup and remaining source-review questions.
 - [Fact model](fact-model.md) — modular function summaries, their
   publication, and the guarantees each component can establish.
 - [Points-to model](points-to-model.md) — the per-function region graph that
