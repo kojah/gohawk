@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -37,13 +38,13 @@ func subject(flag bool) { marker(); if flag {marker()}; marker() }
 `)
 	calls := InstructionsOf[*ssa.Call](pkg.Func("subject"))
 	cutoff := proofs.NewSearchBudget(0)
-	if InstructionMayFollowWithin(calls[0], calls[1], cutoff) || !cutoff.Exhausted() {
+	if cfg.InstructionMayFollowWithin(calls[0], calls[1], cutoff) || !cutoff.Exhausted() {
 		t.Fatal("unavailable reachability must not imply disconnection")
 	}
 	for _, before := range calls {
 		for _, after := range calls {
 			fresh := proofs.NewSearchBudget(proofs.QueryBudget)
-			if got := InstructionMayFollowWithin(before, after, fresh); got != InstructionMayFollow(before, after) || fresh.Exhausted() {
+			if got := cfg.InstructionMayFollowWithin(before, after, fresh); got != cfg.InstructionMayFollow(before, after) || fresh.Exhausted() {
 				t.Fatal("fresh reachability must preserve order and direction")
 			}
 		}

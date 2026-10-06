@@ -8,6 +8,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
@@ -74,7 +75,7 @@ func TestCancellationResultGuardReturnCutoff(t *testing.T) {
 		}
 		query.guards = guards.Guards
 		for _, returned := range ssaflow.InstructionsOf[*ssa.Return](fn) {
-			if !ssaflow.InstructionDominates(query.guards[0].Defer, returned) {
+			if !cfg.InstructionDominates(query.guards[0].Defer, returned) {
 				continue
 			}
 			query.pool = proofs.NewSearchBudget(0)

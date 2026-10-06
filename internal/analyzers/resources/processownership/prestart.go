@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -24,7 +25,7 @@ func collectProcessStartInstructions(start *ssa.Call, command ssa.Value, budget 
 		return processStartInstructions{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	}
 	var before []ssa.Instruction
-	for instruction := range ssaflow.InstructionsStrictlyDominatingWithin(start, budget) {
+	for instruction := range cfg.InstructionsStrictlyDominatingWithin(start, budget) {
 		before = append(before, instruction)
 	}
 	owners := processOwnersRegisteredBefore(before, command, budget)

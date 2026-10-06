@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -19,7 +20,7 @@ func proveCommandUseAfterStart(start *ssa.Call, command ssa.Value, budget *proof
 	for instruction := range ssaflow.InstructionsWithin(start.Parent(), budget) {
 		// Preserve possible ordering through back edges. The runtime-value census
 		// deliberately stops there and cannot replace this structural use policy.
-		if instruction == start || !ssaflow.InstructionMayFollowWithin(start, instruction, budget) {
+		if instruction == start || !cfg.InstructionMayFollowWithin(start, instruction, budget) {
 			continue
 		}
 		if instructionCarriesCommand(instruction, start, command, budget) {

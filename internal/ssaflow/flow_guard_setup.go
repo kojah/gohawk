@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -73,7 +74,7 @@ func guardStoredWithin(identity string, arm *ssa.BasicBlock, target ssa.Instruct
 		if budget.Exhausted() {
 			return false
 		}
-		if ok && strings.Contains(identity, address) && arm.Dominates(store.Block()) && InstructionMayFollowWithin(store, target, budget) {
+		if ok && strings.Contains(identity, address) && arm.Dominates(store.Block()) && cfg.InstructionMayFollowWithin(store, target, budget) {
 			return true
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -171,7 +172,7 @@ func TestWalkStatesExpandsEachKeyOnce(t *testing.T) {
 		count int
 	}
 	var expanded []state
-	ssaflow.WalkStates([]state{{node: 0}}, func(s state) int { return s.node }, func(s state) ([]state, bool) {
+	cfg.WalkStates([]state{{node: 0}}, func(s state) int { return s.node }, func(s state) ([]state, bool) {
 		expanded = append(expanded, s)
 		if s.node == 3 {
 			return nil, false

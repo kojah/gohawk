@@ -4,6 +4,7 @@ import (
 	"go/types"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -99,7 +100,7 @@ func EvaluateObligation(flow ObligationFlow) ObligationOutcome {
 // violated outcome, the normal return the walk reached with no action before
 // it. That return is the proof's witness, which a diagnostic can cite.
 func EvaluateObligationWitness(flow ObligationFlow) (ObligationOutcome, *ssa.Return) {
-	index := InstructionIndexWithin(flow.Start, flow.Budget)
+	index := cfg.InstructionIndexWithin(flow.Start, flow.Budget)
 	if flow.Budget.Exhausted() {
 		return ObligationUncertain, nil
 	}
@@ -162,7 +163,7 @@ func (state obligationState) keyWithin(budget *proofs.SearchBudget, ids *guardID
 // does not see could explain it; it hides a diagnostic, never proves one.
 func obligationOutcome(initial []obligationState, flow ObligationFlow) (ObligationOutcome, *ssa.Return) {
 	walk := obligationWalk{flow: flow, policy: flow.successorPolicy(), outcome: ObligationHonored}
-	WalkStatesWithin(initial, func(state obligationState) obligationKey {
+	cfg.WalkStatesWithin(initial, func(state obligationState) obligationKey {
 		return state.keyWithin(flow.Budget, &walk.ids)
 	}, walk.step, flow.Budget)
 	walk.stopAtCutoff()

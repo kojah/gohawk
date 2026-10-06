@@ -11,6 +11,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -105,7 +106,7 @@ func producerSends(function *ssa.Function, engine *concurrencyfacts.Engine) []pr
 					if channel != nil && localUnbufferedChannel(function, channel) {
 						sends = append(sends, producerSend{
 							instruction: send, positions: []token.Pos{send.Pos()}, channel: channel,
-							repeated: ssaflow.BlockInCycle(spawnedBlock), spawn: spawn,
+							repeated: cfg.BlockInCycle(spawnedBlock), spawn: spawn,
 						})
 					}
 				}
@@ -162,7 +163,7 @@ func countProducerSends(send producerSend, sends []producerSend) producerCountPr
 		if !heapmodel.MayAlias(candidate.channel, send.channel) {
 			continue
 		}
-		if candidate.repeated || ssaflow.BlockInCycle(candidate.spawn.Block()) {
+		if candidate.repeated || cfg.BlockInCycle(candidate.spawn.Block()) {
 			return unknown
 		}
 		// Launches must coexist in one dominance chain; alternative workers
@@ -192,10 +193,10 @@ func countProducerSends(send producerSend, sends []producerSend) producerCountPr
 // A frontier represents a dominance chain. Every earlier member dominates
 // it, so a new ancestor or descendant keeps the whole chain ordered.
 func extendProducerOrder(frontier, next ssa.Instruction) (ssa.Instruction, bool) {
-	if frontier == nil || ssaflow.InstructionDominates(frontier, next) {
+	if frontier == nil || cfg.InstructionDominates(frontier, next) {
 		return next, true
 	}
-	return frontier, ssaflow.InstructionDominates(next, frontier)
+	return frontier, cfg.InstructionDominates(next, frontier)
 }
 
 func producerSendMayPrecede(first, second producerSend) bool {
@@ -213,7 +214,7 @@ func producerSendMayPrecede(first, second producerSend) bool {
 	// Different workers still compete, and repeated sends retain the separate
 	// unbounded-loop rule above. This narrows attribution, not protocol coverage.
 	// https://github.com/kubernetes/registry.k8s.io/blob/b5e7d92a3819fcd24ed35b174db0ce6291e88e7f/cmd/archeio/main_test.go#L69-L83
-	return ssaflow.InstructionMayFollow(first.instruction, second.instruction)
+	return cfg.InstructionMayFollow(first.instruction, second.instruction)
 }
 
 func localUnbufferedChannel(function *ssa.Function, channel ssa.Value) bool {
@@ -255,7 +256,7 @@ func channelReceives(function *ssa.Function, channel ssa.Value, origin *ssa.Go, 
 				}
 			}
 		}
-		if result.count > before && ssaflow.BlockInCycle(block) {
+		if result.count > before && cfg.BlockInCycle(block) {
 			return receiveProof{unknown: true, reason: reasonReceiverMayDrain}
 		}
 	}

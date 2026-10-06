@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -134,7 +135,7 @@ func (engine *Engine) parameterRelation(
 		assumed[parameter] = ssaflow.OutcomeNil
 	}
 	valid, witness := true, false
-	ssaflow.WalkStatesWithin([]*ssa.BasicBlock{function.Blocks[0]}, func(block *ssa.BasicBlock) *ssa.BasicBlock { return block },
+	cfg.WalkStatesWithin([]*ssa.BasicBlock{function.Blocks[0]}, func(block *ssa.BasicBlock) *ssa.BasicBlock { return block },
 		func(block *ssa.BasicBlock) ([]*ssa.BasicBlock, bool) {
 			for _, instruction := range block.Instrs {
 				if !budget.Spend() {

@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -33,7 +34,7 @@ func (storage *Storage) StableFieldContent(address ssa.Value, observation ssa.In
 		if storage.budget.Exhausted() || storage.budget.PoolExhausted() {
 			return storage.unknown(proofs.EvidenceBudgetExhausted, store)
 		}
-		if store == observation || follows || ssaflow.BlockInCycle(store.Block()) {
+		if store == observation || follows || cfg.BlockInCycle(store.Block()) {
 			return storage.unknown(proofs.EvidenceStorageWriteAfterObservation, store)
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
@@ -42,7 +43,7 @@ type resourceFlowKey struct {
 // the shared engines supply traversal mechanics, never diagnostic policy.
 func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resourceLifetimePolicyResult {
 	budget := analysis.budget(resourcePoolBudget)
-	index := ssaflow.InstructionIndexWithin(analysis.acquisition, budget)
+	index := cfg.InstructionIndexWithin(analysis.acquisition, budget)
 	if resourceFlowExhausted(budget) {
 		return unknownResourceLifetime(resourceReasonBudgetExhausted)
 	}
@@ -64,7 +65,7 @@ func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resour
 	guards := ssaflow.GuardsDominatingWithin(analysis.acquisition, budget)
 	initial := []resourceFlowState{{block: analysis.acquisition.Block(), index: index + 1, obligation: resourcemodel.Acquired(), guards: guards}}
 	opaque, leaks, incomplete := false, false, false
-	ssaflow.WalkStatesWithin(initial, func(state resourceFlowState) resourceFlowKey { return resourceStateKey(state, budget) },
+	cfg.WalkStatesWithin(initial, func(state resourceFlowState) resourceFlowKey { return resourceStateKey(state, budget) },
 		func(state resourceFlowState) ([]resourceFlowState, bool) {
 			state, leaks = advanceResourceState(analysis, state, budget)
 			if resourceFlowExhausted(budget) || leaks {

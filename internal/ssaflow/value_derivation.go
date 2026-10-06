@@ -4,6 +4,7 @@ import (
 	"go/token"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -21,7 +22,7 @@ func DerivesFromWithin(value, source ssa.Value, same func(ssa.Value, ssa.Value) 
 		return false
 	}
 	found := false
-	WalkStatesWithin([]ssa.Value{value}, func(value ssa.Value) ssa.Value { return value }, func(value ssa.Value) ([]ssa.Value, bool) {
+	cfg.WalkStatesWithin([]ssa.Value{value}, func(value ssa.Value) ssa.Value { return value }, func(value ssa.Value) ([]ssa.Value, bool) {
 		if value == nil {
 			return nil, true
 		}

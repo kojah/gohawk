@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -118,7 +119,7 @@ type priorCleanupProof struct {
 func (analysis *resourceAnalysis) provePriorCleanupWithin(acquisition *ssa.Call, budget *proofs.SearchBudget) priorCleanupProof {
 	for instruction := range ssaflow.InstructionsWithin(analysis.function, budget) {
 		deferred, ok := instruction.(*ssa.Defer)
-		if !ok || !ssaflow.InstructionDominates(deferred, acquisition) {
+		if !ok || !cfg.InstructionDominates(deferred, acquisition) {
 			continue
 		}
 		proof := analysis.provePriorDeferredWithin(acquisition, deferred, budget)
@@ -137,7 +138,7 @@ func (analysis *resourceAnalysis) provePriorCleanupWithin(acquisition *ssa.Call,
 	// resource without providing any synchronous cleanup guarantee.
 	for instruction := range ssaflow.InstructionsWithin(analysis.function, budget) {
 		call, ok := instruction.(*ssa.Call)
-		if !ok || !ssaflow.InstructionDominates(call, acquisition) ||
+		if !ok || !cfg.InstructionDominates(call, acquisition) ||
 			!ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup) {
 			continue
 		}

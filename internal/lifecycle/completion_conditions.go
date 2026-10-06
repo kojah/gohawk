@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -42,7 +43,7 @@ func completionEdgeCondition(from, to *ssa.BasicBlock) (*ssa.Call, ssaflow.CallC
 	}
 	value, outcome := completionTest(branch.Cond, to == from.Succs[0])
 	call, index, ok := ssaflow.CallResultSource(value)
-	if !ok || outcome == ssaflow.OutcomeAny || !ssaflow.InstructionDominates(call, branch) {
+	if !ok || outcome == ssaflow.OutcomeAny || !cfg.InstructionDominates(call, branch) {
 		return nil, ssaflow.CallCondition{}, false
 	}
 	return call, ssaflow.CallCondition{Result: index, Outcome: outcome}, true
@@ -96,7 +97,7 @@ func (search *completionSearch) conditionalCoverage(
 ) bool {
 	matched, failed := false, false
 	initial := []conditionalCompletionState{{block: function.Blocks[0]}}
-	ssaflow.WalkStatesWithin(initial, func(state conditionalCompletionState) conditionalCompletionState { return state },
+	cfg.WalkStatesWithin(initial, func(state conditionalCompletionState) conditionalCompletionState { return state },
 		func(state conditionalCompletionState) ([]conditionalCompletionState, bool) {
 			for _, instruction := range state.block.Instrs {
 				if !search.budget.Spend() {

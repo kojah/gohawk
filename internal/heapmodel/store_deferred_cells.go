@@ -3,6 +3,7 @@ package heapmodel
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -86,7 +87,7 @@ func (graph *regionGraph) contentWhenDeferredRunWithin(address ssa.Value, regist
 	result := pointees{}
 	found := false
 	for _, point := range points {
-		if !ssaflow.InstructionMayFollowWithin(registration, point, budget) {
+		if !cfg.InstructionMayFollowWithin(registration, point, budget) {
 			continue
 		}
 		set, ok := graph.contentAtUnlocked(address, point)

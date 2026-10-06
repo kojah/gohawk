@@ -2,6 +2,7 @@ package ssaflow
 
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 	// Channel alias discovery follows direction conversions, initialized cell
 	// reads, lexical captures and static call arguments. Uses outside those forms
@@ -109,13 +110,13 @@ func cellCopiesWithin(cell *ssa.Alloc, store *ssa.Store, budget *proofs.SearchBu
 		switch typed := user.(type) {
 		case *ssa.Store:
 		case *ssa.UnOp:
-			if InstructionDominatesWithin(store, typed, budget) {
+			if cfg.InstructionDominatesWithin(store, typed, budget) {
 				copies = append(copies, typed)
-			} else if !InstructionDominatesWithin(typed, store, budget) || BlockInCycleWithin(typed.Block(), budget) {
+			} else if !cfg.InstructionDominatesWithin(typed, store, budget) || cfg.BlockInCycleWithin(typed.Block(), budget) {
 				return nil, false
 			}
 		case *ssa.MakeClosure:
-			if !InstructionDominatesWithin(store, typed, budget) {
+			if !cfg.InstructionDominatesWithin(store, typed, budget) {
 				return nil, false
 			}
 			function, ok := typed.Fn.(*ssa.Function)

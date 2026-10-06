@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -190,8 +191,8 @@ func outwardProjectionWrapper(reference ssa.Instruction, inner ssa.Value) (ssa.V
 }
 
 func instructionWithinObservation(candidate, origin, observation ssa.Instruction, budget *proofs.SearchBudget) bool {
-	return candidate != nil && candidate != origin && ssaflow.InstructionMayFollowWithin(origin, candidate, budget) &&
-		ssaflow.InstructionMayFollowWithin(candidate, observation, budget)
+	return candidate != nil && candidate != origin && cfg.InstructionMayFollowWithin(origin, candidate, budget) &&
+		cfg.InstructionMayFollowWithin(candidate, observation, budget)
 }
 
 // ProjectionPathProof proves a strict projection and retains its exact static

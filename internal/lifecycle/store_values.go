@@ -5,7 +5,7 @@ import (
 	"iter"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -27,7 +27,7 @@ func StoredInto(address ssa.Value) iter.Seq[ssa.Value] {
 // Graph, callback and allocation costs remain independent. Nil is unbounded.
 func StoredIntoWithin(address ssa.Value, budget *proofs.SearchBudget) iter.Seq[ssa.Value] {
 	return func(yield func(ssa.Value) bool) {
-		ssaflow.WalkStatesWithin([]ssa.Value{address}, func(value ssa.Value) ssa.Value { return value }, func(address ssa.Value) ([]ssa.Value, bool) {
+		cfg.WalkStatesWithin([]ssa.Value{address}, func(value ssa.Value) ssa.Value { return value }, func(address ssa.Value) ([]ssa.Value, bool) {
 			if address == nil || address.Referrers() == nil {
 				return nil, true
 			}

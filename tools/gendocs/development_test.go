@@ -19,16 +19,16 @@ func TestDevelopmentBlocksRenderFromSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pkg, err := parsePackageDoc(root, "internal/ssaflow")
+	pkg, err := parsePackageDoc(root, "internal/ssaflow/cfg")
 	if err != nil {
 		t.Fatal(err)
 	}
-	helpers, err := helperReference(root, "internal/ssaflow", pkg)
+	helpers, err := helperReference(root, "internal/ssaflow/cfg", pkg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Functions, constructors, methods, types, and constants are all searchable.
-	for _, want := range []string{"## WalkStates", "## NewReachingWalk", "## TransparentValueForm", "```go", "[Source]("} {
+	for _, want := range []string{"## WalkStates", "## InstructionIndex", "```go", "[Source]("} {
 		if !strings.Contains(helpers, want) {
 			t.Errorf("helper index lacks %q", want)
 		}
@@ -41,8 +41,10 @@ func TestDevelopmentBlocksRenderFromSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(coreHelpers, "## ReachingWalk.Any") {
-		t.Error("core helper index lacks ReachingWalk.Any")
+	for _, want := range []string{"## ReachingWalk.Any", "## NewReachingWalk", "## TransparentValueForm"} {
+		if !strings.Contains(coreHelpers, want) {
+			t.Errorf("core helper index lacks %q", want)
+		}
 	}
 	example, err := ssaExampleBlock(root)
 	if err != nil {

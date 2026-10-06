@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -84,7 +85,7 @@ func possibleFreshBoundMutex(path ssaflow.EmbeddedFieldPath) freshMutexFieldProo
 	storage := heapmodel.NewStorage(budget)
 	fresh := false
 	for instruction := range ssaflow.InstructionsWithin(load.Parent(), budget) {
-		if !ssaflow.InstructionMayFollow(instruction, load) {
+		if !cfg.InstructionMayFollow(instruction, load) {
 			continue
 		}
 		// Only an initializer of this observed slot is positive evidence.
@@ -99,7 +100,7 @@ func possibleFreshBoundMutex(path ssaflow.EmbeddedFieldPath) freshMutexFieldProo
 				if !freshOwnerResult(store.Val, budget) {
 					return unknown
 				}
-				fresh = fresh || ssaflow.InstructionDominates(store, load)
+				fresh = fresh || cfg.InstructionDominates(store, load)
 			}
 		}
 		if boundSlotMutation(instruction, field, storage, budget) {
@@ -187,7 +188,7 @@ func sameBoundSlot(value ssa.Value, field *ssa.FieldAddr, storage *heapmodel.Sto
 // identity across loop allocations or treat a loaded owner as a fresh value.
 func localMutexPathIdentity(path ssaflow.EmbeddedFieldPath) string {
 	allocation, ok := path.Root.(*ssa.Alloc)
-	if !ok || ssaflow.BlockInCycle(allocation.Block()) {
+	if !ok || cfg.BlockInCycle(allocation.Block()) {
 		return ""
 	}
 	return mutexPathInstanceIdentity(path)
@@ -198,7 +199,7 @@ func mutexPathInstanceIdentity(path ssaflow.EmbeddedFieldPath) string {
 	if !root.Proven() {
 		return ""
 	}
-	if instruction, ok := root.Value.(ssa.Instruction); ok && ssaflow.BlockInCycle(instruction.Block()) {
+	if instruction, ok := root.Value.(ssa.Instruction); ok && cfg.BlockInCycle(instruction.Block()) {
 		return ""
 	}
 	name := lockIdentityOf(root.Value)

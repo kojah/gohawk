@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -259,7 +260,7 @@ func (storage *Storage) collect(address ssa.Value, observation ssa.Instruction, 
 			continue
 		}
 		if !whole {
-			follows := ssaflow.InstructionMayFollowWithin(use, observation, storage.budget)
+			follows := cfg.InstructionMayFollowWithin(use, observation, storage.budget)
 			// An incomplete order query cannot discard a possibly relevant
 			// write or escape and then claim exact contents from the rest.
 			if storage.budget.Exhausted() {

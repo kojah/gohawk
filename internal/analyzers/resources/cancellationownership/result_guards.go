@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -46,7 +47,7 @@ func (classifier *cancellationClassifier) proveDeferredCaptureCellWithin(store *
 			deferred, ok := deferredDirectlyWithin(typed, budget)
 			// A defer registered before the store is never met by the obligation
 			// walk after acquisition, so this store must remain opaque.
-			if !ok || !ssaflow.InstructionDominatesWithin(store, deferred, budget) {
+			if !ok || !cfg.InstructionDominatesWithin(store, deferred, budget) {
 				return deferredCaptureProof(false, budget)
 			}
 			captured = true

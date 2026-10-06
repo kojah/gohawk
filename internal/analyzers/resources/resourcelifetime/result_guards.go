@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -38,7 +39,7 @@ func (analysis *resourceAnalysis) acquisitionReachable(budget *proofs.SearchBudg
 		}
 		return positionKey{block: at.block.Index, predecessor: predecessor}
 	}
-	ssaflow.WalkStatesWithin([]position{{block: analysis.function.Blocks[0]}}, key, func(at position) ([]position, bool) {
+	cfg.WalkStatesWithin([]position{{block: analysis.function.Blocks[0]}}, key, func(at position) ([]position, bool) {
 		if at.block == target || !budget.Spend() {
 			reached = true
 			return nil, false

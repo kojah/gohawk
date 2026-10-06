@@ -11,6 +11,7 @@ import (
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -54,7 +55,7 @@ func findOptionalAcquisitionWithin(call *ssa.Call, resource, errorValue ssa.Valu
 	// https://github.com/liliang-cn/cortexdb/blob/2486ab7a7d560f5351b626ba813afba5442d1b3d/pkg/core/advanced_search.go#L136-L156
 	acquisitionBlock := call.Block()
 	merge := acquisitionBlock.Succs[0]
-	if len(merge.Preds) != 2 || len(acquisitionBlock.Preds) != 1 || ssaflow.BlockReachableWithin(merge, acquisitionBlock, budget) {
+	if len(merge.Preds) != 2 || len(acquisitionBlock.Preds) != 1 || cfg.BlockReachableWithin(merge, acquisitionBlock, budget) {
 		return unmatched
 	}
 	guard := acquisitionBlock.Preds[0]

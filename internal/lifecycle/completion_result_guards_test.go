@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -58,7 +59,7 @@ func TestResultGuards(t *testing.T) {
 	}
 	states := map[string]proofs.EvidenceState{}
 	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](guarded) {
-		if !ssaflow.InstructionDominates(guards[0].Defer, returned) {
+		if !cfg.InstructionDominates(guards[0].Defer, returned) {
 			continue
 		}
 		value, _ := ssaflow.ValueAtReturnWithin(returned, guards[0].Cells[0], nil)

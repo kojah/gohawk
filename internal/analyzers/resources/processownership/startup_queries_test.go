@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -138,7 +139,7 @@ func TestStartupWrapperDeferredLaunches(t *testing.T) {
 			fn := pkg.Func(test.name)
 			start := startupTestCall(t, fn)
 			var before []ssa.Instruction
-			for instruction := range ssaflow.InstructionsStrictlyDominatingWithin(start, nil) {
+			for instruction := range cfg.InstructionsStrictlyDominatingWithin(start, nil) {
 				before = append(before, instruction)
 			}
 			for _, limit := range []int{0, processPoolBudget} {

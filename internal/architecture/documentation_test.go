@@ -19,7 +19,7 @@ import (
 // both directions.
 //
 // Prose that cites code must cite code that exists. Every package-qualified
-// reference such as `check.Report`, `ssaflow.WalkStates`, or
+// reference such as `check.Report`, `cfg.WalkStates`, or
 // `analysis.Pass.Report` is resolved against the type-checked scope of that
 // package, so a renamed helper fails the build instead of leaving a paragraph
 // pointing at nothing. A qualifier that is not a known package (`t.Helper`,
@@ -65,7 +65,7 @@ var documentedPackagePatterns = []string{
 // appear in their own references. The regeneration check additionally discovers
 // new pass packages and checks complete declarations and methods.
 var inventoryPackages = []string{
-	"syntax", "ssaflow", "lifecycle", "heapmodel", "resourcemodel", "summaries",
+	"proof", "syntax", "ssaflow", "cfg", "lifecycle", "heapmodel", "resourcemodel", "summaries",
 	"lifecyclefacts", "concurrencyfacts", "resultfacts", "testvariant",
 }
 

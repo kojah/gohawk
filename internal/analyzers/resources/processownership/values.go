@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -138,7 +139,7 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 func successfulCommandMerge(start *ssa.Call, command ssa.Value) *ssa.Phi {
 	for _, successor := range start.Block().Succs {
 		success, known := ssaflow.SuccessBranch(start.Block(), successor, start)
-		if !known || !success || ssaflow.BlockInCycle(successor) {
+		if !known || !success || cfg.BlockInCycle(successor) {
 			continue
 		}
 		for _, instruction := range successor.Instrs {
@@ -170,7 +171,7 @@ type processGuardProof struct {
 // https://github.com/TencentCloud/tencentmeeting-cli/blob/e631b355da2b001d24b82f453b65d96f39c59865/internal/event/spawner/spawner.go#L113-L123
 // https://github.com/stacktower-io/stacktower/blob/69ff07430089898cc79af381f6e0c3a927a7d149/internal/cli/auth_device.go#L118-L124
 func proveImmediateProcessGuard(start *ssa.Call, command ssa.Value) processGuardProof {
-	if ssaflow.InstructionIndex(start) != len(start.Block().Instrs)-3 {
+	if cfg.InstructionIndex(start) != len(start.Block().Instrs)-3 {
 		return processGuardProof{State: proofs.EvidenceDisproven}
 	}
 	for _, guard := range start.Block().Succs {
@@ -232,7 +233,7 @@ func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
 		if !known || success {
 			continue
 		}
-		return ssaflow.BlockReachable(successor, returned.Block()) && !successBranchReaches(start, returned.Block())
+		return cfg.BlockReachable(successor, returned.Block()) && !successBranchReaches(start, returned.Block())
 	}
 	return false
 }
@@ -240,7 +241,7 @@ func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
 func successBranchReaches(start *ssa.Call, target *ssa.BasicBlock) bool {
 	for _, successor := range start.Block().Succs {
 		if success, known := ssaflow.SuccessBranch(start.Block(), successor, start); known && success {
-			return ssaflow.BlockReachable(successor, target)
+			return cfg.BlockReachable(successor, target)
 		}
 	}
 	return false

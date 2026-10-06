@@ -6,7 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
@@ -80,7 +80,7 @@ func (flow lockFlowContext) possiblyDeferredUnlock(acquisition ssa.Instruction, 
 		if !flow.releases.budget.Spend() {
 			return false
 		}
-		dominates := ssaflow.InstructionDominatesWithin(deferred, acquisition, flow.releases.budget)
+		dominates := cfg.InstructionDominatesWithin(deferred, acquisition, flow.releases.budget)
 		if flow.releases.budget.Exhausted() {
 			return false
 		}

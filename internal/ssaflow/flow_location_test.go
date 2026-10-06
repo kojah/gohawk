@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -34,7 +35,7 @@ func TestFlowLocationKeepsDistinctPathsAndPositions(t *testing.T) {
 	}
 	keys = append(keys, keys[0])
 	expanded := 0
-	WalkStates(keys, func(key FlowLocationKey) FlowLocationKey { return key }, func(FlowLocationKey) ([]FlowLocationKey, bool) {
+	cfg.WalkStates(keys, func(key FlowLocationKey) FlowLocationKey { return key }, func(FlowLocationKey) ([]FlowLocationKey, bool) {
 		expanded++
 		return nil, true
 	})
@@ -45,7 +46,7 @@ func TestFlowLocationKeepsDistinctPathsAndPositions(t *testing.T) {
 	// must not be admitted as an unguarded location or expanded by the walk.
 	cut := proofs.NewSearchBudget(1)
 	expanded = 0
-	WalkStatesWithin([]int{0}, func(index int) FlowLocationKey {
+	cfg.WalkStatesWithin([]int{0}, func(index int) FlowLocationKey {
 		return FlowLocationKeyWithin(block, nil, index, trueGuards, cut)
 	}, func(int) ([]int, bool) { expanded++; return nil, true }, cut)
 	if expanded != 0 || !cut.Exhausted() {
@@ -70,7 +71,7 @@ func TestObligationKeyKeepsCoverageAtSameLocation(t *testing.T) {
 	}
 	expanded := 0
 	var ids guardIDs
-	WalkStates(states, func(state obligationState) obligationKey { return state.keyWithin(nil, &ids) },
+	cfg.WalkStates(states, func(state obligationState) obligationKey { return state.keyWithin(nil, &ids) },
 		func(obligationState) ([]obligationState, bool) { expanded++; return nil, true })
 	if expanded != len(states) {
 		t.Fatalf("coverage collapsed at one guarded position: expanded=%d", expanded)

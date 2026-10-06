@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -32,7 +33,7 @@ func (analysis *spawnAnalysis) flagGuardedJoin() bool {
 				return true
 			}
 			branch, ok := instruction.(*ssa.If)
-			if !ok || !ssaflow.InstructionMayFollow(analysis.spawn, branch) || !analysis.branchGuardsJoin(branch) {
+			if !ok || !cfg.InstructionMayFollow(analysis.spawn, branch) || !analysis.branchGuardsJoin(branch) {
 				continue
 			}
 			if flag := booleanFlagVariable(branch.Cond); flag != nil && analysis.flagAssignedAroundSpawn(flag) {
@@ -319,15 +320,15 @@ func (analysis *spawnAnalysis) blockAroundSpawn(block *ssa.BasicBlock) bool {
 }
 
 func (analysis *spawnAnalysis) countedJoin() bool {
-	if !ssaflow.BlockInCycle(analysis.spawn.Block()) {
+	if !cfg.BlockInCycle(analysis.spawn.Block()) {
 		return false
 	}
 	for _, block := range analysis.function.Blocks {
-		if !ssaflow.BlockInCycle(block) {
+		if !cfg.BlockInCycle(block) {
 			continue
 		}
 		for _, instruction := range block.Instrs {
-			if ssaflow.InstructionMayFollow(analysis.spawn, instruction) && analysis.action(instruction) == actionJoin {
+			if cfg.InstructionMayFollow(analysis.spawn, instruction) && analysis.action(instruction) == actionJoin {
 				return true
 			}
 		}

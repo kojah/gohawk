@@ -73,8 +73,12 @@ malformed JSON and analyzer errors keep their existing distinct handling.
 
 - `internal/ssaflow` owns the reusable SSA mechanics: value provenance
   (`ReachingWalk`), calls, and control-flow queries
-  (`WalkStates` and `EvaluateObligation`). It provides how to walk, not an
+  (`EvaluateObligation`). It provides how to walk, not an
   analyzer's reporting policy.
+- `internal/ssaflow/cfg` owns structural reachability, instruction ordering,
+  keyed work lists and selection from already-feasible edges. It depends only
+  on shared work budgets; value, call and path-proof layers cannot become its
+  dependencies. Its work-list caller owns state and successor feasibility.
 - `internal/lifecycle` builds completion and ownership-transfer
   proofs from `ssaflow` and `heapmodel`. Analyzers import the layer that owns
   the query they need; neither package forwards the other's API.
@@ -251,6 +255,7 @@ the code cannot drift apart silently.
 | `TestSourceInventoryExcludesNonProductionTrees` | source inventories exclude fixtures, generated files, tests, and dot/underscore-prefixed trees such as cached audit checkouts |
 | `TestSourceInventoryIncludesAuthoredTests` | test-inclusive invariants share the source inventory, retaining fixture/generated exclusions and deduplicating overlapping roots |
 | `TestInternalPackagesRespectDependencyDirection` | analyzers may use shared tools; shared tools never depend on analyzers or the catalog |
+| `TestCFGDependencyBoundaries` | structural CFG mechanics depend only on shared budgets; they never depend on value or path proofs |
 | `TestAnalyzerPackageLayout` | one package per analyzer under `internal/analyzers/<group>/<name>` |
 | `TestAnalyzersUseSharedReporting` | diagnostics only through `check.Report` or `check.Reportf`, never `analysis.Pass.Report` directly |
 | `TestAnalyzerCodeUsesStructuredTracing` | production analyzer and analysis-pass code uses `internal/trace` rather than `fmt.Print`, `fmt.Printf`, or `fmt.Println` probes |
@@ -336,7 +341,7 @@ to move it between proof layers; only trace rendering chooses its external code.
 
 The guard covers production Go code repository-wide, including analyzer wrappers
 and the golangci plugin, with no migration-debt baseline. Only
-`internal/trace/trace.go` and `internal/ssaflow/proof_observer.go` retain textual
+`internal/trace/trace.go` and `internal/proof/observer.go` retain textual
 reason transport. These are output boundaries, not inference APIs. Syntax checks
 cannot infer every string's purpose: review unnamed helper return values and
 dynamically synthesized codes too. Keep golden trace tests and enum-to-code

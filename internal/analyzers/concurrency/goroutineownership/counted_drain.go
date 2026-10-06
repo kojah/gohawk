@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -108,10 +109,10 @@ func (analysis *spawnAnalysis) singleSendChannel(operand ssa.Value, choice *ssa.
 		cell, _ = typed.X.(*ssa.Alloc)
 		made = singleStoredChannel(cell)
 	}
-	if made == nil || made.Parent() != analysis.function || ssaflow.BlockInCycle(made.Block()) {
+	if made == nil || made.Parent() != analysis.function || cfg.BlockInCycle(made.Block()) {
 		return nil
 	}
-	if cell != nil && (cell.Parent() != analysis.function || ssaflow.BlockInCycle(cell.Block())) {
+	if cell != nil && (cell.Parent() != analysis.function || cfg.BlockInCycle(cell.Block())) {
 		return nil
 	}
 	counter := sendCounter{choice: choice}
@@ -211,7 +212,7 @@ func (counter *sendCounter) countCellUses(cell *ssa.Alloc, made *ssa.MakeChan) {
 // the worker several times, each with its own send.
 func (counter *sendCounter) countLaunchedSends(launch *ssa.Go, channel ssa.Value) {
 	callee := launch.Call.StaticCallee()
-	if launch.Call.IsInvoke() || callee == nil || len(callee.Blocks) == 0 || ssaflow.BlockInCycle(launch.Block()) {
+	if launch.Call.IsInvoke() || callee == nil || len(callee.Blocks) == 0 || cfg.BlockInCycle(launch.Block()) {
 		counter.exact = false
 		return
 	}
@@ -236,7 +237,7 @@ func (counter *sendCounter) countClosureSends(closure *ssa.MakeClosure, cell *ss
 		if _, debug := use.(*ssa.DebugRef); debug {
 			continue
 		}
-		if !ok || launch.Call.Value != closure || ssaflow.BlockInCycle(launch.Block()) {
+		if !ok || launch.Call.Value != closure || cfg.BlockInCycle(launch.Block()) {
 			counter.exact = false
 			return
 		}
@@ -276,7 +277,7 @@ func (counter *sendCounter) countWorkerSends(value ssa.Value, captured bool) {
 
 func (counter *sendCounter) countSend(use ssa.Instruction, channel ssa.Value) {
 	send, ok := use.(*ssa.Send)
-	if !ok || send.Chan != channel || send.X == channel || ssaflow.BlockInCycle(send.Block()) {
+	if !ok || send.Chan != channel || send.X == channel || cfg.BlockInCycle(send.Block()) {
 		counter.exact = false
 		return
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -217,16 +218,16 @@ func loopVariantValue(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	case *ssa.Alloc:
 		// An allocation executed again by a loop creates a different lock,
 		// even though the allocation has one SSA name.
-		return ssaflow.BlockInCycle(typed.Block())
+		return cfg.BlockInCycle(typed.Block())
 	case *ssa.Phi:
-		return ssaflow.BlockInCycle(typed.Block())
+		return cfg.BlockInCycle(typed.Block())
 	case *ssa.Extract:
 		return loopVariantExtract(walk, typed)
 	case *ssa.UnOp:
 		// Queue consumers can receive a different object each iteration.
 		// https://github.com/encodeous/nylon/blob/c4a96c804f7aa08512721dec7994907eab100bc8/polyamide/device/channels.go#L83-L99
 		if typed.Op == token.ARROW {
-			return ssaflow.BlockInCycle(typed.Block())
+			return cfg.BlockInCycle(typed.Block())
 		}
 		return loopVariantValue(walk, typed.X)
 	case *ssa.IndexAddr:
@@ -262,11 +263,11 @@ func loopVariantValue(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 func loopVariantExtract(walk ssaflow.ReachingWalk, value *ssa.Extract) bool {
 	switch tuple := value.Tuple.(type) {
 	case *ssa.Next:
-		return ssaflow.BlockInCycle(tuple.Block())
+		return cfg.BlockInCycle(tuple.Block())
 	case *ssa.Select:
 		// The first two results are the selected case index and receive-ok;
 		// only the remaining results are received payloads.
-		return value.Index >= 2 && ssaflow.BlockInCycle(tuple.Block())
+		return value.Index >= 2 && cfg.BlockInCycle(tuple.Block())
 	default:
 		return loopVariantValue(walk, value.Tuple)
 	}

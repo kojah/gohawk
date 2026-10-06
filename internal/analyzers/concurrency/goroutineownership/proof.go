@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -264,7 +265,7 @@ func (analysis *spawnAnalysis) lifetimeCutoff(
 func (analysis *spawnAnalysis) dominatingProof() (GoroutineProof, bool) {
 	unknown := false
 	budget := analysis.budget()
-	for instruction := range ssaflow.InstructionsStrictlyDominatingWithin(analysis.spawn, budget) {
+	for instruction := range cfg.InstructionsStrictlyDominatingWithin(analysis.spawn, budget) {
 		_, deferred := instruction.(*ssa.Defer)
 		// Testing callbacks also execute later, even when registration
 		// precedes the spawn. An ordinary Wait before spawn still cannot join.
@@ -320,18 +321,18 @@ func (analysis *spawnAnalysis) guardedLocalJoin() bool {
 // may observe a different channel instance than the worker.
 func (analysis *spawnAnalysis) channelsCreatedOnceBeforeSpawn() []ssa.Value {
 	closure, ok := analysis.spawn.Common().Value.(*ssa.MakeClosure)
-	if !ok || ssaflow.BlockInCycle(analysis.spawn.Block()) {
+	if !ok || cfg.BlockInCycle(analysis.spawn.Block()) {
 		return nil
 	}
 	var created []ssa.Value
 	for _, binding := range closure.Bindings {
 		stored := heapmodel.NewStorage(analysis.budget()).StableContent(binding, analysis.spawn)
 		channel, ok := stored.Value.(*ssa.MakeChan)
-		if stored.Proven() && ok && channel.Parent() == analysis.function && !ssaflow.BlockInCycle(channel.Block()) {
+		if stored.Proven() && ok && channel.Parent() == analysis.function && !cfg.BlockInCycle(channel.Block()) {
 			// The guard reads the captured cell after launch. StableContent
 			// rules out replacement, but its earlier nil state must not become
 			// a may-alias assumption in the shared non-nil flow query.
-			for _, instruction := range ssaflow.InstructionsReachableAfter(analysis.spawn) {
+			for _, instruction := range cfg.InstructionsReachableAfter(analysis.spawn) {
 				value, ok := instruction.(ssa.Value)
 				if !ok {
 					continue

@@ -6,6 +6,7 @@ import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -21,7 +22,7 @@ func TestResourceKeyKeepsObligationAtSameLocation(t *testing.T) {
 		{block: block, obligation: obligation.Absent()},
 	}
 	expanded := 0
-	ssaflow.WalkStates(states, func(state resourceFlowState) resourceFlowKey { return resourceStateKey(state, nil) },
+	cfg.WalkStates(states, func(state resourceFlowState) resourceFlowKey { return resourceStateKey(state, nil) },
 		func(resourceFlowState) ([]resourceFlowState, bool) { expanded++; return nil, true })
 	if expanded != len(states) {
 		t.Fatalf("obligation collapsed at one guarded position: expanded=%d", expanded)

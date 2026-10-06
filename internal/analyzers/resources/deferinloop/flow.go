@@ -13,6 +13,7 @@ import (
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -52,7 +53,7 @@ func proveDeferLifetime(
 	deferred *ssa.Defer,
 	obligation deferObligation,
 ) deferLifetimeProof {
-	index := ssaflow.InstructionIndex(deferred)
+	index := cfg.InstructionIndex(deferred)
 	if index < 0 {
 		return deferLifetimeProof{state: proofs.EvidenceUnknown, reason: reasonDeferLocationUnknown, witness: deferred}
 	}
@@ -62,14 +63,14 @@ func proveDeferLifetime(
 	// https://github.com/protomaps/go-pmtiles/blob/a3e4951ea6a0477b784c27c1dcbfd9c130878c5a/pmtiles/merge.go#L206-L215
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](deferred.Parent()) {
 		retains := func(value ssa.Value) bool { return opaqueResourceUse(store, value) }
-		if ssaflow.InstructionDominates(store, deferred) && slices.ContainsFunc(obligation.values(), retains) {
+		if cfg.InstructionDominates(store, deferred) && slices.ContainsFunc(obligation.values(), retains) {
 			return deferLifetimeProof{state: proofs.EvidenceUnknown, reason: reasonRetainedBeforeDefer, witness: store}
 		}
 	}
 	proof := deferLifetimeProof{state: proofs.EvidenceDisproven, reason: reasonNoLiveBackedge, witness: deferred}
 	unknownAtBackedge := false
 	initial := []deferFlowState{{block: deferred.Block(), index: index + 1, status: resourceLive}}
-	ssaflow.WalkStates(initial, func(state deferFlowState) deferFlowState { return state }, func(state deferFlowState) ([]deferFlowState, bool) {
+	cfg.WalkStates(initial, func(state deferFlowState) deferFlowState { return state }, func(state deferFlowState) ([]deferFlowState, bool) {
 		state = advanceDeferState(evidence, probe, state, obligation)
 		// A branch a callee's proven result rules out is not a path to the
 		// backedge; feasibility only removes successors, it never adds one.

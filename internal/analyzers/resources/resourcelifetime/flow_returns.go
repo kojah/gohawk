@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
@@ -51,7 +52,7 @@ func (analysis *resourceAnalysis) proveReturnedWrapperWithin(returned *ssa.Retur
 	if !found && !resourceFlowExhausted(budget) {
 		for instruction := range ssaflow.InstructionsWithin(analysis.function, budget) {
 			call, ok := instruction.(*ssa.Call)
-			if !ok || !ssaflow.InstructionDominatesWithin(call, returned, budget) ||
+			if !ok || !cfg.InstructionDominatesWithin(call, returned, budget) ||
 				!analysis.provenWrapperOfWithin(call, maxWrapperChain, budget) {
 				continue
 			}

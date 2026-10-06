@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -333,7 +334,7 @@ func (fixed FixedValues) NarrowWithin(successors []*ssa.BasicBlock, block *ssa.B
 	if !decided {
 		return successors
 	}
-	kept := keepSuccessorWithin(successors, taken, budget)
+	kept := cfg.KeepSuccessorWithin(successors, taken, budget)
 	if budget.Exhausted() {
 		return successors
 	}

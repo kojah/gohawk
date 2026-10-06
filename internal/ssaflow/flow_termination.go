@@ -2,6 +2,7 @@ package ssaflow
 
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 	// Terminator extends the documented catalog of terminating calls with what
 	// an analyzer knows from summaries: a project's own fatal wrapper, or a
@@ -47,7 +48,7 @@ func InstructionTerminatesWithin(instruction ssa.Instruction, terminates Termina
 		if !ok || !callTerminatesControlFlow(deferred.Common()) {
 			continue
 		}
-		if InstructionDominatesWithin(deferred, instruction, budget) {
+		if cfg.InstructionDominatesWithin(deferred, instruction, budget) {
 			return !budget.Exhausted()
 		}
 		if budget.Exhausted() {

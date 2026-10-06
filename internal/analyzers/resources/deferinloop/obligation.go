@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -165,8 +166,8 @@ func sameObligationValue(left, right ssa.Value) bool {
 // back to the acquisition block proves it belongs to the repeating region,
 // rather than being a function-entry value reused by a later loop.
 func acquisitionRepeatsBeforeDefer(acquisition, deferred ssa.Instruction) bool {
-	return ssaflow.InstructionDominates(acquisition, deferred) &&
-		ssaflow.BlockReachable(deferred.Block(), acquisition.Block())
+	return cfg.InstructionDominates(acquisition, deferred) &&
+		cfg.BlockReachable(deferred.Block(), acquisition.Block())
 }
 
 func lockAcquiredBeforeDefer(deferred *ssa.Defer, target ssa.Value, acquire syntax.Symbol) bool {

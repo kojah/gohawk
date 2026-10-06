@@ -12,6 +12,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -216,7 +217,7 @@ func conditionIdentity(value ssa.Value, budget *proofs.SearchBudget) (string, bo
 	_, parameter := value.(*ssa.Parameter)
 	_, comparisonValue := value.(*ssa.BinOp)
 	instruction, computed := value.(ssa.Instruction)
-	stableComputed := computed && !comparisonValue && !ssaflow.BlockInCycleWithin(instruction.Block(), budget)
+	stableComputed := computed && !comparisonValue && !cfg.BlockInCycleWithin(instruction.Block(), budget)
 	if budget.Exhausted() {
 		return "", false
 	}

@@ -2,6 +2,7 @@ package ssaflow
 
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 	// NormalReturnReachableFrom reports whether block can reach a normal return
 	// without first invoking a control-flow terminating API.
@@ -34,7 +35,7 @@ func ProveNormalReturnWithin(block *ssa.BasicBlock, terminates Terminator, budge
 		return NormalReturnProof{Proof: proofs.Proof{Reason: proofs.EvidenceUnavailable}}
 	}
 	var witness *ssa.Return
-	WalkStatesWithin([]*ssa.BasicBlock{block}, func(candidate *ssa.BasicBlock) *ssa.BasicBlock { return candidate },
+	cfg.WalkStatesWithin([]*ssa.BasicBlock{block}, func(candidate *ssa.BasicBlock) *ssa.BasicBlock { return candidate },
 		func(candidate *ssa.BasicBlock) ([]*ssa.BasicBlock, bool) {
 			for _, instruction := range candidate.Instrs {
 				if !budget.Spend() {

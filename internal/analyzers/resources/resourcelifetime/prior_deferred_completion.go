@@ -5,6 +5,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -19,7 +20,7 @@ import (
 func (analysis *resourceAnalysis) proveDeferredBeforeAcquisitionWithin(call *ssa.Call, budget *proofs.SearchBudget) resourceProof {
 	for instruction := range ssaflow.InstructionsWithin(call.Parent(), budget) {
 		deferred, ok := instruction.(*ssa.Defer)
-		if !ok || !ssaflow.InstructionDominates(deferred, call) {
+		if !ok || !cfg.InstructionDominates(deferred, call) {
 			continue
 		}
 		completion := lifecycle.CompletionRequest{

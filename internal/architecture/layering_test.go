@@ -46,6 +46,9 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 }
 
 func internalLayer(packagePath string) string {
+	if packagePath == "ssaflow/cfg" {
+		return "cfg"
+	}
 	component, _, _ := strings.Cut(packagePath, "/")
 	switch component {
 	case "proof", "syntax", "ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace":
@@ -57,12 +60,14 @@ func internalLayer(packagePath string) string {
 
 func forbiddenLayerDependency(from, to string) bool {
 	switch from {
+	case "cfg":
+		return to != "proof" && to != "cfg"
 	case "proof":
 		return slices.Contains([]string{
-			"syntax", "ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace",
+			"syntax", "ssaflow", "cfg", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace",
 		}, to)
 	case "syntax":
-		return slices.Contains([]string{"ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers"}, to)
+		return slices.Contains([]string{"ssaflow", "cfg", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers"}, to)
 	case "ssaflow":
 		return slices.Contains([]string{"heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace"}, to)
 	case "heapmodel":
@@ -95,6 +100,26 @@ func TestSemanticModelDependencyBoundaries(t *testing.T) {
 				t.Fatal("semantic model layer was not recognized")
 			}
 			if got := forbiddenLayerDependency(test.from, test.to); got != test.forbid {
+				t.Fatalf("forbidden dependency = %v, want %v", got, test.forbid)
+			}
+		})
+	}
+}
+
+func TestCFGDependencyBoundaries(t *testing.T) {
+	for _, test := range []struct {
+		from, to string
+		forbid   bool
+	}{
+		{"ssaflow", "ssaflow/cfg", false},
+		{"ssaflow/cfg", "proof", false},
+		{"ssaflow/cfg", "ssaflow", true},
+		{"ssaflow/cfg", "lifecycle", true},
+		{"syntax", "ssaflow/cfg", true},
+		{"proof", "ssaflow/cfg", true},
+	} {
+		t.Run(test.from+"/"+test.to, func(t *testing.T) {
+			if got := forbiddenLayerDependency(internalLayer(test.from), internalLayer(test.to)); got != test.forbid {
 				t.Fatalf("forbidden dependency = %v, want %v", got, test.forbid)
 			}
 		})

@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -31,7 +32,7 @@ func proveAcquisitionContextCanceledWithin(acquisition *ssa.Call, budget *proofs
 		if !ok {
 			continue
 		}
-		if invokesContextCancel(call.Common(), constructor) && ssaflow.InstructionDominates(call, acquisition) {
+		if invokesContextCancel(call.Common(), constructor) && cfg.InstructionDominates(call, acquisition) {
 			return carriedValueProof(true, resourceReasonCanceledAcquisition, budget)
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -195,7 +196,7 @@ func releasesAcquiredBeforeReturn(function *ssa.Function, instruction ssa.Instru
 	if common == nil || !cleanupCallOn(common, acquired) {
 		return false
 	}
-	for _, later := range ssaflow.InstructionsReachableAfter(instruction) {
+	for _, later := range cfg.InstructionsReachableAfter(instruction) {
 		if returned, ok := later.(*ssa.Return); ok && returned.Parent() == function && returnedPosition(returned, acquired) >= 0 {
 			return true
 		}

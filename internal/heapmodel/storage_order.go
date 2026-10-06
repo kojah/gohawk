@@ -2,7 +2,7 @@ package heapmodel
 
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -21,10 +21,10 @@ func StoreMayFollowWithin(address ssa.Value, observation ssa.Instruction, store 
 	}
 	allocation, ok := address.(*ssa.Alloc)
 	if !ok {
-		return ssaflow.InstructionMayFollowWithin(observation, store, budget)
+		return cfg.InstructionMayFollowWithin(observation, store, budget)
 	}
 	if observation.Block() == store.Block() {
-		return ssaflow.InstructionMayFollowWithin(observation, store, budget)
+		return cfg.InstructionMayFollowWithin(observation, store, budget)
 	}
 	seen := map[*ssa.BasicBlock]bool{allocation.Block(): true}
 	queue := append([]*ssa.BasicBlock(nil), observation.Block().Succs...)

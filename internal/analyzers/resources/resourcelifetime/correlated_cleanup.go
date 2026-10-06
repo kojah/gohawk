@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -97,7 +98,7 @@ func (analysis *resourceAnalysis) proveCorrelatedErrorWithin(
 			return proof
 		}
 	}
-	following := ssaflow.InstructionsReachableAfterWithin(call, budget)
+	following := cfg.InstructionsReachableAfterWithin(call, budget)
 	// The shared census may return a prefix at cutoff. It cannot complete the
 	// question or publish a correlation from an interrupted request.
 	if resourceFlowExhausted(budget) {

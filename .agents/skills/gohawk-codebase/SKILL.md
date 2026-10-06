@@ -34,6 +34,7 @@ Walk the decision in order and stop at the first fit.
    an obligation — always stays beside the analyzer that owns it, even when the
    implementation looks reusable.
 2. **`internal/proof`** for shared outcomes, provenance and work budgets;
+   **`internal/ssaflow/cfg`** for structural control-flow mechanics;
    **`internal/ssaflow`** for shared value provenance, calls and
    control flow; **`internal/heapmodel`** for storage, identity, and heap queries;
    **`internal/lifecycle`** for completion and transfer proofs using that evidence;
@@ -60,7 +61,7 @@ first. In particular:
 - Walking what flows into a value: `ssaflow.NewReachingWalk` with Any, Every,
   or `ResolveReachingValue`. Never fan out over phi edges or thread a visited
   set yourself; `TestAnalyzersUseSharedTraversal` rejects it.
-- Path-sensitive state over blocks: `ssaflow.WalkStates`.
+- Path-sensitive state over blocks: `cfg.WalkStates`.
 - Does an action cover every return: `ssaflow.EvaluateObligation`, or the
   Boolean `ssaflow.UnownedReturn*` family when only violation matters.
 - Peeling wrappers: `ssaflow.UnwrapTransparentValue` with an explicit form set.

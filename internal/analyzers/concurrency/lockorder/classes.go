@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -97,7 +98,7 @@ func possibleFreshMutexField(value ssa.Value) freshMutexFieldProof {
 	fresh := false
 	for _, store := range ssaflow.InstructionsOf[*ssa.Store](owner.Parent()) {
 		target, ok := store.Addr.(*ssa.FieldAddr)
-		if !ok || target.X != owner || target.Field != field.Field || !ssaflow.InstructionDominates(store, load) {
+		if !ok || target.X != owner || target.Field != field.Field || !cfg.InstructionDominates(store, load) {
 			continue
 		}
 		_, allocated := store.Val.(*ssa.Alloc)
@@ -120,7 +121,7 @@ func visibleMutexSlotReplacement(
 		if !budget.Spend() {
 			return true
 		}
-		if owner.Parent() == observation.Parent() && !ssaflow.InstructionMayFollow(use, observation) {
+		if owner.Parent() == observation.Parent() && !cfg.InstructionMayFollow(use, observation) {
 			continue
 		}
 		switch use := use.(type) {
@@ -249,7 +250,7 @@ func lockComparisonKey(identity string, receiver ssa.Value) string {
 	if allocation := localMutexAllocation(receiver); allocation != nil {
 		// One loop allocation instruction represents different runtime locks;
 		// its SSA name must not connect ordering edges between iterations.
-		if ssaflow.BlockInCycle(allocation.Block()) {
+		if cfg.BlockInCycle(allocation.Block()) {
 			return ""
 		}
 		return identity

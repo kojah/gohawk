@@ -1,4 +1,4 @@
-package ssaflow_test
+package cfg_test
 
 import (
 	"slices"
@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -22,18 +23,18 @@ func TestStrictDominatingInstructions(t *testing.T) {
 		for pivot := range ssaflow.InstructionsWithin(fn, nil) {
 			var want []ssa.Instruction
 			for candidate := range ssaflow.InstructionsWithin(fn, nil) {
-				if candidate != pivot && ssaflow.InstructionDominates(candidate, pivot) {
+				if candidate != pivot && cfg.InstructionDominates(candidate, pivot) {
 					want = append(want, candidate)
 				}
 			}
-			got := slices.Collect(ssaflow.InstructionsStrictlyDominatingWithin(pivot, nil))
+			got := slices.Collect(cfg.InstructionsStrictlyDominatingWithin(pivot, nil))
 			if !slices.Equal(got, want) {
 				t.Fatalf("%s %s: strict dominance differs", name, pivot)
 			}
 			checkDominatingAllowance(t, pivot, want)
 		}
 	}
-	if got := slices.Collect(ssaflow.InstructionsStrictlyDominatingWithin(nil, nil)); len(got) != 0 {
+	if got := slices.Collect(cfg.InstructionsStrictlyDominatingWithin(nil, nil)); len(got) != 0 {
 		t.Fatal("nil pivot yielded instructions")
 	}
 }
@@ -43,7 +44,7 @@ func checkDominatingAllowance(t *testing.T, pivot ssa.Instruction, want []ssa.In
 	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 	for limit := range 1000 {
 		child := pool.Within(limit)
-		got := slices.Collect(ssaflow.InstructionsStrictlyDominatingWithin(pivot, child))
+		got := slices.Collect(cfg.InstructionsStrictlyDominatingWithin(pivot, child))
 		if !child.Exhausted() {
 			if !slices.Equal(got, want) {
 				t.Fatalf("completed census: %v want %v", got, want)
@@ -53,7 +54,7 @@ func checkDominatingAllowance(t *testing.T, pivot ssa.Instruction, want []ssa.In
 		if pool.Exhausted() || len(got) > len(want) || !slices.Equal(got, want[:len(got)]) {
 			t.Fatal("cutoff changed prefix or exhausted parent")
 		}
-		fresh := slices.Collect(ssaflow.InstructionsStrictlyDominatingWithin(pivot, pool.Within(proofs.SummaryBudget)))
+		fresh := slices.Collect(cfg.InstructionsStrictlyDominatingWithin(pivot, pool.Within(proofs.SummaryBudget)))
 		if !slices.Equal(fresh, want) {
 			t.Fatal("fresh child did not recover")
 		}

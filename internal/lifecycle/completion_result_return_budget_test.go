@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -46,7 +47,7 @@ func TestResultReturnBindingAllowance(t *testing.T) {
 			t.Log(dump.String())
 			checked := 0
 			for _, returned := range ssaflow.InstructionsOf[*ssa.Return](fn) {
-				if !ssaflow.InstructionDominates(guard.Defer, returned) {
+				if !cfg.InstructionDominates(guard.Defer, returned) {
 					continue
 				}
 				checked++
@@ -77,7 +78,7 @@ func TestResultReturnCallbackChildAndFresh(t *testing.T) {
 	}
 	guard := guards[0]
 	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](fn) {
-		if !ssaflow.InstructionDominates(guard.Defer, returned) {
+		if !cfg.InstructionDominates(guard.Defer, returned) {
 			continue
 		}
 		pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
@@ -117,9 +118,9 @@ func TestResultGuardReturnReachabilityAllowance(t *testing.T) {
 		guard := guards[0]
 		for _, returned := range ssaflow.InstructionsOf[*ssa.Return](fn) {
 			want := proofs.EvidenceDisproven
-			if ssaflow.InstructionDominates(guard.Defer, returned) {
+			if cfg.InstructionDominates(guard.Defer, returned) {
 				want = proofs.EvidenceProven
-			} else if ssaflow.InstructionMayFollow(guard.Defer, returned) {
+			} else if cfg.InstructionMayFollow(guard.Defer, returned) {
 				want = proofs.EvidenceUnknown
 			}
 			for limit := 0; limit <= proofs.QueryBudget; limit++ {

@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -97,7 +98,7 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 			joinedHere := joins(instruction)
 			if joinedHere {
 				joined = true
-				joinedInCycle = joinedInCycle || ssaflow.BlockInCycle(block)
+				joinedInCycle = joinedInCycle || cfg.BlockInCycle(block)
 			}
 			// A possible receive/Wait or nested binding cannot establish a
 			// join. Preserve its former acceptance as uncertainty, including

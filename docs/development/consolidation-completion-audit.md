@@ -3970,7 +3970,7 @@ closure reads the cell.
 The shared once-stored census now retains its exact store internally. Its
 public identity queries still return the same stored value and preserve their
 existing budget and read-only rules. Fixed capture inference separately asks
-`ssaflow.InstructionDominatesWithin` whether that store dominates closure
+`cfg.InstructionDominatesWithin` whether that store dominates closure
 creation, sharing the binding allowance. There is no second store census or
 launch-specific completion engine. Conditional and later initialization supply
 no inferred binding. A late assignment before a synchronous invocation also
@@ -4752,7 +4752,7 @@ and broader architecture completion is unproven.
 
 Beads `gohawk-dho.23.4` consolidates three process pre-Start block/prefix
 loops, the external-store scan and the goroutine pre-spawn traversal into
-`ssaflow.InstructionsStrictlyDominatingWithin`. It indexes the pivot once,
+`cfg.InstructionsStrictlyDominatingWithin`. It indexes the pivot once,
 preserves function block order and excludes the pivot and its later same-block
 instructions. Block checks, indexing and yielded visits share the supplied
 allowance; the iterator does not decide ownership policy.

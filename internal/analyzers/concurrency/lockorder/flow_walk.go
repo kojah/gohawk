@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -79,7 +80,7 @@ func (walk *lockStateWalk) run(
 	walk.unreleasedReturns, walk.heldAtReturn = unreleasedReturns, heldAtReturn
 	walk.possibleWriters = possibleWriters
 	walk.terminates = summaryKnowledge.Provider(pass).TerminatesWithin(walk.budget)
-	ssaflow.WalkStatesWithin([]lockFlowState{{block: function.Blocks[0]}}, func(state lockFlowState) string {
+	cfg.WalkStatesWithin([]lockFlowState{{block: function.Blocks[0]}}, func(state lockFlowState) string {
 		return lockStateKey(state, walk.budget)
 	}, walk.expand, walk.budget)
 	if walk.incomplete() {

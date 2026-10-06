@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -74,7 +75,7 @@ func targetStoredOnPath(address, target ssa.Value, observation ssa.Instruction, 
 			return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 		}
 		matches := heapmodel.MayAlias(candidate.Val, target)
-		reaches := matches && ssaflow.InstructionMayFollowWithin(candidate, observation, budget)
+		reaches := matches && cfg.InstructionMayFollowWithin(candidate, observation, budget)
 		if budget.Exhausted() || budget.PoolExhausted() {
 			return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 		}
@@ -105,8 +106,8 @@ func proveInterveningStore(
 			continue
 		}
 		follows := heapmodel.StoreMayFollowWithin(address, observation, other, budget)
-		between := !follows && ssaflow.InstructionMayFollowWithin(candidate, other, budget) &&
-			ssaflow.InstructionMayFollowWithin(other, observation, budget)
+		between := !follows && cfg.InstructionMayFollowWithin(candidate, other, budget) &&
+			cfg.InstructionMayFollowWithin(other, observation, budget)
 		if budget.Exhausted() || budget.PoolExhausted() {
 			return proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 		}

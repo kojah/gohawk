@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -174,7 +175,7 @@ func valueStoredInField(value ssa.Value) bool {
 // witnesses; finding a use says nothing about cleanup coverage or other uses.
 func valueHasForwardUse(value ssa.Value, step func(ssa.Value, ssa.Instruction) ([]ssa.Value, bool)) bool {
 	found := false
-	ssaflow.WalkStates([]ssa.Value{value}, func(value ssa.Value) ssa.Value { return value }, func(value ssa.Value) ([]ssa.Value, bool) {
+	cfg.WalkStates([]ssa.Value{value}, func(value ssa.Value) ssa.Value { return value }, func(value ssa.Value) ([]ssa.Value, bool) {
 		if value == nil || value.Referrers() == nil {
 			return nil, true
 		}

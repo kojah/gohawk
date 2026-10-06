@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -47,7 +48,7 @@ func (query lockReturnQueries) acquiresForCaller(
 			continue
 		}
 		dominated := slices.ContainsFunc(acquisitions, func(acquisition ssa.Instruction) bool {
-			return query.budget.Spend() && ssaflow.InstructionDominatesWithin(acquisition, returned, query.budget)
+			return query.budget.Spend() && cfg.InstructionDominatesWithin(acquisition, returned, query.budget)
 		})
 		if !dominated {
 			continue
@@ -174,7 +175,7 @@ func (query lockReturnQueries) callerReleasesOnFlag(call *ssa.Call, mutex *ssa.G
 	}
 	index := heldWhen.Result
 	block := call.Block()
-	if ssaflow.BlockInCycleWithin(block, query.budget) || len(block.Succs) != 2 {
+	if cfg.BlockInCycleWithin(block, query.budget) || len(block.Succs) != 2 {
 		return false
 	}
 	branch, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If)

@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -220,7 +221,7 @@ func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *heapmodel.Stora
 		if !ok {
 			continue
 		}
-		if ssaflow.InstructionDominatesWithin(deferred, spawn, budget) && cancels(deferred) {
+		if cfg.InstructionDominatesWithin(deferred, spawn, budget) && cancels(deferred) {
 			return true
 		}
 	}

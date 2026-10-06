@@ -8,6 +8,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -25,7 +26,7 @@ func TestLockStateKeyAvailability(t *testing.T) {
 		pool := proofs.NewSearchBudget(proofs.QueryBudget)
 		child := pool.Within(limit)
 		expanded := 0
-		ssaflow.WalkStatesWithin([]lockFlowState{state}, func(next lockFlowState) string { return lockStateKey(next, child) },
+		cfg.WalkStatesWithin([]lockFlowState{state}, func(next lockFlowState) string { return lockStateKey(next, child) },
 			func(lockFlowState) ([]lockFlowState, bool) { expanded++; return nil, true }, child)
 		if !child.Exhausted() {
 			finished = true

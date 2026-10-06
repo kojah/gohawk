@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -43,7 +44,7 @@ func (graph *regionGraph) runDefers(state *regionState, run *ssa.RunDefers) {
 		// Joined states include registrations from either predecessor. A
 		// possibly registered or repeated defer cannot establish a must write.
 		// Exact registrations run in reverse order, just like Go's defer stack.
-		if !deferred.Block().Dominates(run.Block()) || ssaflow.BlockInCycle(deferred.Block()) {
+		if !deferred.Block().Dominates(run.Block()) || cfg.BlockInCycle(deferred.Block()) {
 			graph.recordCall(appliedSummary{instruction: deferred, reason: CallDeferredUncertain})
 			unresolved = true
 			continue

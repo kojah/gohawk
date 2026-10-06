@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -48,7 +49,7 @@ func acquisitionErrorAssertionsWithin(
 		if !errorClaim && !nilClaim {
 			continue
 		}
-		if !ssaflow.InstructionMayFollowWithin(acquisition, instruction, budget) {
+		if !cfg.InstructionMayFollowWithin(acquisition, instruction, budget) {
 			continue
 		}
 		if errorClaim {
@@ -82,7 +83,7 @@ func acquisitionErrorAssertionsWithin(
 
 func errorAssertionDominatesNilWithin(assertedError ssa.Instruction, nilAssertions []ssa.Instruction, budget *proofs.SearchBudget) bool {
 	for _, assertedNil := range nilAssertions {
-		if ssaflow.InstructionDominatesWithin(assertedError, assertedNil, budget) {
+		if cfg.InstructionDominatesWithin(assertedError, assertedNil, budget) {
 			return true
 		}
 	}

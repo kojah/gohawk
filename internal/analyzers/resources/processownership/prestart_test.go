@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -41,7 +42,7 @@ func TestRegisteredOwnerAllowance(t *testing.T) {
 	start := startupTestCall(t, fn)
 	command := ssaflow.CallReceiver(start.Common())
 	var before []ssa.Instruction
-	for instruction := range ssaflow.InstructionsStrictlyDominatingWithin(start, nil) {
+	for instruction := range cfg.InstructionsStrictlyDominatingWithin(start, nil) {
 		before = append(before, instruction)
 	}
 	pool := proofs.NewSearchBudget(processPoolBudget)

@@ -1,4 +1,4 @@
-package ssaflow
+package cfg
 
 import (
 	"iter"

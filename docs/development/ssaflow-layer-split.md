@@ -61,6 +61,22 @@ ordinary tests. The budget recorder tests cover the changed package-qualified
 stack-frame filters. These receipts establish this extraction only, not
 completion of the repository-wide limit or a fresh external precision audit.
 
+## Structural CFG extraction
+
+Raw reachability and instruction ordering, generic keyed work lists,
+instruction censuses after a point, and selection from already-feasible edges
+now live in `internal/ssaflow/cfg`. These mechanisms have no value, call or path
+proof dependency. Path guards and obligation state remain with their proofs.
+Consumers import the new owner directly; no forwarding API remains in
+`ssaflow`. Architecture tests enforce the lower layer's dependency boundary.
+
+The existing queue order, revisit charging, source-slice preservation and
+strict dominance tests accompany the extracted implementation. Focused SSA,
+CFG, architecture and generator tests pass. `make verify` also passed, covering
+generation, formatting, vet, lint, dead-code checking, repository self-analysis
+and the full ordinary test suite.
+`ssaflow` has fifty-two direct production files; `cfg` has five.
+
 The source graph tools are unavailable in this session. Dependency evidence
 comes from type-resolved references and exact source reads; no graph-index
 coverage claim is made. Heavy Go work runs serially with caches and temporary

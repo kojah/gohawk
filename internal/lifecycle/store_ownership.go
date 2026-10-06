@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -102,7 +103,7 @@ func valueOwnsValue(owner, value ssa.Value) bool { return valueOwnsValueWithin(o
 
 func valueOwnsValueWithin(owner, value ssa.Value, budget *proofs.SearchBudget) bool {
 	found := false
-	ssaflow.WalkStatesWithin([]ssa.Value{owner}, func(owner ssa.Value) ssa.Value { return owner }, func(owner ssa.Value) ([]ssa.Value, bool) {
+	cfg.WalkStatesWithin([]ssa.Value{owner}, func(owner ssa.Value) ssa.Value { return owner }, func(owner ssa.Value) ([]ssa.Value, bool) {
 		if owner == nil {
 			return nil, true
 		}

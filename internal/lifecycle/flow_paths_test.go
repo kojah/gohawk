@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -77,13 +78,13 @@ func branch(flag bool) int {
 	entry := function.Blocks[0]
 	left := entry.Succs[0]
 	right := entry.Succs[1]
-	if !ssaflow.BlockReachable(entry, left) || !ssaflow.BlockReachable(entry, right) {
+	if !cfg.BlockReachable(entry, left) || !cfg.BlockReachable(entry, right) {
 		t.Fatal("BlockReachable() did not find an entry successor")
 	}
-	if ssaflow.BlockReachable(left, right) {
+	if cfg.BlockReachable(left, right) {
 		t.Fatal("BlockReachable() connected disjoint return branches")
 	}
-	if ssaflow.BlockReachable(nil, right) {
+	if cfg.BlockReachable(nil, right) {
 		t.Fatal("BlockReachable() accepted a nil source")
 	}
 }

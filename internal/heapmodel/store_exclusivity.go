@@ -2,6 +2,7 @@ package heapmodel
 
 import (
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -91,7 +92,7 @@ func regionExposed(state *regionState, object *region) bool {
 func (graph *regionGraph) publishedAfterUnlocked(object *region, at ssa.Instruction) bool {
 	const publication = HeapEscapedGlobal | HeapEscapedField | HeapEscapedSend | HeapEscapedAsync
 	for _, returned := range ssaflow.InstructionsOf[*ssa.Return](graph.function) {
-		if !ssaflow.InstructionMayFollow(at, returned) {
+		if !cfg.InstructionMayFollow(at, returned) {
 			continue
 		}
 		if state := graph.stateAt(returned); state != nil && state.escapes[slot{region: object}]&publication != 0 {

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,27 +17,27 @@ func TestInstructionOrderAndIndexBudget(t *testing.T) {
 	calls := InstructionsOf[*ssa.Call](pkg.Func("subject"))
 	for _, before := range calls {
 		zero := proofs.NewSearchBudget(0)
-		if InstructionIndexWithin(before, zero) != -1 || !zero.Exhausted() {
+		if cfg.InstructionIndexWithin(before, zero) != -1 || !zero.Exhausted() {
 			t.Fatal("initial position cutoff must remain unavailable")
 		}
 		fresh := proofs.NewSearchBudget(proofs.QueryBudget)
-		if InstructionIndexWithin(before, fresh) != InstructionIndex(before) || fresh.Exhausted() {
+		if cfg.InstructionIndexWithin(before, fresh) != cfg.InstructionIndex(before) || fresh.Exhausted() {
 			t.Fatal("fresh index must preserve actual SSA position")
 		}
 		for _, after := range calls {
 			zero := proofs.NewSearchBudget(0)
-			if InstructionDominatesWithin(before, after, zero) || !zero.Exhausted() {
+			if cfg.InstructionDominatesWithin(before, after, zero) || !zero.Exhausted() {
 				t.Fatal("same/cross-block dominance must charge before evidence")
 			}
 			fresh := proofs.NewSearchBudget(proofs.QueryBudget)
-			if InstructionDominatesWithin(before, after, fresh) != InstructionDominates(before, after) || fresh.Exhausted() {
+			if cfg.InstructionDominatesWithin(before, after, fresh) != cfg.InstructionDominates(before, after) || fresh.Exhausted() {
 				t.Fatal("fresh dominance changed direction or block order")
 			}
 		}
 	}
 	pool := proofs.NewSearchBudget(1)
 	shared := pool.Within(proofs.QueryBudget)
-	if InstructionDominatesWithin(calls[0], calls[1], shared) || !shared.PoolExhausted() {
+	if cfg.InstructionDominatesWithin(calls[0], calls[1], shared) || !shared.PoolExhausted() {
 		t.Fatal("both same-block positions must share the candidate pool")
 	}
 }

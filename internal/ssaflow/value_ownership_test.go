@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -77,7 +78,7 @@ func arithmetic(n int) int { return -n }
 	}
 	for _, name := range []string{"localCycle", "externalCycle"} {
 		phis := ssaflow.InstructionsOf[*ssa.Phi](pkg.Func(name))
-		if len(phis) == 0 || !ssaflow.BlockInCycle(phis[0].Block()) {
+		if len(phis) == 0 || !cfg.BlockInCycle(phis[0].Block()) {
 			t.Fatalf("%s did not exercise a cyclic phi", name)
 		}
 	}

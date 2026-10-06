@@ -7,6 +7,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -72,7 +73,7 @@ func TestResourceResultGuardReturnCutoff(t *testing.T) {
 			t.Fatalf("discovery=%+v", proof)
 		}
 		for _, returned := range ssaflow.InstructionsOf[*ssa.Return](fn) {
-			if !ssaflow.InstructionDominates(query.guardedDefers[0].Defer, returned) {
+			if !cfg.InstructionDominates(query.guardedDefers[0].Defer, returned) {
 				continue
 			}
 			query.pool = proofs.NewSearchBudget(0)

@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -35,7 +36,7 @@ func provePossibleWriterAt(writers []*ssa.Defer, instruction ssa.Instruction, ca
 func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction, calls []*ssa.Call, budget *proofs.SearchBudget) proofs.Proof {
 	unknown := proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}
 	absent := proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
-	dominates := ssaflow.InstructionDominatesWithin(deferred, instruction, budget)
+	dominates := cfg.InstructionDominatesWithin(deferred, instruction, budget)
 	if budget.Exhausted() || budget.PoolExhausted() {
 		return unknown
 	}
@@ -57,8 +58,8 @@ func possibleWriterAt(deferred *ssa.Defer, instruction ssa.Instruction, calls []
 		if !direct || operation != mutexRelease || readModeRelease(call) || !heapmodel.MayAlias(receiver, writer) {
 			continue
 		}
-		afterDefer := ssaflow.InstructionMayFollowWithin(deferred, call, budget)
-		beforeWrite := afterDefer && ssaflow.InstructionMayFollowWithin(call, instruction, budget)
+		afterDefer := cfg.InstructionMayFollowWithin(deferred, call, budget)
+		beforeWrite := afterDefer && cfg.InstructionMayFollowWithin(call, instruction, budget)
 		if budget.Exhausted() || budget.PoolExhausted() {
 			return unknown
 		}
@@ -101,7 +102,7 @@ func (setup *lockFunctionSetup) deferredWriterWitnesses(budget *proofs.SearchBud
 			if callee == nil || len(callee.Blocks) != 0 {
 				continue
 			}
-			dominates := ssaflow.InstructionDominatesWithin(call, deferred, budget)
+			dominates := cfg.InstructionDominatesWithin(call, deferred, budget)
 			if budget.Exhausted() {
 				return nil
 			}

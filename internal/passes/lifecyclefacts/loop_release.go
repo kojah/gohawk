@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -22,7 +23,7 @@ import (
 // parameter.
 func releasesDerivedValueInLoop(function *ssa.Function, parameter ssa.Value) bool {
 	for _, block := range function.Blocks {
-		if blockReleasesDerivedValue(block, parameter) && ssaflow.BlockInCycle(block) {
+		if blockReleasesDerivedValue(block, parameter) && cfg.BlockInCycle(block) {
 			return true
 		}
 	}

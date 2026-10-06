@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -96,7 +97,7 @@ func guardConditionSource(condition ssa.Value, budget *proofs.SearchBudget, form
 	// evaluation may differ even though its SSA node is the same.
 	// https://github.com/pb33f/libopenapi/blob/07795ddc2c097af8581138ef290d6cf964110d74/index/extract_refs_lookup.go#L199-L220
 	if instruction, ok := condition.(ssa.Instruction); ok && booleanValue(condition) {
-		cyclic := BlockInCycleWithin(instruction.Block(), budget)
+		cyclic := cfg.BlockInCycleWithin(instruction.Block(), budget)
 		if !cyclic && !budget.Exhausted() {
 			return fmt.Sprintf("value:%p", condition), false, true, true
 		}
@@ -180,10 +181,10 @@ func stableOperandWithin(value ssa.Value, budget *proofs.SearchBudget) bool {
 	case *ssa.Parameter, *ssa.Const:
 		return true
 	case *ssa.Call:
-		return !BlockInCycleWithin(value.Block(), budget) && !budget.Exhausted()
+		return !cfg.BlockInCycleWithin(value.Block(), budget) && !budget.Exhausted()
 	case *ssa.Extract:
 		call, ok := value.Tuple.(*ssa.Call)
-		return ok && !BlockInCycleWithin(call.Block(), budget) && !budget.Exhausted()
+		return ok && !cfg.BlockInCycleWithin(call.Block(), budget) && !budget.Exhausted()
 	}
 	return false
 }

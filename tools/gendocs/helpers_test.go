@@ -19,7 +19,9 @@ func TestHelperReferencesCoverContractsAndDetectDrift(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, name := range []string{"proof", "heapmodel", "resourcemodel", "ssaflow", "lifecycle", "syntax", "summaries", "passes/newfacts"} {
+	for _, name := range []string{
+		"proof", "heapmodel", "resourcemodel", "ssaflow", "ssaflow/cfg", "lifecycle", "syntax", "summaries", "passes/newfacts",
+	} {
 		write("internal/"+name+"/api.go", "package "+filepath.Base(name)+`;
 // State is a proof outcome.
 type State int
@@ -60,7 +62,7 @@ func hidden() {}
 	if strings.Contains(text, "body must not be copied") || strings.Contains(text, "hidden bool") || strings.Contains(text, "func hidden") {
 		t.Fatal("reference exposed bodies or private declarations")
 	}
-	for _, name := range []string{"proof", "heapmodel", "resourcemodel"} {
+	for _, name := range []string{"proof", "heapmodel", "resourcemodel", "cfg"} {
 		if _, ok := updates[filepath.Join(root, helperReferenceDirectory, name+".md")]; !ok {
 			t.Fatalf("%s reference was not generated", name)
 		}

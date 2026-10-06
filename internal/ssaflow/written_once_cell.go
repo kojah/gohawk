@@ -4,6 +4,7 @@ import (
 	"go/token"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -28,7 +29,7 @@ func WrittenOnceCellWithin(cell *ssa.Alloc, budget *proofs.SearchBudget) (ssa.Va
 // ordering share budget; callers retain availability before using rejection.
 func WrittenOnceCellAtWithin(cell *ssa.Alloc, observation ssa.Instruction, budget *proofs.SearchBudget) (ssa.Value, bool) {
 	store, ok := writtenOnceStoreWithin(cell, budget)
-	if !ok || !InstructionDominatesWithin(store, observation, budget) {
+	if !ok || !cfg.InstructionDominatesWithin(store, observation, budget) {
 		return nil, false
 	}
 	return store.Val, true

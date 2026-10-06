@@ -4,6 +4,7 @@ import (
 	"go/types"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -21,7 +22,7 @@ import (
 // flush or a commit, is the calling analyzer's decision.
 func RunsOnceInProgramEntry(instruction ssa.Instruction) bool {
 	function := instruction.Parent()
-	if !programEntry(function) || BlockInCycle(instruction.Block()) {
+	if !programEntry(function) || cfg.BlockInCycle(instruction.Block()) {
 		return false
 	}
 	// A package-level alias stores main in the synthetic initializer, which
@@ -82,7 +83,7 @@ func RunsOnceThroughPrivateEntryCallsWithin(instruction ssa.Instruction, budget 
 			return false
 		}
 		function = instruction.Parent()
-		if function == nil || function.Pkg != pkg || BlockInCycleWithin(instruction.Block(), budget) || budget.Exhausted() {
+		if function == nil || function.Pkg != pkg || cfg.BlockInCycleWithin(instruction.Block(), budget) || budget.Exhausted() {
 			return false
 		}
 		entry := uses[function]

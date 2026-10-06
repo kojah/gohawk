@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -292,7 +293,7 @@ func resourceReleaseMayFollow(instruction ssa.Instruction, resource ssa.Value, m
 	for _, block := range instruction.Parent().Blocks {
 		for _, candidate := range block.Instrs {
 			common := ssaflow.InstructionCall(candidate)
-			if common == nil || !slices.Contains(methods, ssaflow.CallName(common)) || !ssaflow.InstructionMayFollow(instruction, candidate) {
+			if common == nil || !slices.Contains(methods, ssaflow.CallName(common)) || !cfg.InstructionMayFollow(instruction, candidate) {
 				continue
 			}
 			if heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), resource) {

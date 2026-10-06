@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -339,13 +340,13 @@ func (search *completionSearch) methodCompletes(candidate ssa.Instruction, calle
 	receiver := ssaflow.CallReceiver(called)
 	for _, local := range locals {
 		match := search.receives(local, receiver, target)
-		if match.Possible && ssaflow.BlockInCycle(candidate.Block()) {
+		if match.Possible && cfg.BlockInCycle(candidate.Block()) {
 			// A dynamic aggregate element can witness possible loop cleanup,
 			// never exact completion of the caller's field target.
 			*search.inCycle = true
 		}
 		if match.Proven() {
-			if ssaflow.BlockInCycle(candidate.Block()) {
+			if cfg.BlockInCycle(candidate.Block()) {
 				*search.inCycle = true
 			}
 			search.paths.record(search.receiverPath(local, receiver, target))

@@ -12,6 +12,7 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -240,7 +241,7 @@ func completionNotification(
 	// Closing entries in a loop is per-item cleanup. A deferred close can
 	// announce completion, provided its registration covers every return.
 	// https://github.com/BurntSushi/wingo/blob/33b154361587e65ec35d4499f1cc487835d0ab48/event/ipc.go#L124-L157
-	if _, deferred := instruction.(*ssa.Defer); !deferred && ssaflow.BlockInCycle(instruction.Block()) {
+	if _, deferred := instruction.(*ssa.Defer); !deferred && cfg.BlockInCycle(instruction.Block()) {
 		return nil
 	}
 	return common.Args[0]
@@ -351,7 +352,7 @@ func waitGroupCompletionValues(
 				// Repeated Done calls can count completed items rather than workers.
 				// Without counter arithmetic a backedge is not proof of early Done.
 				// https://github.com/grafana/dskit/blob/86f3c54f61fe477e68ac15dfac9ed88e4ee9e457/ring/batch_test.go#L61-L74
-				if ssaflow.BlockInCycle(instruction.Block()) {
+				if cfg.BlockInCycle(instruction.Block()) {
 					continue
 				}
 				if unsettled == nil {

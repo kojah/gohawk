@@ -3,6 +3,7 @@ package goroutineownership
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,7 +15,7 @@ import (
 // terminalCompletion reports whether only returns can follow a completion
 // operation. Later work cannot be joined by observing an earlier signal.
 func terminalCompletion(done ssa.Instruction, budget *proofs.SearchBudget) bool {
-	index := ssaflow.InstructionIndex(done)
+	index := cfg.InstructionIndex(done)
 	if index < 0 {
 		return false
 	}

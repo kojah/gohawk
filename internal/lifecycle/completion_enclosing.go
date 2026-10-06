@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -235,7 +236,7 @@ func (search *enclosingSearch) completed(frame *enclosingFrame) bool {
 				if !search.request.Budget.Spend() {
 					return false
 				}
-				if !ssaflow.InstructionDominates(instruction, child.invocation) {
+				if !cfg.InstructionDominates(instruction, child.invocation) {
 					continue
 				}
 				if deferred, ok := instruction.(*ssa.Defer); ok && slices.Contains(search.request.Methods, ssaflow.CallName(deferred.Common())) {

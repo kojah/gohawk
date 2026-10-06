@@ -11,6 +11,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -222,8 +223,8 @@ func (flow lockFlowContext) writerMatchesOwner(identity string, owner ssa.Value)
 // publication break that closed interval: another participant could see or lock
 // the value before the acquisition. Unsupported shapes retain ordering evidence.
 func initialPublicationOwner(allocation *ssa.Alloc, acquisition ssa.Instruction, budget *proofs.SearchBudget) ssa.Value {
-	first := ssaflow.InstructionIndexWithin(allocation, budget)
-	last := ssaflow.InstructionIndexWithin(acquisition, budget)
+	first := cfg.InstructionIndexWithin(allocation, budget)
+	last := cfg.InstructionIndexWithin(acquisition, budget)
 	if first < 0 || last <= first {
 		return nil
 	}

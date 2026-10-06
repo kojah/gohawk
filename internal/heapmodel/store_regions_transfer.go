@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -168,7 +169,7 @@ func (graph *regionGraph) setValue(value ssa.Value, set pointees) {
 func (graph *regionGraph) allocate(state *regionState, alloc *ssa.Alloc) {
 	site := graph.site(alloc)
 	graph.setValue(alloc, pointees{{region: site}: false})
-	if ssaflow.BlockInCycle(alloc.Block()) && state.escaped[site] {
+	if cfg.BlockInCycle(alloc.Block()) && state.escaped[site] {
 		return
 	}
 	graph.clearSubtree(state, slot{region: site})

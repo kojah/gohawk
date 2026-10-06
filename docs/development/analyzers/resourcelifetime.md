@@ -1134,7 +1134,7 @@ possibly with the inverse operator and corresponding arm selection. Unrelated
 guards, sibling resources, opaque or boxed typed-nil error alternatives, and
 cycles do not establish this correlation.
 
-Cycle exclusion delegates to `ssaflow.BlockReachableWithin`; merge instruction
+Cycle exclusion delegates to `cfg.BlockReachableWithin`; merge instruction
 and predecessor visits and `DefinitelyNilWithin` share the candidate allowance.
 An interrupted proof clears every correlation field and returns budget unknown,
 so the authoritative flow never binds a phi from partial evidence. A completed

@@ -2,7 +2,7 @@ package heapmodel
 
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -38,7 +38,7 @@ func (storage *Storage) StableContent(address ssa.Value, observation ssa.Instruc
 		if storage.budget.Exhausted() || storage.budget.PoolExhausted() {
 			return storage.unknown(proofs.EvidenceBudgetExhausted, store)
 		}
-		if follows || ssaflow.BlockInCycle(store.Block()) && store.Block() != location.root.Block() {
+		if follows || cfg.BlockInCycle(store.Block()) && store.Block() != location.root.Block() {
 			return storage.unknown(proofs.EvidenceStorageWriteAfterObservation, store)
 		}
 	}

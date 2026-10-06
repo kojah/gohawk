@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -184,9 +185,9 @@ func (guard ResultGuard) CompletesAtReturn(
 // or reachability searches remain unknown, never evidence of disconnection.
 func (guard ResultGuard) ProveReachesReturn(returned *ssa.Return, budget *proofs.SearchBudget) proofs.Proof {
 	state := proofs.EvidenceDisproven
-	if ssaflow.InstructionDominatesWithin(guard.Defer, returned, budget) {
+	if cfg.InstructionDominatesWithin(guard.Defer, returned, budget) {
 		state = proofs.EvidenceProven
-	} else if ssaflow.InstructionMayFollowWithin(guard.Defer, returned, budget) {
+	} else if cfg.InstructionMayFollowWithin(guard.Defer, returned, budget) {
 		state = proofs.EvidenceUnknown
 	}
 	if budget.Exhausted() || budget.PoolExhausted() {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -230,7 +231,7 @@ func valueLifecycleUsed(value ssa.Value, after ssa.Instruction) bool {
 	}
 	for _, block := range value.Parent().Blocks {
 		for _, instruction := range block.Instrs {
-			if !ssaflow.InstructionMayFollow(after, instruction) {
+			if !cfg.InstructionMayFollow(after, instruction) {
 				continue
 			}
 			common := ssaflow.InstructionCall(instruction)

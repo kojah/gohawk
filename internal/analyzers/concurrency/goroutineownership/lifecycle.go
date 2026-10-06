@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -78,7 +79,7 @@ func (analysis *spawnAnalysis) relayDependencyUncertain(budget *proofs.SearchBud
 		// Only a send or another worker can supply this dependency witness.
 		// Avoid spending ordered reachability on unrelated instructions.
 		participant := sends || launches
-		if instruction == analysis.spawn || !participant || !ssaflow.InstructionMayFollowWithin(instruction, analysis.spawn, budget) {
+		if instruction == analysis.spawn || !participant || !cfg.InstructionMayFollowWithin(instruction, analysis.spawn, budget) {
 			continue
 		}
 		if sends && lifecycle.MayContainValue(send.X, analysis.relayGroup) {

@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -106,7 +107,7 @@ func (analysis *spawnAnalysis) closesRetainedWorkerOwnerWithin(
 		return false
 	}
 	if _, deferred := instruction.(*ssa.Defer); !deferred &&
-		!slices.Contains(ssaflow.InstructionsReachableAfterWithin(analysis.spawn, budget), instruction) {
+		!slices.Contains(cfg.InstructionsReachableAfterWithin(analysis.spawn, budget), instruction) {
 		return false
 	}
 	function, closure := resolveSpawnedFunction(analysis.pass, analysis.spawn, budget)
@@ -173,8 +174,8 @@ func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(
 // Admit only the worker's nonblocking completion tail, not a second call, send,
 // receive, or loop. This narrows the new field mapping, not existing retention.
 func opaqueCallEndsWorkerWork(call *ssa.Call, budget *proofs.SearchBudget) bool {
-	for _, instruction := range ssaflow.InstructionsReachableAfterWithin(call, budget) {
-		if !budget.Spend() || ssaflow.BlockInCycle(instruction.Block()) {
+	for _, instruction := range cfg.InstructionsReachableAfterWithin(call, budget) {
+		if !budget.Spend() || cfg.BlockInCycle(instruction.Block()) {
 			return false
 		}
 		switch typed := instruction.(type) {
@@ -291,7 +292,7 @@ func (analysis *spawnAnalysis) pipePeerAction(instruction ssa.Instruction, commo
 		return actionNone
 	}
 	if _, deferred := instruction.(*ssa.Defer); !deferred &&
-		!slices.Contains(ssaflow.InstructionsReachableAfter(analysis.spawn), instruction) {
+		!slices.Contains(cfg.InstructionsReachableAfter(analysis.spawn), instruction) {
 		return actionNone
 	}
 	callee, closure := ssaflow.DirectCallee(common)

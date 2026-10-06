@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -63,7 +64,7 @@ func callsTo(name string) func(ssa.Instruction) ssaflow.ObligationAction {
 // key, and step can end the walk early.
 func TestWalkStatesKeysAndTermination(t *testing.T) {
 	var expanded []int
-	ssaflow.WalkStates([]int{0}, func(n int) int { return n }, func(n int) ([]int, bool) {
+	cfg.WalkStates([]int{0}, func(n int) int { return n }, func(n int) ([]int, bool) {
 		expanded = append(expanded, n)
 		if n == 5 {
 			return nil, true
@@ -74,7 +75,7 @@ func TestWalkStatesKeysAndTermination(t *testing.T) {
 		t.Errorf("identity key expanded %v, want each state once", expanded)
 	}
 	expanded = nil
-	ssaflow.WalkStates([]int{0}, func(n int) int { return n % 2 }, func(n int) ([]int, bool) {
+	cfg.WalkStates([]int{0}, func(n int) int { return n % 2 }, func(n int) ([]int, bool) {
 		expanded = append(expanded, n)
 		return []int{n + 1}, true
 	})
@@ -82,7 +83,7 @@ func TestWalkStatesKeysAndTermination(t *testing.T) {
 		t.Errorf("parity key expanded %v, want one state per key", expanded)
 	}
 	expanded = nil
-	ssaflow.WalkStates([]int{0, 1, 2}, func(n int) int { return n }, func(n int) ([]int, bool) {
+	cfg.WalkStates([]int{0, 1, 2}, func(n int) int { return n }, func(n int) ([]int, bool) {
 		expanded = append(expanded, n)
 		return nil, n != 1
 	})
@@ -96,7 +97,7 @@ func TestWalkStatesKeysAndTermination(t *testing.T) {
 // only from before it.
 func TestInstructionsReachableAfterStopsAtBackEdges(t *testing.T) {
 	function := obligationPackage(t).Func("looping")
-	inBody := ssaflow.InstructionsReachableAfter(callNamed(t, function, "use"))
+	inBody := cfg.InstructionsReachableAfter(callNamed(t, function, "use"))
 	if slices.Contains(inBody, ssa.Instruction(callNamed(t, function, "after"))) {
 		t.Error("from the loop body, the call after the loop must not be reachable")
 	}
@@ -105,7 +106,7 @@ func TestInstructionsReachableAfterStopsAtBackEdges(t *testing.T) {
 			t.Errorf("from the loop body, the header phi %v must not be reachable", instruction)
 		}
 	}
-	fromEntry := ssaflow.InstructionsReachableAfter(function.Blocks[0].Instrs[0])
+	fromEntry := cfg.InstructionsReachableAfter(function.Blocks[0].Instrs[0])
 	if !slices.Contains(fromEntry, ssa.Instruction(callNamed(t, function, "after"))) {
 		t.Error("from entry, the call after the loop must be reachable")
 	}

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -11,12 +12,12 @@ import (
 func TestWalkStatesBudgetBeforeKeyAndRevisits(t *testing.T) {
 	keys, steps := 0, 0
 	zero := proofs.NewSearchBudget(0)
-	WalkStatesWithin([]int{0}, func(n int) int { keys++; return n }, func(int) ([]int, bool) { steps++; return nil, true }, zero)
+	cfg.WalkStatesWithin([]int{0}, func(n int) int { keys++; return n }, func(int) ([]int, bool) { steps++; return nil, true }, zero)
 	if keys != 0 || steps != 0 || !zero.Exhausted() {
 		t.Fatal("queued visits must spend before constructing keys")
 	}
 	fresh := proofs.NewSearchBudget(3)
-	WalkStatesWithin([]int{0}, func(n int) int { return n % 2 }, func(n int) ([]int, bool) {
+	cfg.WalkStatesWithin([]int{0}, func(n int) int { return n % 2 }, func(n int) ([]int, bool) {
 		steps++
 		return []int{n + 1}, true
 	}, fresh)
@@ -26,7 +27,7 @@ func TestWalkStatesBudgetBeforeKeyAndRevisits(t *testing.T) {
 	for _, phase := range []string{"key", "step"} {
 		budget := proofs.NewSearchBudget(3)
 		keys, steps = 0, 0
-		WalkStatesWithin([]int{0}, func(n int) int {
+		cfg.WalkStatesWithin([]int{0}, func(n int) int {
 			keys++
 			if phase == "key" {
 				for budget.Spend() {

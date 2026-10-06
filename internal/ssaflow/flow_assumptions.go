@@ -5,6 +5,7 @@ import (
 	"go/types"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -37,7 +38,7 @@ func assumedSuccessorsWithin(
 			return nil
 		}
 		if holds {
-			return keepSuccessorWithin(successors, block.Succs[0], budget)
+			return cfg.KeepSuccessorWithin(successors, block.Succs[0], budget)
 		}
 	}
 	comparison, ok := branch.Cond.(*ssa.BinOp)
@@ -69,7 +70,7 @@ func assumedSuccessorsWithin(
 	if comparison.Op == token.EQL {
 		nonNil = block.Succs[1]
 	}
-	return keepSuccessorWithin(successors, nonNil, budget)
+	return cfg.KeepSuccessorWithin(successors, nonNil, budget)
 }
 
 func assumedNilPairWithin(operand, other, value ssa.Value, budget *proofs.SearchBudget) bool {
