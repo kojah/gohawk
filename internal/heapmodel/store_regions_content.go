@@ -16,6 +16,7 @@ import (
 // entry, nil for an unwritten local slot, or a placeholder for an unwritten
 // slot of an object the function did not allocate. A clobbered prefix makes
 // the answer unknown unless the slot itself was written since.
+// Every query returns an independently owned, writable set.
 func (graph *regionGraph) content(state *regionState, target slot) pointees {
 	return graph.contentFollowing(state, target, nil)
 }

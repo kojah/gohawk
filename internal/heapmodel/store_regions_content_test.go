@@ -74,3 +74,28 @@ func TestContentBackingKnownAndDeepPaths(t *testing.T) {
 		t.Errorf("deep content = %v, want unknown", got)
 	}
 }
+
+func TestContentQueriesReturnIndependentWritableSets(t *testing.T) {
+	graph := &regionGraph{nilR: &region{kind: regionNil}, unkR: &region{kind: regionUnknown}}
+	state := newRegionState()
+	owner := slot{region: &region{kind: regionSite}}
+	first := slot{region: &region{kind: regionSite}}
+	second := slot{region: &region{kind: regionSite}}
+	state.contents[owner] = pointees{first: true}
+	read := graph.content(state, owner)
+	read[first] = false
+	read[second] = false
+	if len(state.contents[owner]) != 1 || !state.contents[owner][first] {
+		t.Fatal("changing query results changed stored evidence")
+	}
+	another := graph.content(state, owner)
+	if len(another) != 1 || !another[first] {
+		t.Fatal("a later query reused the mutated result")
+	}
+	unwritten := slot{region: &region{kind: regionSite}}
+	read = graph.content(state, unwritten)
+	read[second] = true
+	if next := graph.content(state, unwritten); len(next) != 1 || next[slot{region: graph.nilR}] {
+		t.Fatal("a later implicit query reused a mutated result")
+	}
+}

@@ -91,3 +91,48 @@ func TestRegionStateScalarCloneIsIndependentAndWritable(t *testing.T) {
 	copy.escaped[owner] = true
 	copy.escapes[target] = HeapEscape(1)
 }
+
+func BenchmarkRegionStateContentsClone(b *testing.B) {
+	for _, size := range []int{0, 1, 16, 32} {
+		b.Run(strconv.Itoa(size), func(b *testing.B) {
+			state := newRegionState()
+			for range 16 {
+				set := pointees{}
+				for range size {
+					set[slot{region: &region{kind: regionSite}}] = false
+				}
+				state.contents[slot{region: &region{kind: regionSite}}] = set
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				copy := state.clone()
+				if len(copy.contents) != 16 {
+					b.Fatal("clone lost stored contents")
+				}
+			}
+		})
+	}
+}
+
+func TestRegionStateContentsCloneIsIndependentAndWritable(t *testing.T) {
+	owner := slot{region: &region{kind: regionSite}}
+	first := slot{region: &region{kind: regionSite}}
+	second := slot{region: &region{kind: regionSite}}
+	empty := slot{region: &region{kind: regionSite}}
+	state := newRegionState()
+	state.contents[owner] = pointees{first: true}
+	state.contents[empty] = nil
+	state.deferred = pointees{first: false}
+	copy := state.clone()
+	copy.contents[owner][first] = false
+	copy.contents[owner][second] = true
+	copy.contents[empty][second] = false
+	copy.deferred[first] = true
+	copy.deferred[second] = false
+	if !state.contents[owner][first] || len(state.contents[owner]) != 1 || state.contents[empty] != nil ||
+		state.deferred[first] || len(state.deferred) != 1 {
+		t.Fatal("changing stored or deferred snapshot evidence changed the original state")
+	}
+	copy = newRegionState().clone()
+	copy.deferred[first] = false
+}

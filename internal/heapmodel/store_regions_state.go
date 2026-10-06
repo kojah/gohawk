@@ -104,16 +104,16 @@ func (state *regionState) clone() *regionState {
 		ran:        maps.Clone(state.ran),
 		escapes:    cloneRegionMap(state.escapes),
 		opaque:     state.opaque,
-		deferred:   state.deferred.clone(),
+		deferred:   cloneRegionMap(state.deferred),
 		calls:      slices.Clone(state.calls),
 	}
 	for target, set := range state.contents {
-		result.contents[target] = set.clone()
+		result.contents[target] = cloneRegionMap(set)
 	}
 	return result
 }
 
-// cloneRegionMap copies scalar state through the runtime's map clone rather
+// cloneRegionMap copies flat state maps through the runtime's map clone rather
 // than hashing each entry again. A zero state still needs writable maps.
 func cloneRegionMap[K comparable, V any](source map[K]V) map[K]V {
 	if source == nil {
@@ -165,7 +165,7 @@ func (graph *regionGraph) mergeContents(state, other *regionState, backEdge bool
 	for target, set := range other.contents {
 		mine, present := state.contents[target]
 		if !present {
-			mine = graph.content(before, target).clone()
+			mine = graph.content(before, target)
 			state.contents[target] = mine
 		}
 		for pointee, pointeeStale := range set {

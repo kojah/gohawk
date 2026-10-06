@@ -225,3 +225,71 @@ all 36261 baseline records and complete JSON diagnostics after adding the two
 resource-helper guards; receipt `trace-final-comparison.json`. Earlier passing
 receipts are retained but are not substituted for this final source validation.
 No local race tests were run. Broader prerequisite-cost attribution remains open.
+
+## Prerequisite profile and escaping pointee copies
+
+Baseline `3870a965` uses the normal resource fixture suite, with a prebuilt test
+binary, Go 1.27.0, `GOMAXPROCS=4`, warm caches, and the analyzer package as the
+working directory. One CPU/allocation profile passes in 24.590 seconds and
+contains 61.13 CPU-seconds. Cumulative sampled CPU includes lifecycle inference
+9.94 seconds, heap projection 9.28 seconds, and graph construction 8.17 seconds.
+These overlap. Checker fact validation accounts for 31.26 seconds; its source
+encodes each inherited fact into two new gob streams and decodes a fresh value.
+That is mandatory test-harness determinism checking, not production-driver cost.
+A first standalone invocation used the wrong working directory and failed to
+find fixtures; its retained log is not a validation or performance receipt.
+
+Sampled allocated space is about 19663 MiB, including about 856 MiB in the
+pointee map-copy specialization. Snapshots still copied nested pointee and
+pending-defer maps with `pointees.clone`. Unlike temporary query copies, those
+maps escape inside the returned snapshot. They now use the existing writable
+runtime-clone helper; nested maps remain independent, with shared region
+identities and unchanged stale flags. Small temporary copies retain their
+previous stack-friendly helper. Nil sets still become writable empty maps.
+
+A benchmark with 16 stored slots gives these three-sample medians:
+
+| Pointees per slot | Before ns/op | After ns/op | Bytes / allocations, unchanged |
+| --- | ---: | ---: | --- |
+| 0 | 2100 | 1519 | 2456 / 28 |
+| 1 | 4745 | 3353 | 7064 / 44 |
+| 16 | 14783 | 8247 | 21528 / 76 |
+| 32 | 26590 | 26467 | 39960 / 76 |
+
+The candidate profile passes in 20.463 seconds with 58.61 CPU-seconds, but
+alternating ordinary fixture repeats do not show an overall speedup: baseline
+20.167 / 21.830 / 23.510 seconds; candidate 20.385 / 21.913 / 23.783 seconds.
+The median difference is about 0.4% slower, within visible timing noise. This
+change is supported by the scoped snapshot benchmark and simpler copying, not
+an end-to-end speed claim. Peak memory remains around 2.9 GiB in these fixtures.
+
+A second copy is removed where a join cloned a freshly owned content-query
+result. Every path through the private content query already produces an
+independent writable set, including recursive and implicit reads. The contract
+is documented and tested; a counterfactual returning borrowed explicit contents
+fails the ownership regression. Joining now takes ownership of that result
+without a second map allocation. Shared slots still use their original union
+and widening paths; proof rules, budgets, and query order are unchanged.
+
+Disjoint join benchmarks, with the snapshot change already applied on both
+sides, have these three-sample medians:
+
+| Slots | Before ns/op | After ns/op | Before bytes / allocations | After bytes / allocations |
+| --- | ---: | ---: | --- | --- |
+| 16 | 53196 | 52999 | about 40129 / 236 | about 34753 / 204 |
+| 128 | 632201 | 524002 | about 313672 / 1580 | about 270662 / 1324 |
+
+The allocation reduction is the stronger evidence; 16-slot timings are unchanged
+and host load varies. Raw profiles, isolated test binaries, microbenchmarks,
+ordinary repeats, ownership counterfactual, and focused tests are retained in
+`.build/perf-prerequisites-20261006/`. The combined final implementation has a
+separate normal full resource-fixture result in `resource-final.tsv`/`.log`.
+
+The combined final normal resource-fixture run passes in 24.257 seconds; it is
+one additional sample, not evidence of an overall speedup. Final canonical
+verification passes all eight local gates (`final-verify.log`), and `make coverage`
+also passes (`coverage.log`), measuring 92.5%. The existing README badge matches
+that result. Hosted CI at the preceding trace commit had only a stale badge
+failure (92.4% there); current-source coverage is the applicable local receipt.
+The performance goal remains open for production prerequisite attribution and
+a broad completion review; these fixture profiles do not prove its end state.
