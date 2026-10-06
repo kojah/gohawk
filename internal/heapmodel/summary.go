@@ -41,11 +41,7 @@ func SortedSlots(set map[HeapSlot]bool) []HeapSlot {
 	return slots
 }
 
-// SlotLess orders summary slots by root identity and access path.
-func SlotLess(left, right HeapSlot) bool {
-	return compareSlots(left, right) < 0
-}
-
+// compareSlots orders summary slots by root identity and access path.
 func compareSlots(left, right HeapSlot) int {
 	if left.Root != right.Root {
 		if left.Root.Kind != right.Root.Kind {
@@ -62,29 +58,29 @@ func compareSlots(left, right HeapSlot) int {
 	return strings.Compare(left.Path, right.Path)
 }
 
-// EdgeLess orders projected edges deterministically.
-func EdgeLess(left, right HeapEdge) bool {
+// Preserve the published less relation: Object and Must do not break ties.
+func compareEdges(left, right HeapEdge) int {
 	if left.From != right.From {
-		return SlotLess(left.From, right.From)
+		return compareSlots(left.From, right.From)
 	}
 	if left.To.Kind != right.To.Kind {
-		return left.To.Kind < right.To.Kind
+		return cmp.Compare(left.To.Kind, right.To.Kind)
 	}
 	if left.To.Slot != right.To.Slot {
-		return SlotLess(left.To.Slot, right.To.Slot)
+		return compareSlots(left.To.Slot, right.To.Slot)
 	}
-	return left.To.Origin < right.To.Origin
+	return strings.Compare(left.To.Origin, right.To.Origin)
 }
 
-// EffectLess orders projected effects deterministically.
-func EffectLess(left, right HeapEffect) bool {
+// Every is proof metadata, not part of the published effect ordering.
+func compareEffects(left, right HeapEffect) int {
 	if left.Slot != right.Slot {
-		return SlotLess(left.Slot, right.Slot)
+		return compareSlots(left.Slot, right.Slot)
 	}
 	if left.Escape != right.Escape {
-		return left.Escape < right.Escape
+		return cmp.Compare(left.Escape, right.Escape)
 	}
-	return left.Release < right.Release
+	return strings.Compare(left.Release, right.Release)
 }
 
 // A heap summary is the projection of a function's points-to graph onto

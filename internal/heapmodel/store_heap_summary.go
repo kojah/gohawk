@@ -3,7 +3,6 @@ package heapmodel
 import (
 	"cmp"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -90,13 +89,15 @@ func (projection *heapProjection) holds(states []*regionState, returns []*ssa.Re
 	for at, count := range counts {
 		holds = append(holds, HeapHold{Result: at.result, Parameter: at.parameter, Must: count == relevant[at.result] && count > 0})
 	}
-	sort.Slice(holds, func(i, j int) bool {
-		if holds[i].Result != holds[j].Result {
-			return holds[i].Result < holds[j].Result
-		}
-		return holds[i].Parameter < holds[j].Parameter
-	})
+	slices.SortFunc(holds, compareHolds)
 	return holds
+}
+
+func compareHolds(left, right HeapHold) int {
+	if left.Result != right.Result {
+		return cmp.Compare(left.Result, right.Result)
+	}
+	return cmp.Compare(left.Parameter, right.Parameter)
 }
 
 // resultHolds reports whether, in the state, every object the result refers
@@ -359,7 +360,7 @@ func (projection *heapProjection) edges(states []*regionState, returns []*ssa.Re
 			}
 		}
 	}
-	sort.Slice(edges, func(i, j int) bool { return EdgeLess(edges[i], edges[j]) })
+	slices.SortFunc(edges, compareEdges)
 	return edges
 }
 
@@ -545,7 +546,7 @@ func (projection *heapProjection) escapes(states []*regionState) []HeapEffect {
 		effect.Every = count == len(states)
 		effects = append(effects, effect)
 	}
-	sort.Slice(effects, func(i, j int) bool { return EffectLess(effects[i], effects[j]) })
+	slices.SortFunc(effects, compareEffects)
 	return effects
 }
 

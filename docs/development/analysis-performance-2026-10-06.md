@@ -1447,3 +1447,57 @@ Canonical RAM coverage passes at 92.5%, matching the README badge. Small
 receipts are retained in `.build/perf-summary-sort-20261006/`; full profiles
 stay in RAM. No local race tests or full precision replay were run. Hosted
 checks for this commit are separate from these local passing receipts.
+
+### Typed sorting for the remaining summary inventories
+
+Result holds, edges, effects and bounded requirements now use typed sorting.
+Private comparators retain one authoritative ordering path; the now-unused
+internal-package exported less wrappers are removed after the dead-code gate
+identifies their final callers have moved to typed sorting. Field priority remains unchanged: holds use result/parameter;
+edges use source/target kind/target slot/origin; effects use slot/escape/release;
+requirements use published slot/kind/method followed by region serial/path.
+Object, Must and Every metadata do not gain a new tie-breaking role.
+
+Compatibility tests compare complete sorted slices against the retained legacy
+less relations across 100 seeded shuffles at 0, 1, 8, 32 and 128 entries.
+Fixtures include equal-key entries with differing omitted metadata and distinct
+region pointers sharing a serial. Bounded requirement tests also compare the
+exact proof callback sequence and published output with the legacy sort,
+including the existing 64-proof and 16-publication limits. The original budget
+regressions remain in the focused validation.
+
+Paired benchmarks reset a preallocated work slice before each sort, so output
+slice allocation is excluded equally. Three-sample medians from the longer
+300 ms samples are:
+
+| Entries | Inventory | Reflective | Typed | Bytes before → after | Allocations before → after |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 32 | holds | 1427 ns | 432.8 ns | 96 → 0 | 3 → 0 |
+| 32 | edges | 5966 ns | 4084 ns | 248 → 0 | 3 → 0 |
+| 32 | effects | 3666 ns | 2421 ns | 168 → 0 | 3 → 0 |
+| 32 | requirements | 4547 ns | 3120 ns | 216 → 0 | 3 → 0 |
+| 128 | holds | 4159 ns | 1642 ns | 96 → 0 | 3 → 0 |
+| 128 | edges | 25743 ns | 19609 ns | 248 → 0 | 3 → 0 |
+| 128 | effects | 12570 ns | 9135 ns | 168 → 0 | 3 → 0 |
+| 128 | requirements | 16432 ns | 12581 ns | 216 → 0 | 3 → 0 |
+
+The shorter 100 ms samples also improve every tested 0/1/8/32/128 case; empty
+and singleton typed sorts allocate nothing. These are sorting primitives, not
+whole-run timing claims. Raw evidence remains in the retained RAM workspace's
+`publication-sort/`. Escape-event sorting and deeper proof-engine review still
+keep the broader performance goal open. Graph tools remain unavailable; this
+change uses source read/search fallback, without a graph coverage claim.
+
+The first completion run catches unused old less wrappers and two long test
+literals; the ordinary suite passes. Removing the unused wrappers and splitting
+the literals resolves those failures, and the generated heapmodel helper
+reference removes their entries. All eight final canonical gates pass, with
+the ordinary suite taking 128 seconds. Full all-check fresh-action Caddy
+diagnostics remain identical, exit 3, stderr empty. That scan takes 102.241
+seconds and writes 4 KiB physically; there is no whole-run speedup claim.
+
+Canonical RAM coverage passes at 92.5%, matching the README badge. Small
+receipts are retained in `.build/perf-publication-sort-20261006/`; full output
+and profiles remain in RAM. No local race tests or full precision replay were
+run. Hosted validation is separate from these local receipts. The performance
+goal remains active for escape-event sorting and broader proof-engine review.

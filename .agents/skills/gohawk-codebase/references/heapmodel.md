@@ -268,26 +268,6 @@ its pointee, a join where every path stored one object, and two reads of
 one slot with no write between them. A false result means unproved, not
 necessarily different.
 
-## EdgeLess
-
-[Source](../../../../internal/heapmodel/summary.go)
-
-```go
-func EdgeLess(left, right HeapEdge) bool
-```
-
-EdgeLess orders projected edges deterministically.
-
-## EffectLess
-
-[Source](../../../../internal/heapmodel/summary.go)
-
-```go
-func EffectLess(left, right HeapEffect) bool
-```
-
-EffectLess orders projected effects deterministically.
-
 ## EscapeDestination
 
 [Source](../../../../internal/heapmodel/escape_query.go)
@@ -1031,16 +1011,6 @@ func SliceOnlyObserved(use, observation ssa.Instruction, budget *ssaflow.SearchB
 
 SliceOnlyObserved reports whether use constructs a slice whose only consumers
 are observation. The caller must account for observation's own effects.
-
-## SlotLess
-
-[Source](../../../../internal/heapmodel/summary.go)
-
-```go
-func SlotLess(left, right HeapSlot) bool
-```
-
-SlotLess orders summary slots by root identity and access path.
 
 ## SortedSlots
 

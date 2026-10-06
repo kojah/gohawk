@@ -1,10 +1,11 @@
 package heapmodel
 
 import (
+	"cmp"
 	"go/token"
 	"go/types"
 	"slices"
-	"sort"
+	"strings"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"golang.org/x/tools/go/ssa"
@@ -108,22 +109,7 @@ func requirementSlotMayBeWritten(written map[HeapSlot]bool, at HeapSlot) bool {
 // published limit is full or the proof-work limit is spent. Sorting first
 // keeps both the selected guarantees and the coverage loss deterministic.
 func boundedRequirements(candidates []requirementCandidate, proves func(requirementKey) bool) []HeapRequirement {
-	sort.Slice(candidates, func(i, j int) bool {
-		left, right := candidates[i], candidates[j]
-		if left.requirement.Slot != right.requirement.Slot {
-			return SlotLess(left.requirement.Slot, right.requirement.Slot)
-		}
-		if left.requirement.Kind != right.requirement.Kind {
-			return left.requirement.Kind < right.requirement.Kind
-		}
-		if left.requirement.Method != right.requirement.Method {
-			return left.requirement.Method < right.requirement.Method
-		}
-		if left.key.slot.region.serial != right.key.slot.region.serial {
-			return left.key.slot.region.serial < right.key.slot.region.serial
-		}
-		return left.key.slot.path < right.key.slot.path
-	})
+	slices.SortFunc(candidates, compareRequirementCandidates)
 	var requirements []HeapRequirement
 	for index, candidate := range candidates {
 		if index >= heapRequirementProofLimit || len(requirements) == heapRequirementLimit {
@@ -135,6 +121,22 @@ func boundedRequirements(candidates []requirementCandidate, proves func(requirem
 		requirements = append(requirements, candidate.requirement)
 	}
 	return requirements
+}
+
+func compareRequirementCandidates(left, right requirementCandidate) int {
+	if left.requirement.Slot != right.requirement.Slot {
+		return compareSlots(left.requirement.Slot, right.requirement.Slot)
+	}
+	if left.requirement.Kind != right.requirement.Kind {
+		return cmp.Compare(left.requirement.Kind, right.requirement.Kind)
+	}
+	if left.requirement.Method != right.requirement.Method {
+		return strings.Compare(left.requirement.Method, right.requirement.Method)
+	}
+	if left.key.slot.region.serial != right.key.slot.region.serial {
+		return cmp.Compare(left.key.slot.region.serial, right.key.slot.region.serial)
+	}
+	return strings.Compare(left.key.slot.path, right.key.slot.path)
 }
 
 // instructionRequirements names what one instruction requires of the
