@@ -710,3 +710,50 @@ in RAM. The badge helper's first attempt while Caddy owned the workspace was
 rejected by the serialization lock; it is rerun after that job ends. No local
 race tests or full precision replay were run. Hosted CI at the parent commit
 `0a9f2f78` is fully green; current-commit hosted results remain separate.
+
+## Pointee union: retain the unknown answer during a merge
+
+The next actual-driver lockorder profile selects ordinary certmagic dependency
+analysis in pinned Caddy. The complete scan's JSON matches the previous two
+findings; stderr is empty. Its process CPU profile contains 1.11 seconds of
+samples, of which 270 ms have the selected lockorder Run on their stack. Other
+analyzers and GC also run during the selected interval. The allocation snapshot
+contains 519.40 MiB process-wide and 111.99 MiB with selected Run stacks; these
+are allocations since process startup, not allocations exclusively during Run.
+Heap snapshots, pointee additions and heap queries remain visible contributors.
+Raw profiles and action records remain in the RAM workspace's `lock-audit/`.
+
+`pointees.union` previously called `add` for every member, which scanned the
+destination for unknown before each known addition. The merge now scans once,
+retains that answer, and changes it when an incoming unknown absorbs the set.
+Unknown additions still delegate to `add`, preserving its clearing and stale
+flag behavior. Empty sources return without scanning. There are no proof,
+budget, traversal-order or diagnostic policy changes.
+
+Three-sample primitive benchmark medians use the same warmed RAM Go cache,
+two workers and reduced priority:
+
+| Merge | Before | Candidate |
+| --- | ---: | ---: |
+| Empty | 4.92 ns | 2.38 ns |
+| One known target | 112.9 ns | 111.3 ns |
+| Eight known targets | 683.3 ns | 378.2 ns |
+| Thirty-two known targets | 9362 ns | 1667 ns |
+| Already unknown | 68.91 ns | 67.66 ns |
+
+All cases allocate zero bytes. These are repeated merges of overlapping sets,
+not a whole-program speed claim. Focused tests cover stale overlap, retaining
+stale evidence, unknown absorption in either direction, independent source
+ownership, empty input and self unions. The full heapmodel suite also passes.
+Benchmark output and validation receipts remain in the RAM workspace's
+`pointee-union/`; only small final receipts are retained on disk. The broader
+completion audit remains open.
+
+Final `make verify` passes all eight local gates using the serialized RAM
+workspace. The coverage target's exact commands, with only its two output
+paths redirected into RAM, pass at 92.5%; the README badge remains accurate.
+The 41 MiB coverage profile stays in RAM. Self-analysis with all checks reports
+nothing. The Caddy comparison above is the pre-change profile run; this change
+does not claim a measured Caddy speedup. No local race tests or full precision
+replay were run. Hosted CI for parent `20973ecb` is fully green; the new commit's
+hosted checks remain separate.

@@ -114,8 +114,21 @@ func (set pointees) add(target slot, stale bool) {
 }
 
 func (set pointees) union(other pointees) {
+	if len(other) == 0 {
+		return
+	}
+	// Known additions cannot change whether the destination is unknown. Keep
+	// that answer for the merge instead of scanning the growing set each time.
+	unknown := set.unknown()
 	for target, stale := range other {
-		set.add(target, stale)
+		if target.region.kind == regionUnknown {
+			set.add(target, stale)
+			unknown = true
+			continue
+		}
+		if !unknown {
+			set[target] = set[target] || stale
+		}
 	}
 }
 
