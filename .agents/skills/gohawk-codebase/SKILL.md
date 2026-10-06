@@ -77,7 +77,7 @@ reuse it instead of copying it.
 
 ## Invariants the tests enforce
 
-`internal/architecture` fails the build when these break: dependency
+`internal/testsupport/architecture` fails the build when these break: dependency
 direction, one package per analyzer, diagnostics only through `check.Report`,
 symbol identity through `syntax.Symbol`, no process termination in library
 code, rationale comment density, object facts imported and exported only in

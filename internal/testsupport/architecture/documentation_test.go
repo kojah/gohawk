@@ -201,7 +201,7 @@ func (symbols *documentedSymbols) resolvesBare(name, member string, prefix bool)
 
 func architectureTestNames(t *testing.T, root string) map[string]bool {
 	t.Helper()
-	files, err := filepath.Glob(filepath.Join(root, "internal", "architecture", "*_test.go"))
+	files, err := filepath.Glob(filepath.Join(root, "internal", "testsupport", "architecture", "*_test.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +314,7 @@ func checkPageReferences(t *testing.T, page documentationPage, symbols *document
 		switch {
 		case testReference.MatchString(token):
 			if !tests[token] {
-				t.Errorf("%s:%d cites %s, which is not a test in internal/architecture", page.relative, line, token)
+				t.Errorf("%s:%d cites %s, which is not a test in internal/testsupport/architecture", page.relative, line, token)
 			}
 		case makeReference.MatchString(token):
 			target := makeReference.FindStringSubmatch(token)[1]

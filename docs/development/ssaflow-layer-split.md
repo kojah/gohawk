@@ -194,8 +194,9 @@ the broader internal hierarchy described below.
 
 Status: complete; final local verification passed.
 
-Packages now live under six top-level directories: `engine`, `analysis`,
-`reporting`, `testsupport`, `cli` and `architecture`. The first four are
+Packages now live under five top-level directories: `engine`, `analysis`,
+`reporting`, `testsupport` and `cli`. Repository-wide conformance checks live
+in `testsupport/architecture`. The first four top-level directories are
 organizational containers, with no umbrella package. Engine mechanics remain
 below domain passes and analyzer policy; reporting and test support keep their
 own roles. Public analyzer registration remains at the existing public path.

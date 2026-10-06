@@ -348,7 +348,7 @@ evidence engines behind focused implementation files.
 - Keep each analyzer's minimized accepted and diagnostic cases under its local
   `testdata` tree. Place fixture-only dependency stubs there as well.
 
-Repository-wide source conformance tests live under `internal/architecture`.
+Repository-wide source conformance tests live under `internal/testsupport/architecture`.
 Keep behavioral tests for the facilities they enforce, such as symbol matching,
 beside the implementation in its owning package.
 

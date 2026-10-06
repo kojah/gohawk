@@ -86,7 +86,7 @@ The architecture tests check user docs in CI and in `make verify`:
 - other user pages: at most 200 lines, with a baseline for pages already over;
 - no user page links to pinned source.
 
-Run them with `go test ./internal/architecture -run 'PublicDocumentation|AnalyzerProse'`.
+Run them with `go test ./internal/testsupport/architecture -run 'PublicDocumentation|AnalyzerProse'`.
 
 After changing the site's layout or styles, run `make site-shot` before
 publishing. It builds the site, screenshots pages at phone (390px), tablet (768px),

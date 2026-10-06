@@ -158,7 +158,7 @@ upstream and expose each guarantee in the layer that owns its semantics.
   needs a human edit.
 - `make lint` — includes `funlen`, `gocognit`, `cyclop`, `lll`, and `dupl` at
   60 tokens.
-- `go test ./internal/architecture/` — the enforced invariants.
+- `go test ./internal/testsupport/architecture/` — the enforced invariants.
 - `make precision-regression` — the replay runs with every check enabled, so
   noise from an opt-in audit fails the gate like a default check.
 - `make test`.

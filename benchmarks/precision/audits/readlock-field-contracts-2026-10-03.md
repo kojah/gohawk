@@ -98,4 +98,4 @@ includes budget uncertainty and receives no FP credit. These scoped receipts
 do not replace a full corpus census or prove broad architectural completion.
 
 After the final documentation and completion-matrix updates,
-`go test ./internal/architecture` exits 0 (2.526 seconds).
+`go test ./internal/testsupport/architecture` exits 0 (2.526 seconds).

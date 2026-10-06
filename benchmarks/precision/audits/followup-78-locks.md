@@ -125,7 +125,7 @@ Focused validation passed:
 
 - `go test ./internal/analysis/analyzers/concurrency/lockorder -count=1`
 - `go test -race ./internal/analysis/analyzers/concurrency/lockorder -count=1`
-- `go test ./internal/architecture -count=1`
+- `go test ./internal/testsupport/architecture -count=1`
 - Targeted canonical golangci-lint run: zero issues after the trace-only extraction.
 - Explicit-check baseline and corrected replay: 25/25 baseline sites present,
   2 corrected sites absent, 4/4 available true-positive controls retained.

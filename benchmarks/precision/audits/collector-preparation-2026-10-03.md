@@ -62,4 +62,4 @@ Reviewed/canonical SHA-256:
 Local scoped receipts: `.build/goal-collector-preparation/{scans,comparison}.json`.
 Canonical log: `.build/goal-collector-preparation-verify.log`.
 
-Final `go test ./internal/architecture` after the documentation updates passes.
+Final `go test ./internal/testsupport/architecture` after the documentation updates passes.

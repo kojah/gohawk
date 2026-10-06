@@ -63,4 +63,4 @@ false-positive correction is established. Eight previously identified
 production locations and broader semantic consolidation remain unresolved.
 
 After updating the development notes and this record, the final
-`go test ./internal/architecture` exits 0 (2.293 seconds).
+`go test ./internal/testsupport/architecture` exits 0 (2.293 seconds).

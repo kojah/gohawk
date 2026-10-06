@@ -15,9 +15,8 @@ and dependency contracts.
 | `internal/engine` | Proof outcomes, value and control-flow mechanics, heap evidence and lifecycle/resource models |
 | `internal/analysis` | Domain fact inference/publication, summary access, analyzer policy and catalog metadata |
 | `internal/reporting` | Diagnostic construction and structured evidence tracing |
-| `internal/testsupport` | Shared analyzer fixture support and executable documentation examples |
+| `internal/testsupport` | Analyzer fixture support, executable documentation examples and repository conformance checks |
 | `internal/cli` | Configuration, execution and presentation at the command boundary |
-| `internal/architecture` | Repository-wide source and dependency invariants |
 
 Domain navigation remains under `analysis/analyzers/concurrency` and
 `analysis/analyzers/resources`. SSA mechanics retain their own sublayers under
@@ -271,7 +270,7 @@ malformed JSON and analyzer errors keep their existing distinct handling.
 
 ## Invariants the tests enforce
 
-`internal/architecture` contains repository-wide conformance tests. Each one
+`internal/testsupport/architecture` contains repository-wide conformance tests. Each one
 guards a rule that the rest of this page relies on, so the architecture and
 the code cannot drift apart silently.
 

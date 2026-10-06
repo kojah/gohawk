@@ -33,6 +33,6 @@ contains one reviewed label; it is not a fresh repository audit or a full
 cumulative precision-regression run.
 
 Validation with the binary containing `1075818` retained the one true-positive
-label, with no unscannable exclusions. `go test ./internal/architecture -count=1`
+label, with no unscannable exclusions. `go test ./internal/testsupport/architecture -count=1`
 also passed. This update changes audit records only; the analyzer code and its
 previous passing `make verify` validation are unchanged.
