@@ -30,6 +30,12 @@ point in `analyzer.go` owns scheduling and publication; `summarize.go` composes
 the per-function guarantees. These boundaries preserve one fact schema and
 one inference path rather than adding adapters between parallel models.
 
+Synchronization evidence contracts and completeness live in
+`internal/passes/concurrencyfacts/summary.go`. `engine.go` owns serialized
+queries, cache policy and collection retries; `effects.go` accounts for ordered
+instruction effects and the passive whitelist. Linear fact publication and
+rich local queries retain their separate caches and shared evidence contract.
+
 The CLI's delegated process boundary lives in `internal/cli/delegated_run.go`.
 `diagnostic_json.go` merges and normalizes go vet output; `diagnostic_render.go`
 formats the normalized diagnostics and source context. Process failure,

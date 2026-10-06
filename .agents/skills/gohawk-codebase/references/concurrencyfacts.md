@@ -77,7 +77,7 @@ Effect is an ordered operation on a formal parameter (receiver at index zero).
 
 ## Engine
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go)
+[Source](../../../../internal/passes/concurrencyfacts/engine.go)
 
 ```go
 type Engine struct {
@@ -90,7 +90,7 @@ at the public query boundary; each query must supply its own work budget.
 
 ## Engine.AtCall
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go)
+[Source](../../../../internal/passes/concurrencyfacts/engine.go)
 
 ```go
 func (engine *Engine) AtCall(call ssa.CallInstruction, budget *ssaflow.SearchBudget) Summary
@@ -112,7 +112,7 @@ which rejects condition-field access, mutation and opaque publication.
 
 ## Engine.Function
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go)
+[Source](../../../../internal/passes/concurrencyfacts/engine.go)
 
 ```go
 func (engine *Engine) Function(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
@@ -122,7 +122,7 @@ Function summarizes a visible body, including bounded child templates.
 
 ## Engine.Root
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go)
+[Source](../../../../internal/passes/concurrencyfacts/engine.go)
 
 ```go
 func (engine *Engine) Root(function *ssa.Function, budget *ssaflow.SearchBudget) Summary
@@ -307,7 +307,7 @@ MutexPointer identifies sync.Mutex and sync.RWMutex pointers, not lookalikes.
 
 ## NewEngine
 
-[Source](../../../../internal/passes/concurrencyfacts/summary.go)
+[Source](../../../../internal/passes/concurrencyfacts/engine.go)
 
 ```go
 func NewEngine() *Engine

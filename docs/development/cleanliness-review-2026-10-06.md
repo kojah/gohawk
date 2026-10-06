@@ -58,6 +58,31 @@ All eight final canonical gates pass for this layout, and RAM coverage remains
 stay in RAM. No new behavioral fixtures or cumulative precision replay are
 needed for unchanged bodies; existing lifecycle and analyzer suites pass.
 
+## Synchronization and heap projection review
+
+The synchronization summary file mixed the evidence contract, package-cache
+lifecycle and instruction admissibility. `summary.go` now owns the schema and
+completeness contract; `engine.go` owns serialized queries, cache policies and
+collection retries; `effects.go` owns ordered instruction accounting and its
+passive whitelist. All 25 function signatures and bodies match the original
+ASTs. Schema and engine declarations are copied verbatim, with no changed
+fact format, query policy or instruction acceptance.
+
+The 605-line `heapmodel/store_heap_summary.go` remains together after a complete
+source review. It owns one projection from return-state graphs to externally
+named heap evidence. Root/result naming, must/may aggregation, deterministic
+fresh-object numbering and truncation share that publication boundary. Call
+substitution already lives elsewhere. Its bounded object-hold recursion is
+limited by `SummaryPaths`; separating these projections merely to reduce the
+line count would scatter one vocabulary and its precision rules.
+
+All eight canonical local verification gates pass after this separation.
+Canonical RAM coverage passes at 92.6%, matching the README. AST and gate
+receipts are retained in `.build/concurrency-layout-audit-20261006/`; raw
+profiles and the original source snapshot remain in RAM. No new behavior
+fixtures or precision replay are required for unchanged bodies. No local race
+tests were run; hosted checks remain separate.
+
 ## Validation receipts
 
 All eight final `make verify` gates pass. The corrected canonical coverage
@@ -70,12 +95,11 @@ validation.
 
 ## Remaining review
 
-Ten production source files still exceed the 400-line review trigger. This
-is not a finding that they should be split: each needs a cohesion judgment.
+Eight production source files remain to be reviewed for cohesion. These
+exceed the 400-line review trigger; that is not a finding that they should be
+split. The larger heap projection file has been reviewed above.
 
 - cancellationownership/proof.go
-- concurrencyfacts/summary.go
-- heapmodel/store_heap_summary.go
 - resourcelifetime/contracts.go
 - lifecyclefacts/evidence.go
 - goroutineownership/classify.go
