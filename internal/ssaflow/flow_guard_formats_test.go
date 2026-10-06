@@ -65,7 +65,7 @@ func TestGuardFormatsDoNotMemoizeUnresolvedAddresses(t *testing.T) {
 	condition := loadedGuardCondition(t, "unknown")
 	var formats guardFormats
 	_, _, _, _ = guardConditionWithFormats(condition, nil, &formats)
-	if len(formats.loaded) != 0 {
+	if len(formats.loaded) != 0 || len(formats.addresses) != 0 {
 		t.Fatal("an opaque address populated the loaded identity memo")
 	}
 }

@@ -443,7 +443,7 @@ Current evidence and remaining questions are:
 | Shared prerequisites | Actual unitchecker timing across 290 package actions; ordinary `math/big`, `runtime`, `reflect`, and `go/types` profiles | Review residual heap projection/map costs and broaden representative target coverage |
 | Heap snapshots, joins and queries | Ownership regressions, counterfactuals, paired benchmarks and real-target profiles; repeated union scans removed and unused query map avoided | Review individual-add unknown scans and residual projection work |
 | Shared control flow | Queues, guard filtering, loaded identity formatting, repeated key rendering and visited hashing improved with exact-order/budget tests and real profiles | Review residual map probing and guard invalidation; preserve charged work and ownership |
-| Reaching-value folds | Production allocation profile identifies `Every`; branches already clone with `maps.Clone` | Preserve branch independence and shared leaf visit semantics while investigating allocation |
+| Reaching-value folds | Production profile and complete fold-source review; sibling/revisit and shared-budget fixtures preserve independent branches and shared leaf visits | No direct clone-removal candidate retained; a different representation would need a separate API and semantics review |
 | Trace metadata | Disabled/enabled allocation tests and 36261-record complete evidence comparison | Review any remaining unconditional metadata construction in profiled paths |
 | Lifecycle type vocabulary | Eight discarded slices removed; rejected/package lookups allocate zero; matched result ownership and non-call acquisition boundary tested | Lookup overhead addressed; no whole-run improvement established |
 | Catalog analyzers | Fresh-action timings for all eight; lock/resource fixture profiles, Caddy scans and six further root profiles | Complete bounded source review of the engines; short profiles have sparse CPU/allocation samples |
@@ -1103,3 +1103,84 @@ with output paths redirected into RAM, preserving the README badge. Small
 benchmark, gate, profile and coverage receipts are retained in
 `.build/perf-guard-ids-20261006/`. No local race tests or full precision replay
 were run; hosted checks for the new commit remain separate.
+
+## Reuse charged address rendering within obligation walks
+
+The existing walk-local formatting memo now retains address text as well as
+loaded-condition text. Address resolution still visits the same SSA nodes and
+spends the same local/shared charges before consulting rendered text. Unknown
+or partially decoded addresses never populate the memo. Allocation, parameter,
+free-variable, global, field, load and result identities retain their previous
+bytes. The memo is scoped to one obligation walk, whose SSA structure is
+immutable; it does not cache proof outcomes or budget availability.
+
+Guard invalidation uses this same rendering memo for stores and rerun results.
+Filtering still detaches retained guards, preserving writable-result ownership
+and sibling independence. Calls with no guards now return the original nil
+filtered result without rendering an unused result identity; that branch never
+spent any guard/address charges before, so it preserves the allowance exactly.
+Store addresses continue to be decoded and charged even with an empty list.
+
+Existing guard-format regressions compare warm and uncached bytes, polarity,
+stability and local/shared allowances 0 through 15. New invalidation regressions
+cover parameter-field stores, call-result fields, tuple-result fields, calls
+and extracts, unchanged unrelated evidence, cutoff/nil output, shared pools,
+result ownership and empty-call memo/allowance behavior.
+
+Three-sample repeated loaded-guard medians are 170.6 ns and 72 bytes/three
+allocations before, versus 54.00 ns and zero allocation after. Cold/unmemoized
+rendering remains 920 bytes/eleven allocations and varies from a 1263 ns median
+to 1360 ns; no improvement is claimed for that path. Setup and first render are
+excluded from warm measurements.
+
+The all-check Caddy scan preserves complete diagnostic JSON, exit 3, empty
+stderr and all 14924 action records. It writes 20 KiB physically. On
+lifecycle-focused stacks, cumulative address rendering drops from 373.51 to
+1.00 MiB sampled allocation; the new address memo accounts for 3.00 MiB
+cumulative allocation, 2.50 MiB flat. Focused `fmt.Sprintf` drops from 295.51 to
+0.50 MiB. The total process snapshot is 2763.20 MiB versus 2958.04 previously.
+Snapshots accumulate from process startup and include scheduling variation,
+so attribution to the rendering frames is stronger than the process-total
+comparison. They do not measure peak RSS.
+
+The selected certmagic Run takes 7.135 seconds versus 8.898 in the preceding
+profile; the complete command takes 92.652 versus 125.898 seconds. These single
+profiles do not establish a general wall-time speedup. CPU samples include all
+goroutines during the selected Run. Raw artifacts stay under the RAM
+workspace's `guard-addresses/` and heavy jobs remain serialized.
+
+### Bounded source review alongside the profile
+
+Graph tools are unavailable in this session, so this review uses exact source
+and call-site searches. `internal/ssaflow/value_reaching.go` shares visits with
+leaf callbacks and clones them for `EveryOf`/`ResolveReachingValue` siblings.
+The sibling/revisit and shared-budget fixtures in `reaching_revisit_test.go`
+and `reaching_budget_test.go` confirm these distinctions. Replacing those
+copies with one shared mutable map would change results; rollback or persistent
+storage would need a separate representation and API review. No clone-removal
+candidate is retained for that file.
+
+The reviewed CLI dispatch and delegated-output paths in `internal/cli/cli.go`
+and `output.go` resolve selection, invoke `go vet`, merge package JSON and
+render findings. The Go driver owns dependency scheduling and package cache
+reuse; adding a second scheduler is not a simple optimization. This is a
+bounded dispatch/output review, not an exhaustive review of dump modes.
+
+All eight analyzer entry points have now been read for candidate gating and
+repeated setup. Cancellation, goroutine, process and resource checks reject
+non-matching instructions before candidate proof construction; defer processing
+selects defers; producer processing selects spawns; concurrent capture selects
+loop launches; lockorder builds shared caller/field evidence once and declines
+function walks without acquisitions. Broker providers retrieve completed passes
+and construct local evidence without rerunning prerequisite inference. This
+entry-point review does not finish the broader proof-engine audit: the six
+short catalog profiles have sparse samples, and their deeper paths need bounded
+review. Guard filtering ownership and work-list revisit charges also remain
+constraints on future map/guard optimization.
+
+All eight canonical `make verify` gates pass, including all-check self-analysis
+and the full ordinary suite. Coverage passes at 92.5%, with profile and summary
+paths redirected into RAM; the README badge remains accurate. Small receipts
+are retained in `.build/perf-guard-addresses-20261006/`. No local race tests or
+full precision replay were run. Hosted checks for the new commit remain
+separate, and the broader performance completion audit remains open.

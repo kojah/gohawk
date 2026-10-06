@@ -228,7 +228,7 @@ func (walk *obligationWalk) step(state obligationState) ([]obligationState, bool
 }
 
 func (walk *obligationWalk) instruction(state *obligationState, instruction ssa.Instruction) bool {
-	state.guards = state.guards.AfterWithin(instruction, walk.flow.Budget)
+	state.guards = state.guards.afterWithFormats(instruction, walk.flow.Budget, &walk.formats)
 	if walk.stopAtCutoff() {
 		return false
 	}

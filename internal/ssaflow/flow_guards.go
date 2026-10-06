@@ -117,7 +117,7 @@ func loadedGuard(condition ssa.Value, budget *SearchBudget, formats *guardFormat
 		if typed.Op != token.MUL {
 			return "", false, false
 		}
-		address, ok := guardAddressIdentityWithin(typed.X, budget)
+		address, ok := guardAddressIdentityWithFormats(typed.X, budget, formats)
 		return formats.loadedIdentity(condition, address, nil, ok), false, ok
 	case *ssa.BinOp:
 		if typed.Op != token.EQL && typed.Op != token.NEQ {
@@ -132,7 +132,7 @@ func loadedGuard(condition ssa.Value, budget *SearchBudget, formats *guardFormat
 		if !ok || !loaded || load.Op != token.MUL {
 			return "", false, false
 		}
-		address, ok := guardAddressIdentityWithin(load.X, budget)
+		address, ok := guardAddressIdentityWithFormats(load.X, budget, formats)
 		return formats.loadedIdentity(condition, address, literal, ok), typed.Op == token.NEQ, ok
 	}
 	return "", false, false
@@ -140,32 +140,30 @@ func loadedGuard(condition ssa.Value, budget *SearchBudget, formats *guardFormat
 
 // guardAddressIdentityWithin names a cell by its selected address/load path.
 func guardAddressIdentityWithin(address ssa.Value, budget *SearchBudget) (string, bool) {
+	return guardAddressIdentityWithFormats(address, budget, nil)
+}
+
+func guardAddressIdentityWithFormats(address ssa.Value, budget *SearchBudget, formats *guardFormats) (string, bool) {
 	if !budget.Spend() {
 		return "", false
 	}
 	switch typed := address.(type) {
-	case *ssa.Alloc:
-		return fmt.Sprintf("alloc:%p", typed), true
-	case *ssa.Parameter:
-		return fmt.Sprintf("param:%p", typed), true
-	case *ssa.FreeVar:
-		return fmt.Sprintf("free:%p", typed), true
-	case *ssa.Global:
-		return "global:" + typed.String(), true
+	case *ssa.Alloc, *ssa.Parameter, *ssa.FreeVar, *ssa.Global:
+		return formats.addressIdentity(address, "", true), true
 	case *ssa.FieldAddr:
-		inner, ok := guardAddressIdentityWithin(typed.X, budget)
-		return fmt.Sprintf("field(%s,%d)", inner, typed.Field), ok
+		inner, ok := guardAddressIdentityWithFormats(typed.X, budget, formats)
+		return formats.addressIdentity(address, inner, ok), ok
 	case *ssa.UnOp:
 		if typed.Op == token.MUL {
-			inner, ok := guardAddressIdentityWithin(typed.X, budget)
-			return "load(" + inner + ")", ok
+			inner, ok := guardAddressIdentityWithFormats(typed.X, budget, formats)
+			return formats.addressIdentity(address, inner, ok), ok
 		}
 	case *ssa.Call, *ssa.Extract:
 		// A pointer a call returned is one object until the call runs again,
 		// so two reads of the same field of it read the same slot, as two
 		// reads of a parameter's field do: a response's status checked
 		// twice. A walker forgets the guard when the call reruns; see After.
-		return guardOperandIdentity(typed), true
+		return formats.addressIdentity(address, "", true), true
 	}
 	return "", false
 }
@@ -262,8 +260,8 @@ func (guards PathGuards) extendWithFormats(
 }
 
 // forgetWithin drops guards about the stored cell and paths above/beneath it.
-func (guards PathGuards) forgetWithin(store *ssa.Store, budget *SearchBudget) PathGuards {
-	address, ok := guardAddressIdentityWithin(store.Addr, budget)
+func (guards PathGuards) forgetWithin(store *ssa.Store, budget *SearchBudget, formats *guardFormats) PathGuards {
+	address, ok := guardAddressIdentityWithFormats(store.Addr, budget, formats)
 	if budget.Exhausted() {
 		return nil
 	}
@@ -308,11 +306,18 @@ func (guards PathGuards) withoutIdentityInto(kept PathGuards, identity string, b
 // AfterWithin shares guard invalidation with budget. A cutoff cannot establish
 // that the remaining guards hold; callers must check exhaustion.
 func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *SearchBudget) PathGuards {
+	return guards.afterWithFormats(instruction, budget, nil)
+}
+
+func (guards PathGuards) afterWithFormats(instruction ssa.Instruction, budget *SearchBudget, formats *guardFormats) PathGuards {
 	switch typed := instruction.(type) {
 	case *ssa.Store:
-		return guards.forgetWithin(typed, budget)
+		return guards.forgetWithin(typed, budget, formats)
 	case *ssa.Call, *ssa.Extract:
-		identity := guardOperandIdentity(typed.(ssa.Value))
+		if len(guards) == 0 {
+			return nil
+		}
+		identity := formats.addressIdentity(typed.(ssa.Value), "", true)
 		return guards.withoutIdentityWithin(identity, budget)
 	}
 	return guards
