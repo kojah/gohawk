@@ -133,18 +133,19 @@ type obligationState struct {
 }
 
 type obligationKey struct {
-	location FlowLocationKey
-	covered  ObligationAction
+	block, predecessor, index int
+	guards                    guardKeyID
+	covered                   ObligationAction
 }
 
-func (state obligationState) keyWithin(budget *SearchBudget) obligationKey {
-	return state.keyWithMemo(budget, nil)
-}
-
-func (state obligationState) keyWithMemo(budget *SearchBudget, keys *guardKeys) obligationKey {
+func (state obligationState) keyWithin(budget *SearchBudget, ids *guardIDs) obligationKey {
+	predecessor := -1
+	if state.predecessor != nil {
+		predecessor = state.predecessor.Index
+	}
 	return obligationKey{
-		location: flowLocationKeyWithMemo(state.block, state.predecessor, state.index, state.guards, budget, keys),
-		covered:  state.covered,
+		block: state.block.Index, predecessor: predecessor, index: state.index,
+		guards: ids.within(state.guards, budget), covered: state.covered,
 	}
 }
 
@@ -161,10 +162,7 @@ func (state obligationState) keyWithMemo(budget *SearchBudget, keys *guardKeys) 
 func obligationOutcome(initial []obligationState, flow ObligationFlow) (ObligationOutcome, *ssa.Return) {
 	walk := obligationWalk{flow: flow, policy: flow.successorPolicy(), outcome: ObligationHonored}
 	WalkStatesWithin(initial, func(state obligationState) obligationKey {
-		if len(state.guards) == 0 {
-			return state.keyWithin(flow.Budget)
-		}
-		return state.keyWithMemo(flow.Budget, &walk.keys)
+		return state.keyWithin(flow.Budget, &walk.ids)
 	}, walk.step, flow.Budget)
 	walk.stopAtCutoff()
 	return walk.outcome, walk.witness
@@ -173,7 +171,7 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) (Obligati
 // One walk owns the outcome and witness. Every callback and shared guard query
 // must retain availability before it can settle, violate or prune a path.
 type obligationWalk struct {
-	keys    guardKeys
+	ids     guardIDs
 	formats guardFormats
 	flow    ObligationFlow
 	policy  SuccessorPolicy

@@ -61,9 +61,15 @@ func TestObligationKeyKeepsCoverageAtSameLocation(t *testing.T) {
 		{block: block, covered: ObligationNone},
 		{block: block, covered: ObligationUnknown},
 		{block: block, covered: ObligationExact},
+		{block: block, predecessor: block},
+		{block: block, index: 1},
+		{block: block, guards: PathGuards{{Identity: "x", Value: true}}},
+		{block: block, guards: PathGuards{{Identity: "x"}}},
+		{block: &ssa.BasicBlock{Index: block.Index + 1}},
 	}
 	expanded := 0
-	WalkStates(states, func(state obligationState) obligationKey { return state.keyWithin(nil) },
+	var ids guardIDs
+	WalkStates(states, func(state obligationState) obligationKey { return state.keyWithin(nil, &ids) },
 		func(obligationState) ([]obligationState, bool) { expanded++; return nil, true })
 	if expanded != len(states) {
 		t.Fatalf("coverage collapsed at one guarded position: expanded=%d", expanded)

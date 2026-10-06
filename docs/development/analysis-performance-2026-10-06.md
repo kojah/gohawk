@@ -439,14 +439,14 @@ Current evidence and remaining questions are:
 
 | Scope | Current evidence | Remaining work |
 | --- | --- | --- |
-| Runner and cache behavior | Controlled cold, cached and forced-fresh pairs; identical diagnostics | Repeat representative larger targets; distinguish build work from pass work |
+| Runner and cache behavior | Controlled cold, cached and forced-fresh pairs; three larger Caddy pairs preserve diagnostics without a convincing new overall speedup | Broader runner source review; retain the distinction between build work and pass work |
 | Shared prerequisites | Actual unitchecker timing across 290 package actions; ordinary `math/big`, `runtime`, `reflect`, and `go/types` profiles | Review residual heap projection/map costs and broaden representative target coverage |
 | Heap snapshots, joins and queries | Ownership regressions, counterfactuals, paired benchmarks and real-target profiles; repeated union scans removed and unused query map avoided | Review individual-add unknown scans and residual projection work |
-| Shared control flow | Reachability/state queues and key capacity improved with exact-order/budget tests | Review remaining guard filtering and visited-map costs |
+| Shared control flow | Queues, guard filtering, loaded identity formatting, repeated key rendering and visited hashing improved with exact-order/budget tests and real profiles | Review residual map probing and guard invalidation; preserve charged work and ownership |
 | Reaching-value folds | Production allocation profile identifies `Every`; branches already clone with `maps.Clone` | Preserve branch independence and shared leaf visit semantics while investigating allocation |
 | Trace metadata | Disabled/enabled allocation tests and 36261-record complete evidence comparison | Review any remaining unconditional metadata construction in profiled paths |
 | Lifecycle type vocabulary | Eight discarded slices removed; rejected/package lookups allocate zero; matched result ownership and non-call acquisition boundary tested | Lookup overhead addressed; no whole-run improvement established |
-| Catalog analyzers | Fresh-action baseline timings for all eight; lock/resource fixture profiles and Caddy scans | Inspect the remaining six proof engines against representative uncached production profiles |
+| Catalog analyzers | Fresh-action timings for all eight; lock/resource fixture profiles, Caddy scans and six further root profiles | Complete bounded source review of the engines; short profiles have sparse CPU/allocation samples |
 
 These are incomplete audit items, not findings that the remaining costs can
 necessarily be removed cheaply. For example, reusing a reaching-value branch's
@@ -1017,9 +1017,11 @@ and cutoff cannot publish or poison a partial key. Different walks own their
 own single-entry memo, with no global state or unbounded collection.
 
 Visited-state keys retain `FlowLocationKey` and its exact guard string. Using
-structural or numeric identifiers directly would distinguish old delimiter
-collisions and change which paths merge, so this performance change preserves
-that existing equivalence. Tests cover collision equality, stability omission,
+structural identifiers directly would distinguish old delimiter collisions
+and change which paths merge, so this performance change preserves that
+existing equivalence. The subsequent numeric-key change below interns those
+encoded bytes rather than the structural lists. Tests cover collision equality,
+stability omission,
 identity/value changes, input mutation, empty/oversized lists, local and shared
 allowances, and cutoff leaving the prior complete key intact. Existing location
 tests preserve predecessor, position and coverage distinctions.
@@ -1051,3 +1053,53 @@ the README badge remains accurate. Small benchmark, final gate, coverage summary
 Caddy receipt and focused profile summaries are retained in
 `.build/perf-guard-keys-20261006/`. No local race tests or full precision replay
 were run. New-commit hosted checks remain separate from these local receipts.
+
+## Intern encoded guard keys for obligation visits
+
+The obligation walker now uses walk-local integer IDs for its visited map's
+guard component. Each ID interns the authoritative encoded key bytes, so
+delimiter collisions, stability omission and empty keys retain their existing
+equivalence. Rendering and memo hits keep every original guard charge; cutoff
+cannot publish a partial ID. IDs never leave their owning walk. Block,
+predecessor, instruction position and coverage remain separate key components,
+with missing predecessors still distinct from entry block zero.
+
+A lazy string-to-ID map and the last complete key avoid repeatedly hashing a
+long guard string at every visited-map lookup and insertion. The public
+`FlowLocationKey` interface stays unchanged. Tests cover interleaved byte-equal
+collisions, distinct keys, partial-key rejection, local and shared charges,
+and all location/coverage distinctions. This introduces one retained key per
+distinct encoded guard list in a walk; it is deliberately not a global cache.
+
+The repeated long-key benchmark has three-sample medians of 74.69 ns with the
+former string-bearing visited struct and 50.78 ns with IDs; both allocate zero
+after setup. An initial benchmark of standalone string map keys was rejected
+as unrepresentative: Go's small string-map fast path does not model the actual
+composite visited key.
+
+The real all-check Caddy candidate scan preserves full diagnostic JSON, exit 3,
+empty stderr and all 14924 action records, writing 12 KiB physically. A fresh
+matched baseline profiles the same certmagic lifecycle pass. Lifecycle-focused
+string hashing falls from 1.70 to 0.38 CPU seconds; the selected Run takes
+11.022 versus 8.898 seconds. Profiles sample all goroutines during that Run;
+the focus selects stacks through lifecycle-fact inference.
+
+The candidate's process allocation snapshot is about 2.89 GiB versus the
+baseline's 2702.81 MiB. Interning itself adds about 14 MiB of sampled flat
+allocation; other guard and visited allocations also differ between process
+snapshots. They accumulate from startup and depend on concurrent scheduling,
+so this change makes no total-allocation reduction claim. Whole-command timing
+is 125.898 seconds for the candidate and 118.791 for the baseline, so no
+general speedup is established. Raw artifacts stay under the
+RAM workspace's `guard-ids/`, including the matched baseline in `before/`.
+
+The broader performance completion audit remains open. Map probing and guard
+invalidation still take substantial time, and the remaining source-review
+scopes must be closed before claiming no easy wins remain.
+
+The first local gate catches an unused benchmark field; after explicitly
+initializing it, all eight canonical local gates pass. Coverage passes at 92.5%
+with output paths redirected into RAM, preserving the README badge. Small
+benchmark, gate, profile and coverage receipts are retained in
+`.build/perf-guard-ids-20261006/`. No local race tests or full precision replay
+were run; hosted checks for the new commit remain separate.
