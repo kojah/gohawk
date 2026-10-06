@@ -13,6 +13,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -167,7 +168,7 @@ func constantFalse(value ssa.Value) bool {
 // uncertainty rather than infeasibility, and never excludes a path on it.
 // Exceeding the guard limit forgets the new fact, never excludes a path.
 // https://github.com/yandex-cloud/geesefs/blob/dd847771b29b26f3246edaf3227acbc430f4548d/core/file.go#L1901-L1972
-func extendLockConstraints(constraints ssaflow.PathGuards, block *ssa.BasicBlock, truth bool, budget *proofs.SearchBudget) (ssaflow.PathGuards, bool) {
+func extendLockConstraints(constraints ssapath.PathGuards, block *ssa.BasicBlock, truth bool, budget *proofs.SearchBudget) (ssapath.PathGuards, bool) {
 	if len(block.Succs) != 2 {
 		return constraints, true
 	}
@@ -175,8 +176,8 @@ func extendLockConstraints(constraints ssaflow.PathGuards, block *ssa.BasicBlock
 	if truth {
 		successor = block.Succs[0]
 	}
-	next, contradiction := constraints.ExtendWithin(block, successor, func(guard ssaflow.PathGuard) bool { return guard.Stable }, budget)
-	return next, contradiction != ssaflow.GuardStableContradiction
+	next, contradiction := constraints.ExtendWithin(block, successor, func(guard ssapath.PathGuard) bool { return guard.Stable }, budget)
+	return next, contradiction != ssapath.GuardStableContradiction
 }
 
 func guardConflicts(held []string, guards map[string]lockGuard, condition string, value bool, budget *proofs.SearchBudget) bool {

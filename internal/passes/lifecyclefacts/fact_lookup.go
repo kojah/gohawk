@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,7 +17,7 @@ import (
 
 // importFact imports the summary attached to a static callee.
 func importFact(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
-	return factForFunction(pass, ssaflow.ResolvedCallee(ssaflow.InstructionCall(instruction)))
+	return factForFunction(pass, ssacall.ResolvedCallee(ssaflow.InstructionCall(instruction)))
 }
 
 // factForFunction returns the summary recorded for a function. It is the one
@@ -25,7 +26,7 @@ func importFact(pass *analysis.Pass, instruction ssa.Instruction) (Fact, bool) {
 // object the summary was recorded against, and a function with no object,
 // such as a literal, has no summary to find.
 func factForFunction(pass *analysis.Pass, function *ssa.Function) (Fact, bool) {
-	resolved := ssaflow.ResolvedFunction(function)
+	resolved := ssacall.ResolvedFunction(function)
 	if pass == nil || resolved == nil {
 		return Fact{}, false
 	}

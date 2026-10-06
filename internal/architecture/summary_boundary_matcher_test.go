@@ -12,7 +12,7 @@ import (
 
 // Synthetic packages keep the matcher tests independent of actual API shape
 // and let us test forbidden public fields without exposing real cache state.
-const summaryAPIFixture = `package ssaflow
+const summaryAPIFixture = `package calls
 type SearchBudget struct{}
 type FunctionSummaries[T any] struct { Cache map[int]T }
 func (*FunctionSummaries[T]) Function(int, *SearchBudget) {}
@@ -30,7 +30,7 @@ func (*CallGraphMemo[K,V]) Cut() {}
 `
 
 func TestSummaryBoundaryMatcher(t *testing.T) {
-	api, _, _ := checkSummarySource(t, internalImportPrefix+"ssaflow", summaryAPIFixture, nil)
+	api, _, _ := checkSummarySource(t, internalImportPrefix+"ssaflow/calls", summaryAPIFixture, nil)
 	for _, test := range []struct {
 		name, body, reason string
 	}{
@@ -60,7 +60,7 @@ func TestSummaryBoundaryMatcher(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			source := `package consumer
-import flow "github.com/kojah/gohawk/internal/ssaflow"
+import flow "github.com/kojah/gohawk/internal/ssaflow/calls"
 type Alias = flow.CallGraphMemo[int,int]
 type Wrapper struct { *flow.CallGraphMemo[int,int] }
 type unrelated struct{}
@@ -94,7 +94,7 @@ func testSummaryRuleScopes(t *testing.T) {
 			t.Errorf("%s escaped shared infrastructure enforcement", path)
 		}
 	}
-	for _, path := range []string{"internal/ssaflow/call_graph_memo.go", "internal/ssaflow/call_summaries.go"} {
+	for _, path := range []string{"internal/ssaflow/calls/call_graph_memo.go", "internal/ssaflow/calls/call_summaries.go"} {
 		if summaryRuleApplies(path, "raw guard operation") {
 			t.Errorf("implementation owner %s rejected", path)
 		}

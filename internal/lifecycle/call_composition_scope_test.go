@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -16,7 +16,7 @@ func opaque()
 
 func TestSummaryCompositionVisitsIndependentBodies(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "scopes", compositionScopeFixture)
-	memo := ssaflow.NewCallGraphMemo[string, int]()
+	memo := ssacall.NewCallGraphMemo[string, int]()
 	visits := 0
 	compute := func() int {
 		for _, name := range []string{"first", "second", "first"} {
@@ -28,7 +28,7 @@ func TestSummaryCompositionVisitsIndependentBodies(t *testing.T) {
 	}
 	for range 2 {
 		got := memo.Compose("call-site question", proofs.NewSearchBudget(10), compute,
-			func(ssaflow.SummaryUnavailable, int) int { return -1 })
+			func(ssacall.SummaryUnavailable, int) int { return -1 })
 		if got != 3 || visits != 3 {
 			t.Errorf("answer=%d visits=%d, want 3 and 3", got, visits)
 		}
@@ -42,8 +42,8 @@ func TestSummaryCompositionVisitsIndependentBodies(t *testing.T) {
 
 func TestSummaryCompositionRecursiveAlternativeInvalidatesQuestion(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "scopes", compositionScopeFixture)
-	memo := ssaflow.NewCallGraphMemo[string, int]()
-	unavailable := func(ssaflow.SummaryUnavailable, int) int { return -1 }
+	memo := ssacall.NewCallGraphMemo[string, int]()
+	unavailable := func(ssacall.SummaryUnavailable, int) int { return -1 }
 	visits := 0
 	budget := proofs.NewSearchBudget(10)
 	for range 2 {
@@ -72,8 +72,8 @@ func TestSummaryCompositionRecursiveAlternativeInvalidatesQuestion(t *testing.T)
 }
 
 func TestSummaryCompositionPolicyTruncationInvalidatesParents(t *testing.T) {
-	memo := ssaflow.NewCallGraphMemo[int, int]()
-	unavailable := func(ssaflow.SummaryUnavailable, int) int { return -1 }
+	memo := ssacall.NewCallGraphMemo[int, int]()
+	unavailable := func(ssacall.SummaryUnavailable, int) int { return -1 }
 	budget := proofs.NewSearchBudget(10)
 	memo.Compose(1, budget, func() int {
 		return memo.Compose(2, budget, func() int {

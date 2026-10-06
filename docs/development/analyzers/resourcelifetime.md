@@ -988,7 +988,7 @@ therefore covers every feasible path, and so does the negated `||` form that
 returns first. Short-circuit operators are separate branches in SSA, so each
 operand's edge is judged on its own. A guard computed into a variable first,
 `ok := resp != nil && resp.Body != nil; if ok { … }`, branches on a phi of
-Booleans. `ssaflow.BranchValueWithin` selects only the incoming operand belonging to
+Booleans. `path.BranchValueWithin` selects only the incoming operand belonging to
 the flow state's predecessor, so the same presence proof applies to that exact
 comparison. A missing predecessor, a phi from an earlier block, an unrelated
 flag, or another response's body supplies no absence evidence. Fixtures:
@@ -1225,7 +1225,7 @@ source and policy expectations. No production-audit FP correction is claimed.
 The acquisition's paired error is decoded after constructing the observed
 candidate pool. `proveAcquisitionErrorResultWithin` preserves the existing
 last-result rule, including three-result APIs such as Pty, and delegates exact
-extract selection to `ssaflow.CallResultWithin` under a candidate child.
+extract selection to `calls.CallResultWithin` under a candidate child.
 A child or shared-parent cutoff returns structured unknown with no value;
 the entry stops before HTTP boundaries, optional acquisition or owned-path
 flow can reinterpret an unavailable error as an absent one. Scalar calls,

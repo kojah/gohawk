@@ -7,6 +7,8 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -55,18 +57,18 @@ func releasesEachElement(function *ssa.Function, parameter ssa.Value, method str
 	if len(exits) == 0 || len(function.Blocks) == 0 || len(function.Blocks[0].Instrs) == 0 {
 		return false
 	}
-	return ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
+	return ssapath.EvaluateObligation(ssapath.ObligationFlow{
 		Start:       function.Blocks[0].Instrs[0],
 		Budget:      budget,
-		Instruction: func(ssa.Instruction) ssaflow.ObligationAction { return ssaflow.ObligationNone },
-		Return:      func(*ssa.Return) ssaflow.ObligationAction { return ssaflow.ObligationNone },
-		Edge: func(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
+		Instruction: func(ssa.Instruction) ssapath.ObligationAction { return ssapath.ObligationNone },
+		Return:      func(*ssa.Return) ssapath.ObligationAction { return ssapath.ObligationNone },
+		Edge: func(from, to *ssa.BasicBlock) ssapath.ObligationAction {
 			if exits[[2]*ssa.BasicBlock{from, to}] {
-				return ssaflow.ObligationExact
+				return ssapath.ObligationExact
 			}
-			return ssaflow.ObligationNone
+			return ssapath.ObligationNone
 		},
-	}) == ssaflow.ObligationHonored
+	}) == ssapath.ObligationHonored
 }
 
 // elementReleaseExit returns the exit edge of the range loop whose element
@@ -91,7 +93,7 @@ func (evidence *LifecycleEvidence) ReleasesEachElement(instruction ssa.Instructi
 			return discharge.Parameter == index && discharge.Path == EachElementPath && slices.Contains(methods, discharge.Method)
 		})
 	}
-	callee := ssaflow.ResolvedCallee(ssaflow.InstructionCall(instruction))
+	callee := ssacall.ResolvedCallee(ssaflow.InstructionCall(instruction))
 	if callee == nil || evidence.pass == nil || callee.Pkg == nil || callee.Pkg.Pkg != evidence.pass.Pkg ||
 		len(callee.Blocks) == 0 || index >= len(callee.Params) {
 		return false

@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -22,7 +23,7 @@ func (analysis *resourceAnalysis) provePossiblyRetainedCallbackWithin(
 	if !budget.Spend() {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
-	if ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) {
+	if ssacall.HasLibraryContract(common, ssacall.ContractTestingCleanup) {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
 	for index, argument := range common.Args {

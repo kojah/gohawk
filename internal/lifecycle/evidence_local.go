@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -32,7 +32,7 @@ type completionEvidenceKey struct {
 	coverage     CompletionCoverage
 	invokeTarget bool
 	exactTarget  bool
-	condition    ssaflow.CallCondition
+	condition    ssacall.CallCondition
 }
 
 type transferEvidenceKey struct {

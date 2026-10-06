@@ -5,6 +5,8 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -29,7 +31,7 @@ func provePossibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, bu
 	// identity makes this action unknown, never a guaranteed Wait. An earlier
 	// return that bypasses the action is still checked by the ordinary flow.
 	// https://github.com/raskrebs/sonar/blob/9c963b8447d6ca08dd4a3c0bc6c0bf27527cd793/internal/runs/runs_test.go#L117-L130
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
+	if ssacall.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
 		receiver := ssaflow.CallReceiver(common)
 		_, merged := receiver.(*ssa.Phi)
 		if merged && heapmodel.MayAlias(receiver, command) && !heapmodel.NewStorage(nil).Same(receiver, command).Proven() {
@@ -37,9 +39,9 @@ func provePossibleWaitHandoff(instruction ssa.Instruction, command ssa.Value, bu
 		}
 		return missing
 	}
-	callee, _ := ssaflow.DirectCallee(common)
+	callee, _ := ssacall.DirectCallee(common)
 	if _, spawned := instruction.(*ssa.Go); spawned && callee != nil && len(callee.Blocks) != 0 {
-		returns := ssaflow.ProveNormalReturnWithin(callee.Blocks[0], nil, budget)
+		returns := ssapath.ProveNormalReturnWithin(callee.Blocks[0], nil, budget)
 		if returns.Reason == proofs.EvidenceBudgetExhausted {
 			return returns.Proof
 		}

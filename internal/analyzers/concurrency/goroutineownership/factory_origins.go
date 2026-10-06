@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -102,7 +103,7 @@ func opaqueGroupOrigin(value ssa.Value, budget *proofs.SearchBudget) proofs.Proo
 		case *ssa.Extract:
 			return walk.Any(typed.Tuple, leaf)
 		case *ssa.Call:
-			callee, _ := ssaflow.DirectCallee(typed.Common())
+			callee, _ := ssacall.DirectCallee(typed.Common())
 			return callee == nil || len(callee.Blocks) == 0
 		}
 		return false

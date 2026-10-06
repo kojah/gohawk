@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -13,7 +14,7 @@ func TestCallbackEnvironmentMetadata(t *testing.T) {
 func subject(first, second chan int) { go func(arg chan int) { <-arg; <-first; <-second }(first) }
 `)
 	spawn := ssaflow.InstructionsOf[*ssa.Go](pkg.Func("subject"))[0]
-	function, closure := ssaflow.DirectCallee(spawn.Common())
+	function, closure := ssacall.DirectCallee(spawn.Common())
 	outer, captures := &callbackBindings{}, &callbackBindings{}
 	callee := completionCallee{
 		common: spawn.Common(), function: function, closure: closure,
@@ -63,7 +64,7 @@ func TestEnclosingReadOnlyMetadata(t *testing.T) {
 	pool := proofs.NewSearchBudget(8)
 	search := &enclosingSearch{
 		request: EnclosingCompletionRequest{Budget: pool.Within(1)},
-		memo:    ssaflow.NewCallGraphMemo[*enclosingFrame, bool](),
+		memo:    ssacall.NewCallGraphMemo[*enclosingFrame, bool](),
 	}
 	if search.readOnly(value) || !search.request.Budget.Exhausted() {
 		t.Fatal("partial helper-binding census proved read-only")

@@ -79,12 +79,12 @@ over SSA (`golang.org/x/tools/go/ssa`):
 1. An obligation finder ties what must happen to exact SSA values.
 2. A classifier labels each later instruction as join, transfer, unknown, or
    none.
-3. One flow query, `ssaflow.EvaluateObligation`, decides the outcome: honored
+3. One flow query, `path.EvaluateObligation`, decides the outcome: honored
    when exact actions cover every return, unknown when only opaque ones do,
    violated otherwise.
 
 Paths are merged as in abstract interpretation, with unknown as the safe top
-element. Branch guards are remembered per path (`ssaflow.PathGuards`), so a
+element. Branch guards are remembered per path (`path.PathGuards`), so a
 later test of the same condition is related to the earlier one.
 
 ## Where gohawk departs from these

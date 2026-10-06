@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -47,9 +48,9 @@ func completionValueAtCall(
 	for _, captured := range []bool{true, false} {
 		// Captures retain precedence over parameters. Prepare only the selected
 		// family lazily, so irrelevant arguments cannot consume its allowance.
-		bindings := ssaflow.CallBindingsWithin(spawn.Common(), function, nil, budget)
+		bindings := ssacall.CallBindingsWithin(spawn.Common(), function, nil, budget)
 		if captured {
-			bindings = ssaflow.CallBindingsWithin(nil, function, closure, budget)
+			bindings = ssacall.CallBindingsWithin(nil, function, closure, budget)
 		}
 		for binding := range bindings {
 			local := value
@@ -64,7 +65,7 @@ func completionValueAtCall(
 			if !captured || syntax.PointerStruct(binding.Supplied.Type()) != nil {
 				return binding.Supplied
 			}
-			if !ssaflow.CallbackCaptureReadOnly(closure, binding.Supplied, budget) {
+			if !ssacall.CallbackCaptureReadOnly(closure, binding.Supplied, budget) {
 				return nil
 			}
 			if stored := storage.StableContent(binding.Supplied, spawn); stored.Proven() {

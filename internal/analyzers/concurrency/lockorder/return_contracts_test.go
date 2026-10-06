@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -127,7 +128,7 @@ func TestLockCallerCoverageChargesAllowance(t *testing.T) {
 	child := pool.Within(20)
 	query := lockReturnQueries{budget: child}
 	global := fn.Pkg.Var("global")
-	heldWhen := ssaflow.CallCondition{Result: 0, Outcome: ssaflow.OutcomeFalse}
+	heldWhen := ssacall.CallCondition{Result: 0, Outcome: ssacall.OutcomeFalse}
 	if query.callerReleasesOnFlag(call, global, heldWhen) || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("caller coverage cutoff exhausted=%v/%v", child.Exhausted(), pool.Exhausted())
 	}

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -217,7 +218,7 @@ func open(closed bool, cleanup func()) (int, error) {
 		switch {
 		case ssaflow.DefinitelyNil(result):
 			nilReturns++
-		case isLoad && ssaflow.ValueMatchesSymbol(load.X, syntax.PackageVariable("example.com/ssaflowtest", "errClosed")):
+		case isLoad && ssacall.ValueMatchesSymbol(load.X, syntax.PackageVariable("example.com/ssaflowtest", "errClosed")):
 			closedReturns++
 		default:
 			t.Errorf("unexpected resolved result: %s", result)

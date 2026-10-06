@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -50,7 +51,7 @@ type retention struct {
 	// budget cut short is not retained. It is shared for the whole package:
 	// summarizing every exported function asks about the same helpers again
 	// and again, and the guard is empty between questions.
-	memo *ssaflow.CallGraphMemo[retentionKey, bool]
+	memo *ssacall.CallGraphMemo[retentionKey, bool]
 }
 
 // retentionKey identifies one retention question. The strict and loose walks
@@ -67,13 +68,13 @@ type retentionKey struct {
 // about the same helpers again and again, so the answers must outlive one
 // question.
 type retentionCache struct {
-	memo   *ssaflow.CallGraphMemo[retentionKey, bool]
+	memo   *ssacall.CallGraphMemo[retentionKey, bool]
 	lookup func(ssa.Instruction) (Fact, bool)
 }
 
 func newRetentionCache() *retentionCache {
 	return &retentionCache{
-		memo: ssaflow.NewCallGraphMemo[retentionKey, bool](),
+		memo: ssacall.NewCallGraphMemo[retentionKey, bool](),
 	}
 }
 
@@ -122,7 +123,7 @@ func (search *retention) within(function *ssa.Function, parameter ssa.Value) boo
 	search.memo.WithFunction(function, func() {
 		retained = search.memo.Compose(key, search.budget, func() bool {
 			return search.searchWithin(function, parameter)
-		}, func(_ ssaflow.SummaryUnavailable, partial bool) bool {
+		}, func(_ ssacall.SummaryUnavailable, partial bool) bool {
 			// Preserve an independently established store; lack of one may only
 			// support the loose may-retain fallback after budget exhaustion.
 			return partial || !search.strict
@@ -316,7 +317,7 @@ func (search *retention) callRetains(common *ssa.CallCommon, instruction ssa.Ins
 	if callee == nil || len(callee.Blocks) == 0 {
 		return !search.strict && anyArgument(common, derives)
 	}
-	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
+	for _, binding := range ssacall.CallBindings(common, callee, nil) {
 		if !derives(binding.Supplied) {
 			continue
 		}

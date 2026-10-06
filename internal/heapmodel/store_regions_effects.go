@@ -4,7 +4,7 @@ import (
 	"go/types"
 	"slices"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -23,7 +23,7 @@ func (graph *regionGraph) deferCall(state *regionState, deferred *ssa.Defer) {
 	if common.IsInvoke() {
 		arguments = append(arguments, common.Value)
 	}
-	_, closure := ssaflow.DirectCallee(common)
+	_, closure := ssacall.DirectCallee(common)
 	if closure != nil {
 		arguments = append(arguments, closure.Bindings...)
 	} else {
@@ -283,7 +283,7 @@ func (graph *regionGraph) clobber(state *regionState, set pointees, stamp int) {
 func (graph *regionGraph) closureOnlyReads(closure *region, captured slot) bool {
 	literal, ok := closure.origin.(*ssa.MakeClosure)
 	cell, isCell := captured.region.origin.(*ssa.Alloc)
-	return ok && isCell && captured.region.kind == regionSite && captured.path == "" && ssaflow.CallbackCaptureReadOnly(literal, cell, graph.budget)
+	return ok && isCell && captured.region.kind == regionSite && captured.path == "" && ssacall.CallbackCaptureReadOnly(literal, cell, graph.budget)
 }
 
 // call applies a call's effects. Results begin as opaque objects. A call the
@@ -315,7 +315,7 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 	}
 	// A function value that is invoked is not handed anywhere: only what
 	// the call receives can be kept by it.
-	callee, closure := ssaflow.DirectCallee(common)
+	callee, closure := ssacall.DirectCallee(common)
 	if closure != nil {
 		arguments = append(arguments, closure.Bindings...)
 	}
@@ -325,11 +325,11 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 		return
 	}
 	graph.invalidateForeign(state, "", graph.id(instruction), reachEscaped)
-	effects := ssaflow.NewCallEffects(graph.budget)
+	effects := ssacall.NewCallEffects(graph.budget)
 	for _, argument := range arguments {
 		set := graph.pointees(argument)
 		if closure != nil && slices.Contains(closure.Bindings, argument) {
-			if !ssaflow.CallbackCaptureReadOnly(closure, argument, graph.budget) {
+			if !ssacall.CallbackCaptureReadOnly(closure, argument, graph.budget) {
 				graph.escape(state, set, kind, instruction)
 				graph.clobber(state, set, graph.id(instruction))
 			}
@@ -338,7 +338,7 @@ func (graph *regionGraph) call(state *regionState, common *ssa.CallCommon, instr
 		proof := effects.Call(instruction, argument)
 		switch {
 		case proof.PreservesStorage():
-		case proof.Proven() && proof.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) == 0:
+		case proof.Proven() && proof.Effects&(ssacall.EffectRetain|ssacall.EffectAsync) == 0:
 			graph.clobber(state, set, graph.id(instruction))
 		default:
 			graph.escape(state, set, kind, instruction)

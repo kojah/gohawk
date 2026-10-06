@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -35,7 +36,7 @@ func proveSQLRowsExhaustionEdge(block, successor *ssa.BasicBlock, resource ssa.V
 		return carriedValueProof(false, resourceReasonNone, budget)
 	}
 	next, ok := branch.Cond.(*ssa.Call)
-	exhausted := ok && ssaflow.CallMatchesSymbol(next.Common(), syntax.PackageMethod(syntax.MethodSymbol{
+	exhausted := ok && ssacall.CallMatchesSymbol(next.Common(), syntax.PackageMethod(syntax.MethodSymbol{
 		PackagePath: "database/sql", Receiver: "Rows", Name: "Next",
 	})) && heapmodel.NewStorage(budget).Same(ssaflow.CallReceiver(next.Common()), resource).Proven()
 	return carriedValueProof(exhausted, resourceReasonRowsExhaustedEdgeUnknown, budget)

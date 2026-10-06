@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -170,7 +171,7 @@ func implementsCloser(value types.Type) bool {
 // storedFieldIndices returns the indices of the struct's fields the value is
 // stored into, through field addresses of an allocation of that struct.
 func storedFieldIndices(value ssa.Value, structure *types.Struct) []int {
-	return storedFieldIndicesVia(value, structure, ssaflow.NewCallGraphMemo[ssa.Value, []int]())
+	return storedFieldIndicesVia(value, structure, ssacall.NewCallGraphMemo[ssa.Value, []int]())
 }
 
 // storedFieldIndicesVia follows a delegated store into the callee performing
@@ -183,7 +184,7 @@ func storedFieldIndices(value ssa.Value, structure *types.Struct) []int {
 func storedFieldIndicesVia(
 	value ssa.Value,
 	structure *types.Struct,
-	memo *ssaflow.CallGraphMemo[ssa.Value, []int],
+	memo *ssacall.CallGraphMemo[ssa.Value, []int],
 ) []int {
 	return memo.Compose(value, nil, func() []int {
 		if value.Referrers() == nil {
@@ -198,7 +199,7 @@ func storedFieldIndicesVia(
 			indices = append(indices, delegatedFieldIndices(reference, value, structure, memo)...)
 		}
 		return indices
-	}, func(_ ssaflow.SummaryUnavailable, partial []int) []int {
+	}, func(_ ssacall.SummaryUnavailable, partial []int) []int {
 		return partial
 	})
 }
@@ -222,13 +223,13 @@ func delegatedFieldIndices(
 	reference ssa.Instruction,
 	value ssa.Value,
 	structure *types.Struct,
-	memo *ssaflow.CallGraphMemo[ssa.Value, []int],
+	memo *ssacall.CallGraphMemo[ssa.Value, []int],
 ) []int {
 	common := ssaflow.InstructionCall(reference)
-	callee := ssaflow.ResolvedCallee(common)
+	callee := ssacall.ResolvedCallee(common)
 	var indices []int
 	memo.WithFunction(callee, func() {
-		for _, binding := range ssaflow.CallBindings(common, callee, nil) {
+		for _, binding := range ssacall.CallBindings(common, callee, nil) {
 			if binding.Supplied == value {
 				indices = append(indices, storedFieldIndicesVia(binding.Local, structure, memo)...)
 			}

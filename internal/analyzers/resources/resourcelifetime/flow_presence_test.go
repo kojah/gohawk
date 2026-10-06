@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -75,7 +76,7 @@ func guarded(value *resource, flag bool) {
 	}
 	block := branch.Block()
 	for _, predecessor := range append([]*ssa.BasicBlock{nil, {}}, block.Preds...) {
-		incoming := ssaflow.BranchValueWithin(branch.Cond, block, predecessor, nil)
+		incoming := ssapath.BranchValueWithin(branch.Cond, block, predecessor, nil)
 		_, known := incoming.(*ssa.BinOp)
 		for arm, successor := range block.Succs {
 			got := proveResourcePresenceBranch(block, predecessor, successor, fn.Params[0], proofs.NewSearchBudget(proofs.SummaryBudget))

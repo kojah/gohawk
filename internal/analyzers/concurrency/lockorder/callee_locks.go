@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -37,12 +38,12 @@ const calleeLockSummaryBudget = 250_000
 // contribute no new witness and are never retained; a shared work budget
 // bounds the paths that must be searched again.
 type calleeLockSearch struct {
-	summaries *ssaflow.FunctionSummaries[calleeLocks]
+	summaries *ssacall.FunctionSummaries[calleeLocks]
 }
 
 func newCalleeLockSearch() *calleeLockSearch {
 	search := &calleeLockSearch{}
-	search.summaries = ssaflow.NewFunctionSummaries(search.searchLocks, func(ssaflow.SummaryUnavailable) calleeLocks {
+	search.summaries = ssacall.NewFunctionSummaries(search.searchLocks, func(ssacall.SummaryUnavailable) calleeLocks {
 		return calleeLocks{}
 	})
 	return search
@@ -67,7 +68,7 @@ func (search *calleeLockSearch) locksAt(call *ssa.Call) calleeLocks {
 
 func (search *calleeLockSearch) locksAtWithin(call *ssa.Call, budget *proofs.SearchBudget) calleeLocks {
 	callee := call.Common().StaticCallee()
-	fixed := ssaflow.ProveFixedArgumentsWithin(call.Common(), nil, callee, nil, budget)
+	fixed := ssacall.ProveFixedArgumentsWithin(call.Common(), nil, callee, nil, budget)
 	// A cutoff is not a complete empty binding set: unconstrained summaries
 	// could revive acquisitions ruled out by arguments already encountered.
 	// Losing ordering witnesses is safer than inventing caller feasibility.
@@ -98,7 +99,7 @@ type constantContext struct {
 }
 
 func (search *calleeLockSearch) locksUnder(
-	function *ssa.Function, constants ssaflow.FixedValues, context *constantContext,
+	function *ssa.Function, constants ssacall.FixedValues, context *constantContext,
 ) (calleeLocks, bool) {
 	key := fmt.Sprintf("%p;%s", function, constants.Key(function))
 	if context.visiting[key] {
@@ -114,7 +115,7 @@ func (search *calleeLockSearch) locksUnder(
 	// Constants and the block census form one context. A truncated census
 	// cannot establish an impossible acquisition arm or an empty may-acquire
 	// set; abandon it so the root drops those acquisition witnesses.
-	blocks := ssaflow.ReachableBlocksAssumingWithin(function, constants, context.budget)
+	blocks := ssapath.ReachableBlocksAssumingWithin(function, constants, context.budget)
 	if context.budget.Exhausted() || context.budget.PoolExhausted() {
 		return calleeLocks{}, false
 	}
@@ -123,13 +124,13 @@ func (search *calleeLockSearch) locksUnder(
 			if !context.budget.Spend() {
 				return calleeLocks{}, false
 			}
-			var nested ssaflow.FixedValues
+			var nested ssacall.FixedValues
 			call, ok := instruction.(*ssa.Call)
 			if ok {
 				// Forwarded outcomes apply only to this call. Losing a binding
 				// could revive an impossible acquisition arm, so discard the
 				// context rather than treating a partial map as an ordinary call.
-				fixed := ssaflow.ProveFixedArgumentsWithin(call.Common(), nil, call.Common().StaticCallee(), constants, context.budget)
+				fixed := ssacall.ProveFixedArgumentsWithin(call.Common(), nil, call.Common().StaticCallee(), constants, context.budget)
 				if !fixed.Proven() {
 					return calleeLocks{}, false
 				}

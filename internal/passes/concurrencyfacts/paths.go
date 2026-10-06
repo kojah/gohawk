@@ -5,6 +5,8 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -24,7 +26,7 @@ func (engine *Engine) collectPaths(function *ssa.Function, root bool) Summary {
 	for _, block := range flow.order {
 		// A panicking block contributes no alternative: it never returns
 		// normally, so none of its states can reach a later event.
-		if ssaflow.BlockEndsInPanic(block) {
+		if ssapath.BlockEndsInPanic(block) {
 			continue
 		}
 		folded := flow.isFolded(block)
@@ -165,7 +167,7 @@ func (engine *Engine) appendPathCall(state Summary, instruction ssa.Instruction)
 
 // Every alternative must bind to this invocation's values. One unavailable
 // binding invalidates the set; dropping it would remove a possible escape.
-func (engine *Engine) bindPaths(paths []Summary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction) Summary {
+func (engine *Engine) bindPaths(paths []Summary, bindings []ssacall.CallBinding, instruction ssa.CallInstruction) Summary {
 	var result []Summary
 	for _, path := range paths {
 		bound := engine.bindSummary(path, bindings, instruction)
@@ -216,7 +218,7 @@ const maxConditionContext = 8
 // own tests of that value, and a constant argument folds it. Every other
 // condition stays a callee condition, tagged with this call site so separate
 // calls stay apart.
-func boundConditions(conditions []Condition, bindings []ssaflow.CallBinding, site token.Pos) []Condition {
+func boundConditions(conditions []Condition, bindings []ssacall.CallBinding, site token.Pos) []Condition {
 	if len(conditions) == 0 {
 		return nil
 	}
@@ -237,7 +239,7 @@ func boundConditions(conditions []Condition, bindings []ssaflow.CallBinding, sit
 // parameterCondition resolves a local condition on a callee parameter, or a
 // comparison of one with a constant, to the caller's argument. A condition
 // already bound through a callee has no parameter of this callee to resolve.
-func parameterCondition(condition Condition, bindings []ssaflow.CallBinding) (ssa.Value, bool, bool) {
+func parameterCondition(condition Condition, bindings []ssacall.CallBinding) (ssa.Value, bool, bool) {
 	if len(condition.Context) != 0 {
 		return nil, false, false
 	}
@@ -293,7 +295,7 @@ func resultConditions(call *ssa.Call, returned []Returned) []Condition {
 		if results == 1 {
 			index = -1
 		}
-		value := ssaflow.CallResult(call, index)
+		value := ssacall.CallResult(call, index)
 		if value == nil {
 			continue
 		}

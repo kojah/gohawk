@@ -8,6 +8,8 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -135,15 +137,15 @@ func (classifier *cancellationClassifier) recognizedCallAction(
 	if classifier.returnedCallbackCancels(instruction, common) {
 		return labelled(cancellationActionRelease, reasonLabelReturnedCallback), true
 	}
-	if common != nil && ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) &&
+	if common != nil && ssacall.HasLibraryContract(common, ssacall.ContractTestingCleanup) &&
 		commonHasExactArgument(common, classifier.cancel) {
 		return labelled(cancellationActionTransfer, reasonLabelTestingCleanup), true
 	}
 	// Timers and framework registrars do not guarantee that an installed
 	// callback runs. They are deliberately left to the Unknown branch even when
 	// their API or method name suggests cleanup.
-	if common != nil && (ssaflow.HasLibraryContract(common, ssaflow.ContractAfterFunc) ||
-		ssaflow.HasLibraryContract(common, ssaflow.ContractDeferredCleanup)) &&
+	if common != nil && (ssacall.HasLibraryContract(common, ssacall.ContractAfterFunc) ||
+		ssacall.HasLibraryContract(common, ssacall.ContractDeferredCleanup)) &&
 		instructionReferencesCancellation(instruction, classifier.cancel) {
 		return labelled(cancellationActionUnknown, reasonLabelRegisteredCallback), true
 	}
@@ -242,7 +244,7 @@ func (classifier *cancellationClassifier) returnLabel(returned *ssa.Return) canc
 func (classifier *cancellationClassifier) ownDoneChannel(value ssa.Value) bool {
 	call, ok := value.(*ssa.Call)
 	return ok && classifier.context != nil && ssaflow.CallReceiver(call.Common()) == classifier.context &&
-		ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageMethod(syntax.MethodSymbol{
+		ssacall.CallMatchesSymbol(call.Common(), syntax.PackageMethod(syntax.MethodSymbol{
 			PackagePath: "context", Receiver: "Context", Name: "Done",
 		}))
 }
@@ -251,7 +253,7 @@ func (classifier *cancellationClassifier) selectedDoneEdge(from, to *ssa.BasicBl
 	if classifier.context == nil {
 		return false
 	}
-	channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
+	channel, selected := ssapath.SelectedReceiveOnEdge(from, to)
 	return selected && classifier.ownDoneChannel(channel)
 }
 

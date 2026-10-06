@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -76,7 +77,7 @@ func TestHEADDefaultEffectsChildCutoff(t *testing.T) {
 func headDoCall(t *testing.T, fn *ssa.Function) *ssa.Call {
 	t.Helper()
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](fn) {
-		if ssaflow.CallMatchesSymbol(call.Common(), httpClientDo) {
+		if ssacall.CallMatchesSymbol(call.Common(), httpClientDo) {
 			return call
 		}
 	}

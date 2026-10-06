@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -57,13 +58,13 @@ func summarizedSends(function *ssa.Function, spawn *ssa.Go, engine *concurrencyf
 // absence claim. Retention, asynchronous use, and unknown uses also decline.
 func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *proofs.SearchBudget) producerProof {
 	unknown := producerProof{Reason: reasonWorkerChannelUsesUnknown}
-	function, closure := ssaflow.DirectCallee(call.Common())
+	function, closure := ssacall.DirectCallee(call.Common())
 	if function == nil || len(function.Blocks) == 0 {
 		return unknown
 	}
-	query := ssaflow.NewCallEffects(budget)
+	query := ssacall.NewCallEffects(budget)
 	matched := false
-	for binding := range ssaflow.CallBindingsWithin(call.Common(), function, closure, budget) {
+	for binding := range ssacall.CallBindingsWithin(call.Common(), function, closure, budget) {
 		if !heapmodel.CapturedBindingMatches(binding.Supplied, channel) && !lifecycle.MayContainValue(binding.Supplied, channel) {
 			continue
 		}
@@ -84,11 +85,11 @@ func nonReceivingUses(call ssa.CallInstruction, channel ssa.Value, budget *proof
 	return producerProof{State: proofs.EvidenceProven, Reason: reasonWorkerChannelUsesComplete}
 }
 
-func onlyChannelMutation(proof ssaflow.CallEffectProof) bool {
-	return proof.Proven() && proof.Effects & ^(ssaflow.EffectRead|ssaflow.EffectMutate) == 0
+func onlyChannelMutation(proof ssacall.CallEffectProof) bool {
+	return proof.Proven() && proof.Effects & ^(ssacall.EffectRead|ssacall.EffectMutate) == 0
 }
 
-func readOnlyChannelCell(query *ssaflow.CallEffects, cell ssa.Value) bool {
+func readOnlyChannelCell(query *ssacall.CallEffects, cell ssa.Value) bool {
 	if !query.Value(cell).PreservesStorage() || cell.Referrers() == nil {
 		return false
 	}

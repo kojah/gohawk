@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -39,28 +40,28 @@ func (engine *Engine) callSummary(instruction ssa.CallInstruction) Summary {
 	// Keep RWMutex modes explicit. Sharing a resource identity does not make
 	// two readers mutually exclusive or turn RUnlock into an exclusive release.
 	switch {
-	case ssaflow.CallMatchesSymbol(common, newCond):
+	case ssacall.CallMatchesSymbol(common, newCond):
 		if _, ok := condLocker(instruction); ok {
 			return Summary{}
 		}
 		return Summary{Reason: ReasonCondLockerUnknown}
-	case ssaflow.CallMatchesSymbol(common, condWait):
+	case ssacall.CallMatchesSymbol(common, condWait):
 		kind, resource = CondWait, ssaflow.CallReceiver(common)
-	case ssaflow.CallMatchesAnySymbol(common, mutexLock, rwLock):
+	case ssacall.CallMatchesAnySymbol(common, mutexLock, rwLock):
 		kind, resource = Lock, ssaflow.CallReceiver(common)
-	case ssaflow.CallMatchesAnySymbol(common, mutexUnlock, rwUnlock):
+	case ssacall.CallMatchesAnySymbol(common, mutexUnlock, rwUnlock):
 		kind, resource = Unlock, ssaflow.CallReceiver(common)
-	case ssaflow.CallMatchesSymbol(common, rwReadLock):
+	case ssacall.CallMatchesSymbol(common, rwReadLock):
 		kind, resource = ReadLock, ssaflow.CallReceiver(common)
-	case ssaflow.CallMatchesSymbol(common, rwReadUnlock):
+	case ssacall.CallMatchesSymbol(common, rwReadUnlock):
 		kind, resource = ReadUnlock, ssaflow.CallReceiver(common)
-	case ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")):
+	case ssacall.CallMatchesSymbol(common, syntax.Builtin("close")):
 		kind, resource = Close, common.Args[0]
-	case ssaflow.CallMatchesSymbol(common, groupDone):
+	case ssacall.CallMatchesSymbol(common, groupDone):
 		kind, resource = GroupDone, ssaflow.CallReceiver(common)
-	case ssaflow.CallMatchesSymbol(common, groupWait):
+	case ssacall.CallMatchesSymbol(common, groupWait):
 		kind, resource = GroupWait, ssaflow.CallReceiver(common)
-	case ssaflow.CallMatchesSymbol(common, groupAdd):
+	case ssacall.CallMatchesSymbol(common, groupAdd):
 		if len(common.Args) != 2 {
 			return Summary{Reason: ReasonGroupCountUnknown}
 		}

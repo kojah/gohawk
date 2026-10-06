@@ -2,7 +2,7 @@ package lifecycle
 
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -27,7 +27,7 @@ func ProveSpawnedInvocation(spawn *ssa.Go, target ssa.Value, budget *proofs.Sear
 		return proofs.CompletionProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	}
 	request := CompletionRequest{Instruction: spawn, Target: target, InvokeTarget: true, Budget: budget}
-	function, closure := ssaflow.DirectCallee(spawn.Common())
+	function, closure := ssacall.DirectCallee(spawn.Common())
 	if function == nil || len(function.Blocks) == 0 {
 		return request.unprovenCompletion(false, false, false)
 	}

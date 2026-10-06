@@ -2,7 +2,7 @@ package lifecycle
 
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -22,7 +22,7 @@ type completionKey struct {
 	instruction  ssa.Instruction
 	target       ssa.Value
 	invokeTarget bool
-	condition    ssaflow.CallCondition
+	condition    ssacall.CallCondition
 	constants    string
 }
 
@@ -54,7 +54,7 @@ func (search *completionSearch) completes(instruction ssa.Instruction, target ss
 	}
 	return search.memo.Compose(key, search.budget, func() completionAnswer {
 		return search.searchCompletes(instruction, target)
-	}, func(_ ssaflow.SummaryUnavailable, partial completionAnswer) completionAnswer {
+	}, func(_ ssacall.SummaryUnavailable, partial completionAnswer) completionAnswer {
 		partial.proven = false
 		return partial
 	})

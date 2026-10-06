@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -139,7 +140,7 @@ func (analysis *resourceAnalysis) provePriorCleanupWithin(acquisition *ssa.Call,
 	for instruction := range ssaflow.InstructionsWithin(analysis.function, budget) {
 		call, ok := instruction.(*ssa.Call)
 		if !ok || !cfg.InstructionDominates(call, acquisition) ||
-			!ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup) {
+			!ssacall.HasLibraryContract(call.Common(), ssacall.ContractTestingCleanup) {
 			continue
 		}
 		for _, argument := range call.Common().Args {

@@ -8,7 +8,9 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -84,7 +86,7 @@ func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go, budget
 	bounded := func(local ssa.Value) bool {
 		return contextFieldReceivedAnywhere(function, local, spawn.Parent(), budget)
 	}
-	for binding := range ssaflow.CallBindingsWithin(spawn.Common(), function, closure, budget) {
+	for binding := range ssacall.CallBindingsWithin(spawn.Common(), function, closure, budget) {
 		if bindingIsExternallyOwned(binding, budget) && bounded(binding.Local) {
 			return true
 		}
@@ -95,7 +97,7 @@ func goroutineReceivesReceiverContext(pass *analysis.Pass, spawn *ssa.Go, budget
 func contextFieldReceivedAnywhere(function *ssa.Function, local ssa.Value, spawner *ssa.Function, budget *proofs.SearchBudget) bool {
 	search := newWorkerReceiveSearch(budget, func(body *ssa.Function, target, channel ssa.Value) bool {
 		done, ok := channel.(*ssa.Call)
-		if !ok || !ssaflow.CallMatchesSymbol(done.Common(), contextDoneMethod) {
+		if !ok || !ssacall.CallMatchesSymbol(done.Common(), contextDoneMethod) {
 			return false
 		}
 		field := loadedContextField(ssaflow.CallReceiver(done.Common()))
@@ -146,7 +148,7 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go,
 		return false
 	}
 	storage := heapmodel.NewStorage(budget)
-	for pair := range ssaflow.CallBindingsWithin(spawn.Common(), function, closure, budget) {
+	for pair := range ssacall.CallBindingsWithin(spawn.Common(), function, closure, budget) {
 		value := pair.Supplied
 		if _, cell := value.(*ssa.Alloc); cell {
 			content := storage.StableContent(value, spawn)
@@ -161,10 +163,10 @@ func goroutineReceivesLocallyCanceledContext(pass *analysis.Pass, spawn *ssa.Go,
 		}
 		call, ok := contextResult.Tuple.(*ssa.Call)
 		if !ok || call.Parent() != spawn.Parent() ||
-			!ssaflow.CallMatchesSymbol(call.Common(), syntax.PackageFunction("context", "WithCancel")) {
+			!ssacall.CallMatchesSymbol(call.Common(), syntax.PackageFunction("context", "WithCancel")) {
 			continue
 		}
-		cancel := ssaflow.CallResultWithin(call, 1, budget)
+		cancel := ssacall.CallResultWithin(call, 1, budget)
 		if budget.Exhausted() {
 			return false
 		}
@@ -200,18 +202,18 @@ func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *heapmodel.Stora
 		return (called || deferred) && storage.Same(common.Value, cancel).Proven()
 	}
 	budget := storage.Budget()
-	outcome := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
-		Start: spawn, Budget: budget, Instruction: func(instruction ssa.Instruction) ssaflow.ObligationAction {
+	outcome := ssapath.EvaluateObligation(ssapath.ObligationFlow{
+		Start: spawn, Budget: budget, Instruction: func(instruction ssa.Instruction) ssapath.ObligationAction {
 			if cancels(instruction) {
-				return ssaflow.ObligationExact
+				return ssapath.ObligationExact
 			}
-			return ssaflow.ObligationNone
+			return ssapath.ObligationNone
 		},
 	})
 	if budget.Exhausted() {
 		return false
 	}
-	if outcome == ssaflow.ObligationHonored {
+	if outcome == ssapath.ObligationHonored {
 		return true
 	}
 	// A registered defer may precede launch and lie outside the forward
@@ -235,7 +237,7 @@ func cancelCoversSpawn(spawn *ssa.Go, cancel ssa.Value, storage *heapmodel.Stora
 func callerSuppliedValue(
 	spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, value ssa.Value, budget *proofs.SearchBudget,
 ) bool {
-	if supplied := ssaflow.SpawnedValueAtCallWithin(spawn, function, closure, value, budget); supplied != nil {
+	if supplied := ssacall.SpawnedValueAtCallWithin(spawn, function, closure, value, budget); supplied != nil {
 		return ssaflow.ExternallyOwnedValue(supplied)
 	}
 	if closure == nil {
@@ -260,7 +262,7 @@ func spawnedParameterIsReceived(
 	typed func(ssa.Value) bool,
 	budget *proofs.SearchBudget,
 ) bool {
-	for binding := range ssaflow.CallBindingsWithin(spawn.Common(), function, closure, budget) {
+	for binding := range ssacall.CallBindingsWithin(spawn.Common(), function, closure, budget) {
 		if typed(binding.Local) && bindingIsExternallyOwned(binding, budget) &&
 			receivesAnywhere(function, binding.Local, budget) {
 			return true
@@ -272,7 +274,7 @@ func spawnedParameterIsReceived(
 // A captured cell supplies its contents to the worker. An ordinary argument
 // supplies the value evaluated at the launch; loading it would change which
 // value the caller-owned lifetime boundary applies to.
-func bindingIsExternallyOwned(binding ssaflow.CallBinding, budget *proofs.SearchBudget) bool {
+func bindingIsExternallyOwned(binding ssacall.CallBinding, budget *proofs.SearchBudget) bool {
 	supplied := binding.Supplied
 	if binding.Captured {
 		supplied = ssaflow.CapturedBindingValueWithin(supplied, budget)

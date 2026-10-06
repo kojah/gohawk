@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -113,11 +114,11 @@ func (guard ResultGuard) turnsOnResult(request CompletionRequest) bool {
 			return false
 		}
 		first, second := opposingOutcomes(cell)
-		if first == ssaflow.OutcomeAny {
+		if first == ssacall.OutcomeAny {
 			continue
 		}
-		one := guard.Completes(request, ssaflow.FixedValues{cell: first})
-		other := guard.Completes(request, ssaflow.FixedValues{cell: second})
+		one := guard.Completes(request, ssacall.FixedValues{cell: first})
+		other := guard.Completes(request, ssacall.FixedValues{cell: second})
 		if one == proofs.EvidenceProven && other == proofs.EvidenceDisproven ||
 			one == proofs.EvidenceDisproven && other == proofs.EvidenceProven {
 			return true
@@ -128,23 +129,23 @@ func (guard ResultGuard) turnsOnResult(request CompletionRequest) bool {
 
 // opposingOutcomes returns the two outcomes a named result can be fixed to:
 // nil and non-nil, or true and false.
-func opposingOutcomes(cell *ssa.Alloc) (ssaflow.Outcome, ssaflow.Outcome) {
+func opposingOutcomes(cell *ssa.Alloc) (ssacall.Outcome, ssacall.Outcome) {
 	pointer, ok := cell.Type().Underlying().(*types.Pointer)
 	if !ok {
-		return ssaflow.OutcomeAny, ssaflow.OutcomeAny
+		return ssacall.OutcomeAny, ssacall.OutcomeAny
 	}
-	if ssaflow.Nilable(pointer.Elem()) {
-		return ssaflow.OutcomeNil, ssaflow.OutcomeNonNil
+	if ssacall.Nilable(pointer.Elem()) {
+		return ssacall.OutcomeNil, ssacall.OutcomeNonNil
 	}
 	if basic, ok := pointer.Elem().Underlying().(*types.Basic); ok && basic.Info()&types.IsBoolean != 0 {
-		return ssaflow.OutcomeTrue, ssaflow.OutcomeFalse
+		return ssacall.OutcomeTrue, ssacall.OutcomeFalse
 	}
-	return ssaflow.OutcomeAny, ssaflow.OutcomeAny
+	return ssacall.OutcomeAny, ssacall.OutcomeAny
 }
 
 // Completes asks whether the deferred literal completes the target on every
 // one of its returns, given what its captured named results hold.
-func (guard ResultGuard) Completes(request CompletionRequest, fixed ssaflow.FixedValues) proofs.EvidenceState {
+func (guard ResultGuard) Completes(request CompletionRequest, fixed ssacall.FixedValues) proofs.EvidenceState {
 	request.Instruction, request.Coverage, request.Constants = guard.Defer, CoverageEveryReturn, fixed
 	return ProveCompletion(request).State
 }
@@ -157,9 +158,9 @@ func (guard ResultGuard) Completes(request CompletionRequest, fixed ssaflow.Fixe
 // spend request.Budget; callers also use it for outcome inference. A callback
 // may not publish an outcome after exhausting that allowance.
 func (guard ResultGuard) CompletesAtReturn(
-	request CompletionRequest, returned *ssa.Return, outcomeOf func(ssa.Value) (ssaflow.Outcome, bool),
+	request CompletionRequest, returned *ssa.Return, outcomeOf func(ssa.Value) (ssacall.Outcome, bool),
 ) proofs.EvidenceState {
-	fixed := ssaflow.FixedValues{}
+	fixed := ssacall.FixedValues{}
 	for _, cell := range guard.Cells {
 		if !request.Budget.Spend() {
 			return proofs.EvidenceUnknown

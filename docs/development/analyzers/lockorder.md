@@ -535,7 +535,7 @@ The motivating publication is [Rune's package iterator gate](https://github.com/
 Successful-return and Boolean caller-release contracts resolve deferred result
 cells with `lifecycle.ReturnedResultWithin` under their walk allowance. Fresh
 constructor-result evidence uses the same helper under its existing query
-allowance. Caller result extraction uses `ssaflow.CallResultWithin`. An
+allowance. Caller result extraction uses `calls.CallResultWithin`. An
 interrupted result read cannot become a successful Boolean return, caller
 release contract or fresh constructor; the enclosing walk retains its cutoff
 and discards staged reports and order edges.

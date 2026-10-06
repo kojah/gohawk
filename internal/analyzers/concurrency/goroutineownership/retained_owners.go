@@ -8,7 +8,9 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -25,7 +27,7 @@ func (analysis *spawnAnalysis) selectedOwnershipEdge(from, to *ssa.BasicBlock) b
 	if analysis.selectedJoinEdge(from, to) {
 		return true
 	}
-	channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
+	channel, selected := ssapath.SelectedReceiveOnEdge(from, to)
 	if !selected {
 		return false
 	}
@@ -34,10 +36,10 @@ func (analysis *spawnAnalysis) selectedOwnershipEdge(from, to *ssa.BasicBlock) b
 		return false
 	}
 	if proof.Reason == proofs.EvidenceBudgetExhausted {
-		analysis.recordEdge(from, to, reasonRetainedOwnerBudgetExhausted, ssaflow.ObligationUnknown)
+		analysis.recordEdge(from, to, reasonRetainedOwnerBudgetExhausted, ssapath.ObligationUnknown)
 		return true
 	}
-	analysis.recordEdge(from, to, reasonSelectedContextEdge, ssaflow.ObligationUnknown)
+	analysis.recordEdge(from, to, reasonSelectedContextEdge, ssapath.ObligationUnknown)
 	return true
 }
 
@@ -49,7 +51,7 @@ func (analysis *spawnAnalysis) observesOpaqueWorkerContext(channel ssa.Value) pr
 
 func (analysis *spawnAnalysis) observesOpaqueWorkerContextWithin(channel ssa.Value, budget *proofs.SearchBudget) bool {
 	call, ok := channel.(*ssa.Call)
-	if !ok || !ssaflow.CallMatchesSymbol(call.Common(),
+	if !ok || !ssacall.CallMatchesSymbol(call.Common(),
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "context", Receiver: "Context", Name: "Done"})) {
 		return false
 	}
@@ -64,7 +66,7 @@ func (analysis *spawnAnalysis) observesOpaqueWorkerContextWithin(channel ssa.Val
 	retained := analysis.retainedWorkerOwner(ssaflow.CallReceiver(call.Common()), budget)
 	evidence, _ := summaryKnowledge.Provider(analysis.pass).LifecycleEvidence("goroutineownership", string(check.GoroutineJoin))
 	evidence.ForCandidate(analysis.spawn.Pos())
-	for pair := range ssaflow.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget) {
+	for pair := range ssacall.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget) {
 		if ssaflow.NewReachingWalk(carryForms).Within(budget).Any(pair.Supplied, retained) &&
 			evidence.ClosureHandsValueToUnreadableCalleeWithin(closure, pair.Supplied, budget) {
 			return true
@@ -119,7 +121,7 @@ func (analysis *spawnAnalysis) closesRetainedWorkerOwnerWithin(
 			return false
 		}
 		retained := analysis.retainedWorkerOwner(receiver, budget)
-		for pair := range ssaflow.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget) {
+		for pair := range ssacall.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget) {
 			if ssaflow.NewReachingWalk(carryForms).Within(budget).Any(pair.Supplied, retained) {
 				return true
 			}
@@ -140,14 +142,14 @@ func (analysis *spawnAnalysis) opaqueWorkerUsesOwner(
 	function *ssa.Function, closure *ssa.MakeClosure, receiver ssa.Value, budget *proofs.SearchBudget,
 ) bool {
 	storage := heapmodel.NewStorage(budget)
-	bindings := ssaflow.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget)
+	bindings := ssacall.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget)
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		call, ok := instruction.(*ssa.Call)
 		if !ok {
 			continue
 		}
 		common := call.Common()
-		callee, _ := ssaflow.DirectCallee(common)
+		callee, _ := ssacall.DirectCallee(common)
 		used := ssaflow.CallReceiver(common)
 		if used == nil || callee != nil && len(callee.Blocks) != 0 || !opaqueCallEndsWorkerWork(call, budget) {
 			continue
@@ -185,7 +187,7 @@ func opaqueCallEndsWorkerWork(call *ssa.Call, budget *proofs.SearchBudget) bool 
 				return false
 			}
 		case *ssa.Call:
-			if !ssaflow.CallMatchesSymbol(typed.Common(), syntax.Builtin("close")) {
+			if !ssacall.CallMatchesSymbol(typed.Common(), syntax.Builtin("close")) {
 				return false
 			}
 		case *ssa.RunDefers:
@@ -270,21 +272,21 @@ func (analysis *spawnAnalysis) spawnedPipePeers(budget *proofs.SearchBudget) []t
 		if !ok || !pipeConstructor(call.Common()) {
 			return false
 		}
-		if peer := ssaflow.CallResultWithin(call, 1-result.Index, budget); peer != nil {
+		if peer := ssacall.CallResultWithin(call, 1-result.Index, budget); peer != nil {
 			peers = append(peers, trackedValue{value: peer, kind: trackedOwner})
 			return true
 		}
 		return false
 	}
-	for pair := range ssaflow.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget) {
+	for pair := range ssacall.CallBindingsWithin(analysis.spawn.Common(), function, closure, budget) {
 		ssaflow.NewReachingWalk(carryForms).Within(budget).Any(pair.Supplied, find)
 	}
 	return peers
 }
 
 func pipeConstructor(common *ssa.CallCommon) bool {
-	return ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("io", "Pipe")) ||
-		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("net", "Pipe"))
+	return ssacall.CallMatchesSymbol(common, syntax.PackageFunction("io", "Pipe")) ||
+		ssacall.CallMatchesSymbol(common, syntax.PackageFunction("net", "Pipe"))
 }
 
 func (analysis *spawnAnalysis) pipePeerAction(instruction ssa.Instruction, common *ssa.CallCommon) ownershipAction {
@@ -295,7 +297,7 @@ func (analysis *spawnAnalysis) pipePeerAction(instruction ssa.Instruction, commo
 		!slices.Contains(cfg.InstructionsReachableAfter(analysis.spawn), instruction) {
 		return actionNone
 	}
-	callee, closure := ssaflow.DirectCallee(common)
+	callee, closure := ssacall.DirectCallee(common)
 	_, launched := instruction.(*ssa.Go)
 	if callee != nil && len(callee.Blocks) != 0 && !launched {
 		if analysis.helperAction(common, callee, closure, analysis.pipePeers).action != actionNone {

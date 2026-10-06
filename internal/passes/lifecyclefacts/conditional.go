@@ -11,6 +11,7 @@ import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -47,7 +48,7 @@ func summarizeConditional(pass *analysis.Pass, function *ssa.Function) []Dischar
 	var summary []Discharge
 	for index, parameter := range function.Params {
 		for _, method := range conditionalMethods(parameter.Type()) {
-			var proven []ssaflow.CallCondition
+			var proven []ssacall.CallCondition
 			for _, condition := range conditions {
 				if !budget.Spend() {
 					return summary
@@ -82,7 +83,7 @@ func summarizeConditional(pass *analysis.Pass, function *ssa.Function) []Dischar
 // for a method, for a field or element beneath it. A path claim needs the
 // proof to name one non-empty path; a completion settled through another
 // summary, whose path is unknown, is claimed only on the parameter itself.
-func provenCasePath(function *ssa.Function, condition ssaflow.CallCondition, request lifecycle.CompletionRequest) (string, bool) {
+func provenCasePath(function *ssa.Function, condition ssacall.CallCondition, request lifecycle.CompletionRequest) (string, bool) {
 	if lifecycle.ProveCompletionForCase(function, condition, request).Proven() {
 		return "", true
 	}
@@ -117,7 +118,7 @@ func withoutUnconditional(cases, unconditional []Discharge) []Discharge {
 // impliedByProven reports whether a proven case with the same result
 // condition and fewer assumed arguments already covers condition, so the
 // narrower case would add nothing a caller could use.
-func impliedByProven(condition ssaflow.CallCondition, proven []ssaflow.CallCondition) bool {
+func impliedByProven(condition ssacall.CallCondition, proven []ssacall.CallCondition) bool {
 	for _, earlier := range proven {
 		if earlier.Matches(condition) {
 			return true
@@ -130,7 +131,7 @@ func impliedByProven(condition ssaflow.CallCondition, proven []ssaflow.CallCondi
 // result condition alone, then each assignment of one guarding parameter,
 // then of both, with and without each result condition. The unconditional
 // case with no arguments is the fact's Must claims and is not repeated.
-func caseConditions(function *ssa.Function) []ssaflow.CallCondition {
+func caseConditions(function *ssa.Function) []ssacall.CallCondition {
 	results := resultConditions(function.Signature)
 	conditions := slices.Clone(results)
 	for _, assignment := range argumentAssignments(guardingParameters(function)) {
@@ -168,7 +169,7 @@ func guardingParameters(function *ssa.Function) []guard {
 			}
 			continue
 		}
-		if ssaflow.Nilable(parameter.Type()) && slices.ContainsFunc(*parameter.Referrers(), ssaflow.ComparesWithNil) {
+		if ssacall.Nilable(parameter.Type()) && slices.ContainsFunc(*parameter.Referrers(), ssacall.ComparesWithNil) {
 			guarding = append(guarding, guard{index: index, nilable: true})
 		}
 	}
@@ -194,8 +195,8 @@ func booleanDecides(user ssa.Instruction) bool {
 // argumentAssignments lists every assignment of the two outcomes to one of
 // the guards, then to both, most general first: true and false for a
 // Boolean, nil and non-nil for a nilable value.
-func argumentAssignments(guards []guard) []ssaflow.CallCondition {
-	var assignments []ssaflow.CallCondition
+func argumentAssignments(guards []guard) []ssacall.CallCondition {
+	var assignments []ssacall.CallCondition
 	for _, one := range guards {
 		assignments = append(assignments, one.assign(true), one.assign(false))
 	}
@@ -217,32 +218,32 @@ func argumentAssignments(guards []guard) []ssaflow.CallCondition {
 
 // assign is the condition fixing the guard to one of its two outcomes: true,
 // or nil for a nilable guard, when set.
-func (one guard) assign(set bool) ssaflow.CallCondition {
+func (one guard) assign(set bool) ssacall.CallCondition {
 	bit := uint64(1) << one.index
 	values := uint64(0)
 	if set {
 		values = bit
 	}
 	if one.nilable {
-		return ssaflow.CallCondition{Nilness: ssaflow.ArgumentConstants{Bound: bit, Values: values}}
+		return ssacall.CallCondition{Nilness: ssacall.ArgumentConstants{Bound: bit, Values: values}}
 	}
-	return ssaflow.CallCondition{Arguments: ssaflow.ArgumentConstants{Bound: bit, Values: values}}
+	return ssacall.CallCondition{Arguments: ssacall.ArgumentConstants{Bound: bit, Values: values}}
 }
 
-func resultConditions(signature *types.Signature) []ssaflow.CallCondition {
-	var conditions []ssaflow.CallCondition
+func resultConditions(signature *types.Signature) []ssacall.CallCondition {
+	var conditions []ssacall.CallCondition
 	// This exported model covers at most four result slots. Other results are
 	// opaque rather than adding unbounded combinations to dependency analysis.
 	for index := range min(signature.Results().Len(), 4) {
 		result := signature.Results().At(index).Type()
-		var outcomes []ssaflow.Outcome
+		var outcomes []ssacall.Outcome
 		if basic, ok := result.Underlying().(*types.Basic); ok && basic.Kind() == types.Bool {
-			outcomes = []ssaflow.Outcome{ssaflow.OutcomeTrue, ssaflow.OutcomeFalse}
+			outcomes = []ssacall.Outcome{ssacall.OutcomeTrue, ssacall.OutcomeFalse}
 		} else if syntax.IsErrorType(result) {
-			outcomes = []ssaflow.Outcome{ssaflow.OutcomeNil, ssaflow.OutcomeNonNil}
+			outcomes = []ssacall.Outcome{ssacall.OutcomeNil, ssacall.OutcomeNonNil}
 		}
 		for _, outcome := range outcomes {
-			conditions = append(conditions, ssaflow.CallCondition{Result: index, Outcome: outcome})
+			conditions = append(conditions, ssacall.CallCondition{Result: index, Outcome: outcome})
 		}
 	}
 	return conditions
@@ -264,7 +265,7 @@ func conditionalMethods(value types.Type) []string {
 func conditionalLookup(
 	lookup func(ssa.Instruction) (Fact, bool), budget *proofs.SearchBudget, onFact func(),
 ) lifecycle.CompletionSummaryLookup {
-	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, condition ssaflow.CallCondition) bool {
+	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, condition ssacall.CallCondition) bool {
 		fact, ok := lookup(instruction)
 		if !ok || !budget.Spend() {
 			return false
@@ -273,7 +274,7 @@ func conditionalLookup(
 		proven := factArgumentMatches(instruction, target, mask, func(argument, target ssa.Value) bool {
 			return heapmodel.NewStorage(budget).Same(argument, target).Proven()
 		})
-		if !proven && !invoke && condition.Outcome == ssaflow.OutcomeAny {
+		if !proven && !invoke && condition.Outcome == ssacall.OutcomeAny {
 			proven = dischargesMatch(fact.casesSelectedBy(method, condition), instruction, target, method, nil)
 		}
 		if proven && onFact != nil {
@@ -288,12 +289,12 @@ func conditionalLookup(
 // case whose condition matches the query. A case that settles a path beneath
 // a parameter is matched by path through casesSelectedBy, never as a claim on
 // the parameter itself.
-func conditionalMask(fact Fact, method string, invoke bool, query ssaflow.CallCondition) ParameterMask {
+func conditionalMask(fact Fact, method string, invoke bool, query ssacall.CallCondition) ParameterMask {
 	if invoke {
 		method = SynchronousInvokeMethod
 	}
 	var mask ParameterMask
-	if query.Outcome == ssaflow.OutcomeAny {
+	if query.Outcome == ssacall.OutcomeAny {
 		mask = fact.MethodMask(method)
 	}
 	for _, discharge := range fact.caseDischarges() {
@@ -307,11 +308,11 @@ func conditionalMask(fact Fact, method string, invoke bool, query ssaflow.CallCo
 // casesSelectedBy returns the cases of method with no result condition whose
 // assumed arguments the supplied condition satisfies, so they are matched to
 // the caller's values exactly as the unconditional discharges are.
-func (fact *Fact) casesSelectedBy(method string, supplied ssaflow.CallCondition) []Discharge {
+func (fact *Fact) casesSelectedBy(method string, supplied ssacall.CallCondition) []Discharge {
 	if method == "" || supplied.Arguments.Bound == 0 && supplied.Nilness.Bound == 0 {
 		return nil
 	}
-	query := ssaflow.CallCondition{Arguments: supplied.Arguments, Nilness: supplied.Nilness}
+	query := ssacall.CallCondition{Arguments: supplied.Arguments, Nilness: supplied.Nilness}
 	var selected []Discharge
 	for _, discharge := range fact.caseDischarges() {
 		if discharge.Method == method && discharge.Condition.Matches(query) {
@@ -324,8 +325,8 @@ func (fact *Fact) casesSelectedBy(method string, supplied ssaflow.CallCondition)
 // suppliedCondition reports what a call's arguments fix, with known fixing
 // the caller's own parameters when the call sits in a body searched under
 // fixed values.
-func suppliedCondition(instruction ssa.Instruction, known ssaflow.FixedValues) ssaflow.CallCondition {
-	return ssaflow.SuppliedCondition(ssaflow.InstructionCall(instruction), known)
+func suppliedCondition(instruction ssa.Instruction, known ssacall.FixedValues) ssacall.CallCondition {
+	return ssacall.SuppliedCondition(ssaflow.InstructionCall(instruction), known)
 }
 
 // CompletionOnEdge combines local and imported result-conditioned guarantees.

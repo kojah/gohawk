@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/analysis"
@@ -42,9 +43,9 @@ func (analysis *spawnAnalysis) relayCompletionGroup(budget *proofs.SearchBudget)
 		case *ssa.Call:
 			common := typed.Common()
 			switch {
-			case ssaflow.CallMatchesSymbol(common, waitGroupWait) && group == nil:
+			case ssacall.CallMatchesSymbol(common, waitGroupWait) && group == nil:
 				group = completionValueAtCall(analysis.spawn, function, closure, ssaflow.CallReceiver(common), budget)
-			case group != nil && ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1:
+			case group != nil && ssacall.CallMatchesSymbol(common, syntax.Builtin("close")) && len(common.Args) == 1:
 				signal := completionValueAtCall(analysis.spawn, function, closure, common.Args[0], budget)
 				if !analysis.isSignalWithin(signal, budget) {
 					return nil
@@ -110,7 +111,7 @@ func synctestOwnsGoroutine(function *ssa.Function) bool {
 	for _, block := range function.Parent().Blocks {
 		for _, instruction := range block.Instrs {
 			common := ssaflow.InstructionCall(instruction)
-			if !ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("testing/synctest", "Test")) {
+			if !ssacall.CallMatchesSymbol(common, syntax.PackageFunction("testing/synctest", "Test")) {
 				continue
 			}
 			for _, argument := range common.Args {

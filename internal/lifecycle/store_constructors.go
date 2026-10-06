@@ -2,6 +2,8 @@ package lifecycle
 
 import (
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -13,10 +15,10 @@ import (
 
 func (search *ownershipSearch) callAggregateStoresValue(call *ssa.Call, value ssa.Value) bool {
 	common := call.Common()
-	if ssaflow.CallMatchesSymbol(common, syntax.Builtin("append")) && search.anyAggregateStoresValue(common.Args, value) {
+	if ssacall.CallMatchesSymbol(common, syntax.Builtin("append")) && search.anyAggregateStoresValue(common.Args, value) {
 		return true
 	}
-	callee := ssaflow.ResolvedCallee(common)
+	callee := ssacall.ResolvedCallee(common)
 	if callee == nil {
 		return false
 	}
@@ -60,16 +62,16 @@ func (search *ownershipSearch) functionReturnsOwner(function *ssa.Function, valu
 	if !hasOwner || search.exhausted() {
 		return false
 	}
-	return ssaflow.EvaluateObligationFromEntry(function, ssaflow.ObligationFlow{
+	return ssapath.EvaluateObligationFromEntry(function, ssapath.ObligationFlow{
 		Budget:      search.budget,
-		Instruction: func(ssa.Instruction) ssaflow.ObligationAction { return ssaflow.ObligationNone },
-		Return: func(returned *ssa.Return) ssaflow.ObligationAction {
+		Instruction: func(ssa.Instruction) ssapath.ObligationAction { return ssapath.ObligationNone },
+		Return: func(returned *ssa.Return) ssapath.ObligationAction {
 			if owners[returned] || ssaflow.ReturnsOnlyNilOrErrorsWithin(returned, search.budget) {
-				return ssaflow.ObligationExact
+				return ssapath.ObligationExact
 			}
-			return ssaflow.ObligationNone
+			return ssapath.ObligationNone
 		},
-	}) == ssaflow.ObligationHonored && !search.exhausted()
+	}) == ssapath.ObligationHonored && !search.exhausted()
 }
 
 // callStoresValueIntoAggregate reports whether a call hands a callee both the
@@ -90,7 +92,7 @@ func (search *ownershipSearch) callStoresValueIntoAggregate(call ssa.CallInstruc
 	if common == nil {
 		return false
 	}
-	callee := ssaflow.ResolvedCallee(common)
+	callee := ssacall.ResolvedCallee(common)
 	if callee == nil || len(callee.Blocks) == 0 {
 		return false
 	}

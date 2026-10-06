@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -25,11 +26,11 @@ func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, ta
 		return false
 	}
 	common := ssaflow.InstructionCall(instruction)
-	function, closure := ssaflow.DirectCallee(common)
+	function, closure := ssacall.DirectCallee(common)
 	if function == nil {
 		return false
 	}
-	bindings := ssaflow.CallBindings(common, function, closure)
+	bindings := ssacall.CallBindings(common, function, closure)
 	for _, block := range function.Blocks {
 		for _, candidate := range block.Instrs {
 			for _, binding := range bindings {

@@ -3,7 +3,9 @@ package goroutineownership
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -40,7 +42,7 @@ func terminalCompletion(done ssa.Instruction, budget *proofs.SearchBudget) bool 
 			case *ssa.Return:
 				continue
 			case *ssa.RunDefers:
-				if !ssaflow.CallMatchesSymbol(ssaflow.InstructionCall(done), waitGroupDone) || !completionOnlyDefersWithin(done.Parent(), budget) {
+				if !ssacall.CallMatchesSymbol(ssaflow.InstructionCall(done), waitGroupDone) || !completionOnlyDefersWithin(done.Parent(), budget) {
 					return false
 				}
 				queue = append(queue, cursor{block: current.block, index: current.index + 1})
@@ -77,8 +79,8 @@ func completionOnlyDefersWithin(function *ssa.Function, budget *proofs.SearchBud
 				continue
 			}
 			common := deferred.Common()
-			if !ssaflow.CallMatchesSymbol(common, waitGroupDone) &&
-				!ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) {
+			if !ssacall.CallMatchesSymbol(common, waitGroupDone) &&
+				!ssacall.CallMatchesSymbol(common, syntax.Builtin("close")) {
 				return false
 			}
 		}
@@ -105,17 +107,17 @@ func completionHasReturn(function *ssa.Function, budget *proofs.SearchBudget) bo
 // The supplied predicate owns operation policy; exhaustion remains uncertain.
 func completionReturnCoverage(
 	function *ssa.Function, nonNil ssa.Value, budget *proofs.SearchBudget, owns func(ssa.Instruction) bool,
-) ssaflow.ObligationOutcome {
-	return ssaflow.EvaluateObligationFromEntry(function, ssaflow.ObligationFlow{
+) ssapath.ObligationOutcome {
+	return ssapath.EvaluateObligationFromEntry(function, ssapath.ObligationFlow{
 		Budget: budget, NonNil: nonNil,
-		Instruction: func(instruction ssa.Instruction) ssaflow.ObligationAction {
+		Instruction: func(instruction ssa.Instruction) ssapath.ObligationAction {
 			if !budget.Spend() {
-				return ssaflow.ObligationUnknown
+				return ssapath.ObligationUnknown
 			}
 			if owns(instruction) {
-				return ssaflow.ObligationExact
+				return ssapath.ObligationExact
 			}
-			return ssaflow.ObligationNone
+			return ssapath.ObligationNone
 		},
 	})
 }

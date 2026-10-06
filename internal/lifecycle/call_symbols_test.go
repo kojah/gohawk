@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
@@ -53,9 +55,9 @@ func calls(t *testing.T, cmd *exec.Cmd, local *command) {
 
 	var cleanup, fatal, goexit bool
 	for _, call := range calls {
-		cleanup = cleanup || ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup)
-		fatal = fatal || ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingTermination)
-		goexit = goexit || ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractRuntimeGoexit)
+		cleanup = cleanup || ssacall.HasLibraryContract(call.Common(), ssacall.ContractTestingCleanup)
+		fatal = fatal || ssacall.HasLibraryContract(call.Common(), ssacall.ContractTestingTermination)
+		goexit = goexit || ssacall.HasLibraryContract(call.Common(), ssacall.ContractRuntimeGoexit)
 	}
 	if !cleanup || !fatal || !goexit {
 		t.Fatalf("library contracts = cleanup:%t fatal:%t goexit:%t, want all true", cleanup, fatal, goexit)
@@ -70,7 +72,7 @@ func assertSingleCallMatch(t *testing.T, calls []*ssa.Call, symbol syntax.Symbol
 	t.Helper()
 	var got int
 	for _, call := range calls {
-		if ssaflow.CallMatchesSymbol(call.Common(), symbol) {
+		if ssacall.CallMatchesSymbol(call.Common(), symbol) {
 			got++
 		}
 	}

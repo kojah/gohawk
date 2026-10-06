@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -50,7 +51,7 @@ func (query headRequestQuery) origin(walk ssaflow.ReachingWalk, value ssa.Value)
 			return false
 		}
 	case *ssa.Call:
-		if !ssaflow.CallMatchesAnySymbol(typed.Common(), httpRequestWithContext, httpRequestClone) {
+		if !ssacall.CallMatchesAnySymbol(typed.Common(), httpRequestWithContext, httpRequestClone) {
 			return false
 		}
 		receiver := ssaflow.CallReceiver(typed.Common())
@@ -64,10 +65,10 @@ func (query headRequestQuery) origin(walk ssaflow.ReachingWalk, value ssa.Value)
 }
 
 func headConstructor(common *ssa.CallCommon) bool {
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "NewRequest")) {
+	if ssacall.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "NewRequest")) {
 		return len(common.Args) == 3 && constantString(common.Args[0]) == "HEAD"
 	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "NewRequestWithContext")) {
+	if ssacall.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "NewRequestWithContext")) {
 		return len(common.Args) == 4 && constantString(common.Args[1]) == "HEAD"
 	}
 	return false
@@ -91,10 +92,10 @@ func (query headRequestQuery) uses(walk ssaflow.ReachingWalk, request ssa.Value)
 		case *ssa.DebugRef:
 		case *ssa.Call:
 			common := typed.Common()
-			if ssaflow.CallMatchesSymbol(common, httpClientDo) && len(common.Args) == 2 && common.Args[1] == request {
+			if ssacall.CallMatchesSymbol(common, httpClientDo) && len(common.Args) == 2 && common.Args[1] == request {
 				continue
 			}
-			if ssaflow.CallMatchesAnySymbol(common, httpRequestWithContext, httpRequestClone) &&
+			if ssacall.CallMatchesAnySymbol(common, httpRequestWithContext, httpRequestClone) &&
 				ssaflow.CallReceiver(common) == request && walk.Every(typed, query.uses) {
 				continue
 			}
@@ -138,7 +139,7 @@ func headerUsesAreEditsWithin(field *ssa.FieldAddr, budget *proofs.SearchBudget)
 				return false
 			}
 			call, ok := edit.(*ssa.Call)
-			if !ok || ssaflow.CallReceiver(call.Common()) != load || !ssaflow.CallMatchesAnySymbol(call.Common(), httpHeaderEdits...) {
+			if !ok || ssaflow.CallReceiver(call.Common()) != load || !ssacall.CallMatchesAnySymbol(call.Common(), httpHeaderEdits...) {
 				return false
 			}
 		}

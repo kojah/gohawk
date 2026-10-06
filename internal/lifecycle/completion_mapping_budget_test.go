@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -66,7 +67,7 @@ func mappingBudgetCase(t *testing.T, fn *ssa.Function) (completionCallee, ssa.Va
 	if call == nil {
 		t.Fatal("mapping call not found")
 	}
-	function, closure := ssaflow.DirectCallee(call.Common())
+	function, closure := ssacall.DirectCallee(call.Common())
 	callee := completionCallee{common: call.Common(), function: function, closure: closure, launch: launchCalled}
 	var target ssa.Value = fn.Params[0]
 	if closure != nil {

@@ -133,7 +133,7 @@ summary-query allowance. Arguments never strengthen an unconditional guarantee.
 
 Beside the unconditional guarantees, the result component proves result
 cases, "result R has outcome O on every normal return where condition C
-holds", and exports them with the fact. C is an `ssaflow.CallCondition`, the
+holds", and exports them with the fact. C is an `calls.CallCondition`, the
 same condition type summary cases of cleanup use, here naming a parameter's
 nilness or a paired error result's outcome:
 
@@ -198,11 +198,11 @@ claim, because a deferred recover returns normally from a panic the entry
 never reaches; a function that may exit does not carry it either.
 
 The walks consume it through `summaries.Provider.Terminates`, the terminator
-hook of `ssaflow.InstructionTerminatesWith` and `NormalReturnReachableWith`:
+hook of `path.InstructionTerminatesWith` and `NormalReturnReachableWith`:
 a path that calls such a function ends there, exactly as it ends at
 `os.Exit`, so an early return behind the call is not reached.
 
-Normal-return reachability uses `ssaflow.ProveNormalReturnWithin` with the
+Normal-return reachability uses `path.ProveNormalReturnWithin` with the
 result query's allowance. Its structured proof distinguishes a reachable return,
 a completed search finding none, and unavailable evidence. Queue/instruction
 visits and termination queries share the allowance; interrupted callbacks or
@@ -607,7 +607,7 @@ it never proves cleanup, a join, or absence of exposure when the bit is clear.
   claims from the summaries this pass has already computed, or proves them
   from an unexported callee's body, because facts are exported only after the
   whole package is summarized. Invocation inference owns its state within the
-  package pass and uses `ssaflow.FunctionSummaries` for recursion, memoization,
+  package pass and uses `calls.FunctionSummaries` for recursion, memoization,
   and a shared `SummaryBudget`. Both invocation modes use one instruction
   classifier. Recursive or exhausted queries advertise no invocation guarantee
   and do not cache an incomplete answer; a later query with sufficient budget
@@ -703,7 +703,7 @@ evidence between package-analysis runs; the two are not competing models or
 unary-versus-binary relations. The lifecycle facts above are themselves one
 family of summaries.
 
-For visible SSA bodies, `ssaflow.FunctionSummaries` shares the mechanics of
+For visible SSA bodies, `calls.FunctionSummaries` shares the mechanics of
 composing function summaries: memoization, recursion guards, budget handling,
 and direct-call parameter and capture bindings. Each instance has one fixed
 analysis policy. Its symbolic answers are immutable; binding an answer to a
@@ -753,7 +753,7 @@ A summary case is a positive cleanup guarantee under a condition a caller can
 check. Cases are the discharges with a non-empty condition, in the same
 `Discharges` list as the unconditional claims, and each is proved by
 `lifecycle.ProveCompletionForCase`.
-The condition is an `ssaflow.CallCondition`, the one serializable condition
+The condition is an `calls.CallCondition`, the one serializable condition
 type every conditional summary uses, and `Matches` is the one rule selecting a
 case at a call. A
 case names a result condition (a Boolean result true or false, or an error
@@ -799,8 +799,8 @@ allocation, a made map, slice, channel, or closure, a function, or an
 interface box, which is non-nil even around a nil pointer), or a caller
 value the caller's own call already fixed, decides every branch in the
 callee that tests that parameter: a Boolean directly or negated, a nilable
-value compared with nil. `ssaflow.ProveFixedArgumentsWithin` binds the callee's
-parameters at each call the completion search enters, as `ssaflow.FixedValues`,
+value compared with nil. `calls.ProveFixedArgumentsWithin` binds the callee's
+parameters at each call the completion search enters, as `calls.FixedValues`,
 and the obligation walk's `Constants` narrows a decided branch to its arm, so
 a helper that closes only under `!keep` completes the target at `finish(f,
 false)`, and one that closes only when `options == nil` completes it at

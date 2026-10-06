@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -19,14 +20,14 @@ type workerReceiveKey struct {
 }
 
 type workerReceiveSearch struct {
-	memo    *ssaflow.CallGraphMemo[workerReceiveKey, proofs.Proof]
+	memo    *ssacall.CallGraphMemo[workerReceiveKey, proofs.Proof]
 	budget  *proofs.SearchBudget
 	matches func(*ssa.Function, ssa.Value, ssa.Value) bool
 }
 
 func newWorkerReceiveSearch(budget *proofs.SearchBudget, matches func(*ssa.Function, ssa.Value, ssa.Value) bool) *workerReceiveSearch {
 	return &workerReceiveSearch{
-		memo: ssaflow.NewCallGraphMemo[workerReceiveKey, proofs.Proof](), budget: budget, matches: matches,
+		memo: ssacall.NewCallGraphMemo[workerReceiveKey, proofs.Proof](), budget: budget, matches: matches,
 	}
 }
 
@@ -36,14 +37,14 @@ func (search *workerReceiveSearch) prove(function *ssa.Function, local ssa.Value
 	}
 	return search.memo.Summarize(workerReceiveKey{function, local}, function, search.budget, func() proofs.Proof {
 		return search.search(function, local)
-	}, func(reason ssaflow.SummaryUnavailable, _ proofs.Proof) proofs.Proof {
+	}, func(reason ssacall.SummaryUnavailable, _ proofs.Proof) proofs.Proof {
 		why := proofs.EvidenceSummaryBodyUnavailable
 		switch reason {
-		case ssaflow.SummaryRecursive:
+		case ssacall.SummaryRecursive:
 			why = proofs.EvidenceSummaryRecursive
-		case ssaflow.SummaryBudgetExhausted:
+		case ssacall.SummaryBudgetExhausted:
 			why = proofs.EvidenceBudgetExhausted
-		case ssaflow.SummaryBodyUnavailable:
+		case ssacall.SummaryBodyUnavailable:
 		}
 		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: why}
 	})
@@ -78,8 +79,8 @@ func (search *workerReceiveSearch) search(function *ssa.Function, local ssa.Valu
 func (search *workerReceiveSearch) throughCall(common *ssa.CallCommon, local ssa.Value) proofs.Proof {
 	result := proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceNotFound}
 	derives := func(value ssa.Value) bool { return heapmodel.ValueDerivesFrom(value, local) }
-	callee, closure := ssaflow.DirectCallee(common)
-	for binding := range ssaflow.CallBindingsWithin(common, callee, closure, search.budget) {
+	callee, closure := ssacall.DirectCallee(common)
+	for binding := range ssacall.CallBindingsWithin(common, callee, closure, search.budget) {
 		if !derives(binding.Supplied) {
 			continue
 		}

@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -51,17 +52,17 @@ func (analysis *spawnAnalysis) callAction(instruction ssa.Instruction, common *s
 	if analysis.waitGroupBookkeeping(common) {
 		return actionNone, reasonNone
 	}
-	if ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) {
+	if ssacall.HasLibraryContract(common, ssacall.ContractTestingCleanup) {
 		proof := analysis.testingCleanupAction(common)
 		return proof.action, proof.reason
 	}
-	if ssaflow.HasLibraryContract(common, ssaflow.ContractGoMockReturn) && analysis.anyArgumentConsumes(common) {
+	if ssacall.HasLibraryContract(common, ssacall.ContractGoMockReturn) && analysis.anyArgumentConsumes(common) {
 		// gomock.Return publishes its configured results, but broad argument
 		// containment does not prove the exact stream is among those results.
 		// https://github.com/uber-go/mock/blob/539d81c0f42174d17e8f91abcb869bed37605a15/gomock/call.go#L185-L205
 		return actionUnknown, reasonLabelGoMockReturn
 	}
-	callee, closure := ssaflow.DirectCallee(common)
+	callee, closure := ssacall.DirectCallee(common)
 	if callee == nil || len(callee.Blocks) == 0 {
 		// An opaque callee may retain the value.
 		if callee == nil {
@@ -93,7 +94,7 @@ func (analysis *spawnAnalysis) directJoinAction(common *ssa.CallCommon) (ownersh
 	if receiver == nil {
 		return actionNone, reasonNone
 	}
-	if !ssaflow.CallMatchesSymbol(common, waitGroupWait) {
+	if !ssacall.CallMatchesSymbol(common, waitGroupWait) {
 		if lifecycleMethod(ssaflow.CallName(common)) && ownerReceiver(receiver, analysis.owners) {
 			return actionUnknown, reasonLabelOwnerLifecycle
 		}
@@ -127,8 +128,8 @@ func (analysis *spawnAnalysis) waitGroupBookkeeping(common *ssa.CallCommon) bool
 }
 
 func waitGroupMethod(common *ssa.CallCommon) bool {
-	return ssaflow.CallMatchesSymbol(common, waitGroupAdd) || ssaflow.CallMatchesSymbol(common, waitGroupDone) ||
-		ssaflow.CallMatchesSymbol(common, waitGroupGo) || ssaflow.CallMatchesSymbol(common, waitGroupWait)
+	return ssacall.CallMatchesSymbol(common, waitGroupAdd) || ssacall.CallMatchesSymbol(common, waitGroupDone) ||
+		ssacall.CallMatchesSymbol(common, waitGroupGo) || ssacall.CallMatchesSymbol(common, waitGroupWait)
 }
 
 // unsettledGroup keeps an early-Done WaitGroup out of the opaque set so the

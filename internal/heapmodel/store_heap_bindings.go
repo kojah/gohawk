@@ -4,9 +4,8 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
-
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -28,7 +27,7 @@ func resolveHeapCall(common *ssa.CallCommon, instruction ssa.Instruction) (heapC
 	arguments := common.Args
 	budget := proofs.NewSearchBudget(proofs.QueryBudget)
 	if common.IsInvoke() {
-		dispatch := ssaflow.ResolveInterfaceDispatch(common, instruction.Parent().Prog, budget)
+		dispatch := ssacall.ResolveInterfaceDispatch(common, instruction.Parent().Prog, budget)
 		if !dispatch.Proven() {
 			return heapCallBinding{}, CallInterface
 		}
@@ -65,7 +64,7 @@ func bindHeapCaptures(common *ssa.CallCommon, callee *ssa.Function, closure *ssa
 	}
 	var captures []ssa.Value
 	storage := NewStorage(budget)
-	for _, binding := range ssaflow.CallBindings(common, callee, closure) {
+	for _, binding := range ssacall.CallBindings(common, callee, closure) {
 		if !binding.Captured {
 			continue
 		}

@@ -13,7 +13,9 @@ import (
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -74,7 +76,7 @@ func proveDeferLifetime(
 		state = advanceDeferState(evidence, probe, state, obligation)
 		// A branch a callee's proven result rules out is not a path to the
 		// backedge; feasibility only removes successors, it never adds one.
-		feasible := ssaflow.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
+		feasible := ssapath.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
 			return knowledge.FeasibleSuccessors(block, predecessor, proofs.NewSearchBudget(proofs.SummaryBudget))
 		}}.Successors(state.block, state.predecessor)
 		successors := make([]deferFlowState, 0, len(feasible))
@@ -253,7 +255,7 @@ func resourceUseStatus(
 	target ssa.Value,
 ) (resourceStatus, deferReason) {
 	common := ssaflow.InstructionCall(instruction)
-	if common == nil || ssaflow.CallMatchesAnySymbol(common, lengthBuiltins...) {
+	if common == nil || ssacall.CallMatchesAnySymbol(common, lengthBuiltins...) {
 		// len and cap only read a length: a wrapper passed to them is neither
 		// released nor kept. A range over a slice in the owner takes its
 		// length on every iteration.

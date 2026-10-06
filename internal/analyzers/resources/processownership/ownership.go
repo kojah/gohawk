@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -99,12 +100,12 @@ func processOwnershipAction(proof *commandProof, instruction ssa.Instruction, co
 		return handle == proofs.EvidenceProven
 	}
 	if waitsForCommand(instruction, command) ||
-		ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
+		ssacall.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Release"})) &&
 			heapmodel.ValueDerivesFrom(ssaflow.CallReceiver(common), command) ||
 		owns() ||
 		storesProcessHandleInExternalField(instruction, command) ||
 		handles() ||
-		ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit")) {
+		ssacall.CallMatchesSymbol(common, syntax.PackageFunction("os", "Exit")) {
 		return proofs.EvidenceProven
 	}
 	if abandoned(ownership) || handle == proofs.EvidenceUnknown {

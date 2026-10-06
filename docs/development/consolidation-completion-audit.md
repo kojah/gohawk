@@ -42,7 +42,7 @@ All ten resulting groups were inspected in source. The local artifacts are
 | --- | --- |
 | `storageInteger` / `StorageInteger` | Heap slice bounds now use `ssaflow.StorageInteger`; omitted-bound defaults and exact integer conversion remain unchanged. |
 | `addressedStruct` / `structBehind` | `syntax.PointerStruct` owns the one-pointer underlying-struct shape. The other copies of this shape check use it too, retaining domain identity and ownership checks. Named pointers and aliases remain supported; value structs and nested pointers remain outside this shape. |
-| `panics` / `endsInPanic` | `ssaflow.BlockEndsInPanic` owns the last-instruction check. Concurrency inference retains its separate recovery and return-witness rules; an explicit panic does not prove whole-function termination. |
+| `panics` / `endsInPanic` | `path.BlockEndsInPanic` owns the last-instruction check. Concurrency inference retains its separate recovery and return-witness rules; an explicit panic does not prove whole-function termination. |
 | `dominatesLatches` / `dominatesBackEdges` | `NaturalLoop.DominatesBackEdges` owns the predecessor dominance query. Its guarantee excludes break/exit paths; it is not a claim that the block runs on every possible loop path. |
 | `lockEvidence` / `Evidence` | Lock acquisition and helper-route spans now use `check.Evidence`; source ranges and labels retain the existing behavior. |
 | Resource flow key / obligation flow key | Each key includes its own obligation state and path guards. Both use the shared work-list driver; replacing domain keys with one generic obligation would lose resource state. |
@@ -481,7 +481,7 @@ fact-schema change, full precision corpus replay or local race run is credited.
 
 ## One-time entry-context reassessment
 
-Beads `gohawk-dho.37` uses existing `ssaflow.RunsOnceInProgramEntry` evidence
+Beads `gohawk-dho.37` uses existing `calls.RunsOnceInProgramEntry` evidence
 at cancellationownership's instruction classifier. The program-entry return is
 unknown for a standard context acquired outside cycles, never evidence that its
 cancel runs or workers finish. Signal registration, repeatable/helper scopes
@@ -3299,7 +3299,7 @@ the overall consolidation objective is not complete.
 `evaluateResourceFlow`'s scoped pre-acquisition review. The memory-writer policy
 exclusion stays first. The observed candidate pool is then constructed before
 `proveAcquisitionErrorResultWithin`, which retains the last-error tuple/type
-contract and delegates exact extract selection to `ssaflow.CallResultWithin`.
+contract and delegates exact extract selection to `calls.CallResultWithin`.
 Child or shared-parent cutoff produces unknown with no value and stops the
 entry before feasible owned paths are selected. A completed absent extract is
 still permitted; no-error metadata exclusions do not start a query.
@@ -3664,7 +3664,7 @@ replacing that contract with the ordinary independent return witness.
 Conditional coverage now shares queued-state, successor-policy and edge visits
 with its instruction/result work. No second CFG coverage engine is introduced.
 
-`ssaflow.ReachableBlocksAssumingWithin` delegates to the shared work-list and
+`path.ReachableBlocksAssumingWithin` delegates to the shared work-list and
 bounded constant narrowing, preserves discovery order and discards interrupted
 censuses. The unbounded wrapper delegates to it. Coverage cannot interpret a
 partial set of blocks as complete evidence. An interrupted completion case
@@ -5074,7 +5074,7 @@ This is not a claim that all semantically equivalent code has been found.
 | 5, 9, 14, 40 | Shared aggregate-address read-use classification, corrected in `.21.2`; whole-root stores remain a distinct outer policy. |
 | 6, 42 | Command-use and returned-ownership proof adapters share an enum/result shape, but their searches and exhaustion contracts differ. |
 | 7, 19, 25 | Fresh mutex-field evidence and merged cleanup argument evidence share a load/field shape, but allocation versus phi provenance has different meaning. |
-| 8, 39 | Two-way branch decoding precedes different acquisition/select policies; resource success already delegates ordinary nil comparison to `ssaflow.SuccessBranch`. Small branch-shape scaffolding is not an independent flow solver. |
+| 8, 39 | Two-way branch decoding precedes different acquisition/select policies; resource success already delegates ordinary nil comparison to `path.SuccessBranch`. Small branch-shape scaffolding is not an independent flow solver. |
 | 10 | CLI selection domains repeat argument/map initialization. Further parser consolidation remains a separate candidate; it is not evidence-engine duplication. |
 | 11, 27, 29, 31 | Explicit wrapper/projection cases include different forms. Heap's four ordinary wrapper operands now use selected shared SSA transparency in `.21.3`; slice-to-array pointer and type-assertion policies remain explicit. |
 | 13 | Select-index successor decoding and path-guard extension consume different conditions and availability contracts. |
@@ -5346,7 +5346,7 @@ open; this task earns no FP credit or overall goal completion.
 ## Producer fallback callee selection
 
 Bead `gohawk-dho.23.21.8` consolidates the producer fallback's static/literal
-selection onto `ssaflow.DirectCallee`. Actual SSA demonstrates the generic
+selection onto `calls.DirectCallee`. Actual SSA demonstrates the generic
 wrapper/source-origin distinction and preserves caller channel binding.
 Accepted balanced and opaque controls accompany the excess-send fixture.
 The [scoped record](../../benchmarks/precision/audits/producer-callee-consolidation-2026-10-03.md)
@@ -6113,7 +6113,7 @@ are retained when they already delegate to one owner.
 | 49 | Payload/budget/case/range/probe/obligation getters and external plugin load mode expose distinct stored or constant values. |
 
 The symbol iteration change uses the standard slice search while retaining
-`ssaflow.CallMatchesSymbol` and `ssaflow.ValueMatchesSymbol` as separate leaves.
+`calls.CallMatchesSymbol` and `calls.ValueMatchesSymbol` as separate leaves.
 The current toolchain implements ContainsFunc through IndexFunc: it checks
 entries in order, stops at the first true result, and rejects an empty list.
 There is no new budget, target resolution, reporting policy or fallback.

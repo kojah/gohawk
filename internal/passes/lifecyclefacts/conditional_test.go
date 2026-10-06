@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -25,7 +26,7 @@ func Caller(r *resource, yes bool) { if Forward(r, yes) { return }; r.Close() }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
 	base := summarize(pass, pkg.Func("Base"))
-	predicate := ssaflow.CallCondition{Outcome: ssaflow.OutcomeTrue}
+	predicate := ssacall.CallCondition{Outcome: ssacall.OutcomeTrue}
 	if base.MethodMask("Close") != 0 || conditionalMask(base, "Close", false, predicate) != parameterMaskFor(0) {
 		t.Fatalf("base = %+v", base)
 	}
@@ -91,8 +92,8 @@ func (*fakeRows) Close() error { return nil }
 func Fake(rows *fakeRows) bool { return rows.NextResultSet() }
 `)
 	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
-	falseResult := ssaflow.CallCondition{Outcome: ssaflow.OutcomeFalse}
-	trueResult := ssaflow.CallCondition{Outcome: ssaflow.OutcomeTrue}
+	falseResult := ssacall.CallCondition{Outcome: ssacall.OutcomeFalse}
+	trueResult := ssacall.CallCondition{Outcome: ssacall.OutcomeTrue}
 	for _, test := range []struct {
 		name string
 		mask ParameterMask

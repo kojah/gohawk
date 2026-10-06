@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -31,10 +32,10 @@ func replaced(value *int, drop bool) {
 			function := pkg.Func(test.name)
 			calls := ssaflow.InstructionsOf[*ssa.Call](function)
 			owns := func(instruction ssa.Instruction) bool { return instruction == calls[1] }
-			if got := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+			if got := ssapath.UnownedReturn(ssapath.UnownedReturnQuery{
 				After:  calls[0],
 				Owns:   owns,
-				Assume: ssaflow.EntryAssumptions{NonNil: function.Params[0]},
+				Assume: ssapath.EntryAssumptions{NonNil: function.Params[0]},
 			}) != nil; got != test.lost {
 				t.Fatalf("unowned return = %t, want %t", got, test.lost)
 			}

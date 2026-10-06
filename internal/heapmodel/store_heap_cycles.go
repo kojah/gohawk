@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -44,7 +45,7 @@ func sameCallCycle(function, callee *ssa.Function) bool {
 	if instantiationWrapperCallsOrigin(function, callee) {
 		return false
 	}
-	callerOrigin, calleeOrigin := ssaflow.ResolvedFunction(function), ssaflow.ResolvedFunction(callee)
+	callerOrigin, calleeOrigin := ssacall.ResolvedFunction(function), ssacall.ResolvedFunction(callee)
 	if callee == function || calleeOrigin == callerOrigin {
 		return true
 	}
@@ -116,7 +117,7 @@ func cycleMetadata(function *ssa.Function) *callCycleMetadata {
 			continue
 		}
 		metadata.callees = append(metadata.callees, callee)
-		if origin := ssaflow.ResolvedFunction(callee); origin != callee {
+		if origin := ssacall.ResolvedFunction(callee); origin != callee {
 			metadata.callees = append(metadata.callees, origin)
 		}
 	}

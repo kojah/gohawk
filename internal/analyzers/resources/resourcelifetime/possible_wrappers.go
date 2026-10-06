@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -131,7 +132,7 @@ func (analysis *resourceAnalysis) provePossibleWrapperWithin(value ssa.Value, de
 		if effects.Reason == proofs.EvidenceBudgetExhausted {
 			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
-		if !effects.Proven() || effects.Effects&ssaflow.EffectRetain != 0 {
+		if !effects.Proven() || effects.Effects&ssacall.EffectRetain != 0 {
 			return carriedValueProof(true, resourceReasonWrapperMayCarry, budget)
 		}
 	}

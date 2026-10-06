@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -27,10 +28,10 @@ func resolveCallees(instruction ssa.Instruction, budget *proofs.SearchBudget) ([
 		return calleesOf(typed.Common(), launchStarted, instruction, false, budget)
 	case *ssa.Call:
 		common := typed.Common()
-		if ssaflow.CallMatchesSymbol(common, waitGroupGoMethod) && len(common.Args) == 2 {
+		if ssacall.CallMatchesSymbol(common, waitGroupGoMethod) && len(common.Args) == 2 {
 			return closureCallees(common.Args[1], launchStarted, budget)
 		}
-		if ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) && len(common.Args) > 0 {
+		if ssacall.HasLibraryContract(common, ssacall.ContractTestingCleanup) && len(common.Args) > 0 {
 			// testing.TB guarantees that Cleanup callbacks run when the test
 			// and its subtests complete, so a registered callback is deferred.
 			return closureCallees(common.Args[len(common.Args)-1], launchDeferred, budget)
@@ -97,7 +98,7 @@ func exactCallbacks(value ssa.Value, invocation ssa.Instruction, allowOnceFunc b
 			return true
 		case *ssa.Call:
 			common := typed.Common()
-			if allowOnceFunc && ssaflow.CallMatchesSymbol(common, syncOnceFunc) && len(common.Args) == 1 {
+			if allowOnceFunc && ssacall.CallMatchesSymbol(common, syncOnceFunc) && len(common.Args) == 1 {
 				return walk.Every(common.Args[0], resolve)
 			}
 		case *ssa.UnOp:

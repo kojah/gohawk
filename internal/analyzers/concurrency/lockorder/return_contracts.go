@@ -7,7 +7,9 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -132,44 +134,44 @@ func (query lockReturnQueries) conditionalCallerRelease(
 // heldResultPolarity returns the result condition the lock is held under:
 // every return that holds it has one Boolean value in result index, and every
 // return that does not has the other.
-func (query lockReturnQueries) heldResultPolarity(heldAt map[*ssa.Return]lockReturnState, identity string, index int) (ssaflow.CallCondition, bool) {
+func (query lockReturnQueries) heldResultPolarity(heldAt map[*ssa.Return]lockReturnState, identity string, index int) (ssacall.CallCondition, bool) {
 	var held, unheld, sawHeld, sawUnheld bool
 	for _, returned := range query.setup.returns {
 		if !query.budget.Spend() {
-			return ssaflow.CallCondition{}, false
+			return ssacall.CallCondition{}, false
 		}
 		truth, known := lockBooleanValue(lifecycle.ReturnedResultWithin(returned, index, query.budget), nil)
 		if !known {
-			return ssaflow.CallCondition{}, false
+			return ssacall.CallCondition{}, false
 		}
 		state, observed := heldAt[returned]
 		definite := query.containsLock(state.definite, identity)
 		if !observed || definite != query.containsLock(state.possible, identity) || query.budget.Exhausted() {
-			return ssaflow.CallCondition{}, false
+			return ssacall.CallCondition{}, false
 		}
 		if definite {
 			if sawHeld && held != truth {
-				return ssaflow.CallCondition{}, false
+				return ssacall.CallCondition{}, false
 			}
 			held, sawHeld = truth, true
 		} else {
 			if sawUnheld && unheld != truth {
-				return ssaflow.CallCondition{}, false
+				return ssacall.CallCondition{}, false
 			}
 			unheld, sawUnheld = truth, true
 		}
 	}
-	outcome := ssaflow.OutcomeFalse
+	outcome := ssacall.OutcomeFalse
 	if held {
-		outcome = ssaflow.OutcomeTrue
+		outcome = ssacall.OutcomeTrue
 	}
-	return ssaflow.CallCondition{Result: index, Outcome: outcome}, sawHeld && sawUnheld && held != unheld && !query.budget.Exhausted()
+	return ssacall.CallCondition{Result: index, Outcome: outcome}, sawHeld && sawUnheld && held != unheld && !query.budget.Exhausted()
 }
 
 // callerReleasesOnFlag reports whether the caller branches on the result the
 // lock is held under and releases the mutex on the held arm before every
 // return, while the other arm owes nothing.
-func (query lockReturnQueries) callerReleasesOnFlag(call *ssa.Call, mutex *ssa.Global, heldWhen ssaflow.CallCondition) bool {
+func (query lockReturnQueries) callerReleasesOnFlag(call *ssa.Call, mutex *ssa.Global, heldWhen ssacall.CallCondition) bool {
 	if !query.budget.Spend() {
 		return false
 	}
@@ -182,11 +184,11 @@ func (query lockReturnQueries) callerReleasesOnFlag(call *ssa.Call, mutex *ssa.G
 	if call.Common().Signature().Results().Len() == 1 {
 		index = -1
 	}
-	if !ok || branch.Cond != ssaflow.CallResultWithin(call, index, query.budget) {
+	if !ok || branch.Cond != ssacall.CallResultWithin(call, index, query.budget) {
 		return false
 	}
 	unheld := block.Succs[0]
-	if heldWhen.Outcome == ssaflow.OutcomeTrue {
+	if heldWhen.Outcome == ssacall.OutcomeTrue {
 		unheld = block.Succs[1]
 	}
 	if len(unheld.Preds) != 1 {
@@ -204,10 +206,10 @@ func (query lockReturnQueries) callerReleasesOnFlag(call *ssa.Call, mutex *ssa.G
 		}
 		return false
 	}
-	outcome := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
-		Start: call, Budget: query.budget, Instruction: ssaflow.ExactOrNone(owns),
+	outcome := ssapath.EvaluateObligation(ssapath.ObligationFlow{
+		Start: call, Budget: query.budget, Instruction: ssapath.ExactOrNone(owns),
 	})
-	return witness && outcome == ssaflow.ObligationHonored && !query.budget.Exhausted()
+	return witness && outcome == ssapath.ObligationHonored && !query.budget.Exhausted()
 }
 
 func (query lockReturnQueries) containsLock(held []string, identity string) bool {
@@ -239,7 +241,7 @@ func (query lockReturnQueries) nilGuardDominatesReturn(value ssa.Value, returned
 			if !query.budget.Spend() {
 				return false
 			}
-			success, known := ssaflow.SuccessBranchWithin(branch.Block(), successor, value, query.budget)
+			success, known := ssapath.SuccessBranchWithin(branch.Block(), successor, value, query.budget)
 			if known && success && len(successor.Preds) == 1 && successor.Dominates(returned.Block()) {
 				return true
 			}

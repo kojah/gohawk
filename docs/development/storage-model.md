@@ -113,7 +113,7 @@ accepted dynamic-element helpers without claiming they settle the exact target.
 
 ## Call effects
 
-`ssaflow.CallEffects` supplies bounded local effect evidence to storage and
+`calls.CallEffects` supplies bounded local effect evidence to storage and
 lifecycle consumers. It separates reads, mutation, retention, asynchronous
 exposure, and invocation of a supplied callback. `PreservesStorage` requires a
 complete proof with no effect beyond reading. Missing bodies, dynamic dispatch,

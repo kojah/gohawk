@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
-
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -42,7 +42,7 @@ func misleading() { Exit(0) }
 			calls, runDefers := 0, 0
 			for _, block := range pkg.Func(test.name).Blocks {
 				for _, instruction := range block.Instrs {
-					if !ssaflow.InstructionTerminatesControlFlow(instruction) {
+					if !ssapath.InstructionTerminatesControlFlow(instruction) {
 						continue
 					}
 					switch instruction.(type) {
@@ -82,7 +82,7 @@ func sample() { Fail(); FailNow(); Error() }
 			for _, call := range ssaflow.InstructionsOf[*ssa.Call](pkg.Func("sample")) {
 				want := test.fail && ssaflow.CallName(call.Common()) == "Fail" ||
 					test.path != "example.com/require" && ssaflow.CallName(call.Common()) == "FailNow"
-				if got := ssaflow.InstructionTerminatesControlFlow(call); got != want {
+				if got := ssapath.InstructionTerminatesControlFlow(call); got != want {
 					t.Errorf("%s: terminates=%t, want %t", call, got, want)
 				}
 			}
@@ -104,7 +104,7 @@ func mixed(b bool) { i := New(); if b { i = NewRelaxed() }; i.Fail() }
 	for _, name := range []string{"strict", "relaxed", "unknown", "mixed"} {
 		t.Run(name, func(t *testing.T) {
 			for _, call := range ssaflow.InstructionsOf[*ssa.Call](pkg.Func(name)) {
-				if ssaflow.CallName(call.Common()) == "Fail" && ssaflow.InstructionTerminatesControlFlow(call) != (name == "strict") {
+				if ssaflow.CallName(call.Common()) == "Fail" && ssapath.InstructionTerminatesControlFlow(call) != (name == "strict") {
 					t.Fatalf("wrong termination contract for %s", call)
 				}
 			}

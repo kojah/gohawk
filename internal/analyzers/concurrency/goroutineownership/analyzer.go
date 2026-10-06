@@ -6,10 +6,10 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -79,7 +79,7 @@ func (analysis *spawnAnalysis) emitTrace(pass *analysis.Pass, proof GoroutinePro
 	}
 	for edge, evidence := range analysis.edgeEvidence {
 		edgeOutcome := analysisTrace.OutcomeAccepted
-		if evidence.action == ssaflow.ObligationUnknown {
+		if evidence.action == ssapath.ObligationUnknown {
 			edgeOutcome = analysisTrace.OutcomeUnknown
 		}
 		probe.Evidence(analysisTrace.Step{

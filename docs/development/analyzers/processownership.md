@@ -119,7 +119,7 @@ proving that branch impossible needs constructor-dependent receiver state.
 
 An uncovered return after a one-time Start in the executable's real entry is
 program-lifetime ownership unknown. `decideProcessReturn` uses the shared
-`ssaflow.RunsOnceInProgramEntry` structural proof after exact wait/transfer and
+`calls.RunsOnceInProgramEntry` structural proof after exact wait/transfer and
 unused-command decisions. This boundary publishes no callee guarantee and does
 not equate Kill with Wait, guarantee child termination on parent exit, or prove
 that the parent observed the child's result. Missing observation or resources

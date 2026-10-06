@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -21,12 +22,12 @@ func TestLocalCompletionContractPolicyChanges(t *testing.T) {
 	})
 	// This trusted test contract affects only the exact argument of the visible
 	// contract callee. The ordinary body contains no cleanup at all.
-	accepts := func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, condition ssaflow.CallCondition) bool {
+	accepts := func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, condition ssacall.CallCondition) bool {
 		common := ssaflow.InstructionCall(instruction)
 		return common != nil && common.StaticCallee() == pkg.Func("contract") && len(common.Args) == 1 && common.Args[0] == target &&
 			method == "Close" && !invoke && condition.Unconditional()
 	}
-	rejects := func(ssa.Instruction, ssa.Value, string, bool, ssaflow.CallCondition) bool { return false }
+	rejects := func(ssa.Instruction, ssa.Value, string, bool, ssacall.CallCondition) bool { return false }
 	policies := map[string]CompletionSummaryLookup{"none": nil, "accepts": accepts, "rejects": rejects}
 	orders := [][]string{
 		{"none", "accepts", "none"},

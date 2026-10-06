@@ -5,6 +5,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -125,7 +126,7 @@ func sqlDatabaseCall(common *ssa.CallCommon, names ...string) bool {
 
 func sqlReceiverCall(common *ssa.CallCommon, receiver string, names ...string) bool {
 	for _, name := range names {
-		if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
+		if ssacall.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
 			PackagePath: "database/sql", Receiver: receiver, Name: name,
 		})) {
 			return true
@@ -139,7 +140,7 @@ func sqlReceiverCall(common *ssa.CallCommon, receiver string, names ...string) b
 func resourceContractsFor(common *ssa.CallCommon, settings resourceLifetimeSettings) []resourceContract {
 	var contracts []resourceContract
 	for _, contract := range settings.catalog {
-		if ssaflow.CallMatchesSymbol(common, contract.symbol) {
+		if ssacall.CallMatchesSymbol(common, contract.symbol) {
 			contracts = append(contracts, contract)
 		}
 	}
@@ -230,7 +231,7 @@ func memoryWriterExempt(call *ssa.Call, contract resourceContract) bool {
 	// outside this exemption.
 	// https://github.com/apache/pulsar-client-go/blob/1a6d7ac818c9daae9df5c37cb24c0695fabc9eec/pulsar/internal/compression/zlib.go#L39-L52
 	if constructor, ok := underlying.(*ssa.Call); ok && constructor.Parent() == call.Parent() {
-		return ssaflow.CallMatchesAnySymbol(constructor.Common(),
+		return ssacall.CallMatchesAnySymbol(constructor.Common(),
 			syntax.PackageFunction("bytes", "NewBuffer"), syntax.PackageFunction("bytes", "NewBufferString"))
 	}
 	local, ok := underlying.(*ssa.Alloc)

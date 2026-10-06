@@ -7,6 +7,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/analysistest"
 	"golang.org/x/tools/go/ssa"
@@ -89,7 +90,7 @@ func checkFreshResultProofs(t *testing.T, engine *Engine, functions []*ssa.Funct
 		}
 		if function.Name() == "HeavyPredicate" {
 			got := engine.Function(function, proofs.NewSearchBudget(4*proofs.SummaryBudget))
-			if !got.Available || !got.Implies(ssaflow.ParameterNil(0), 0, ssaflow.OutcomeFalse) {
+			if !got.Available || !got.Implies(ssacall.ParameterNil(0), 0, ssacall.OutcomeFalse) {
 				t.Error("publication cutoff poisoned fresh conditional inference")
 			}
 		}

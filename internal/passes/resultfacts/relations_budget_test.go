@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -19,7 +19,7 @@ func TestAssumedResultCutoff(t *testing.T) {
 			value = returned.Results[0]
 		}
 	}
-	assumed := ssaflow.FixedValues{function.Params[0]: ssaflow.OutcomeNil}
+	assumed := ssacall.FixedValues{function.Params[0]: ssacall.OutcomeNil}
 	engine := NewEngine()
 	zero := proofs.NewSearchBudget(0)
 	if got := engine.assumedValue(value, assumed, zero); got != Unknown || !zero.Exhausted() {

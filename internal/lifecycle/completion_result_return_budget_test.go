@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -51,7 +52,7 @@ func TestResultReturnBindingAllowance(t *testing.T) {
 					continue
 				}
 				checked++
-				baseline := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome)
+				baseline := guard.CompletesAtReturn(request, returned, ssacall.ValueOutcome)
 				if name == "earlierResult" && baseline != proofs.EvidenceUnknown {
 					t.Fatalf("earlier result=%v", baseline)
 				}
@@ -83,25 +84,25 @@ func TestResultReturnCallbackChildAndFresh(t *testing.T) {
 		}
 		pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 		request.Budget = pool.Within(1)
-		if got := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome); got != proofs.EvidenceUnknown || pool.Exhausted() {
+		if got := guard.CompletesAtReturn(request, returned, ssacall.ValueOutcome); got != proofs.EvidenceUnknown || pool.Exhausted() {
 			t.Fatalf("child=%v pool exhausted=%v", got, pool.Exhausted())
 		}
 		request.Budget = pool.Within(proofs.SummaryBudget)
-		baseline := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome)
+		baseline := guard.CompletesAtReturn(request, returned, ssacall.ValueOutcome)
 		if baseline == proofs.EvidenceUnknown {
 			t.Fatal("fresh binding remained unknown")
 		}
 		request.Budget = pool.Within(proofs.SummaryBudget)
-		outcome := func(value ssa.Value) (ssaflow.Outcome, bool) {
+		outcome := func(value ssa.Value) (ssacall.Outcome, bool) {
 			for request.Budget.Spend() {
 			}
-			return ssaflow.ValueOutcome(value)
+			return ssacall.ValueOutcome(value)
 		}
 		if got := guard.CompletesAtReturn(request, returned, outcome); got != proofs.EvidenceUnknown || pool.Exhausted() {
 			t.Fatalf("callback cut=%v pool exhausted=%v", got, pool.Exhausted())
 		}
 		request.Budget = pool.Within(proofs.SummaryBudget)
-		if got := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome); got != baseline {
+		if got := guard.CompletesAtReturn(request, returned, ssacall.ValueOutcome); got != baseline {
 			t.Fatalf("fresh=%v want%v", got, baseline)
 		}
 	}
@@ -197,7 +198,7 @@ func checkReturnCompletionWithin(t *testing.T, guard ResultGuard, request Comple
 	t.Helper()
 	for limit := 0; limit <= proofs.SummaryBudget; limit++ {
 		request.Budget = proofs.NewSearchBudget(limit)
-		got := guard.CompletesAtReturn(request, returned, ssaflow.ValueOutcome)
+		got := guard.CompletesAtReturn(request, returned, ssacall.ValueOutcome)
 		if request.Budget.Exhausted() || limit == 0 {
 			if got != proofs.EvidenceUnknown {
 				t.Fatalf("cut%d completion=%v", limit, got)

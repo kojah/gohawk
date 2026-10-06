@@ -12,6 +12,7 @@ import (
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -69,7 +70,7 @@ func runResourceLifetime(pass *analysis.Pass) (any, error) {
 
 // checkAcquisition proves or reports one owned result of an acquisition.
 func checkAcquisition(pass *analysis.Pass, evidence *lifecyclefacts.LifecycleEvidence, function *ssa.Function, call *ssa.Call, contract resourceContract) {
-	resource := ssaflow.CallResult(call, contract.result)
+	resource := ssacall.CallResult(call, contract.result)
 	if resource == nil {
 		return
 	}

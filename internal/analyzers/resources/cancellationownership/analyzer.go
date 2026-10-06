@@ -4,10 +4,10 @@ package cancellationownership
 import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -40,7 +40,7 @@ func runCancellationOwnership(pass *analysis.Pass) (any, error) {
 				if !ok {
 					continue
 				}
-				cancel := ssaflow.CallResult(call, contract.result)
+				cancel := ssacall.CallResult(call, contract.result)
 				if cancel == nil {
 					continue
 				}
@@ -124,7 +124,7 @@ func cancellationFunction(packagePath, name string) cancellationContract {
 
 func cancellationContractFor(common *ssa.CallCommon) (cancellationContract, bool) {
 	for _, contract := range cancellationContracts {
-		if ssaflow.CallMatchesSymbol(common, contract.symbol) {
+		if ssacall.CallMatchesSymbol(common, contract.symbol) {
 			return contract, true
 		}
 	}

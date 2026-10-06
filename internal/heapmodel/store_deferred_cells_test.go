@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -89,7 +90,7 @@ func deferredCellCase(t *testing.T, function *ssa.Function) (*ssa.Alloc, ssa.Ins
 		if common == nil {
 			continue
 		}
-		_, closure := ssaflow.DirectCallee(common)
+		_, closure := ssacall.DirectCallee(common)
 		if closure == nil && ssaflow.CallName(common) == "register" {
 			closure, _ = common.Args[0].(*ssa.MakeClosure)
 		}

@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -35,12 +36,12 @@ func (evidence *LifecycleEvidence) ArgumentRetainedByCallee(instruction ssa.Inst
 // every normal return instead of promoting a possible store to completion.
 func (evidence *LifecycleEvidence) visibleCalleeRetains(instruction ssa.Instruction, target ssa.Value) bool {
 	common := ssaflow.InstructionCall(instruction)
-	function, closure := ssaflow.DirectCallee(common)
+	function, closure := ssacall.DirectCallee(common)
 	if function == nil || len(function.Blocks) == 0 {
 		return false
 	}
 	retentions := evidence.retentionQueries()
-	for _, binding := range ssaflow.CallBindings(common, function, closure) {
+	for _, binding := range ssacall.CallBindings(common, function, closure) {
 		if !heapmodel.NewStorage(nil).Same(binding.Supplied, target).Proven() ||
 			!retentions.storedEveryReturn(evidence.pass, function, binding.Local) {
 			continue

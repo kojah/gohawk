@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -61,22 +62,22 @@ func selectedReceiveAtEntry(instruction ssa.Instruction, matches func(ssa.Value)
 	if len(block.Instrs) == 0 || block.Instrs[0] != instruction {
 		return false
 	}
-	channel, selected := ssaflow.SelectedReceiveChannel(block)
+	channel, selected := ssapath.SelectedReceiveChannel(block)
 	return selected && matches(channel)
 }
 
 func (analysis *spawnAnalysis) selectedJoinEdge(from, to *ssa.BasicBlock) bool {
-	channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
+	channel, selected := ssapath.SelectedReceiveOnEdge(from, to)
 	joined := selected && analysis.isSignal(channel)
 	if joined {
-		analysis.recordEdge(from, to, reasonSelectedReceiveEdge, ssaflow.ObligationExact)
+		analysis.recordEdge(from, to, reasonSelectedReceiveEdge, ssapath.ObligationExact)
 	}
 	return joined
 }
 
 // recordEdge keeps the authoritative reason and action for the trace. Tracing
 // projects the action instead of reconstructing proof strength from reason names.
-func (analysis *spawnAnalysis) recordEdge(from, to *ssa.BasicBlock, reason goroutineOwnershipReason, action ssaflow.ObligationAction) {
+func (analysis *spawnAnalysis) recordEdge(from, to *ssa.BasicBlock, reason goroutineOwnershipReason, action ssapath.ObligationAction) {
 	if !analysis.tracing {
 		return
 	}

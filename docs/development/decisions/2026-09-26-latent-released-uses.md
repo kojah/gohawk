@@ -11,7 +11,7 @@ Pulse's sense: the lifecycle summary records it with the condition, and only a
 call whose constant arguments satisfy the condition reports it.
 
 The summary claim, a released use, is structural and uses the same
-`ssaflow.CallCondition` as every other conditional claim: under the condition,
+`calls.CallCondition` as every other conditional claim: under the condition,
 a direct cleanup call on the exact parameter dominates a method call on it,
 with nothing else touching the parameter in between. Which methods fail on a
 released value is the analyzer's contract, so the fact stays neutral and the

@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -66,7 +67,7 @@ func presence(flag bool) { value := acquire(); if value != nil { value.Close() }
 	}{{"leaky", proofs.EvidenceProven}, {"closed", proofs.EvidenceDisproven}, {"presence", proofs.EvidenceDisproven}} {
 		function := pkg.Func(test.name)
 		acquisition := ssaflow.InstructionsOf[*ssa.Call](function)[0]
-		if test.name != "presence" && len(ssaflow.GuardsDominatingWithin(acquisition, nil)) == 0 {
+		if test.name != "presence" && len(ssapath.GuardsDominatingWithin(acquisition, nil)) == 0 {
 			t.Fatal("fixture must establish a dominating guard in actual SSA")
 		}
 		completed := false

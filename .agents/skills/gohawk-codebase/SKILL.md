@@ -35,8 +35,10 @@ Walk the decision in order and stop at the first fit.
    implementation looks reusable.
 2. **`internal/proof`** for shared outcomes, provenance and work budgets;
    **`internal/ssaflow/cfg`** for structural control-flow mechanics;
-   **`internal/ssaflow`** for shared value provenance, calls and
-   control flow; **`internal/heapmodel`** for storage, identity, and heap queries;
+   **`internal/ssaflow`** for shared value provenance and source metadata;
+   **`internal/ssaflow/calls`** for callee bindings, contracts and effect summaries;
+   **`internal/ssaflow/path`** for feasible paths and obligation coverage;
+   **`internal/heapmodel`** for storage, identity, and heap queries;
    **`internal/lifecycle`** for completion and transfer proofs using that evidence;
    **`internal/resourcemodel`**
    for per-path resource obligations and exact reusable external state
@@ -62,8 +64,8 @@ first. In particular:
   or `ResolveReachingValue`. Never fan out over phi edges or thread a visited
   set yourself; `TestAnalyzersUseSharedTraversal` rejects it.
 - Path-sensitive state over blocks: `cfg.WalkStates`.
-- Does an action cover every return: `ssaflow.EvaluateObligation`, or the
-  Boolean `ssaflow.UnownedReturn*` family when only violation matters.
+- Does an action cover every return: `path.EvaluateObligation`, or the
+  Boolean `path.UnownedReturn*` family when only violation matters.
 - Peeling wrappers: `ssaflow.UnwrapTransparentValue` with an explicit form set.
   There is deliberately no universal unwrap helper.
 - Collecting instructions of one type: `ssaflow.InstructionsOf`.

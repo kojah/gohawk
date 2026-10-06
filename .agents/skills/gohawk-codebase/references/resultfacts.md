@@ -81,7 +81,7 @@ conflicting evidence, unsupported values, and absence of a return witness.
 [Source](../../../../internal/passes/resultfacts/results.go)
 
 ```go
-func (guarantee Guarantee) Outcome() (ssaflow.Outcome, bool)
+func (guarantee Guarantee) Outcome() (ssacall.Outcome, bool)
 ```
 
 Outcome projects a known unconditional guarantee into flow evidence. Unknown
@@ -150,9 +150,9 @@ const (
 
 ```go
 type ResultCase struct {
-	Condition	ssaflow.CallCondition
+	Condition	ssacall.CallCondition
 	Result		int
-	Outcome		ssaflow.Outcome
+	Outcome		ssacall.Outcome
 }
 ```
 
@@ -205,7 +205,7 @@ Cases returns every proven result case.
 [Source](../../../../internal/passes/resultfacts/relations.go)
 
 ```go
-func (summary Summary) Implies(query ssaflow.CallCondition, result int, outcome ssaflow.Outcome) bool
+func (summary Summary) Implies(query ssacall.CallCondition, result int, outcome ssacall.Outcome) bool
 ```
 
 Implies reports whether some proven case answers query: result has

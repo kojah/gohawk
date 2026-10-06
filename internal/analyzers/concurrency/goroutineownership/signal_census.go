@@ -3,6 +3,7 @@ package goroutineownership
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 )
 
@@ -35,7 +36,7 @@ func (analysis *spawnAnalysis) proveUnobservedSignalsWithin(budget *proofs.Searc
 			if !budget.Spend() {
 				return unknown
 			}
-			if !ssaflow.CallMatchesSymbol(ssaflow.InstructionCall(use.Instruction), syntax.Builtin("close")) {
+			if !ssacall.CallMatchesSymbol(ssaflow.InstructionCall(use.Instruction), syntax.Builtin("close")) {
 				return disproven
 			}
 		}

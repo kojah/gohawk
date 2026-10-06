@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -35,7 +36,7 @@ func (effects *httpWriterEffects) scanDefaultOverrides(function *ssa.Function, b
 	for instruction := range ssaflow.InstructionsWithin(function, budget) {
 		if allowRootDo {
 			if load, ok := instruction.(*ssa.UnOp); ok && load.Op == token.MUL &&
-				ssaflow.ValueMatchesSymbol(load.X, httpDefaultClient) && onlyHTTPDoUsesWithin(load, budget) {
+				ssacall.ValueMatchesSymbol(load.X, httpDefaultClient) && onlyHTTPDoUsesWithin(load, budget) {
 				continue
 			}
 		}
@@ -43,11 +44,11 @@ func (effects *httpWriterEffects) scanDefaultOverrides(function *ssa.Function, b
 			if !budget.Spend() {
 				return true
 			}
-			if operand != nil && ssaflow.ValueMatchesAnySymbol(*operand, httpDefaultClient, httpDefaultTransport) {
+			if operand != nil && ssacall.ValueMatchesAnySymbol(*operand, httpDefaultClient, httpDefaultTransport) {
 				return true
 			}
 		}
-		callee, _ := ssaflow.DirectCallee(ssaflow.InstructionCall(instruction))
+		callee, _ := ssacall.DirectCallee(ssaflow.InstructionCall(instruction))
 		if callee != nil && len(callee.Blocks) != 0 && effects.overrides.Function(callee, budget) {
 			return true
 		}

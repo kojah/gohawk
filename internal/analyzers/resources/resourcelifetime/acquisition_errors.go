@@ -11,6 +11,8 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -38,7 +40,7 @@ func proveAcquisitionErrorResultWithin(call *ssa.Call, budget *proofs.SearchBudg
 	// The success guard must track the error paired with the acquisition, not
 	// assume it occupies slot one. termios.Pty returns (master, slave, err):
 	// https://github.com/89luca89/lilipod/blob/872755a7cef33c238ea2d11b2310b3116944eb48/ptyagent/pty.go#L134-L146
-	value := ssaflow.CallResultWithin(call, last, budget)
+	value := ssacall.CallResultWithin(call, last, budget)
 	proof := carriedValueProof(value != nil, resourceReasonNone, budget)
 	// An unavailable error lookup cannot activate ownership on the failed
 	// acquisition edge. Only a completed search may supply an absent extract.
@@ -92,14 +94,14 @@ func proveResourceSuccessBranch(
 		}
 		return resourceBranchProof{resourceProof: carriedValueProof(true, resourceReasonTestifyNoErrorGuard, budget), success: success}
 	}
-	success, known := ssaflow.SuccessBranchWithin(block, successor, errorValue, budget)
+	success, known := ssapath.SuccessBranchWithin(block, successor, errorValue, budget)
 	proof = carriedValueProof(known, resourceReasonNone, budget)
 	return resourceBranchProof{resourceProof: proof, success: proof.Proven() && success}
 }
 
 func testifyNoErrorSuccessBranch(branch *ssa.If, successor *ssa.BasicBlock, errorValue ssa.Value, budget *proofs.SearchBudget) (bool, bool) {
 	call, ok := branch.Cond.(*ssa.Call)
-	if !ok || !ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestifyNoError) || len(call.Common().Args) < 2 ||
+	if !ok || !ssacall.HasLibraryContract(call.Common(), ssacall.ContractTestifyNoError) || len(call.Common().Args) < 2 ||
 		!heapmodel.MayAliasAnyWithin(call.Common().Args[1], []ssa.Value{errorValue}, budget) {
 		return false, false
 	}
@@ -139,7 +141,7 @@ func resourceAbsentErrorCheck(
 	// they are called only after that nil check. Require the exact acquisition
 	// error; a joined or wrapped error can be non-nil even when acquisition succeeds.
 	// https://github.com/bluesky-social/indigo/blob/41278964ec8e3253e70d4e919dfb8e34211c543d/atproto/identity/did.go#L108-L121
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("errors", "As")) &&
+	if ssacall.CallMatchesSymbol(common, syntax.PackageFunction("errors", "As")) &&
 		len(common.Args) == 2 && common.Args[0] == errorValue {
 		return carriedValueProof(true, resourceReasonErrorsAsExactAcquisitionError, budget)
 	}
@@ -164,7 +166,7 @@ func resourceAbsentErrorCheck(
 		{syntax.PackageFunction("os", "IsPermission"), resourceReasonOSIsPermission},
 		{syntax.PackageFunction("os", "IsTimeout"), resourceReasonOSIsTimeout},
 	} {
-		if ssaflow.CallMatchesSymbol(common, predicate.symbol) {
+		if ssacall.CallMatchesSymbol(common, predicate.symbol) {
 			return carriedValueProof(true, predicate.reason, budget)
 		}
 	}
@@ -184,7 +186,7 @@ func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, er
 	if !budget.Spend() {
 		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
-	function, closure := ssaflow.DirectCallee(call.Common())
+	function, closure := ssacall.DirectCallee(call.Common())
 	if function == nil {
 		captureBudget := budget.Within(proofs.QueryBudget)
 		function = capturedErrorPredicate(call, captureBudget)
@@ -213,7 +215,7 @@ func errorPredicateAcquisition(knowledge *summaries.Provider, call *ssa.Call, er
 		if resourceFlowExhausted(summaryBudget) {
 			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
-		if available == summaries.Available && !resourceFlowExhausted(budget) && summary.Implies(ssaflow.ParameterNil(index), 0, ssaflow.OutcomeFalse) {
+		if available == summaries.Available && !resourceFlowExhausted(budget) && summary.Implies(ssacall.ParameterNil(index), 0, ssacall.OutcomeFalse) {
 			return resourceProof{State: proofs.EvidenceProven, Reason: resourceReasonErrorPredicateFalseForNil}
 		}
 	}
@@ -247,7 +249,7 @@ type capturedPredicateQuery struct {
 
 func (query *capturedPredicateQuery) cell(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 	free, ok := value.(*ssa.FreeVar)
-	if !ok || free.Parent().Parent() == nil || !ssaflow.NewCallEffects(query.budget).Value(free).PreservesStorage() {
+	if !ok || free.Parent().Parent() == nil || !ssacall.NewCallEffects(query.budget).Value(free).PreservesStorage() {
 		return false
 	}
 	var creations []ssa.Value
@@ -317,7 +319,7 @@ func errorsIsNonNilSentinel(condition, errorValue ssa.Value, budget *proofs.Sear
 		return resourceReasonNone, false
 	}
 	common := call.Common()
-	if !ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("errors", "Is")) || len(common.Args) != 2 || common.Args[0] != errorValue {
+	if !ssacall.CallMatchesSymbol(common, syntax.PackageFunction("errors", "Is")) || len(common.Args) != 2 || common.Args[0] != errorValue {
 		return resourceReasonNone, false
 	}
 	reason := nonNilErrorSentinelReason(common.Args[1], budget)
@@ -348,7 +350,7 @@ func nonNilErrorSentinelReason(value ssa.Value, budget *proofs.SearchBudget) res
 			}
 			value = typed.X
 		case *ssa.Global:
-			if ssaflow.ValueMatchesAnySymbol(
+			if ssacall.ValueMatchesAnySymbol(
 				typed,
 				syntax.PackageVariable("os", "ErrNotExist"),
 				syntax.PackageVariable("os", "ErrExist"),
@@ -357,7 +359,7 @@ func nonNilErrorSentinelReason(value ssa.Value, budget *proofs.SearchBudget) res
 			) {
 				return resourceReasonErrorsIsNonNilFilesystemSentinel
 			}
-			if ssaflow.ValueMatchesAnySymbol(typed,
+			if ssacall.ValueMatchesAnySymbol(typed,
 				syntax.PackageVariable("context", "Canceled"), syntax.PackageVariable("context", "DeadlineExceeded"),
 			) {
 				return resourceReasonErrorsIsNonNilContextSentinel

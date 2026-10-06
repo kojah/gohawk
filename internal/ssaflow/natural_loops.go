@@ -193,7 +193,7 @@ func risingCounter(loop NaturalLoop, value ssa.Value) *ssa.Phi {
 
 func unitStep(value ssa.Value) *ssa.BinOp {
 	step, ok := value.(*ssa.BinOp)
-	if !ok || step.Op != token.ADD || !integerLiteral(step.Y, 1) {
+	if !ok || step.Op != token.ADD || !IntegerLiteralEquals(step.Y, 1) {
 		return nil
 	}
 	return step

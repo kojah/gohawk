@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -35,7 +36,7 @@ func (analysis *spawnAnalysis) helperAction(
 	budget := analysis.budget()
 	result := actionNone
 	var search *helperSearch
-	for pair := range ssaflow.CallBindingsWithin(common, callee, closure, budget) {
+	for pair := range ssacall.CallBindingsWithin(common, callee, closure, budget) {
 		for _, tracked := range values {
 			if !budget.Spend() {
 				return analysis.helperCallResult(actionUnknown, budget)

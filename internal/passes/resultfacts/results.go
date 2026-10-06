@@ -10,6 +10,8 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -28,19 +30,19 @@ const (
 // Outcome projects a known unconditional guarantee into flow evidence. Unknown
 // and invalid guarantees leave the outcome unconstrained; this projection
 // establishes neither ownership nor that a cleanup action occurred.
-func (guarantee Guarantee) Outcome() (ssaflow.Outcome, bool) {
+func (guarantee Guarantee) Outcome() (ssacall.Outcome, bool) {
 	switch guarantee {
 	case AlwaysNil:
-		return ssaflow.OutcomeNil, true
+		return ssacall.OutcomeNil, true
 	case AlwaysNonNil:
-		return ssaflow.OutcomeNonNil, true
+		return ssacall.OutcomeNonNil, true
 	case AlwaysTrue:
-		return ssaflow.OutcomeTrue, true
+		return ssacall.OutcomeTrue, true
 	case AlwaysFalse:
-		return ssaflow.OutcomeFalse, true
+		return ssacall.OutcomeFalse, true
 	case Unknown:
 	}
-	return ssaflow.OutcomeAny, false
+	return ssacall.OutcomeAny, false
 }
 
 const maxResults = 16
@@ -79,14 +81,14 @@ func (summary Summary) Result(index int) Guarantee {
 // access; recursion and budget handling are owned by FunctionSummaries.
 type Engine struct {
 	mu        sync.Mutex
-	summaries *ssaflow.FunctionSummaries[Summary]
+	summaries *ssacall.FunctionSummaries[Summary]
 	imported  map[*types.Func]Fact
 }
 
 // NewEngine creates local-only result inference with no library-name guesses.
 func NewEngine() *Engine {
 	engine := &Engine{}
-	engine.summaries = ssaflow.NewFunctionSummaries(engine.compute, func(reason ssaflow.SummaryUnavailable) Summary {
+	engine.summaries = ssacall.NewFunctionSummaries(engine.compute, func(reason ssacall.SummaryUnavailable) Summary {
 		return Summary{Reason: ReasonSummaryUnavailable}
 	})
 	return engine
@@ -146,8 +148,8 @@ func (engine *Engine) compute(function *ssa.Function, budget *proofs.SearchBudge
 	// return normally from a panic the entry never reaches, so it makes no
 	// claim.
 	if function.Recover == nil {
-		proof := ssaflow.ProveNormalReturnWithin(function.Blocks[0], func(call *ssa.Call) bool {
-			return engine.function(ssaflow.ResolvedCallee(call.Common()), budget).NeverReturns()
+		proof := ssapath.ProveNormalReturnWithin(function.Blocks[0], func(call *ssa.Call) bool {
+			return engine.function(ssacall.ResolvedCallee(call.Common()), budget).NeverReturns()
 		}, budget)
 		if !proof.Known() {
 			return Summary{Reason: ReasonBudgetExhausted}
@@ -175,8 +177,8 @@ func (engine *Engine) leaf(value ssa.Value, budget *proofs.SearchBudget) Guarant
 	if !budget.Spend() {
 		return Unknown
 	}
-	if call, index, ok := ssaflow.CallResultSource(value); ok {
-		return engine.function(ssaflow.ResolvedCallee(call.Common()), budget).Result(index)
+	if call, index, ok := ssacall.CallResultSource(value); ok {
+		return engine.function(ssacall.ResolvedCallee(call.Common()), budget).Result(index)
 	}
 	switch value := value.(type) {
 	case *ssa.Const:

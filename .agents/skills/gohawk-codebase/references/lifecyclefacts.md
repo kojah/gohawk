@@ -128,7 +128,7 @@ CompletionProof retains path coverage along with its summary explanation.
 
 ```go
 type Discharge struct {
-	Condition	ssaflow.CallCondition
+	Condition	ssacall.CallCondition
 	Parameter	int
 	Method		string
 	Path		string
@@ -525,7 +525,7 @@ it. The proof outranks a lifecycle-looking method name on the result type.
 ```go
 func (evidence *LifecycleEvidence) CallEffectsWithin(
 	instruction ssa.Instruction, target ssa.Value, budget *proofs.SearchBudget,
-) ssaflow.CallEffectProof
+) ssacall.CallEffectProof
 ```
 
 CallEffectsWithin exposes local call-effect evidence beside lifecycle evidence.

@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,13 +17,13 @@ import (
 // evidence cannot prove this contract; alias internals retain separate costs.
 
 type httpWriterEffects struct {
-	writers   *ssaflow.CallGraphMemo[*ssa.Parameter, bool]
-	overrides *ssaflow.FunctionSummaries[bool]
+	writers   *ssacall.CallGraphMemo[*ssa.Parameter, bool]
+	overrides *ssacall.FunctionSummaries[bool]
 }
 
 func newHTTPWriterEffects() *httpWriterEffects {
-	effects := &httpWriterEffects{writers: ssaflow.NewCallGraphMemo[*ssa.Parameter, bool]()}
-	effects.overrides = ssaflow.NewFunctionSummaries(effects.visibleOverrides, func(ssaflow.SummaryUnavailable) bool { return true })
+	effects := &httpWriterEffects{writers: ssacall.NewCallGraphMemo[*ssa.Parameter, bool]()}
+	effects.overrides = ssacall.NewFunctionSummaries(effects.visibleOverrides, func(ssacall.SummaryUnavailable) bool { return true })
 	return effects
 }
 
@@ -39,7 +40,7 @@ func (effects *httpWriterEffects) headerOnly(writer *ssa.Parameter, budget *proo
 			}
 		}
 		return !resourceFlowExhausted(budget)
-	}, func(ssaflow.SummaryUnavailable, bool) bool { return false })
+	}, func(ssacall.SummaryUnavailable, bool) bool { return false })
 }
 
 func (effects *httpWriterEffects) writerUse(instruction ssa.Instruction, writer ssa.Value, budget *proofs.SearchBudget) bool {
@@ -51,15 +52,15 @@ func (effects *httpWriterEffects) writerUse(instruction ssa.Instruction, writer 
 		return false
 	}
 	common := call.Common()
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "SetCookie")) {
+	if ssacall.CallMatchesSymbol(common, syntax.PackageFunction("net/http", "SetCookie")) {
 		return true
 	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
+	if ssacall.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
 		PackagePath: "net/http", Receiver: "ResponseWriter", Name: "Header",
 	})) {
 		return benignHTTPHeaders(call, budget)
 	}
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
+	if ssacall.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
 		PackagePath: "net/http", Receiver: "ResponseWriter", Name: "WriteHeader",
 	})) {
 		code, ok := common.Args[0].(*ssa.Const)
@@ -69,12 +70,12 @@ func (effects *httpWriterEffects) writerUse(instruction ssa.Instruction, writer 
 		n, exact := constant.Int64Val(code.Value)
 		return exact && n >= 200 && n <= 599 && (n < 300 || n >= 400)
 	}
-	callee, closure := ssaflow.DirectCallee(common)
+	callee, closure := ssacall.DirectCallee(common)
 	// A visible helper must preserve the same restriction for every parameter
 	// receiving the writer. Missing bodies or captured/dynamic dispatch are not
 	// evidence of an empty effect set, so they cannot establish empty framing.
 	found := false
-	for _, binding := range ssaflow.CallBindings(common, callee, closure) {
+	for _, binding := range ssacall.CallBindings(common, callee, closure) {
 		if !budget.Spend() {
 			return false
 		}
@@ -105,7 +106,7 @@ func benignHTTPHeaders(header *ssa.Call, budget *proofs.SearchBudget) bool {
 		if !ok || len(call.Common().Args) < 2 {
 			return false
 		}
-		if !ssaflow.CallMatchesAnySymbol(call.Common(),
+		if !ssacall.CallMatchesAnySymbol(call.Common(),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Header", Name: "Set"}),
 			syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "net/http", Receiver: "Header", Name: "Add"})) {
 			return false

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 )
 
 const completionCaptureTimingFixture = `
@@ -19,22 +20,22 @@ func TestCompletionCapturedOutcomeTiming(t *testing.T) {
 	pkg := buildTestSSA(t, completionCoverageBudgetFixture+completionCaptureTimingFixture)
 	for _, test := range []struct {
 		name  string
-		known ssaflow.Outcome
+		known ssacall.Outcome
 		want  bool
 	}{
-		{"beforeCapture", ssaflow.OutcomeAny, true},
-		{"earlyCapture", ssaflow.OutcomeAny, false},
-		{"preStoreCapture", ssaflow.OutcomeAny, false},
-		{"lateCapture", ssaflow.OutcomeAny, false},
-		{"lateCapture", ssaflow.OutcomeTrue, true},
-		{"namedCapture", ssaflow.OutcomeAny, false},
-		{"namedCapture", ssaflow.OutcomeTrue, true},
-		{"namedCapture", ssaflow.OutcomeFalse, false},
+		{"beforeCapture", ssacall.OutcomeAny, true},
+		{"earlyCapture", ssacall.OutcomeAny, false},
+		{"preStoreCapture", ssacall.OutcomeAny, false},
+		{"lateCapture", ssacall.OutcomeAny, false},
+		{"lateCapture", ssacall.OutcomeTrue, true},
+		{"namedCapture", ssacall.OutcomeAny, false},
+		{"namedCapture", ssacall.OutcomeTrue, true},
+		{"namedCapture", ssacall.OutcomeFalse, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
 			call := findLaunch(t, fn)
-			body, closure := ssaflow.DirectCallee(ssaflow.InstructionCall(call))
+			body, closure := ssacall.DirectCallee(ssaflow.InstructionCall(call))
 			var dump strings.Builder
 			if _, err := fn.WriteTo(&dump); err != nil {
 				t.Fatal(err)
@@ -44,8 +45,8 @@ func TestCompletionCapturedOutcomeTiming(t *testing.T) {
 			}
 			t.Log(dump.String())
 			request := CompletionRequest{Instruction: call, Target: fn.Params[0], Methods: []string{"Close"}}
-			if test.known != ssaflow.OutcomeAny {
-				request.Constants = ssaflow.FixedValues{}
+			if test.known != ssacall.OutcomeAny {
+				request.Constants = ssacall.FixedValues{}
 				for pair := range ssaflow.ClosureBindingPairsWithin(body, closure, nil) {
 					if pair.Free.Name() == "done" {
 						request.Constants[pair.Binding] = test.known

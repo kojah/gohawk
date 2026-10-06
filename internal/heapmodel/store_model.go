@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -16,7 +17,7 @@ import (
 // Each query owns its budget; no state is shared between analyzed functions.
 type Storage struct {
 	budget  *proofs.SearchBudget
-	effects *ssaflow.CallEffects
+	effects *ssacall.CallEffects
 	// writesOnly keeps nested address/identity queries in the same bounded
 	// policy as ContentFromWrites, rather than reentering the graph fallback.
 	writesOnly bool
@@ -35,7 +36,7 @@ func NewStorage(budget *proofs.SearchBudget) *Storage {
 	if budget == nil {
 		budget = proofs.NewSearchBudget(proofs.QueryBudget)
 	}
-	return &Storage{budget: budget, effects: ssaflow.NewCallEffects(budget)}
+	return &Storage{budget: budget, effects: ssacall.NewCallEffects(budget)}
 }
 
 type storageLocation struct {
@@ -292,7 +293,7 @@ func (storage *Storage) collectUse(address ssa.Value, use, observation ssa.Instr
 		*stores = append(*stores, typed)
 		return nil, true
 	case *ssa.MakeClosure:
-		return use, ssaflow.CallbackCaptureReadOnly(typed, address, storage.budget)
+		return use, ssacall.CallbackCaptureReadOnly(typed, address, storage.budget)
 	case *ssa.Call, *ssa.Defer, *ssa.Go:
 		return use, storage.effects.Call(use, address).PreservesStorage()
 	case *ssa.Slice:

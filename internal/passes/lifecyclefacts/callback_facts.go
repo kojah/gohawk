@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -29,12 +30,12 @@ import (
 type callbackInference struct {
 	pass        *analysis.Pass
 	completed   Summaries
-	invocations *ssaflow.FunctionSummaries[Fact]
+	invocations *ssacall.FunctionSummaries[Fact]
 }
 
 func newCallbackInference(pass *analysis.Pass, completed Summaries) *callbackInference {
 	callbacks := &callbackInference{pass: pass, completed: completed}
-	callbacks.invocations = ssaflow.NewFunctionSummaries(callbacks.computeInvocations, func(ssaflow.SummaryUnavailable) Fact {
+	callbacks.invocations = ssacall.NewFunctionSummaries(callbacks.computeInvocations, func(ssacall.SummaryUnavailable) Fact {
 		return Fact{}
 	})
 	return callbacks
@@ -90,7 +91,7 @@ func (callbacks *callbackInference) fact(instruction ssa.Instruction, budget *pr
 	if fact, ok := importFact(callbacks.pass, instruction); ok {
 		return fact, true
 	}
-	callee := ssaflow.ResolvedCallee(ssaflow.InstructionCall(instruction))
+	callee := ssacall.ResolvedCallee(ssaflow.InstructionCall(instruction))
 	if callee == nil || callbacks.pass == nil || callee.Pkg == nil || callee.Pkg.Pkg != callbacks.pass.Pkg || len(callee.Blocks) == 0 {
 		return Fact{}, false
 	}

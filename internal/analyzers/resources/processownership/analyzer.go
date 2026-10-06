@@ -10,6 +10,7 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -59,7 +60,7 @@ func runProcessOwnership(pass *analysis.Pass) (any, error) {
 func startedCommand(instruction ssa.Instruction) (*ssa.Call, ssa.Value, bool) { //nolint:ireturn // Commands retain their concrete SSA forms.
 	start, ok := instruction.(*ssa.Call)
 	startCall := syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Start"})
-	if !ok || !ssaflow.CallMatchesSymbol(start.Common(), startCall) || !execCommandValue(ssaflow.CallReceiver(start.Common())) {
+	if !ok || !ssacall.CallMatchesSymbol(start.Common(), startCall) || !execCommandValue(ssaflow.CallReceiver(start.Common())) {
 		return nil, nil, false
 	}
 	return start, ssaflow.CallReceiver(start.Common()), true

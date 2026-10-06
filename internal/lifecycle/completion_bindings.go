@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -53,7 +54,7 @@ func (search *completionSearch) invokesTargetLocal(value, local ssa.Value) bool 
 
 func (search *completionSearch) bindCallbackArguments(callee completionCallee) *callbackBindings {
 	bindings := &callbackBindings{values: make(map[ssa.Value]callbackValue)}
-	for binding := range ssaflow.CallBindingsWithin(callee.common, callee.function, callee.closure, search.budget) {
+	for binding := range ssacall.CallBindingsWithin(callee.common, callee.function, callee.closure, search.budget) {
 		environment := search.bindings
 		if binding.Captured {
 			environment = callee.environment
@@ -152,7 +153,7 @@ func callbackAggregate(ref callbackValue, budget *proofs.SearchBudget) (callback
 	for budget.Spend() {
 		if ref.bindings != nil {
 			if next, ok := ref.bindings.values[ref.value]; ok {
-				if !ssaflow.NewCallEffects(budget).Value(ref.value).PreservesStorage() {
+				if !ssacall.NewCallEffects(budget).Value(ref.value).PreservesStorage() {
 					return callbackValue{}, false
 				}
 				ref = next

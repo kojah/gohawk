@@ -6,7 +6,9 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -88,11 +90,11 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 	// reached only through an opaque handoff, violated when a return is
 	// reached with no action at all. Opacity on one path never excuses an
 	// unrelated early return.
-	outcome, witness := ssaflow.EvaluateObligationWitness(ssaflow.ObligationFlow{
+	outcome, witness := ssapath.EvaluateObligationWitness(ssapath.ObligationFlow{
 		Start: analysis.spawn, Instruction: analysis.obligation, Edge: analysis.edgeObligation,
 		Successors: summaryKnowledge.Provider(analysis.pass).Successors(), Terminates: summaryKnowledge.Provider(analysis.pass).Terminates(),
 	})
-	if outcome == ssaflow.ObligationHonored {
+	if outcome == ssapath.ObligationHonored {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonJoinProven}
 	}
 	analysis.ruledOut(reasonJoinProven)
@@ -100,7 +102,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		return GoroutineProof{Outcome: GoroutineLifecycleHonored, Reason: reasonGuardedLocalJoin}
 	}
 	analysis.ruledOut(reasonGuardedLocalJoin)
-	if outcome == ssaflow.ObligationUncertain {
+	if outcome == ssapath.ObligationUncertain {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonOpaqueTransfer}
 	}
 	analysis.ruledOut(reasonOpaqueTransfer)
@@ -152,7 +154,7 @@ func (analysis *spawnAnalysis) prove() GoroutineProof {
 		return GoroutineProof{Outcome: GoroutineUnknown, Reason: reasonUnobservedSignal}
 	}
 	analysis.ruledOut(reasonUnobservedSignal)
-	if ssaflow.RunsOnceInProgramEntry(analysis.spawn) {
+	if ssacall.RunsOnceInProgramEntry(analysis.spawn) {
 		// A worker launched at most once by main.main cannot accumulate, and
 		// every way out of main ends the process and stops the worker. This
 		// settles the join obligation only; it is unknown rather than
@@ -270,7 +272,7 @@ func (analysis *spawnAnalysis) dominatingProof() (GoroutineProof, bool) {
 		// Testing callbacks also execute later, even when registration
 		// precedes the spawn. An ordinary Wait before spawn still cannot join.
 		// https://github.com/miniscruff/changie/blob/e78b7fcae4fd76fc588b6442117ef99c39835e15/then/write.go#L19-L35
-		deferred = deferred || ssaflow.HasLibraryContract(ssaflow.InstructionCall(instruction), ssaflow.ContractTestingCleanup)
+		deferred = deferred || ssacall.HasLibraryContract(ssaflow.InstructionCall(instruction), ssacall.ContractTestingCleanup)
 		switch analysis.action(instruction) {
 		case actionJoin:
 			if deferred {
@@ -305,10 +307,10 @@ func (analysis *spawnAnalysis) guardedLocalJoin() bool {
 		// Edge-local joins are deliberately not consulted here; this query
 		// asks only whether the non-nil fact lets ordinary exact actions
 		// cover every return.
-		honored := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
+		honored := ssapath.EvaluateObligation(ssapath.ObligationFlow{
 			Start: analysis.spawn, NonNil: created, Instruction: analysis.obligation,
 			Successors: summaryKnowledge.Provider(analysis.pass).Successors(), Terminates: summaryKnowledge.Provider(analysis.pass).Terminates(),
-		}) == ssaflow.ObligationHonored
+		}) == ssapath.ObligationHonored
 		if honored {
 			return true
 		}

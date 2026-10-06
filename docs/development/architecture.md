@@ -71,19 +71,24 @@ malformed JSON and analyzer errors keep their existing distinct handling.
   observers and work budgets. It has no dependency on SSA, heap or lifecycle
   engines; those consumers import it directly.
 
-- `internal/ssaflow` owns the reusable SSA mechanics: value provenance
-  (`ReachingWalk`), calls, and control-flow queries
-  (`EvaluateObligation`). It provides how to walk, not an
-  analyzer's reporting policy.
+- `internal/ssaflow` owns value provenance (`ReachingWalk`), structural identity,
+  source metadata and natural-loop mechanics. It does not depend on call or
+  path-proof packages.
 - `internal/ssaflow/cfg` owns structural reachability, instruction ordering,
   keyed work lists and selection from already-feasible edges. It depends only
   on shared work budgets; value, call and path-proof layers cannot become its
   dependencies. Its work-list caller owns state and successor feasibility.
+- `internal/ssaflow/calls` owns callee resolution, positional argument/capture
+  bindings, reusable API contracts and memoized call-effect summaries. It
+  consumes value and CFG mechanics and never depends on path proofs.
+- `internal/ssaflow/path` combines value and call evidence into feasible path
+  guards, exact counted regions and obligation coverage (`EvaluateObligation`).
+  It provides proof mechanics; analyzers retain their reporting policy.
 - `internal/lifecycle` builds completion and ownership-transfer
   proofs from `ssaflow` and `heapmodel`. Analyzers import the layer that owns
   the query they need; neither package forwards the other's API.
   Direct callee resolution and positional argument/capture pairing use
-  `ssaflow.DirectCallee` and `CallBindings`, including the broad deferred
+  `calls.DirectCallee` and `CallBindings`, including the broad deferred
   callback handoff query. Pairing supplies no identity guarantee: lifecycle
   keeps captured-cell matching distinct from eagerly evaluated arguments.
   Analyzer-side worker context bounds, nested completion signals and process
@@ -193,14 +198,14 @@ malformed JSON and analyzer errors keep their existing distinct handling.
   candidate with `Within`, so the proof as a whole is bounded and every
   give-up reaches the candidate's trace. Exhaustion means what the question's
   own polarity says it means; a pool decides nothing about that.
-- `ssaflow.PathGuards` remembers which arm of a branch a path took so a later
+- `path.PathGuards` remembers which arm of a branch a path took so a later
   branch on the same condition can be related to it. A stable guard, over
   parameters and constants or a Boolean computed once, cannot change within
   the invocation; a loaded guard reads a cell a hidden store could change.
   The engine reports which kind a contradiction is and each walk chooses:
   the obligation walk and lock order prune the other arm of a stable guard,
   resource lifetime and every walk treat a loaded contradiction as unknown.
-- `ssaflow.FlowLocationKeyWithin` names a function-local block, predecessor,
+- `path.FlowLocationKeyWithin` names a function-local block, predecessor,
   instruction position and path guards. The obligation and resource walks
   compose this shared location with their own coverage or resource state.
   A missing predecessor differs from entry block zero. Interrupted guard
@@ -255,14 +260,14 @@ the code cannot drift apart silently.
 | `TestSourceInventoryExcludesNonProductionTrees` | source inventories exclude fixtures, generated files, tests, and dot/underscore-prefixed trees such as cached audit checkouts |
 | `TestSourceInventoryIncludesAuthoredTests` | test-inclusive invariants share the source inventory, retaining fixture/generated exclusions and deduplicating overlapping roots |
 | `TestInternalPackagesRespectDependencyDirection` | analyzers may use shared tools; shared tools never depend on analyzers or the catalog |
-| `TestCFGDependencyBoundaries` | structural CFG mechanics depend only on shared budgets; they never depend on value or path proofs |
+| `TestSSADependencyBoundaries` | CFG and value mechanics sit below calls, and calls below path proofs; reverse dependencies are forbidden |
 | `TestAnalyzerPackageLayout` | one package per analyzer under `internal/analyzers/<group>/<name>` |
 | `TestAnalyzersUseSharedReporting` | diagnostics only through `check.Report` or `check.Reportf`, never `analysis.Pass.Report` directly |
 | `TestAnalyzerCodeUsesStructuredTracing` | production analyzer and analysis-pass code uses `internal/trace` rather than `fmt.Print`, `fmt.Printf`, or `fmt.Println` probes |
 | `TestNoPublicCheckIsAConvention` | no listed check is kind `policy`: a diagnostic a reader must first agree with is withdrawn from the catalog rather than published |
 | `TestTraceEventsAreAttributedToACandidate` | every trace event names the candidate whose proof it serves, so one finding's evidence can be selected out of a package's trace |
 | `TestTransparentFormsAreNamedAtTheCallSite` | each proof names the SSA wrappers it may look through, so a form added later cannot widen a proof nobody reviewed for it |
-| `TestCallGraphGuardsGoThroughTheSharedMemo` | a path-scoped call-graph guard goes through `ssaflow.CallGraphMemo`, so a walk covers the call graph rather than every call path through it |
+| `TestCallGraphGuardsGoThroughTheSharedMemo` | a path-scoped call-graph guard goes through `calls.CallGraphMemo`, so a walk covers the call graph rather than every call path through it |
 | `TestInterproceduralSearchesNameABudget` | a completion request names a `proof.SearchBudget`, so an interprocedural walk gives up rather than hanging on mutually recursive callees, and its caller decides what an abandoned search permits |
 | `TestSearchBudgetsAreNamed` | a `SearchBudget` is constructed from `proof.QueryBudget`, `proof.SummaryBudget`, or a named constant beside the proof, never a bare number, so the size of a bound is a recorded decision rather than a copied neighbour |
 | `TestSummaryInfrastructureBoundaries` | analyzers, SSA engines, and fact passes use the shared summary API; only the two implementation files own raw memo/guard operations and fields. Analyzer query sites must not pass literal nil budgets |

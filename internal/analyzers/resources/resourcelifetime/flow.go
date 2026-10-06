@@ -10,6 +10,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -207,5 +208,5 @@ func processExitReclaims(call *ssa.Call, contract resourceContract, budget *proo
 	// out of unconditional callee facts. Repeated/escaping helpers cannot
 	// establish that their acquisitions happen only once before process exit.
 	// https://github.com/boxesandglue/boxesandglue/blob/79509f4b6b0e2e7a1d0562139ab4d9946d4be080/helper/main.go#L10-L35
-	return ssaflow.RunsOnceThroughPrivateEntryCallsWithin(call, budget)
+	return ssacall.RunsOnceThroughPrivateEntryCallsWithin(call, budget)
 }

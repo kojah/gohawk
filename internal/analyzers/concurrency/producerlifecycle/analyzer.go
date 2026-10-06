@@ -11,7 +11,9 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
@@ -92,7 +94,7 @@ func producerSends(function *ssa.Function, engine *concurrencyfacts.Engine) []pr
 			// Resolve the source body before matching its parameters or captures.
 			// Generic wrappers contain a forwarding call, not the origin's sends;
 			// dynamic dispatch remains opaque under the shared direct-call policy.
-			spawned, closure := ssaflow.DirectCallee(spawn.Common())
+			spawned, closure := ssacall.DirectCallee(spawn.Common())
 			if spawned == nil {
 				continue
 			}
@@ -102,7 +104,7 @@ func producerSends(function *ssa.Function, engine *concurrencyfacts.Engine) []pr
 					if !ok {
 						continue
 					}
-					channel := ssaflow.SpawnedValueAtCall(spawn, spawned, closure, send.Chan)
+					channel := ssacall.SpawnedValueAtCall(spawn, spawned, closure, send.Chan)
 					if channel != nil && localUnbufferedChannel(function, channel) {
 						sends = append(sends, producerSend{
 							instruction: send, positions: []token.Pos{send.Pos()}, channel: channel,
@@ -122,7 +124,7 @@ func abandonedProducerSend(
 	// No normal caller return puts a continuing or terminated caller outside
 	// this finite consumer-count check (for example log.Fatal(<-results)).
 	// https://github.com/saljam/webwormhole/blob/abf852af0458ba79772d9c26ef01434165f217d8/cmd/ww/server.go#L458-L470
-	if ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: send.spawn, Owns: func(ssa.Instruction) bool { return false }}) == nil {
+	if ssapath.UnownedReturn(ssapath.UnownedReturnQuery{After: send.spawn, Owns: func(ssa.Instruction) bool { return false }}) == nil {
 		return producerProof{Reason: reasonReceiverDoesNotReturn}
 	}
 	count := countProducerSends(send, sends)

@@ -2,6 +2,7 @@ package concurrencyfacts
 
 import (
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -28,7 +29,7 @@ func (engine *Engine) collectCountedLoops(function *ssa.Function, root bool) Sum
 		if len(block.Succs) == 2 {
 			// Failure is attributed to the header, not an imagined iteration:
 			// the count proof does not establish that its body can finish.
-			loop := ssaflow.ProveCountedLoop(block, maxProtocolIterations, engine.budget)
+			loop := ssapath.ProveCountedLoop(block, maxProtocolIterations, engine.budget)
 			if !loop.Proven() || loop.CounterUsed || seen[loop.Body] || !engine.repeatableBody(loop.Body) {
 				engine.recordBlockCutoff(block, cutoffLoop)
 				return Summary{Reason: ReasonControlFlowUnknown}
@@ -130,7 +131,7 @@ func (engine *Engine) foldLoops(function *ssa.Function, root bool) map[*ssa.Basi
 		}
 		// An exact small count is unrolled later, which is more precise than
 		// one representative iteration.
-		if ssaflow.ProveCountedLoop(loop.Header, maxProtocolIterations, engine.budget).Proven() {
+		if ssapath.ProveCountedLoop(loop.Header, maxProtocolIterations, engine.budget).Proven() {
 			continue
 		}
 		if replay, ok := engine.workerPool(loop, root); ok {

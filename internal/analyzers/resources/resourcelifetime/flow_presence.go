@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -73,7 +74,7 @@ func proveResourcePresenceBranch(block, predecessor, successor *ssa.BasicBlock, 
 	// Saving a short-circuit condition introduces a phi. Only the incoming
 	// comparison on this path supplies evidence: an unrelated flag or a phi
 	// from an earlier block cannot establish that this resource is absent.
-	condition := ssaflow.BranchValueWithin(branch.Cond, block, predecessor, budget)
+	condition := ssapath.BranchValueWithin(branch.Cond, block, predecessor, budget)
 	asserted := assertedResource(condition, resource, budget)
 	if resourceFlowExhausted(budget) {
 		return unknownResourcePresence(budget)

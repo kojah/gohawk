@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -134,8 +135,8 @@ func visibleMutexSlotReplacement(
 				return true
 			}
 		case ssa.CallInstruction:
-			callee, closure := ssaflow.DirectCallee(use.Common())
-			for binding := range ssaflow.CallBindingsWithin(use.Common(), callee, closure, budget) {
+			callee, closure := ssacall.DirectCallee(use.Common())
+			for binding := range ssacall.CallBindingsWithin(use.Common(), callee, closure, budget) {
 				if binding.Supplied == owner && visibleMutexSlotReplacement(walk, binding.Local, field, observation, budget) {
 					return true
 				}
@@ -166,8 +167,8 @@ func mutexSlotWrittenShared(address *ssa.FieldAddr, budget *proofs.SearchBudget)
 			}
 		}
 		if call, ok := use.(ssa.CallInstruction); ok {
-			proof := ssaflow.NewCallEffects(budget).Call(call, address)
-			if proof.Effects&ssaflow.EffectMutate != 0 {
+			proof := ssacall.NewCallEffects(budget).Call(call, address)
+			if proof.Effects&ssacall.EffectMutate != 0 {
 				return true
 			}
 		}

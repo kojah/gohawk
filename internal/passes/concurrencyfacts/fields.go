@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -114,7 +115,7 @@ func (engine *Engine) fieldAddress(function *ssa.Function, path ssaflow.Embedded
 	return nil, false
 }
 
-func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBinding, instruction ssa.Instruction) (Reference, bool) {
+func (engine *Engine) bindField(reference Reference, bindings []ssacall.CallBinding, instruction ssa.Instruction) (Reference, bool) {
 	path, ok := engine.identityPath(reference.Value)
 	if reference.Projection.Depth > 0 {
 		path, ok = reference.Projection, true
@@ -164,7 +165,7 @@ func (engine *Engine) bindField(reference Reference, bindings []ssaflow.CallBind
 // fields there. A package mutex needs no binding: when the caller has no
 // address of its own for it, the callee's address still names it.
 func (engine *Engine) bindMutexPath(
-	reference Reference, path ssaflow.EmbeddedFieldPath, bindings []ssaflow.CallBinding, instruction ssa.Instruction,
+	reference Reference, path ssaflow.EmbeddedFieldPath, bindings []ssacall.CallBinding, instruction ssa.Instruction,
 ) (Reference, bool) {
 	root, valid := engine.bindRoot(path.Root, bindings, instruction)
 	if !valid {

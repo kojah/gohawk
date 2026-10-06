@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -121,7 +122,7 @@ func capturedLoadWithin(load *ssa.UnOp, capture *ssa.FreeVar, budget *proofs.Sea
 }
 
 // bindRoot maps a callee path root to the caller's path for the same object.
-func (engine *Engine) bindRoot(root ssa.Value, bindings []ssaflow.CallBinding, instruction ssa.Instruction) (ssaflow.EmbeddedFieldPath, bool) {
+func (engine *Engine) bindRoot(root ssa.Value, bindings []ssacall.CallBinding, instruction ssa.Instruction) (ssaflow.EmbeddedFieldPath, bool) {
 	switch root := root.(type) {
 	case *ssa.Global:
 		return ssaflow.EmbeddedFieldPath{Root: root}, true
@@ -160,7 +161,7 @@ func (engine *Engine) bindRoot(root ssa.Value, bindings []ssaflow.CallBinding, i
 // holds, which the heap model must prove stable from the launch on. A cell
 // forwarded from the caller's own capture stays a read of that capture.
 func (engine *Engine) bindCapturedRoot(
-	capture *ssa.FreeVar, bindings []ssaflow.CallBinding, instruction ssa.Instruction,
+	capture *ssa.FreeVar, bindings []ssacall.CallBinding, instruction ssa.Instruction,
 ) (ssaflow.EmbeddedFieldPath, bool) {
 	for _, binding := range bindings {
 		if binding.Local != capture {

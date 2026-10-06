@@ -7,6 +7,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -254,7 +255,7 @@ func (graph *regionGraph) opaqueRepresentationEscape(at ssa.Instruction, target 
 		}
 	}
 	common := ssaflow.InstructionCall(at)
-	if ssaflow.CallMatchesAnySymbol(common, opaqueAddressBuiltins...) {
+	if ssacall.CallMatchesAnySymbol(common, opaqueAddressBuiltins...) {
 		for _, argument := range common.Args {
 			graph.exportEscape(argument, target, at, EscapeToOpaqueRepresentation, proof, budget)
 		}

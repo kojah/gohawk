@@ -12,6 +12,7 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -179,7 +180,7 @@ func (analysis *resourceAnalysis) compressionOutputAbandoned(instruction ssa.Ins
 		}
 	}
 	common := ssaflow.InstructionCall(instruction)
-	return ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
+	return ssacall.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
 		PackagePath: "io", Receiver: "PipeWriter", Name: "CloseWithError",
 	})) && len(common.Args) == 2 && !ssaflow.DefinitelyNil(common.Args[1]) &&
 		// Possible identity is sufficient for uncertainty, including repeated

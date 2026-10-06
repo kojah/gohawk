@@ -7,6 +7,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -21,7 +22,7 @@ func TestCompletionCapturePrecedesArgumentMetadata(t *testing.T) {
 		strings.Join(parameters, ",")+"){group.n++}("+strings.Join(arguments, ",")+")}")
 	function := pkg.Func("subject")
 	spawn := ssaflow.InstructionsOf[*ssa.Go](function)[0]
-	worker, closure := ssaflow.DirectCallee(spawn.Common())
+	worker, closure := ssacall.DirectCallee(spawn.Common())
 	owner := closure.Bindings[0]
 	// The capture is exact without consulting any of the unrelated parameters.
 	// A fixed allowance must not be spent preparing their metadata first.

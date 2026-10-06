@@ -9,6 +9,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -269,6 +270,6 @@ func onEveryReturn(function *ssa.Function, budget *proofs.SearchBudget, calls fu
 	if !ssaflow.HasReturnAndAction(function.Blocks, calls) {
 		return false
 	}
-	flow := ssaflow.ObligationFlow{Instruction: ssaflow.ExactOrNone(calls), Budget: budget}
-	return ssaflow.EvaluateObligationFromEntry(function, flow) == ssaflow.ObligationHonored
+	flow := ssapath.ObligationFlow{Instruction: ssapath.ExactOrNone(calls), Budget: budget}
+	return ssapath.EvaluateObligationFromEntry(function, flow) == ssapath.ObligationHonored
 }

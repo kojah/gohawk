@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -38,8 +39,8 @@ func bindLockAcquisition(acquired lockAcquisition, call *ssa.Call) lockAcquisiti
 	if path.Root == nil {
 		return acquired
 	}
-	callee, closure := ssaflow.DirectCallee(call.Common())
-	for _, binding := range ssaflow.CallBindings(call.Common(), callee, closure) {
+	callee, closure := ssacall.DirectCallee(call.Common())
+	for _, binding := range ssacall.CallBindings(call.Common(), callee, closure) {
 		if binding.Local != path.Root {
 			continue
 		}
@@ -139,7 +140,7 @@ func freshOwnerResult(value ssa.Value, budget *proofs.SearchBudget) bool {
 	if !ok {
 		return false
 	}
-	callee, _ := ssaflow.DirectCallee(call.Common())
+	callee, _ := ssacall.DirectCallee(call.Common())
 	if callee == nil || len(callee.Blocks) == 0 {
 		return false
 	}
@@ -163,14 +164,14 @@ func boundSlotMutation(instruction ssa.Instruction, field *ssa.FieldAddr, storag
 	if !ok {
 		return false
 	}
-	callee, closure := ssaflow.DirectCallee(call.Common())
-	for binding := range ssaflow.CallBindingsWithin(call.Common(), callee, closure, budget) {
+	callee, closure := ssacall.DirectCallee(call.Common())
+	for binding := range ssacall.CallBindingsWithin(call.Common(), callee, closure, budget) {
 		if storage.Same(binding.Supplied, field.X).Proven() &&
 			visibleMutexSlotReplacement(ssaflow.NewReachingWalk(ssaflow.TransparentNone), binding.Local, field.Field, call, budget) {
 			return true
 		}
 		if sameBoundSlot(binding.Supplied, field, storage) &&
-			ssaflow.NewCallEffects(budget).Call(call, binding.Supplied).Effects&ssaflow.EffectMutate != 0 {
+			ssacall.NewCallEffects(budget).Call(call, binding.Supplied).Effects&ssacall.EffectMutate != 0 {
 			return true
 		}
 	}

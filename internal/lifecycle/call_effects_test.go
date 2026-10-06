@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -14,30 +15,30 @@ func TestCallEffects(t *testing.T) {
 	for _, test := range []struct {
 		name  string
 		body  string
-		want  ssaflow.CallEffect
+		want  ssacall.CallEffect
 		known bool
 	}{
 		{"unused", ``, 0, true},
-		{"read", `_ = p.n`, ssaflow.EffectRead, true},
-		{"write", `p.n=1`, ssaflow.EffectMutate, true},
-		{"readThenRetain", `_ = p.n; saved=p`, ssaflow.EffectRead | ssaflow.EffectRetain, false},
-		{"returnAddress", `return p`, ssaflow.EffectRetain, true},
-		{"nestedReader", `read(p)`, ssaflow.EffectRead, true},
-		{"nestedWriter", `write(p)`, ssaflow.EffectMutate, true},
-		{"nestedRetainer", `retain(p)`, ssaflow.EffectRetain, false},
-		{"asyncReader", `go read(p)`, ssaflow.EffectRead | ssaflow.EffectAsync, true},
-		{"deferredReader", `defer read(p)`, ssaflow.EffectRead, true},
-		{"deferredWriter", `defer write(p)`, ssaflow.EffectMutate, true},
-		{"spilledClosureReader", `func(){ _=p.n }()`, ssaflow.EffectRetain, false},
-		{"spilledClosureWriter", `func(){ p.n=1 }()`, ssaflow.EffectRetain, false},
-		{"spilledRetainedClosure", `callback=func(){ _=p.n }`, ssaflow.EffectRetain, false},
-		{"spilledAsyncClosure", `go func(){ _=p.n }()`, ssaflow.EffectRetain, false},
+		{"read", `_ = p.n`, ssacall.EffectRead, true},
+		{"write", `p.n=1`, ssacall.EffectMutate, true},
+		{"readThenRetain", `_ = p.n; saved=p`, ssacall.EffectRead | ssacall.EffectRetain, false},
+		{"returnAddress", `return p`, ssacall.EffectRetain, true},
+		{"nestedReader", `read(p)`, ssacall.EffectRead, true},
+		{"nestedWriter", `write(p)`, ssacall.EffectMutate, true},
+		{"nestedRetainer", `retain(p)`, ssacall.EffectRetain, false},
+		{"asyncReader", `go read(p)`, ssacall.EffectRead | ssacall.EffectAsync, true},
+		{"deferredReader", `defer read(p)`, ssacall.EffectRead, true},
+		{"deferredWriter", `defer write(p)`, ssacall.EffectMutate, true},
+		{"spilledClosureReader", `func(){ _=p.n }()`, ssacall.EffectRetain, false},
+		{"spilledClosureWriter", `func(){ p.n=1 }()`, ssacall.EffectRetain, false},
+		{"spilledRetainedClosure", `callback=func(){ _=p.n }`, ssacall.EffectRetain, false},
+		{"spilledAsyncClosure", `go func(){ _=p.n }()`, ssacall.EffectRetain, false},
 		{"opaque", `opaque(p)`, 0, false},
 		{"dynamic", `dynamic(p)`, 0, false},
 		{"recursive", `recurse(p)`, 0, false},
-		{"fieldAddressRetained", `savedInt=&p.n`, ssaflow.EffectRetain, false},
-		{"scalarReturn", `_ = scalar(p)`, ssaflow.EffectRead, true},
-		{"branchEffects", `if pick { read(p) } else { write(p) }`, ssaflow.EffectRead | ssaflow.EffectMutate, true},
+		{"fieldAddressRetained", `savedInt=&p.n`, ssacall.EffectRetain, false},
+		{"scalarReturn", `_ = scalar(p)`, ssacall.EffectRead, true},
+		{"branchEffects", `if pick { read(p) } else { write(p) }`, ssacall.EffectRead | ssacall.EffectMutate, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			pkg := ssaflowtest.BuildPackage(t, "effectprobe", `package effectprobe
@@ -60,14 +61,14 @@ func probe(p *owner,pick bool) *owner { `+test.body+`;return nil }
 				t.Fatal(err)
 			}
 			t.Log(dump.String())
-			proof := ssaflow.NewCallEffects(proofs.NewSearchBudget(1000)).Value(fn.Params[0])
+			proof := ssacall.NewCallEffects(proofs.NewSearchBudget(1000)).Value(fn.Params[0])
 			if proof.Proven() != test.known || proof.Effects != test.want {
 				t.Fatalf("effects = %+v, want known=%t effects=%v", proof, test.known, test.want)
 			}
-			if proof.PreservesStorage() != (test.known && test.want & ^ssaflow.EffectRead == 0) {
+			if proof.PreservesStorage() != (test.known && test.want & ^ssacall.EffectRead == 0) {
 				t.Fatalf("unexpected preservation: %+v", proof)
 			}
-			exhausted := ssaflow.NewCallEffects(proofs.NewSearchBudget(0)).Value(fn.Params[0])
+			exhausted := ssacall.NewCallEffects(proofs.NewSearchBudget(0)).Value(fn.Params[0])
 			if exhausted.Proven() || exhausted.Reason != proofs.EvidenceBudgetExhausted {
 				t.Fatalf("budget exhaustion: %+v", exhausted)
 			}
@@ -79,15 +80,15 @@ func TestCallEffectArgumentAndCaptureMapping(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		body string
-		want ssaflow.CallEffect
+		want ssacall.CallEffect
 	}{
-		{"read", `read(p)`, ssaflow.EffectRead},
-		{"bothArguments", `pair(p,p)`, ssaflow.EffectRead | ssaflow.EffectMutate},
-		{"started", `go read(p)`, ssaflow.EffectRead | ssaflow.EffectAsync},
-		{"deferred", `defer read(p)`, ssaflow.EffectRead},
-		{"captureCellRead", `func(){ _=p.n }()`, ssaflow.EffectRead},
-		{"captureCellWrite", `func(){ p=nil }()`, ssaflow.EffectMutate},
-		{"captureCellAsync", `go func(){ _=p.n }()`, ssaflow.EffectRead | ssaflow.EffectAsync},
+		{"read", `read(p)`, ssacall.EffectRead},
+		{"bothArguments", `pair(p,p)`, ssacall.EffectRead | ssacall.EffectMutate},
+		{"started", `go read(p)`, ssacall.EffectRead | ssacall.EffectAsync},
+		{"deferred", `defer read(p)`, ssacall.EffectRead},
+		{"captureCellRead", `func(){ _=p.n }()`, ssacall.EffectRead},
+		{"captureCellWrite", `func(){ p=nil }()`, ssacall.EffectMutate},
+		{"captureCellAsync", `go func(){ _=p.n }()`, ssacall.EffectRead | ssacall.EffectAsync},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			pkg := ssaflowtest.BuildPackage(t, "effectprobe", `package effectprobe
@@ -107,7 +108,7 @@ func probe(p *owner) { `+test.body+` }
 					if closure, ok := common.Value.(*ssa.MakeClosure); ok {
 						value = closure.Bindings[0]
 					}
-					proof := ssaflow.NewCallEffects(nil).Call(instruction, value)
+					proof := ssacall.NewCallEffects(nil).Call(instruction, value)
 					if !proof.Proven() || proof.Effects != test.want {
 						t.Fatalf("call effects = %+v, want %v", proof, test.want)
 					}

@@ -1,4 +1,5 @@
-// Package ssaflow provides shared SSA value provenance, call resolution and
-// path-sensitive proofs. It uses proof for evidence and work budgets and cfg
-// for structural control-flow mechanics, without depending on higher engines.
+// Package ssaflow provides shared SSA value provenance, structural identity,
+// source metadata and natural-loop mechanics. It uses proof for evidence and
+// budgets and cfg for structural control flow. Calls and path proofs consume
+// these mechanics from their own packages; this layer never depends on them.
 package ssaflow

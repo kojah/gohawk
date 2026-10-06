@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -28,12 +29,12 @@ func dynamic(fn func()) { fn() }
 type countedSummary struct {
 	count  int
 	known  bool
-	reason ssaflow.SummaryUnavailable
+	reason ssacall.SummaryUnavailable
 }
 
-func countSummaries(visits map[*ssa.Function]int) *ssaflow.FunctionSummaries[countedSummary] {
-	var summaries *ssaflow.FunctionSummaries[countedSummary]
-	summaries = ssaflow.NewFunctionSummaries(func(function *ssa.Function, budget *proofs.SearchBudget) countedSummary {
+func countSummaries(visits map[*ssa.Function]int) *ssacall.FunctionSummaries[countedSummary] {
+	var summaries *ssacall.FunctionSummaries[countedSummary]
+	summaries = ssacall.NewFunctionSummaries(func(function *ssa.Function, budget *proofs.SearchBudget) countedSummary {
 		visits[function]++
 		result := countedSummary{known: true, count: 1}
 		for _, block := range function.Blocks {
@@ -51,7 +52,7 @@ func countSummaries(visits map[*ssa.Function]int) *ssaflow.FunctionSummaries[cou
 			}
 		}
 		return result
-	}, func(reason ssaflow.SummaryUnavailable) countedSummary {
+	}, func(reason ssacall.SummaryUnavailable) countedSummary {
 		return countedSummary{reason: reason}
 	})
 	return summaries
@@ -74,7 +75,7 @@ func TestFunctionSummariesReuseAndIsolation(t *testing.T) {
 		t.Errorf("cached answer requires no new traversal: %+v", got)
 	}
 	other := countSummaries(map[*ssa.Function]int{})
-	if got := other.Function(root, proofs.NewSearchBudget(0)); got.known || got.reason != ssaflow.SummaryBudgetExhausted {
+	if got := other.Function(root, proofs.NewSearchBudget(0)); got.known || got.reason != ssacall.SummaryBudgetExhausted {
 		t.Errorf("separate engine reused another policy's answer: %+v", got)
 	}
 }
@@ -84,13 +85,13 @@ func TestFunctionSummariesUnavailable(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		limit  int
-		reason ssaflow.SummaryUnavailable
+		reason ssacall.SummaryUnavailable
 	}{
-		{"missing", 100, ssaflow.SummaryBodyUnavailable},
-		{"opaque", 100, ssaflow.SummaryBodyUnavailable},
-		{"recursiveA", 100, ssaflow.SummaryRecursive},
-		{"recursiveB", 100, ssaflow.SummaryRecursive},
-		{"diamond", 2, ssaflow.SummaryBudgetExhausted},
+		{"missing", 100, ssacall.SummaryBodyUnavailable},
+		{"opaque", 100, ssacall.SummaryBodyUnavailable},
+		{"recursiveA", 100, ssacall.SummaryRecursive},
+		{"recursiveB", 100, ssacall.SummaryRecursive},
+		{"diamond", 2, ssacall.SummaryBudgetExhausted},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			visits := map[*ssa.Function]int{}
@@ -115,7 +116,7 @@ func TestFunctionSummariesUnavailable(t *testing.T) {
 
 func TestFunctionSummariesCallBindings(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "summaries", summaryFixture)
-	summaries := ssaflow.NewFunctionSummaries(func(function *ssa.Function, _ *proofs.SearchBudget) []ssa.Value {
+	summaries := ssacall.NewFunctionSummaries(func(function *ssa.Function, _ *proofs.SearchBudget) []ssa.Value {
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
 				if call, ok := instruction.(*ssa.Call); ok {
@@ -124,10 +125,10 @@ func TestFunctionSummariesCallBindings(t *testing.T) {
 			}
 		}
 		return nil
-	}, func(ssaflow.SummaryUnavailable) []ssa.Value { return nil })
+	}, func(ssacall.SummaryUnavailable) []ssa.Value { return nil })
 	caller := pkg.Func("calls")
 	for index, call := range ssaflow.InstructionsOf[*ssa.Call](caller) {
-		got := summaries.AtCall(call, proofs.NewSearchBudget(10), func(symbolic []ssa.Value, bindings []ssaflow.CallBinding) []ssa.Value {
+		got := summaries.AtCall(call, proofs.NewSearchBudget(10), func(symbolic []ssa.Value, bindings []ssacall.CallBinding) []ssa.Value {
 			if len(symbolic) != 1 || len(bindings) != 1 || symbolic[0] != bindings[0].Local || bindings[0].Captured {
 				t.Fatalf("unexpected direct bindings: %+v for %v", bindings, symbolic)
 			}
@@ -140,7 +141,7 @@ func TestFunctionSummariesCallBindings(t *testing.T) {
 	for _, name := range []string{"closure", "dynamic"} {
 		call := ssaflow.InstructionsOf[*ssa.Call](pkg.Func(name))[0]
 		bound := false
-		summaries.AtCall(call, proofs.NewSearchBudget(10), func(_ []ssa.Value, bindings []ssaflow.CallBinding) []ssa.Value {
+		summaries.AtCall(call, proofs.NewSearchBudget(10), func(_ []ssa.Value, bindings []ssacall.CallBinding) []ssa.Value {
 			bound = true
 			if len(bindings) != 1 || !bindings[0].Captured {
 				t.Errorf("closure bindings = %+v", bindings)
@@ -162,11 +163,11 @@ func TestFunctionSummariesBindingBudgetDoesNotPoisonCallee(t *testing.T) {
 	}
 	call := ssaflow.InstructionsOf[*ssa.Call](pkg.Func("left"))[0]
 	budget := proofs.NewSearchBudget(0)
-	got := summaries.AtCall(call, budget, func(answer countedSummary, _ []ssaflow.CallBinding) countedSummary {
+	got := summaries.AtCall(call, budget, func(answer countedSummary, _ []ssacall.CallBinding) countedSummary {
 		budget.Spend()
 		return answer // Even a successful answer cannot escape an exhausted binding.
 	})
-	if got.known || got.reason != ssaflow.SummaryBudgetExhausted || got.count != 0 {
+	if got.known || got.reason != ssacall.SummaryBudgetExhausted || got.count != 0 {
 		t.Errorf("partial bound answer escaped: %+v", got)
 	}
 	if cached := summaries.Function(callee, proofs.NewSearchBudget(0)); !cached.known || cached.count != 1 {
@@ -183,7 +184,7 @@ func TestFunctionSummariesAlreadyExhaustedBudget(t *testing.T) {
 	}
 	budget := proofs.NewSearchBudget(0)
 	budget.Spend()
-	if got := summaries.Function(function, budget); got.known || got.reason != ssaflow.SummaryBudgetExhausted {
+	if got := summaries.Function(function, budget); got.known || got.reason != ssacall.SummaryBudgetExhausted {
 		t.Errorf("cached evidence escaped an already exhausted query: %+v", got)
 	}
 	if got := summaries.Function(function, proofs.NewSearchBudget(0)); !got.known {

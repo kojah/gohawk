@@ -6,6 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -55,11 +56,11 @@ func (analysis *spawnAnalysis) flagGuardedJoin() bool {
 // this way:
 // https://github.com/piotrnar/gocoin/blob/467131d21dd0c9252f99c00d99ba9ca74f60ca1e/lib/chain/chain_accept.go#L125-L133
 func (analysis *spawnAnalysis) deferredClosureFlagGuardsJoin(deferred *ssa.Defer) bool {
-	callee, closure := ssaflow.DirectCallee(deferred.Common())
+	callee, closure := ssacall.DirectCallee(deferred.Common())
 	if closure == nil || callee == nil {
 		return false
 	}
-	pairs := ssaflow.CallBindings(deferred.Common(), callee, closure)
+	pairs := ssacall.CallBindings(deferred.Common(), callee, closure)
 	for _, block := range callee.Blocks {
 		for _, instruction := range block.Instrs {
 			branch, ok := instruction.(*ssa.If)
@@ -82,7 +83,7 @@ func (analysis *spawnAnalysis) deferredClosureFlagGuardsJoin(deferred *ssa.Defer
 
 // capturedFlagVariable maps a branch on a loaded free variable back to the
 // Boolean local it was bound to.
-func capturedFlagVariable(condition ssa.Value, pairs []ssaflow.CallBinding) ssa.Value { //nolint:ireturn // Flags are allocations.
+func capturedFlagVariable(condition ssa.Value, pairs []ssacall.CallBinding) ssa.Value { //nolint:ireturn // Flags are allocations.
 	if negation, ok := condition.(*ssa.UnOp); ok && negation.Op == token.NOT {
 		condition = negation.X
 	}
@@ -102,7 +103,7 @@ func capturedFlagVariable(condition ssa.Value, pairs []ssaflow.CallBinding) ssa.
 
 // closureBlockJoins reports whether block joins a tracked value through one of
 // the closure's captured variables.
-func (analysis *spawnAnalysis) closureBlockJoins(block *ssa.BasicBlock, pairs []ssaflow.CallBinding) bool {
+func (analysis *spawnAnalysis) closureBlockJoins(block *ssa.BasicBlock, pairs []ssacall.CallBinding) bool {
 	for _, pair := range pairs {
 		for _, tracked := range analysis.tracked {
 			if !bindingCarries(pair.Supplied, tracked.value) {

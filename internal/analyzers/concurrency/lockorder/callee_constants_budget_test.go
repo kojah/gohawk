@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -20,10 +21,10 @@ func TestCalleeConstantAllowance(t *testing.T) {
  `)
 	fn := pkg.Func("nested")
 	for _, test := range []struct {
-		outcome ssaflow.Outcome
+		outcome ssacall.Outcome
 		count   int
-	}{{ssaflow.OutcomeFalse, 0}, {ssaflow.OutcomeTrue, 1}} {
-		constants := ssaflow.FixedValues{fn.Params[0]: test.outcome}
+	}{{ssacall.OutcomeFalse, 0}, {ssacall.OutcomeTrue, 1}} {
+		constants := ssacall.FixedValues{fn.Params[0]: test.outcome}
 		completed := false
 		for limit := 0; limit <= proofs.SummaryBudget; limit++ {
 			search := newCalleeLockSearch()
@@ -66,7 +67,7 @@ func TestCalleeConstantAllowance(t *testing.T) {
 
 func TestCalleeNestedBindingCutoffBeforePruning(t *testing.T) {
 	fn := constantPruningPackage(t).Func("root")
-	constants := ssaflow.FixedValues{fn.Params[0]: ssaflow.OutcomeNil}
+	constants := ssacall.FixedValues{fn.Params[0]: ssacall.OutcomeNil}
 	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	child := pool.Within(proofs.QueryBudget)
 	search := newCalleeLockSearch()

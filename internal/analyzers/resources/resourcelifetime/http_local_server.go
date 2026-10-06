@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -87,9 +88,9 @@ var (
 // localGetURL returns the URL argument of http.Get or Client.Get.
 func localGetURL(common *ssa.CallCommon) (ssa.Value, bool) {
 	switch {
-	case ssaflow.CallMatchesSymbol(common, httpGet) && len(common.Args) == 1:
+	case ssacall.CallMatchesSymbol(common, httpGet) && len(common.Args) == 1:
 		return common.Args[0], true
-	case ssaflow.CallMatchesSymbol(common, httpClientGet) && len(common.Args) == 2:
+	case ssacall.CallMatchesSymbol(common, httpClientGet) && len(common.Args) == 2:
 		return common.Args[1], true
 	}
 	return nil, false
@@ -98,11 +99,11 @@ func localGetURL(common *ssa.CallCommon) (ssa.Value, bool) {
 // serverClientOrDefault accepts http.Get, which uses the default client, or
 // Client.Get on the result of server.Client() for the same server.
 func serverClientOrDefault(common *ssa.CallCommon, server *ssa.Call) bool {
-	if !ssaflow.CallMatchesSymbol(common, httpClientGet) {
+	if !ssacall.CallMatchesSymbol(common, httpClientGet) {
 		return true
 	}
 	client, ok := common.Args[0].(*ssa.Call)
-	return ok && ssaflow.CallMatchesSymbol(client.Common(), httptestServerClient) && ssaflow.CallReceiver(client.Common()) == server
+	return ok && ssacall.CallMatchesSymbol(client.Common(), httptestServerClient) && ssaflow.CallReceiver(client.Common()) == server
 }
 
 func localHTTPServerWithin(url ssa.Value, budget *proofs.SearchBudget) *ssa.Call {
@@ -118,7 +119,7 @@ func localHTTPServerWithin(url ssa.Value, budget *proofs.SearchBudget) *ssa.Call
 		return nil
 	}
 	server, ok := field.X.(*ssa.Call)
-	if !ok || !ssaflow.CallMatchesSymbol(server.Common(), syntax.PackageFunction("net/http/httptest", "NewServer")) {
+	if !ok || !ssacall.CallMatchesSymbol(server.Common(), syntax.PackageFunction("net/http/httptest", "NewServer")) {
 		return nil
 	}
 	if !unmodifiedHTTPServerWithin(server, budget) {
@@ -150,13 +151,13 @@ func unmodifiedHTTPServerWithin(server *ssa.Call, budget *proofs.SearchBudget) b
 			continue
 		}
 		common := ssaflow.InstructionCall(ref)
-		if client, ok := ref.(*ssa.Call); ok && ssaflow.CallMatchesSymbol(common, httptestServerClient) {
+		if client, ok := ref.(*ssa.Call); ok && ssacall.CallMatchesSymbol(common, httptestServerClient) {
 			if !onlyClientGetUsesWithin(client, budget) {
 				return false
 			}
 			continue
 		}
-		if !ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
+		if !ssacall.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{
 			PackagePath: "net/http/httptest", Receiver: "Server", Name: "Close",
 		})) {
 			return false
@@ -178,7 +179,7 @@ func onlyClientGetUsesWithin(client *ssa.Call, budget *proofs.SearchBudget) bool
 			return false
 		}
 		call, ok := ref.(*ssa.Call)
-		if !ok || !ssaflow.CallMatchesSymbol(call.Common(), httpClientGet) || call.Common().Args[0] != client {
+		if !ok || !ssacall.CallMatchesSymbol(call.Common(), httpClientGet) || call.Common().Args[0] != client {
 			return false
 		}
 	}

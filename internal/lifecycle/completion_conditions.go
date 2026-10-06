@@ -7,7 +7,9 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -33,37 +35,37 @@ func ProveCompletionOnEdge(from, to *ssa.BasicBlock, request CompletionRequest) 
 	return ProveCompletion(request)
 }
 
-func completionEdgeCondition(from, to *ssa.BasicBlock) (*ssa.Call, ssaflow.CallCondition, bool) {
+func completionEdgeCondition(from, to *ssa.BasicBlock) (*ssa.Call, ssacall.CallCondition, bool) {
 	if from == nil || len(from.Instrs) == 0 || len(from.Succs) != 2 || from.Succs[0] == from.Succs[1] {
-		return nil, ssaflow.CallCondition{}, false
+		return nil, ssacall.CallCondition{}, false
 	}
 	branch, ok := from.Instrs[len(from.Instrs)-1].(*ssa.If)
 	if !ok || to != from.Succs[0] && to != from.Succs[1] {
-		return nil, ssaflow.CallCondition{}, false
+		return nil, ssacall.CallCondition{}, false
 	}
 	value, outcome := completionTest(branch.Cond, to == from.Succs[0])
-	call, index, ok := ssaflow.CallResultSource(value)
-	if !ok || outcome == ssaflow.OutcomeAny || !cfg.InstructionDominates(call, branch) {
-		return nil, ssaflow.CallCondition{}, false
+	call, index, ok := ssacall.CallResultSource(value)
+	if !ok || outcome == ssacall.OutcomeAny || !cfg.InstructionDominates(call, branch) {
+		return nil, ssacall.CallCondition{}, false
 	}
-	return call, ssaflow.CallCondition{Result: index, Outcome: outcome}, true
+	return call, ssacall.CallCondition{Result: index, Outcome: outcome}, true
 }
 
-func completionTest(value ssa.Value, truth bool) (ssa.Value, ssaflow.Outcome) {
+func completionTest(value ssa.Value, truth bool) (ssa.Value, ssacall.Outcome) {
 	value, negated := ssaflow.BooleanNegationSource(value)
 	truth = truth != negated
 	if comparison, ok := value.(*ssa.BinOp); ok {
 		return completionComparison(comparison, truth)
 	}
 	if truth {
-		return value, ssaflow.OutcomeTrue
+		return value, ssacall.OutcomeTrue
 	}
-	return value, ssaflow.OutcomeFalse
+	return value, ssacall.OutcomeFalse
 }
 
-func completionComparison(comparison *ssa.BinOp, truth bool) (ssa.Value, ssaflow.Outcome) {
+func completionComparison(comparison *ssa.BinOp, truth bool) (ssa.Value, ssacall.Outcome) {
 	if comparison.Op != token.EQL && comparison.Op != token.NEQ {
-		return nil, ssaflow.OutcomeAny
+		return nil, ssacall.OutcomeAny
 	}
 	operand, literal := comparison.X, comparison.Y
 	if _, ok := literal.(*ssa.Const); !ok {
@@ -71,17 +73,17 @@ func completionComparison(comparison *ssa.BinOp, truth bool) (ssa.Value, ssaflow
 	}
 	c, ok := literal.(*ssa.Const)
 	if !ok {
-		return nil, ssaflow.OutcomeAny
+		return nil, ssacall.OutcomeAny
 	}
 	equal := truth == (comparison.Op == token.EQL)
 	if c.IsNil() && syntax.IsErrorType(operand.Type()) {
 		if equal {
-			return operand, ssaflow.OutcomeNil
+			return operand, ssacall.OutcomeNil
 		}
-		return operand, ssaflow.OutcomeNonNil
+		return operand, ssacall.OutcomeNonNil
 	}
 	if c.Value == nil || c.Value.Kind() != constant.Bool {
-		return nil, ssaflow.OutcomeAny
+		return nil, ssacall.OutcomeAny
 	}
 	return completionTest(operand, equal == constant.BoolVal(c.Value))
 }
@@ -93,7 +95,7 @@ type conditionalCompletionState struct {
 }
 
 func (search *completionSearch) conditionalCoverage(
-	function *ssa.Function, locals []mappedLocal, target ssa.Value, condition ssaflow.CallCondition,
+	function *ssa.Function, locals []mappedLocal, target ssa.Value, condition ssacall.CallCondition,
 ) bool {
 	matched, failed := false, false
 	initial := []conditionalCompletionState{{block: function.Blocks[0]}}
@@ -105,7 +107,7 @@ func (search *completionSearch) conditionalCoverage(
 					return nil, false
 				}
 				state.completed = state.completed || search.instructionCompletes(instruction, locals, target)
-				if ssaflow.InstructionTerminatesControlFlow(instruction) {
+				if ssapath.InstructionTerminatesControlFlow(instruction) {
 					return nil, true
 				}
 				if returned, ok := instruction.(*ssa.Return); ok {
@@ -116,7 +118,7 @@ func (search *completionSearch) conditionalCoverage(
 				}
 			}
 			var next []conditionalCompletionState
-			successors := ssaflow.SuccessorPolicy{Constants: search.constants}.SuccessorsWithin(state.block, state.predecessor, search.budget)
+			successors := ssapath.SuccessorPolicy{Constants: search.constants}.SuccessorsWithin(state.block, state.predecessor, search.budget)
 			for _, successor := range successors {
 				if !search.budget.Spend() {
 					failed = true
@@ -130,7 +132,7 @@ func (search *completionSearch) conditionalCoverage(
 }
 
 func (search *completionSearch) conditionalReturn(
-	returned *ssa.Return, locals []mappedLocal, condition ssaflow.CallCondition, completed bool,
+	returned *ssa.Return, locals []mappedLocal, condition ssacall.CallCondition, completed bool,
 ) (covered, relevant bool) {
 	if condition.Result >= len(returned.Results) {
 		return false, true
@@ -138,26 +140,26 @@ func (search *completionSearch) conditionalReturn(
 	value := returned.Results[condition.Result]
 	// Resolve compiler-spilled Boolean results, but do not peel an error's
 	// interface box: a typed nil error is not the nil error result.
-	boolean := condition.Outcome == ssaflow.OutcomeTrue || condition.Outcome == ssaflow.OutcomeFalse
+	boolean := condition.Outcome == ssacall.OutcomeTrue || condition.Outcome == ssacall.OutcomeFalse
 	if load, ok := value.(*ssa.UnOp); ok && load.Op == token.MUL && boolean {
 		if resolved := heapmodel.NewStorage(search.budget).Resolve(value); resolved.Proven() {
 			value = resolved.Value
 		}
 	}
-	if holds, known := ssaflow.OutcomeOf(condition.Outcome, value); known && !holds {
+	if holds, known := ssacall.OutcomeOf(condition.Outcome, value); known && !holds {
 		return true, false
 	}
 	if completed {
 		return true, true
 	}
-	call, index, ok := ssaflow.CallResultSource(value)
+	call, index, ok := ssacall.CallResultSource(value)
 	if !ok {
 		return false, true
 	}
 	// A forwarding return composes the same result predicate with the nested
 	// callee. Ordinary calls above were searched without this predicate.
 	nested := *search
-	nested.condition = ssaflow.CallCondition{Result: index, Outcome: condition.Outcome}
+	nested.condition = ssacall.CallCondition{Result: index, Outcome: condition.Outcome}
 	for _, local := range locals {
 		if local.kind == localExact {
 			if nested.completes(call, local.local).proven {

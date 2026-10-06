@@ -5,6 +5,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -33,7 +34,7 @@ func cleanupTargets(common *ssa.CallCommon, budget *proofs.SearchBudget) []ssa.V
 }
 
 func factoryCleanupTargets(factory *ssa.Call, callbackIndex int, budget *proofs.SearchBudget) []ssa.Value {
-	function := ssaflow.ResolvedCallee(factory.Common())
+	function := ssacall.ResolvedCallee(factory.Common())
 	if function == nil {
 		return nil
 	}
@@ -42,7 +43,7 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int, budget *proofs.
 		if !budget.Spend() {
 			return targets
 		}
-		target := ssaflow.CallResultWithin(factory, index, budget)
+		target := ssacall.CallResultWithin(factory, index, budget)
 		if budget.Exhausted() {
 			return targets
 		}
@@ -76,7 +77,7 @@ func factoryCleanupTargets(factory *ssa.Call, callbackIndex int, budget *proofs.
 				if !budget.Spend() {
 					return targets
 				}
-				target := ssaflow.CallResultWithin(factory, index, budget)
+				target := ssacall.CallResultWithin(factory, index, budget)
 				if budget.Exhausted() {
 					return targets
 				}
@@ -94,7 +95,7 @@ func callbackClosesSibling(closure *ssa.MakeClosure, sibling ssa.Value, budget *
 	if function == nil {
 		return false
 	}
-	for pair := range ssaflow.CallBindingsWithin(nil, function, closure, budget) {
+	for pair := range ssacall.CallBindingsWithin(nil, function, closure, budget) {
 		if !heapmodel.DefinitelySameValue(ssaflow.CapturedBindingValueWithin(pair.Supplied, budget), sibling) {
 			continue
 		}

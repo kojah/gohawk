@@ -1,0 +1,59 @@
+package calls
+
+import (
+	"go/types"
+	"slices"
+
+	"github.com/kojah/gohawk/internal/syntax"
+
+	ssaflow "github.com/kojah/gohawk/internal/ssaflow"
+	"golang.org/x/tools/go/ssa"
+)
+
+// CallMatchesSymbol reports whether common statically resolves to symbol.
+func CallMatchesSymbol(common *ssa.CallCommon, symbol syntax.Symbol) bool {
+	if common == nil {
+		return false
+	}
+	if builtin, ok := common.Value.(*ssa.Builtin); ok {
+		object := types.Universe.Lookup(builtin.Name())
+		if object == nil {
+			// unsafe's compiler intrinsics are SSA builtins too, but their
+			// declarations belong to the unsafe package rather than Universe.
+			object = types.Unsafe.Scope().Lookup(builtin.Name())
+		}
+		return symbol.MatchesObject(object)
+	}
+	if common.Method != nil {
+		if symbol.MatchesObject(common.Method) {
+			return true
+		}
+		return symbol.MatchesMethod(common.Method.Name(), common.Value.Type())
+	}
+	callee := common.StaticCallee()
+	if callee == nil {
+		return false
+	}
+	if symbol.MatchesObject(callee.Object()) {
+		return true
+	}
+	receiver := ssaflow.CallReceiver(common)
+	return receiver != nil && symbol.MatchesMethod(callee.Name(), receiver.Type())
+}
+
+// CallMatchesAnySymbol reports whether common statically resolves to one of symbols.
+func CallMatchesAnySymbol(common *ssa.CallCommon, symbols ...syntax.Symbol) bool {
+	return slices.ContainsFunc(symbols, func(symbol syntax.Symbol) bool { return CallMatchesSymbol(common, symbol) })
+}
+
+// ValueMatchesSymbol reports whether value is the exact package declaration
+// identified by symbol.
+func ValueMatchesSymbol(value ssa.Value, symbol syntax.Symbol) bool {
+	global, ok := value.(*ssa.Global)
+	return ok && symbol.MatchesObject(global.Object())
+}
+
+// ValueMatchesAnySymbol reports whether value is one of the exact package declarations.
+func ValueMatchesAnySymbol(value ssa.Value, symbols ...syntax.Symbol) bool {
+	return slices.ContainsFunc(symbols, func(symbol syntax.Symbol) bool { return ValueMatchesSymbol(value, symbol) })
+}

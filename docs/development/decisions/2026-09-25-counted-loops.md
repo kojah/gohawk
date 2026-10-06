@@ -3,8 +3,8 @@
 Decided 2026-09-25. Implemented in `412e9b0`.
 
 An analyzer must not guess how often a loop runs. The one permitted
-loop-count argument takes an exact count from `ssaflow.ProveCountedLoop` or
-`ssaflow.ProveCountedRegion` and compares it with obligations the analyzer has
+loop-count argument takes an exact count from `path.ProveCountedLoop` or
+`path.ProveCountedRegion` and compares it with obligations the analyzer has
 already proven, such as receives against single sends.
 
 The first use is the counted select drain in `goroutineownership`: a loop that

@@ -46,8 +46,12 @@ func TestInternalPackagesRespectDependencyDirection(t *testing.T) {
 }
 
 func internalLayer(packagePath string) string {
-	if packagePath == "ssaflow/cfg" {
-		return "cfg"
+	if nested, ok := strings.CutPrefix(packagePath, "ssaflow/"); ok {
+		component, _, _ := strings.Cut(nested, "/")
+		switch component {
+		case "cfg", "calls", "path":
+			return component
+		}
 	}
 	component, _, _ := strings.Cut(packagePath, "/")
 	switch component {
@@ -62,14 +66,23 @@ func forbiddenLayerDependency(from, to string) bool {
 	switch from {
 	case "cfg":
 		return to != "proof" && to != "cfg"
+	case "calls", "path":
+		return from == "calls" && to == "path" || slices.Contains([]string{
+			"heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace",
+		}, to)
 	case "proof":
 		return slices.Contains([]string{
-			"syntax", "ssaflow", "cfg", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace",
+			"syntax", "ssaflow", "cfg", "calls", "path", "heapmodel", "lifecycle", "resourcemodel",
+			"passes", "summaries", "check", "analyzers", "trace",
 		}, to)
 	case "syntax":
-		return slices.Contains([]string{"ssaflow", "cfg", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers"}, to)
+		return slices.Contains([]string{
+			"ssaflow", "cfg", "calls", "path", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers",
+		}, to)
 	case "ssaflow":
-		return slices.Contains([]string{"heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace"}, to)
+		return slices.Contains([]string{
+			"calls", "path", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace",
+		}, to)
 	case "heapmodel":
 		return slices.Contains([]string{"lifecycle", "resourcemodel", "passes", "summaries", "check", "analyzers", "trace"}, to)
 	case "lifecycle":
@@ -81,7 +94,9 @@ func forbiddenLayerDependency(from, to string) bool {
 	case "summaries":
 		return to == "check" || to == "analyzers"
 	case "check":
-		return slices.Contains([]string{"ssaflow", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "analyzers"}, to)
+		return slices.Contains([]string{
+			"ssaflow", "cfg", "calls", "path", "heapmodel", "lifecycle", "resourcemodel", "passes", "summaries", "analyzers",
+		}, to)
 	default:
 		return false
 	}
@@ -106,7 +121,7 @@ func TestSemanticModelDependencyBoundaries(t *testing.T) {
 	}
 }
 
-func TestCFGDependencyBoundaries(t *testing.T) {
+func TestSSADependencyBoundaries(t *testing.T) {
 	for _, test := range []struct {
 		from, to string
 		forbid   bool
@@ -117,6 +132,18 @@ func TestCFGDependencyBoundaries(t *testing.T) {
 		{"ssaflow/cfg", "lifecycle", true},
 		{"syntax", "ssaflow/cfg", true},
 		{"proof", "ssaflow/cfg", true},
+		{"ssaflow/calls", "ssaflow", false},
+		{"ssaflow/path", "ssaflow/calls", false},
+		{"ssaflow/calls", "ssaflow/path", true},
+		{"ssaflow", "ssaflow/calls", true},
+		{"ssaflow", "ssaflow/path", true},
+		{"ssaflow/cfg", "ssaflow/path", true},
+		{"ssaflow/calls", "lifecycle", true},
+		{"ssaflow/path", "heapmodel", true},
+		{"ssaflow/cfg/cache", "ssaflow/path", true},
+		{"check", "ssaflow/cfg", true},
+		{"check", "ssaflow/calls", true},
+		{"check", "ssaflow/path", true},
 	} {
 		t.Run(test.from+"/"+test.to, func(t *testing.T) {
 			if got := forbiddenLayerDependency(internalLayer(test.from), internalLayer(test.to)); got != test.forbid {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -32,17 +33,17 @@ const maxDrainIterations = 64
 // channel of its select, including one of this worker's signals, was drained.
 // go-quests drains five single-send workers this way:
 // https://github.com/lite-quests/go-quests/blob/792cb31674bd8349b1c0407208823a51f39692ea/solutions/solution-017.select_timeout/select_timeout.go#L8-L55
-func (analysis *spawnAnalysis) countedDrainAction(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
+func (analysis *spawnAnalysis) countedDrainAction(from, to *ssa.BasicBlock) ssapath.ObligationAction {
 	if len(analysis.signals) == 0 {
-		return ssaflow.ObligationNone
+		return ssapath.ObligationNone
 	}
-	loop := ssaflow.ProveCountedRegion(from, maxDrainIterations, analysis.budget())
+	loop := ssapath.ProveCountedRegion(from, maxDrainIterations, analysis.budget())
 	if !loop.Proven() || loop.Exit != to {
-		return ssaflow.ObligationNone
+		return ssapath.ObligationNone
 	}
 	choice := blockingReceiveSelect(loop.Body)
 	if choice == nil {
-		return ssaflow.ObligationNone
+		return ssapath.ObligationNone
 	}
 	var channels []*ssa.MakeChan
 	joined := false
@@ -50,7 +51,7 @@ func (analysis *spawnAnalysis) countedDrainAction(from, to *ssa.BasicBlock) ssaf
 	for _, state := range choice.States {
 		made := analysis.singleSendChannel(state.Chan, choice)
 		if made == nil {
-			return ssaflow.ObligationNone
+			return ssapath.ObligationNone
 		}
 		if !slices.Contains(channels, made) {
 			channels = append(channels, made)
@@ -59,17 +60,17 @@ func (analysis *spawnAnalysis) countedDrainAction(from, to *ssa.BasicBlock) ssaf
 		possible = possible || analysis.possibleSignal(state.Chan)
 	}
 	if loop.Count < len(channels) {
-		return ssaflow.ObligationNone
+		return ssapath.ObligationNone
 	}
 	if joined {
-		analysis.recordEdge(from, to, reasonCountedDrainEdge, ssaflow.ObligationExact)
-		return ssaflow.ObligationExact
+		analysis.recordEdge(from, to, reasonCountedDrainEdge, ssapath.ObligationExact)
+		return ssapath.ObligationExact
 	}
 	if possible {
-		analysis.recordEdge(from, to, reasonCountedPossibleDrainEdge, ssaflow.ObligationUnknown)
-		return ssaflow.ObligationUnknown
+		analysis.recordEdge(from, to, reasonCountedPossibleDrainEdge, ssapath.ObligationUnknown)
+		return ssapath.ObligationUnknown
 	}
-	return ssaflow.ObligationNone
+	return ssapath.ObligationNone
 }
 
 // blockingReceiveSelect returns the select that the loop body's entry block

@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -15,7 +16,7 @@ import (
 
 func (search *completionSearch) mappedLocals(callee completionCallee, target ssa.Value, invocation ssa.Instruction) []mappedLocal {
 	var result []mappedLocal
-	for binding := range ssaflow.CallBindingsWithin(callee.common, callee.function, callee.closure, search.budget) {
+	for binding := range ssacall.CallBindingsWithin(callee.common, callee.function, callee.closure, search.budget) {
 		var local mappedLocal
 		var ok bool
 		if binding.Captured {

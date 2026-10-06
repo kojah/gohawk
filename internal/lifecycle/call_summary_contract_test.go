@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -21,13 +22,13 @@ func sibling() {}
 `)
 	for _, cut := range []string{"recursion", "budget"} {
 		t.Run(cut, func(t *testing.T) {
-			memo := ssaflow.NewCallGraphMemo[*ssa.Function, int]()
+			memo := ssacall.NewCallGraphMemo[*ssa.Function, int]()
 			root, child, sibling := pkg.Func("root"), pkg.Func("child"), pkg.Func("sibling")
 			budget := proofs.NewSearchBudget(0)
 			if cut == "recursion" {
 				budget = proofs.NewSearchBudget(10)
 			}
-			unavailable := func(ssaflow.SummaryUnavailable, int) int { return -1 }
+			unavailable := func(ssacall.SummaryUnavailable, int) int { return -1 }
 			got := memo.Summarize(root, root, budget, func() int {
 				memo.Summarize(sibling, sibling, budget, func() int { return 7 }, unavailable)
 				return memo.Summarize(child, child, budget, func() int {
@@ -69,13 +70,13 @@ func caller(a, b chan int) { helper(a); helper(b) }
 `)
 	callee, caller := pkg.Func("helper"), pkg.Func("caller")
 	computations := 0
-	summaries := ssaflow.NewFunctionSummaries(func(fn *ssa.Function, budget *proofs.SearchBudget) []ssa.Value {
+	summaries := ssacall.NewFunctionSummaries(func(fn *ssa.Function, budget *proofs.SearchBudget) []ssa.Value {
 		computations++
 		budget.Spend()
 		return []ssa.Value{fn.Params[0]}
-	}, func(ssaflow.SummaryUnavailable) []ssa.Value { return nil })
+	}, func(ssacall.SummaryUnavailable) []ssa.Value { return nil })
 	for index, call := range ssaflow.InstructionsOf[*ssa.Call](caller) {
-		got := summaries.AtCall(call, proofs.NewSearchBudget(10), func(symbolic []ssa.Value, bindings []ssaflow.CallBinding) []ssa.Value {
+		got := summaries.AtCall(call, proofs.NewSearchBudget(10), func(symbolic []ssa.Value, bindings []ssacall.CallBinding) []ssa.Value {
 			// Generic summary values can contain arbitrary maps and pointers.
 			// Ownership is the adapter's contract, not an implicit deep copy.
 			bound := slices.Clone(symbolic)
@@ -98,10 +99,10 @@ func caller(a, b chan int) { helper(a); helper(b) }
 func TestSummaryContractPolicyIsolation(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "contracts", "package contracts; func helper() {}")
 	for _, policyAnswer := range []int{7, 11} {
-		summaries := ssaflow.NewFunctionSummaries(func(_ *ssa.Function, budget *proofs.SearchBudget) int {
+		summaries := ssacall.NewFunctionSummaries(func(_ *ssa.Function, budget *proofs.SearchBudget) int {
 			budget.Spend()
 			return policyAnswer
-		}, func(ssaflow.SummaryUnavailable) int { return -1 })
+		}, func(ssacall.SummaryUnavailable) int { return -1 })
 		for _, limit := range []int{1, 0} {
 			if got := summaries.Function(pkg.Func("helper"), proofs.NewSearchBudget(limit)); got != policyAnswer {
 				t.Errorf("policy %d got %d", policyAnswer, got)
@@ -118,18 +119,18 @@ func caller() { helper() }
 	caller, callee := pkg.Func("caller"), pkg.Func("helper")
 	call := ssaflow.InstructionsOf[*ssa.Call](caller)[0]
 	visits := map[*ssa.Function]int{}
-	var summaries *ssaflow.FunctionSummaries[int]
-	summaries = ssaflow.NewFunctionSummaries(func(fn *ssa.Function, budget *proofs.SearchBudget) int {
+	var summaries *ssacall.FunctionSummaries[int]
+	summaries = ssacall.NewFunctionSummaries(func(fn *ssa.Function, budget *proofs.SearchBudget) int {
 		visits[fn]++
 		budget.Spend()
 		if fn == callee {
 			return 7
 		}
-		return summaries.AtCall(call, budget, func(answer int, _ []ssaflow.CallBinding) int {
+		return summaries.AtCall(call, budget, func(answer int, _ []ssacall.CallBinding) int {
 			budget.Spend()
 			return answer
 		})
-	}, func(ssaflow.SummaryUnavailable) int { return -1 })
+	}, func(ssacall.SummaryUnavailable) int { return -1 })
 	if got := summaries.Function(caller, proofs.NewSearchBudget(2)); got != -1 {
 		t.Fatalf("binding-exhausted caller = %d, want unavailable", got)
 	}

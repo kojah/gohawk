@@ -5,6 +5,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -51,7 +52,7 @@ func deferredClosureWaitsForCommand(instruction ssa.Instruction, command ssa.Val
 	}
 	// Keep capture evidence first: an unknown captured waiter must not be
 	// reordered behind an argument proof by the shared positional mapping.
-	for binding := range ssaflow.CallBindingsWithin(common, function, nil, budget) {
+	for binding := range ssacall.CallBindingsWithin(common, function, nil, budget) {
 		if heapmodel.MayAlias(binding.Supplied, command) {
 			if proof := search.waitsOnEveryReturn(binding.Local); proof != proofs.EvidenceDisproven {
 				return proof

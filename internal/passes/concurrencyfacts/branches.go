@@ -4,7 +4,7 @@ import (
 	"go/token"
 	"slices"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -24,7 +24,7 @@ func (engine *Engine) collectBranches(function *ssa.Function, root bool) Summary
 		// already rejected recovery, so this path cannot disagree about later
 		// ordered effects. If every path panics, no terminal remains and the
 		// summary stays unknown.
-		if ssaflow.BlockEndsInPanic(block) {
+		if ssapath.BlockEndsInPanic(block) {
 			continue
 		}
 		state := states[block]

@@ -7,7 +7,9 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -43,7 +45,7 @@ const (
 // with the requested coverage. nonNil, when set, restricts every-return
 // analysis to paths feasible when that value is non-nil at entry.
 func MethodCallCoverage(function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, nonNil ssa.Value) bool {
-	return methodCallCoverageAssuming(function, calls, coverage, ssaflow.EntryAssumptions{NonNil: nonNil})
+	return methodCallCoverageAssuming(function, calls, coverage, ssapath.EntryAssumptions{NonNil: nonNil})
 }
 
 // methodCallCoverageAssuming is MethodCallCoverage restricted to the paths
@@ -51,7 +53,7 @@ func MethodCallCoverage(function *ssa.Function, calls func(ssa.Instruction) bool
 // a call only on an arm the constants rule out covers nothing, whether the
 // question is every return or anywhere.
 func methodCallCoverageAssuming(
-	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, assumptions ssaflow.EntryAssumptions,
+	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, assumptions ssapath.EntryAssumptions,
 ) bool {
 	return proveMethodCallCoverageAssumingWithin(function, calls, coverage, assumptions, nil).Proven()
 }
@@ -143,11 +145,11 @@ const (
 // stops recursion through helper cycles and keeps the search over the call
 // graph rather than over every call path through it.
 type completionSearch struct {
-	condition         ssaflow.CallCondition
+	condition         ssacall.CallCondition
 	summarized        CompletionSummaryLookup
 	callContract      CompletionSummaryLookup
 	returnedSummaries ReturnedCleanupLookup
-	returnedMemo      *ssaflow.CallGraphMemo[returnedCleanupKey, bool]
+	returnedMemo      *ssacall.CallGraphMemo[returnedCleanupKey, bool]
 	// Exact invocation excludes aggregate containment and may-alias mappings:
 	// calling one function stored in an owner does not invoke every function.
 	exactInvocation bool
@@ -172,7 +174,7 @@ type completionSearch struct {
 	invokeTarget bool
 	// memo owns the cycle guard for callee bodies and the rule that an answer
 	// the guard cut short is not retained.
-	memo *ssaflow.CallGraphMemo[completionKey, completionAnswer]
+	memo *ssacall.CallGraphMemo[completionKey, completionAnswer]
 	// paths collects where the completing calls of the body being covered
 	// touched the target; nil outside a body's coverage.
 	paths *completionPaths
@@ -181,7 +183,7 @@ type completionSearch struct {
 	// constants fixes Boolean parameters and captures of the body being
 	// searched, bound from the constant arguments of the call that reached it.
 	// Like bindings, they are scoped to one invocation.
-	constants ssaflow.FixedValues
+	constants ssacall.FixedValues
 }
 
 // forCallback returns a nested search for a callback value that shares the
@@ -199,8 +201,8 @@ func newCompletionSearch(method string, coverage CompletionCoverage, budget *pro
 		method:       method,
 		coverage:     coverage,
 		budget:       budget,
-		memo:         ssaflow.NewCallGraphMemo[completionKey, completionAnswer](),
-		returnedMemo: ssaflow.NewCallGraphMemo[returnedCleanupKey, bool](),
+		memo:         ssacall.NewCallGraphMemo[completionKey, completionAnswer](),
+		returnedMemo: ssacall.NewCallGraphMemo[returnedCleanupKey, bool](),
 	}
 	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType |
 		ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
@@ -210,7 +212,7 @@ func newCompletionSearch(method string, coverage CompletionCoverage, budget *pro
 
 func (search *completionSearch) calleeCoverage(callee completionCallee, target ssa.Value, invocation ssa.Instruction) bool {
 	condition := search.condition
-	search.condition = ssaflow.CallCondition{}
+	search.condition = ssacall.CallCondition{}
 	defer func() { search.condition = condition }()
 	locals := search.mappedLocals(callee, target, invocation)
 	if len(locals) == 0 {
@@ -227,7 +229,7 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	// a helper that closes only behind a flag completes the target at a call
 	// fixing the flag to the closing arm, and at no call fixing it otherwise.
 	outer := search.constants
-	fixed := ssaflow.ProveFixedArgumentsWithin(callee.common, callee.closure, callee.function, outer, search.budget)
+	fixed := ssacall.ProveFixedArgumentsWithin(callee.common, callee.closure, callee.function, outer, search.budget)
 	if !fixed.Proven() {
 		return false
 	}
@@ -249,13 +251,13 @@ func (search *completionSearch) calleeCoverage(callee completionCallee, target s
 	calls := func(candidate ssa.Instruction) bool {
 		return search.instructionCompletes(candidate, locals, target)
 	}
-	if condition.Outcome != ssaflow.OutcomeAny {
+	if condition.Outcome != ssacall.OutcomeAny {
 		return search.conditionalCoverage(callee.function, locals, target, condition)
 	}
-	assumptions := ssaflow.EntryAssumptions{NonNil: nonNil, Constants: search.constants}
+	assumptions := ssapath.EntryAssumptions{NonNil: nonNil, Constants: search.constants}
 	if concrete != nil && search.coverage == CoverageEveryReturn {
 		assumptions.NonNilType = concrete
-		witnessAssumptions := ssaflow.EntryAssumptions{Constants: search.constants}
+		witnessAssumptions := ssapath.EntryAssumptions{Constants: search.constants}
 		anywhere := proveMethodCallCoverageAssumingWithin(callee.function, calls, CoverageAnywhere, witnessAssumptions, search.budget)
 		// Preserve the existing concrete-type contract: an anywhere witness
 		// precedes coverage under the exact type assumption. It is not the

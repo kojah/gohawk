@@ -80,7 +80,7 @@ up, it first has to show that something promised to.
    through; it hides the diagnostic rather than counting as a weaker join.
 3. A single **flow query** decides the outcome: honored when exact actions
    cover every return, unknown when only opaque ones do, and violated
-   otherwise. `ssaflow.EvaluateObligation` is that query; the analyzer
+   otherwise. The shared obligation query makes that decision; the analyzer
    supplies only its labels, and an opaque handoff on one path never excuses
    an unrelated early return.
 

@@ -28,7 +28,7 @@ func ConditionalRelease(
 	target ssa.Value,
 	method string,
 	invoke bool,
-	predicate ssaflow.CallCondition,
+	predicate ssacall.CallCondition,
 	budget *proofs.SearchBudget,
 ) bool
 ```

@@ -4,10 +4,10 @@ import (
 	"go/constant"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -75,7 +75,7 @@ func proveHeadAcquisitionWithin(call *ssa.Call, budget *proofs.SearchBudget) res
 
 func findHeadAcquisitionWithin(call *ssa.Call, budget *proofs.SearchBudget) resourceProof {
 	common := call.Common()
-	if !ssaflow.CallMatchesSymbol(common, httpClientDo) || len(common.Args) != 2 {
+	if !ssacall.CallMatchesSymbol(common, httpClientDo) || len(common.Args) != 2 {
 		return resourceProof{}
 	}
 	// A request that never came from a HEAD constructor is outside this rule,

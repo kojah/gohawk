@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 )
 
@@ -93,10 +93,10 @@ func sentinelError() error     { return &failure{} }
 func TestResultRelations(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "results", relationFixture)
 	falseWhenNil := func(parameter int) ResultCase {
-		return ResultCase{Condition: ssaflow.ParameterNil(parameter), Outcome: ssaflow.OutcomeFalse}
+		return ResultCase{Condition: ssacall.ParameterNil(parameter), Outcome: ssacall.OutcomeFalse}
 	}
-	nonNilWhenErrorNil := ResultCase{Condition: errorOutcome(1, ssaflow.OutcomeNil), Outcome: ssaflow.OutcomeNonNil}
-	nilWhenErrorNonNil := ResultCase{Condition: errorOutcome(1, ssaflow.OutcomeNonNil), Outcome: ssaflow.OutcomeNil}
+	nonNilWhenErrorNil := ResultCase{Condition: errorOutcome(1, ssacall.OutcomeNil), Outcome: ssacall.OutcomeNonNil}
+	nilWhenErrorNonNil := ResultCase{Condition: errorOutcome(1, ssacall.OutcomeNonNil), Outcome: ssacall.OutcomeNil}
 	want := map[string]struct {
 		cases    []ResultCase
 		returned []ReturnedParameter

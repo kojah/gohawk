@@ -4,22 +4,22 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 )
 
 // Invalid wire or caller values must not become evidence for selecting a
 // cleanup branch. Check the complete underlying domain, not only Unknown.
 func TestGuaranteeOutcome(t *testing.T) {
 	t.Parallel()
-	known := map[resultfacts.Guarantee]ssaflow.Outcome{
-		resultfacts.AlwaysNil: ssaflow.OutcomeNil, resultfacts.AlwaysNonNil: ssaflow.OutcomeNonNil,
-		resultfacts.AlwaysTrue: ssaflow.OutcomeTrue, resultfacts.AlwaysFalse: ssaflow.OutcomeFalse,
+	known := map[resultfacts.Guarantee]ssacall.Outcome{
+		resultfacts.AlwaysNil: ssacall.OutcomeNil, resultfacts.AlwaysNonNil: ssacall.OutcomeNonNil,
+		resultfacts.AlwaysTrue: ssacall.OutcomeTrue, resultfacts.AlwaysFalse: ssacall.OutcomeFalse,
 	}
 	for value := range 256 {
 		guarantee := resultfacts.Guarantee(value)
 		want, wantKnown := known[guarantee]
 		if !wantKnown {
-			want = ssaflow.OutcomeAny
+			want = ssacall.OutcomeAny
 		}
 		got, gotKnown := guarantee.Outcome()
 		if got != want || gotKnown != wantKnown {

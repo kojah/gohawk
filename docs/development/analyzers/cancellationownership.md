@@ -104,7 +104,7 @@ outcome. Exact deferred cancellation or transfer can retain a stronger outcome.
 This is a precision boundary for bounded retention at one acquisition site, not
 proof that the cancel runs, children are canceled, or workers are joined.
 
-The classifier reuses `ssaflow.RunsOnceInProgramEntry`: the function must be the
+The classifier reuses `calls.RunsOnceInProgramEntry`: the function must be the
 package-scope `main` in package `main`, with no reference to it anywhere in the
 package. Loops, helpers, closures, methods, and functions called `main` in other
 packages remain checked. `signal.NotifyContext` stays outside this boundary:

@@ -2,7 +2,7 @@ package lifecycle
 
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -12,21 +12,21 @@ import (
 func ProveMethodCallCoverageWithin(
 	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage, nonNil ssa.Value, budget *proofs.SearchBudget,
 ) proofs.Proof {
-	return proveMethodCallCoverageAssumingWithin(function, calls, coverage, ssaflow.EntryAssumptions{NonNil: nonNil}, budget)
+	return proveMethodCallCoverageAssumingWithin(function, calls, coverage, ssapath.EntryAssumptions{NonNil: nonNil}, budget)
 }
 
 // Constant-bound census must finish before its blocks become witness evidence.
 // The caller retains one budget through that census and the coverage walk.
 func proveMethodCallCoverageAssumingWithin(
 	function *ssa.Function, calls func(ssa.Instruction) bool, coverage CompletionCoverage,
-	assumptions ssaflow.EntryAssumptions, budget *proofs.SearchBudget,
+	assumptions ssapath.EntryAssumptions, budget *proofs.SearchBudget,
 ) proofs.Proof {
 	if function == nil || len(function.Blocks) == 0 {
 		return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}
 	}
 	blocks := function.Blocks
 	if len(assumptions.Constants) != 0 {
-		blocks = ssaflow.ReachableBlocksAssumingWithin(function, assumptions.Constants, budget)
+		blocks = ssapath.ReachableBlocksAssumingWithin(function, assumptions.Constants, budget)
 		if budget.Exhausted() {
 			return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 		}
@@ -39,7 +39,7 @@ func proveMethodCallCoverageAssumingWithin(
 // witnessing an action on an unrelated path alone cannot prove completion.
 func proveMethodCoverageWithin(
 	function *ssa.Function, blocks []*ssa.BasicBlock, calls func(ssa.Instruction) bool,
-	coverage CompletionCoverage, assumptions ssaflow.EntryAssumptions, budget *proofs.SearchBudget,
+	coverage CompletionCoverage, assumptions ssapath.EntryAssumptions, budget *proofs.SearchBudget,
 ) proofs.Proof {
 	missing := proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceUnavailable}
 	cut := proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
@@ -74,18 +74,18 @@ func proveMethodCoverageWithin(
 // This is the one feasible-return walk, shared by ordinary witness coverage
 // and the existing exact-type path. Predicate and CFG work share the allowance.
 func proveMethodReturnCoverageWithin(
-	function *ssa.Function, calls func(ssa.Instruction) bool, assumptions ssaflow.EntryAssumptions, budget *proofs.SearchBudget,
+	function *ssa.Function, calls func(ssa.Instruction) bool, assumptions ssapath.EntryAssumptions, budget *proofs.SearchBudget,
 ) proofs.Proof {
 	cut := proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 	missing := proofs.Proof{State: proofs.EvidenceDisproven, Reason: proofs.EvidenceUnavailable}
-	outcome := ssaflow.EvaluateObligationFromEntry(function, ssaflow.ObligationFlow{
+	outcome := ssapath.EvaluateObligationFromEntry(function, ssapath.ObligationFlow{
 		Budget: budget, NonNil: assumptions.NonNil, NonNilType: assumptions.NonNilType, Constants: assumptions.Constants,
-		Instruction: ssaflow.ExactOrNone(calls),
+		Instruction: ssapath.ExactOrNone(calls),
 	})
-	if budget.Exhausted() || outcome == ssaflow.ObligationUncertain {
+	if budget.Exhausted() || outcome == ssapath.ObligationUncertain {
 		return cut
 	}
-	if outcome != ssaflow.ObligationHonored {
+	if outcome != ssapath.ObligationHonored {
 		return missing
 	}
 	return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceCalledCompletion}

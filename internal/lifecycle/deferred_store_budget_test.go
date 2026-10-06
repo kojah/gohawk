@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -87,7 +88,7 @@ func TestDeferredStableBindingChildCutoffInvalidatesMemo(t *testing.T) {
  `)
 	shallow := pkg.Func("shallow")
 	shallowDefer := ssaflow.InstructionsOf[*ssa.Defer](shallow)[0]
-	_, shallowClosure := ssaflow.DirectCallee(shallowDefer.Common())
+	_, shallowClosure := ssacall.DirectCallee(shallowDefer.Common())
 	if shallowClosure == nil || len(shallowClosure.Bindings) != 1 {
 		t.Fatal("expected shallow field-address capture")
 	}
@@ -103,7 +104,7 @@ func TestDeferredStableBindingChildCutoffInvalidatesMemo(t *testing.T) {
 	}
 	t.Log(dump.String())
 	deferred := ssaflow.InstructionsOf[*ssa.Defer](fn)[0]
-	body, closure := ssaflow.DirectCallee(deferred.Common())
+	body, closure := ssacall.DirectCallee(deferred.Common())
 	if closure == nil || len(closure.Bindings) != 1 {
 		t.Fatal("expected field-address capture")
 	}

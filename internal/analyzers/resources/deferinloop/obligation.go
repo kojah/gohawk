@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -109,7 +110,7 @@ func resourceAcquiredBeforeDefer(
 			return []string{"Close"}, true
 		}
 		cleanup, result, owned := evidence.OwnedResult(call)
-		if owned && len(cleanup) > 0 && valueDerivesFrom(target, ssaflow.CallResult(call, result)) {
+		if owned && len(cleanup) > 0 && valueDerivesFrom(target, ssacall.CallResult(call, result)) {
 			return cleanup, true
 		}
 	}
@@ -139,10 +140,10 @@ func responseBodyReplaced(function *ssa.Function, body *ssa.FieldAddr) bool {
 func resultDerivesToTarget(call *ssa.Call, target ssa.Value) bool {
 	results := call.Common().Signature().Results()
 	if results.Len() == 1 {
-		return valueDerivesFrom(target, ssaflow.CallResult(call, -1))
+		return valueDerivesFrom(target, ssacall.CallResult(call, -1))
 	}
 	for index := range results.Len() {
-		if valueDerivesFrom(target, ssaflow.CallResult(call, index)) {
+		if valueDerivesFrom(target, ssacall.CallResult(call, index)) {
 			return true
 		}
 	}

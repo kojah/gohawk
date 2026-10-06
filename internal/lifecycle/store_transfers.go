@@ -6,7 +6,9 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -76,7 +78,7 @@ func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa
 		}
 		parameter := callee.Params[index]
 		owned := false
-		unowned := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+		unowned := ssapath.UnownedReturn(ssapath.UnownedReturnQuery{
 			Entry: callee,
 			Owns:  func(ssa.Instruction) bool { return false },
 			AllowReturn: func(returned *ssa.Return) bool {
@@ -98,7 +100,7 @@ func CallTransfersArgumentToReturnedOwner(instruction ssa.Instruction, value ssa
 // instantiations may carry no blocks of their own; the origin has the same
 // parameter positions and the source body.
 func staticCalleeBody(common *ssa.CallCommon) *ssa.Function {
-	callee := ssaflow.ResolvedCallee(common)
+	callee := ssacall.ResolvedCallee(common)
 	if callee == nil {
 		return nil
 	}

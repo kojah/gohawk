@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -47,10 +47,10 @@ type CompletionRequest struct {
 	// Constants, when set, fixes Boolean parameters of the body containing
 	// Instruction, as when that body is itself proved under one of its own
 	// cases; a helper then sees the constants its call forwards.
-	Constants ssaflow.FixedValues
+	Constants ssacall.FixedValues
 	// condition is set only by the edge query after resolving an exact call
 	// result. It never changes an ordinary completion request's contract.
-	condition ssaflow.CallCondition
+	condition ssacall.CallCondition
 }
 
 // ProveCompletion answers one completion request. Each call runs its own

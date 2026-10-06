@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -148,7 +149,7 @@ func (classifier *cancellationClassifier) proveDeferredCaptureWithin(closure *ss
 func (classifier *cancellationClassifier) resultGuardedReturn(returned *ssa.Return) (cancellationLabel, bool) {
 	uncertain := false
 	budget := classifier.budget()
-	outcomeOf := func(value ssa.Value) (ssaflow.Outcome, bool) {
+	outcomeOf := func(value ssa.Value) (ssacall.Outcome, bool) {
 		return classifier.knowledge.OutcomeOf(value, budget)
 	}
 	for _, guard := range classifier.guards {

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
+
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
@@ -23,10 +25,10 @@ func skipped(skip bool) { o:=new(owner); done:=make(chan int); go func(){close(d
 `)
 	for _, test := range []struct {
 		name string
-		want ssaflow.ObligationOutcome
+		want ssapath.ObligationOutcome
 	}{
-		{"covered", ssaflow.ObligationUncertain},
-		{"skipped", ssaflow.ObligationViolated},
+		{"covered", ssapath.ObligationUncertain},
+		{"skipped", ssapath.ObligationViolated},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
@@ -41,12 +43,12 @@ func skipped(skip bool) { o:=new(owner); done:=make(chan int); go func(){close(d
 			}
 			// Submit the authoritative label at its own instruction. An early
 			// return that bypasses this call receives no unknown credit.
-			outcome := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
-				Start: spawn, Instruction: func(instruction ssa.Instruction) ssaflow.ObligationAction {
+			outcome := ssapath.EvaluateObligation(ssapath.ObligationFlow{
+				Start: spawn, Instruction: func(instruction ssa.Instruction) ssapath.ObligationAction {
 					if instruction == call {
 						return action.obligation()
 					}
-					return ssaflow.ObligationNone
+					return ssapath.ObligationNone
 				},
 			})
 			if outcome != test.want {

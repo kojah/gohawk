@@ -1,7 +1,7 @@
 package concurrencyfacts
 
 import (
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -14,7 +14,7 @@ func (engine *Engine) resolvedCommon(instruction ssa.CallInstruction) *ssa.CallC
 	if !common.IsInvoke() {
 		return common
 	}
-	dispatch := ssaflow.ResolveInterfaceDispatch(common, instruction.Parent().Prog, engine.budget)
+	dispatch := ssacall.ResolveInterfaceDispatch(common, instruction.Parent().Prog, engine.budget)
 	if !dispatch.Proven() {
 		return common
 	}

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -33,7 +34,7 @@ func boolComparison(flag bool) int {
 	function := pkg.Func("mixed")
 	var matched *ssa.BasicBlock
 	for _, block := range function.Blocks {
-		channel, ok := ssaflow.SelectedReceiveChannel(block)
+		channel, ok := ssapath.SelectedReceiveChannel(block)
 		if !ok {
 			continue
 		}
@@ -47,20 +48,20 @@ func boolComparison(flag bool) int {
 	}
 	// A shared successor cannot borrow one predecessor's selected operation.
 	matched.Preds = append(matched.Preds, function.Blocks[0])
-	if _, ok := ssaflow.SelectedReceiveChannel(matched); ok {
+	if _, ok := ssapath.SelectedReceiveChannel(matched); ok {
 		t.Fatal("shared successor was treated as a selected receive")
 	}
-	if channel, ok := ssaflow.SelectedReceiveOnEdge(matched.Preds[0], matched); !ok || channel != function.Params[0] {
+	if channel, ok := ssapath.SelectedReceiveOnEdge(matched.Preds[0], matched); !ok || channel != function.Params[0] {
 		t.Fatal("exact selected edge lost its receive at a shared successor")
 	}
 	for _, name := range []string{"ordinary", "stringComparison", "boolComparison"} {
 		for _, block := range pkg.Func(name).Blocks {
-			if _, ok := ssaflow.SelectedReceiveChannel(block); ok {
+			if _, ok := ssapath.SelectedReceiveChannel(block); ok {
 				t.Fatalf("%s branch was treated as a selected receive", name)
 			}
 		}
 	}
-	if _, ok := ssaflow.SelectedReceiveChannel(nil); ok {
+	if _, ok := ssapath.SelectedReceiveChannel(nil); ok {
 		t.Fatal("nil block was treated as a selected receive")
 	}
 }
@@ -113,24 +114,24 @@ func defaultArm(done, work <-chan int, flag bool) {
 				return exact(instruction) || ssaflow.CallName(ssaflow.InstructionCall(instruction)) == "opaque"
 			}
 			edge := func(from, to *ssa.BasicBlock) bool {
-				channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
+				channel, selected := ssapath.SelectedReceiveOnEdge(from, to)
 				return selected && channel == function.Params[0]
 			}
-			if got := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: start, Owns: exact, OwnsEdge: edge}) != nil; got != test.unowned {
+			if got := ssapath.UnownedReturn(ssapath.UnownedReturnQuery{After: start, Owns: exact, OwnsEdge: edge}) != nil; got != test.unowned {
 				t.Errorf("after start = %v, want %v", got, test.unowned)
 			}
-			if got := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: exact, OwnsEdge: edge}) != nil; got != test.unowned {
+			if got := ssapath.UnownedReturn(ssapath.UnownedReturnQuery{Entry: function, Owns: exact, OwnsEdge: edge}) != nil; got != test.unowned {
 				t.Errorf("from entry = %v, want %v", got, test.unowned)
 			}
-			if got := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+			if got := ssapath.UnownedReturn(ssapath.UnownedReturnQuery{
 				After:    start,
 				Owns:     uncertain,
 				OwnsEdge: edge,
-				Assume:   ssaflow.EntryAssumptions{NonNil: function.Params[0]},
+				Assume:   ssapath.EntryAssumptions{NonNil: function.Params[0]},
 			}) != nil; got != test.uncertainUnowned {
 				t.Errorf("uncertain/non-nil = %v, want %v", got, test.uncertainUnowned)
 			}
-			if ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: start, Owns: uncertain}) == nil {
+			if ssapath.UnownedReturn(ssapath.UnownedReturnQuery{After: start, Owns: uncertain}) == nil {
 				t.Error("ordinary instruction-only query borrowed an edge action")
 			}
 		})

@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -89,7 +90,7 @@ func TestLocalHTTPEffectsChildCutoffFlow(t *testing.T) {
 func localHTTPGetCall(t *testing.T, fn *ssa.Function) *ssa.Call {
 	t.Helper()
 	for _, call := range ssaflow.InstructionsOf[*ssa.Call](fn) {
-		if ssaflow.CallMatchesAnySymbol(call.Common(), httpGet, httpClientGet) {
+		if ssacall.CallMatchesAnySymbol(call.Common(), httpGet, httpClientGet) {
 			return call
 		}
 	}

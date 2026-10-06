@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -109,15 +110,15 @@ func TestConditionalCompletionMemoIsolation(t *testing.T) {
 	search := newCompletionSearch("Close", CoverageEveryReturn, proofs.NewSearchBudget(1000))
 	search.exactTarget = true
 	for _, test := range []struct {
-		kind ssaflow.Outcome
+		kind ssacall.Outcome
 		want bool
 	}{
-		{ssaflow.OutcomeTrue, true},
-		{ssaflow.OutcomeFalse, false},
-		{ssaflow.OutcomeAny, false},
-		{ssaflow.OutcomeTrue, true},
+		{ssacall.OutcomeTrue, true},
+		{ssacall.OutcomeFalse, false},
+		{ssacall.OutcomeAny, false},
+		{ssacall.OutcomeTrue, true},
 	} {
-		search.condition = ssaflow.CallCondition{Outcome: test.kind}
+		search.condition = ssacall.CallCondition{Outcome: test.kind}
 		if proven := search.completes(call, fn.Params[0]).proven; proven != test.want {
 			t.Errorf("condition %v: proven %v, want %v", test.kind, proven, test.want)
 		}

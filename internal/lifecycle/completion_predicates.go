@@ -3,6 +3,8 @@ package lifecycle
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -11,12 +13,12 @@ import (
 // requested method from callback invocation, and match the query condition:
 // the search's result condition, with the constants the call supplies.
 // False means no guarantee, never proof that the callee has no effect.
-type CompletionSummaryLookup func(ssa.Instruction, ssa.Value, string, bool, ssaflow.CallCondition) bool
+type CompletionSummaryLookup func(ssa.Instruction, ssa.Value, string, bool, ssacall.CallCondition) bool
 
 // queryAt is the question a summary lookup answers for one call: this
 // search's result condition, with the constants the call supplies.
-func (search *completionSearch) queryAt(instruction ssa.Instruction) ssaflow.CallCondition {
-	supplied := ssaflow.SuppliedCondition(ssaflow.InstructionCall(instruction), search.constants)
+func (search *completionSearch) queryAt(instruction ssa.Instruction) ssacall.CallCondition {
+	supplied := ssacall.SuppliedCondition(ssaflow.InstructionCall(instruction), search.constants)
 	query := search.condition
 	query.Arguments, query.Nilness = supplied.Arguments, supplied.Nilness
 	return query
@@ -30,7 +32,7 @@ func (search *completionSearch) queryAt(instruction ssa.Instruction) ssaflow.Cal
 // completion may settle a field or element beneath the parameter; the proof
 // then names that path, and a caller must not credit a claim whose path is
 // not known.
-func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondition, request CompletionRequest) proofs.CompletionProof {
+func ProveCompletionForCase(function *ssa.Function, condition ssacall.CallCondition, request CompletionRequest) proofs.CompletionProof {
 	unknown := proofs.CompletionProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
 	parameter, ok := request.Target.(*ssa.Parameter)
 	if !ok || function == nil || parameter.Parent() != function || len(function.Blocks) == 0 ||
@@ -46,7 +48,7 @@ func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondit
 		methods = []string{""}
 	}
 	locals := []mappedLocal{{local: parameter, supplied: parameter, kind: localExact}}
-	resultTest := ssaflow.CallCondition{Result: condition.Result, Outcome: condition.Outcome}
+	resultTest := ssacall.CallCondition{Result: condition.Result, Outcome: condition.Outcome}
 	for _, method := range methods {
 		search := newCompletionSearch(method, CoverageEveryReturn, request.Budget)
 		search.exactTarget = request.ExactTarget || request.InvokeTarget
@@ -59,9 +61,9 @@ func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondit
 		paths := completionPaths{}
 		search.paths = &paths
 		search.memo.WithFunction(function, func() {
-			if resultTest.Outcome == ssaflow.OutcomeAny {
+			if resultTest.Outcome == ssacall.OutcomeAny {
 				calls := func(candidate ssa.Instruction) bool { return search.instructionCompletes(candidate, locals, parameter) }
-				assumptions := ssaflow.EntryAssumptions{NonNil: parameter, Constants: constants}
+				assumptions := ssapath.EntryAssumptions{NonNil: parameter, Constants: constants}
 				proven = proveMethodCallCoverageAssumingWithin(function, calls, CoverageEveryReturn, assumptions, request.Budget).Proven()
 				return
 			}

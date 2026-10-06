@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -211,7 +212,7 @@ func ownsOnEveryReturn(function *ssa.Function, parameter ssa.Value, owns func(ss
 }
 
 func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, parameter ssa.Value) bool {
-	if !canReturnOwner(function.Signature.Results()) || len(function.Blocks) == 0 || !ssaflow.NormalReturnReachableFrom(function.Blocks[0]) {
+	if !canReturnOwner(function.Signature.Results()) || len(function.Blocks) == 0 || !ssapath.NormalReturnReachableFrom(function.Blocks[0]) {
 		return false
 	}
 	// A constructor commonly delegates across a package boundary, so the
@@ -220,7 +221,7 @@ func returnedOwnerOnEveryReturn(pass *analysis.Pass, function *ssa.Function, par
 		imported, ok := factForFunction(pass, callee)
 		return ok && imported.Claim(ClaimReturnsOwner).contains(index)
 	}
-	return ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+	return ssapath.UnownedReturn(ssapath.UnownedReturnQuery{
 		Entry: function,
 		Owns:  func(ssa.Instruction) bool { return false },
 		AllowReturn: func(returned *ssa.Return) bool {

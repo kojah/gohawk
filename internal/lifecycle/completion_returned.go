@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -72,11 +73,11 @@ func (search *completionSearch) returnedCallCompletes(instruction ssa.Instructio
 }
 
 func (search *completionSearch) returnedValueCompletes(callback, target ssa.Value) bool {
-	factory, callbackIndex, ok := ssaflow.CallResultSource(callback)
+	factory, callbackIndex, ok := ssacall.CallResultSource(callback)
 	if !ok || !search.budget.Spend() {
 		return false
 	}
-	function := ssaflow.ResolvedCallee(factory.Common())
+	function := ssacall.ResolvedCallee(factory.Common())
 	if function == nil {
 		return false
 	}
@@ -102,7 +103,7 @@ func (search *completionSearch) returnedValueCompletes(callback, target ssa.Valu
 		if !search.budget.Spend() {
 			return false
 		}
-		result := ssaflow.CallResult(factory, index)
+		result := ssacall.CallResult(factory, index)
 		if result != nil && storage.Same(result, target).Proven() && search.returnedRelation(function, ReturnedCleanupRelation{
 			CallbackResult: callbackIndex, Target: index, TargetIsResult: true,
 		}) {
@@ -135,7 +136,7 @@ func (search *completionSearch) returnedRelation(function *ssa.Function, relatio
 	key := returnedCleanupKey{function: function, relation: relation, invoke: search.invokeTarget}
 	return search.returnedMemo.Summarize(key, function, search.budget, func() bool {
 		return search.returnedRelationBody(function, relation)
-	}, func(ssaflow.SummaryUnavailable, bool) bool { return false })
+	}, func(ssacall.SummaryUnavailable, bool) bool { return false })
 }
 
 func (search *completionSearch) returnedRelationBody(function *ssa.Function, relation ReturnedCleanupRelation) bool {
@@ -187,7 +188,7 @@ func (search *completionSearch) returnedCallbackCompletes(callback, target ssa.V
 		}
 		strict := *search
 		strict.exactTarget = true
-		strict.condition = ssaflow.CallCondition{}
+		strict.condition = ssacall.CallCondition{}
 		return strict.calleeCompletes(completionCallee{
 			function: function, closure: closure, launch: launchCallback, invocation: returned,
 		}, target, returned).proven

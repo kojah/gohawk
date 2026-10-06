@@ -1,7 +1,7 @@
 package heapmodel
 
 import (
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -26,7 +26,7 @@ var synchronousMutexMethods = []syntax.Symbol{
 }
 
 func (graph *regionGraph) definedMutexCall(state *regionState, common *ssa.CallCommon, instruction ssa.Instruction, started bool) bool {
-	if started || common.StaticCallee() == nil || len(common.Args) != 1 || !ssaflow.CallMatchesAnySymbol(common, synchronousMutexMethods...) {
+	if started || common.StaticCallee() == nil || len(common.Args) != 1 || !ssacall.CallMatchesAnySymbol(common, synchronousMutexMethods...) {
 		return false
 	}
 	receiver := graph.pointees(common.Args[0])

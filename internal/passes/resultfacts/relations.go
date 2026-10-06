@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -23,9 +24,9 @@ import (
 // ResultCase is one proven implication: result Result has Outcome on every
 // normal return where Condition holds.
 type ResultCase struct {
-	Condition ssaflow.CallCondition
+	Condition ssacall.CallCondition
 	Result    int
-	Outcome   ssaflow.Outcome
+	Outcome   ssacall.Outcome
 }
 
 // ReturnedParameter records that result Result is parameter Parameter itself,
@@ -39,7 +40,7 @@ type ReturnedParameter struct {
 
 // Implies reports whether some proven case answers query: result has
 // outcome wherever the query's condition holds.
-func (summary Summary) Implies(query ssaflow.CallCondition, result int, outcome ssaflow.Outcome) bool {
+func (summary Summary) Implies(query ssacall.CallCondition, result int, outcome ssacall.Outcome) bool {
 	for _, proven := range summary.cases {
 		if proven.Result == result && proven.Outcome == outcome && proven.Condition.Matches(query) {
 			return true
@@ -64,8 +65,8 @@ func (summary Summary) ReturnedParameter(result int) (int, bool) {
 }
 
 // errorOutcome is the condition that the error result at index has outcome.
-func errorOutcome(index int, outcome ssaflow.Outcome) ssaflow.CallCondition {
-	return ssaflow.CallCondition{Result: index, Outcome: outcome}
+func errorOutcome(index int, outcome ssacall.Outcome) ssacall.CallCondition {
+	return ssacall.CallCondition{Result: index, Outcome: outcome}
 }
 
 func (engine *Engine) relations(function *ssa.Function, budget *proofs.SearchBudget) ([]ResultCase, []ReturnedParameter) {
@@ -84,15 +85,15 @@ func (engine *Engine) relations(function *ssa.Function, budget *proofs.SearchBud
 		}
 		if isBoolean(resultType) {
 			for index, parameter := range function.Params {
-				if index >= 64 || !ssaflow.Nilable(parameter.Type()) {
+				if index >= 64 || !ssacall.Nilable(parameter.Type()) {
 					continue
 				}
 				if engine.parameterRelation(function, result, parameter, true, AlwaysFalse, budget) {
-					cases = append(cases, ResultCase{Condition: ssaflow.ParameterNil(index), Result: result, Outcome: ssaflow.OutcomeFalse})
+					cases = append(cases, ResultCase{Condition: ssacall.ParameterNil(index), Result: result, Outcome: ssacall.OutcomeFalse})
 				}
 			}
 		}
-		if !ssaflow.Nilable(resultType) {
+		if !ssacall.Nilable(resultType) {
 			continue
 		}
 		for operand := range results.Len() {
@@ -112,13 +113,13 @@ func (engine *Engine) relations(function *ssa.Function, budget *proofs.SearchBud
 // pairedCase is one implication between a nilable result and its paired
 // error: where the error has errorOutcome, the result has resultOutcome.
 type pairedCase struct {
-	errorOutcome  ssaflow.Outcome
-	resultOutcome ssaflow.Outcome
+	errorOutcome  ssacall.Outcome
+	resultOutcome ssacall.Outcome
 }
 
 var pairedNilness = []pairedCase{
-	{errorOutcome: ssaflow.OutcomeNil, resultOutcome: ssaflow.OutcomeNonNil},
-	{errorOutcome: ssaflow.OutcomeNonNil, resultOutcome: ssaflow.OutcomeNil},
+	{errorOutcome: ssacall.OutcomeNil, resultOutcome: ssacall.OutcomeNonNil},
+	{errorOutcome: ssacall.OutcomeNonNil, resultOutcome: ssacall.OutcomeNil},
 }
 
 // parameterRelation walks the body under the assumption that parameter is
@@ -130,9 +131,9 @@ var pairedNilness = []pairedCase{
 func (engine *Engine) parameterRelation(
 	function *ssa.Function, result int, parameter *ssa.Parameter, assumeNil bool, expected Guarantee, budget *proofs.SearchBudget,
 ) bool {
-	assumed := ssaflow.FixedValues{parameter: ssaflow.OutcomeNonNil}
+	assumed := ssacall.FixedValues{parameter: ssacall.OutcomeNonNil}
 	if assumeNil {
-		assumed[parameter] = ssaflow.OutcomeNil
+		assumed[parameter] = ssacall.OutcomeNil
 	}
 	valid, witness := true, false
 	cfg.WalkStatesWithin([]*ssa.BasicBlock{function.Blocks[0]}, func(block *ssa.BasicBlock) *ssa.BasicBlock { return block },
@@ -160,7 +161,7 @@ func (engine *Engine) parameterRelation(
 // assumedValue resolves a Boolean result under the assumed nilness of the
 // exact parameter: a comparison of that parameter with nil is decided by the
 // assumption, and anything else falls back to the unconditional guarantee.
-func (engine *Engine) assumedValue(value ssa.Value, assumed ssaflow.FixedValues, budget *proofs.SearchBudget) Guarantee {
+func (engine *Engine) assumedValue(value ssa.Value, assumed ssacall.FixedValues, budget *proofs.SearchBudget) Guarantee {
 	result, ok := ssaflow.ResolveReachingValue(
 		ssaflow.NewReachingWalk(ssaflow.TransparentChangeType).Within(budget), value,
 		func(_ ssaflow.ReachingWalk, leaf ssa.Value) (Guarantee, bool) {
@@ -212,12 +213,12 @@ func (engine *Engine) resultRelation(function *ssa.Function, result, operand int
 func (engine *Engine) returnHolds(resultValue, errorValue ssa.Value, kind pairedCase, budget *proofs.SearchBudget) (bool, bool) {
 	switch engine.value(errorValue, budget) {
 	case AlwaysNil:
-		if kind.errorOutcome == ssaflow.OutcomeNil {
+		if kind.errorOutcome == ssacall.OutcomeNil {
 			return engine.value(resultValue, budget) == AlwaysNonNil, true
 		}
 		return true, false
 	case AlwaysNonNil:
-		if kind.errorOutcome == ssaflow.OutcomeNonNil {
+		if kind.errorOutcome == ssacall.OutcomeNonNil {
 			return engine.value(resultValue, budget) == AlwaysNil, true
 		}
 		return true, false
@@ -241,7 +242,7 @@ func (engine *Engine) returnHolds(resultValue, errorValue ssa.Value, kind paired
 // resultSatisfies reports whether a result of this guarantee meets the
 // relation's consequent on its own.
 func resultSatisfies(guarantee Guarantee, kind pairedCase) bool {
-	return kind.resultOutcome == ssaflow.OutcomeNil && guarantee == AlwaysNil || kind.resultOutcome == ssaflow.OutcomeNonNil && guarantee == AlwaysNonNil
+	return kind.resultOutcome == ssacall.OutcomeNil && guarantee == AlwaysNil || kind.resultOutcome == ssacall.OutcomeNonNil && guarantee == AlwaysNonNil
 }
 
 // forwardedPair resolves a return that passes two results of one call
@@ -252,15 +253,15 @@ func forwardedPair(resultValue, errorValue ssa.Value, budget *proofs.SearchBudge
 	if !budget.Spend() {
 		return nil, 0, 0, false
 	}
-	resultCall, resultIndex, ok := ssaflow.CallResultSource(resultValue)
+	resultCall, resultIndex, ok := ssacall.CallResultSource(resultValue)
 	if !ok {
 		return nil, 0, 0, false
 	}
-	errorCall, errorIndex, ok := ssaflow.CallResultSource(errorValue)
+	errorCall, errorIndex, ok := ssacall.CallResultSource(errorValue)
 	if !ok || errorCall != resultCall {
 		return nil, 0, 0, false
 	}
-	callee := ssaflow.ResolvedCallee(resultCall.Common())
+	callee := ssacall.ResolvedCallee(resultCall.Common())
 	return callee, resultIndex, errorIndex, callee != nil
 }
 

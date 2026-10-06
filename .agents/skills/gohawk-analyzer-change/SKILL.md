@@ -99,8 +99,8 @@ in this order and stop at the first step that holds:
    and a commit-pinned link to the real-world pattern.
 
 Never add a new proof file, a name, or a framework guess. A loop count is
-allowed only as an exact count from `ssaflow.ProveCountedLoop` or
-`ssaflow.ProveCountedRegion`, compared with proven obligations. A default diagnostic needs positive structural evidence of both an
+allowed only as an exact count from `path.ProveCountedLoop` or
+`path.ProveCountedRegion`, compared with proven obligations. A default diagnostic needs positive structural evidence of both an
 obligation and its violation; the absence of a recognized cleanup proves
 nothing.
 

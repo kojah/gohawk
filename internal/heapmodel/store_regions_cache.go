@@ -5,7 +5,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -164,7 +164,7 @@ func consultedStillCurrent(graph *regionGraph) bool {
 // the callee's own, and for a bodiless instantiation its origin's.
 func summaryKeys(callee *ssa.Function) []*ssa.Function {
 	keys := []*ssa.Function{callee}
-	if resolved := ssaflow.ResolvedFunction(callee); resolved != nil && resolved != callee {
+	if resolved := ssacall.ResolvedFunction(callee); resolved != nil && resolved != callee {
 		keys = append(keys, resolved)
 	}
 	return keys

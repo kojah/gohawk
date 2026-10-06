@@ -6,6 +6,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -24,10 +25,10 @@ func unreadable(p *resource) { opaque(p) }
 	for _, test := range []struct {
 		name    string
 		state   proofs.EvidenceState
-		effects ssaflow.CallEffect
+		effects ssacall.CallEffect
 	}{
-		{"observed", proofs.EvidenceProven, ssaflow.EffectRead},
-		{"launched", proofs.EvidenceProven, ssaflow.EffectRead | ssaflow.EffectAsync},
+		{"observed", proofs.EvidenceProven, ssacall.EffectRead},
+		{"launched", proofs.EvidenceProven, ssacall.EffectRead | ssacall.EffectAsync},
 		{"unreadable", proofs.EvidenceUnknown, 0},
 	} {
 		t.Run(test.name, func(t *testing.T) {

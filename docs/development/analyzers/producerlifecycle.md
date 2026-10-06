@@ -101,7 +101,7 @@ pin the supported outcomes and source attribution.
 
 ## Direct fallback callee resolution
 
-Incomplete protocol summaries use `ssaflow.DirectCallee` to select only a
+Incomplete protocol summaries use `calls.DirectCallee` to select only a
 statically named function or literal closure. Generic instances are resolved to
 the source origin before sends are collected; parameter positions and closure
 captures then map back through the existing `SpawnedValueAtCall` query. The

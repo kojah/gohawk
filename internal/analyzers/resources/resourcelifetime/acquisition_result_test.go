@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -31,7 +32,7 @@ func TestAcquisitionErrorResultAllowance(t *testing.T) {
 			baseline := proveAcquisitionErrorResultWithin(call, nil)
 			var want ssa.Value
 			if test.slot >= 0 {
-				want = ssaflow.CallResult(call, test.slot)
+				want = ssacall.CallResult(call, test.slot)
 			}
 			if baseline.proof.State == proofs.EvidenceUnknown || baseline.value != want || baseline.proof.Proven() != (want != nil) {
 				t.Fatalf("result = %+v, want %v; SSA:\n%s", baseline, want, carriedSSA(t, call.Parent()))
@@ -90,7 +91,7 @@ func TestAcquisitionErrorResultFlow(t *testing.T) {
 			call := acquisitionResultCall(t, pkg.Func(name))
 			provider := resourceSummaries.Provider(nil)
 			evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
-			got := evaluateResourceFlow(nil, evidence, call, ssaflow.CallResult(call, 0), resourceContract{cleanup: []string{"Close"}})
+			got := evaluateResourceFlow(nil, evidence, call, ssacall.CallResult(call, 0), resourceContract{cleanup: []string{"Close"}})
 			if name == "leak" {
 				if got.state != proofs.EvidenceProven || got.leak == nil {
 					t.Fatalf("leak lost: %+v", got)

@@ -6,8 +6,8 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/resourcemodel"
-	"github.com/kojah/gohawk/internal/ssaflow"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
@@ -30,11 +30,11 @@ type resourceFlowState struct {
 	// profile file's creation and its close on one option field:
 	// https://github.com/mutagen-io/mutagen/blob/6ccfeaaf4dfd261e59ef9aac56e3c157b62e605b/tools/scan_bench/main.go#L140-L172
 	// https://github.com/fortio/fortio/blob/5c19725ff61c9f7ad944b91ec32d96a399341d87/fhttp/httprunner.go#L199-L215
-	guards ssaflow.PathGuards
+	guards ssapath.PathGuards
 }
 
 type resourceFlowKey struct {
-	location   ssaflow.FlowLocationKey
+	location   ssapath.FlowLocationKey
 	obligation resourcemodel.Obligation
 }
 
@@ -62,7 +62,7 @@ func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resour
 	}
 	// Begin after acquisition; predecessor and obligation state distinguish
 	// error edges from paths that still owe cleanup.
-	guards := ssaflow.GuardsDominatingWithin(analysis.acquisition, budget)
+	guards := ssapath.GuardsDominatingWithin(analysis.acquisition, budget)
 	initial := []resourceFlowState{{block: analysis.acquisition.Block(), index: index + 1, obligation: resourcemodel.Acquired(), guards: guards}}
 	opaque, leaks, incomplete := false, false, false
 	cfg.WalkStatesWithin(initial, func(state resourceFlowState) resourceFlowKey { return resourceStateKey(state, budget) },
@@ -95,7 +95,7 @@ func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resour
 
 func resourceStateKey(state resourceFlowState, budget *proofs.SearchBudget) resourceFlowKey {
 	return resourceFlowKey{
-		location:   ssaflow.FlowLocationKeyWithin(state.block, state.predecessor, state.index, state.guards, budget),
+		location:   ssapath.FlowLocationKeyWithin(state.block, state.predecessor, state.index, state.guards, budget),
 		obligation: state.obligation,
 	}
 }
@@ -130,7 +130,7 @@ func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState, b
 		}
 		// A call that never returns, whether os.Exit or a project's own fatal
 		// wrapper the summaries prove, ends this path with nothing to release.
-		terminated := ssaflow.InstructionTerminatesWithin(instruction, analysis.summaries.TerminatesWithin(budget), budget)
+		terminated := ssapath.InstructionTerminatesWithin(instruction, analysis.summaries.TerminatesWithin(budget), budget)
 		if resourceFlowExhausted(budget) {
 			return state, false
 		}
@@ -177,7 +177,7 @@ func resourceSuccessorStates(
 	if optionalAcquisition.Proven() && state.block == optionalAcquisition.merge && state.predecessor == optionalAcquisition.acquisitionBlock {
 		acquired := optionalAcquisition.acquiredSuccessor
 		guards, contradiction := state.guards.ExtendWithin(state.block, acquired, nil, budget)
-		edges = []ssaflow.SuccessorEdge{{To: acquired, Guards: guards, Contradiction: contradiction}}
+		edges = []ssapath.SuccessorEdge{{To: acquired, Guards: guards, Contradiction: contradiction}}
 		traceOptionalAcquisition(pass, optionalAcquisition, candidate)
 	}
 	if resourceFlowExhausted(budget) {
@@ -208,7 +208,7 @@ func resourceSuccessorStates(
 		// Repeated guard contradictions instead retain an unknown obligation:
 		// dropping it would turn unavailable path evidence into cleanup.
 		guards, contradiction := edge.Guards, edge.Contradiction
-		if contradiction != ssaflow.GuardConsistent {
+		if contradiction != ssapath.GuardConsistent {
 			obligation = obligation.Uncertain()
 			analysis.traceUncertainEdge(state.block, successor, resourceReasonRepeatedGuardEdgeUnknown)
 		}

@@ -169,7 +169,7 @@ type CompletionRequest struct {
 	// Constants, when set, fixes Boolean parameters of the body containing
 	// Instruction, as when that body is itself proved under one of its own
 	// cases; a helper then sees the constants its call forwards.
-	Constants	ssaflow.FixedValues
+	Constants	ssacall.FixedValues
 	// contains filtered or unexported fields
 }
 ```
@@ -184,7 +184,7 @@ deferred releases, select the instructions they submit.
 [Source](../../../../internal/lifecycle/completion_predicates.go)
 
 ```go
-type CompletionSummaryLookup func(ssa.Instruction, ssa.Value, string, bool, ssaflow.CallCondition) bool
+type CompletionSummaryLookup func(ssa.Instruction, ssa.Value, string, bool, ssacall.CallCondition) bool
 ```
 
 CompletionSummaryLookup supplies positive guarantees for unavailable callees.
@@ -396,7 +396,7 @@ Disproven.
 [Source](../../../../internal/lifecycle/completion_predicates.go)
 
 ```go
-func ProveCompletionForCase(function *ssa.Function, condition ssaflow.CallCondition, request CompletionRequest) proofs.CompletionProof
+func ProveCompletionForCase(function *ssa.Function, condition ssacall.CallCondition, request CompletionRequest) proofs.CompletionProof
 ```
 
 ProveCompletionForCase summarizes exact parameter cleanup on the normal
@@ -587,7 +587,7 @@ named results of the function that defers it.
 [Source](../../../../internal/lifecycle/completion_result_guards.go)
 
 ```go
-func (guard ResultGuard) Completes(request CompletionRequest, fixed ssaflow.FixedValues) proofs.EvidenceState
+func (guard ResultGuard) Completes(request CompletionRequest, fixed ssacall.FixedValues) proofs.EvidenceState
 ```
 
 Completes asks whether the deferred literal completes the target on every
@@ -599,7 +599,7 @@ one of its returns, given what its captured named results hold.
 
 ```go
 func (guard ResultGuard) CompletesAtReturn(
-	request CompletionRequest, returned *ssa.Return, outcomeOf func(ssa.Value) (ssaflow.Outcome, bool),
+	request CompletionRequest, returned *ssa.Return, outcomeOf func(ssa.Value) (ssacall.Outcome, bool),
 ) proofs.EvidenceState
 ```
 

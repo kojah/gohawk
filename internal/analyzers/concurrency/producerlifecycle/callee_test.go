@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -61,7 +62,7 @@ func selected(yes bool, opaque func()) {
 				if send.channel != ssaflow.InstructionsOf[*ssa.MakeChan](function)[0] {
 					t.Fatal("callee channel was not mapped to caller")
 				}
-				if send.instruction.Parent() != ssaflow.ResolvedCallee(send.spawn.Common()) {
+				if send.instruction.Parent() != ssacall.ResolvedCallee(send.spawn.Common()) {
 					t.Fatal("send is outside resolved worker body")
 				}
 			}
@@ -79,7 +80,7 @@ func logGenericWorker(t *testing.T, function *ssa.Function) {
 	t.Helper()
 	spawn := ssaflow.InstructionsOf[*ssa.Go](function)[0]
 	raw := spawn.Common().StaticCallee()
-	resolved, _ := ssaflow.DirectCallee(spawn.Common())
+	resolved, _ := ssacall.DirectCallee(spawn.Common())
 	if raw == resolved || raw.Origin() != resolved {
 		t.Fatal("test did not build a generic instance")
 	}

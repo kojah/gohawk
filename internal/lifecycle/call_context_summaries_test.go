@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -17,7 +17,7 @@ func TestSummaryContextKeys(t *testing.T) {
 		target   ssa.Value
 		strict   bool
 	}
-	memo := ssaflow.NewCallGraphMemo[key, int]()
+	memo := ssacall.NewCallGraphMemo[key, int]()
 	for index, target := range function.Params {
 		for _, strict := range []bool{false, true} {
 			context := key{function: function, target: target, strict: strict}
@@ -31,7 +31,7 @@ func TestSummaryContextKeys(t *testing.T) {
 						t.Error("completed context was not memoized")
 					}
 					return want
-				}, func(ssaflow.SummaryUnavailable, int) int { return -1 })
+				}, func(ssacall.SummaryUnavailable, int) int { return -1 })
 				if got != want {
 					t.Errorf("parameter %d strict=%v: got %d, want %d", index, strict, got, want)
 				}
@@ -47,7 +47,7 @@ func TestSummaryBudgetPreservesOnlyMarkedPartialEvidence(t *testing.T) {
 		witness int
 		unknown bool
 	}
-	memo := ssaflow.NewCallGraphMemo[*ssa.Function, evidence]()
+	memo := ssacall.NewCallGraphMemo[*ssa.Function, evidence]()
 	computations := 0
 	for _, limit := range []int{0, 1, 0} {
 		budget := proofs.NewSearchBudget(limit)
@@ -55,7 +55,7 @@ func TestSummaryBudgetPreservesOnlyMarkedPartialEvidence(t *testing.T) {
 			computations++
 			budget.Spend()
 			return evidence{witness: 1}
-		}, func(_ ssaflow.SummaryUnavailable, partial evidence) evidence {
+		}, func(_ ssacall.SummaryUnavailable, partial evidence) evidence {
 			partial.unknown = true
 			return partial
 		})
@@ -72,9 +72,9 @@ func TestSummaryBudgetPreservesOnlyMarkedPartialEvidence(t *testing.T) {
 func TestSummaryRecursionGuardSpansContexts(t *testing.T) {
 	pkg := ssaflowtest.BuildPackage(t, "summaries", summaryFixture)
 	function := pkg.Func("leaf")
-	memo := ssaflow.NewCallGraphMemo[int, bool]()
-	failed := func(reason ssaflow.SummaryUnavailable, _ bool) bool {
-		if reason != ssaflow.SummaryRecursive {
+	memo := ssacall.NewCallGraphMemo[int, bool]()
+	failed := func(reason ssacall.SummaryUnavailable, _ bool) bool {
+		if reason != ssacall.SummaryRecursive {
 			t.Errorf("unexpected cut reason: %v", reason)
 		}
 		return false

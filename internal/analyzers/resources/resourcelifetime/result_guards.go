@@ -2,19 +2,19 @@ package resourcelifetime
 
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
 // Unconditional result guarantees refine only feasible edges. They do not
 // create acquisition contracts, infer cleanup, or replace error/owner relations.
 // Unknown results retain the existing paths and their reporting policy.
-func (analysis *resourceAnalysis) successorPolicy() ssaflow.SuccessorPolicy {
+func (analysis *resourceAnalysis) successorPolicy() ssapath.SuccessorPolicy {
 	if analysis.summaries == nil {
-		return ssaflow.SuccessorPolicy{}
+		return ssapath.SuccessorPolicy{}
 	}
-	return ssaflow.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
+	return ssapath.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
 		return analysis.summaries.FeasibleSuccessors(block, predecessor, analysis.budget(2000))
 	}}
 }

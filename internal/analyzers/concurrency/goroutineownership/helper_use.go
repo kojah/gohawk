@@ -8,7 +8,9 @@ import (
 	"github.com/kojah/gohawk/internal/passes/concurrencyfacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -30,7 +32,7 @@ import (
 // and the rule that an answer cut short by it is not retained.
 type helperSearch struct {
 	concurrency *concurrencyfacts.Engine
-	memo        *ssaflow.CallGraphMemo[helperKey, ownershipAction]
+	memo        *ssacall.CallGraphMemo[helperKey, ownershipAction]
 	budget      *proofs.SearchBudget
 }
 
@@ -47,19 +49,19 @@ func newHelperSearch() *helperSearch {
 }
 
 func newHelperSearchWithin(budget *proofs.SearchBudget) *helperSearch {
-	return &helperSearch{memo: ssaflow.NewCallGraphMemo[helperKey, ownershipAction](), budget: budget}
+	return &helperSearch{memo: ssacall.NewCallGraphMemo[helperKey, ownershipAction](), budget: budget}
 }
 
 func (search *helperSearch) use(function *ssa.Function, local ssa.Value, kind trackedKind) ownershipAction {
 	key := helperKey{function: function, local: local, kind: kind}
 	return search.memo.Summarize(key, function, search.budget, func() ownershipAction {
 		return search.searchUse(function, local, kind)
-	}, func(reason ssaflow.SummaryUnavailable, _ ownershipAction) ownershipAction {
+	}, func(reason ssacall.SummaryUnavailable, _ ownershipAction) ownershipAction {
 		// A recursive or exhausted search cannot establish the absence of a
 		// completion handoff. Its caller supplied the tracked value, so the
 		// cutoff is opaque consumption, never a missing-join proof. A later
 		// independent exact observation can still cover every return.
-		if reason == ssaflow.SummaryBudgetExhausted || reason == ssaflow.SummaryRecursive {
+		if reason == ssacall.SummaryBudgetExhausted || reason == ssacall.SummaryRecursive {
 			return actionUnknown
 		}
 		// Body availability is handled by the call classifier before asking
@@ -112,7 +114,7 @@ func (search *helperSearch) searchUse(function *ssa.Function, local ssa.Value, k
 			escaped = action == actionUnknown || escaped
 		}
 	}
-	joinProven := joined && ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{Entry: function, Owns: joins, OwnsEdge: joinsEdge}) == nil
+	joinProven := joined && ssapath.UnownedReturn(ssapath.UnownedReturnQuery{Entry: function, Owns: joins, OwnsEdge: joinsEdge}) == nil
 	if search.budget.Exhausted() {
 		return actionUnknown
 	}
@@ -136,7 +138,7 @@ func (search *helperSearch) receiveEdgeAction(
 	if kind != trackedSignal || !search.budget.Spend() {
 		return actionNone
 	}
-	channel, selected := ssaflow.SelectedReceiveOnEdge(from, to)
+	channel, selected := ssapath.SelectedReceiveOnEdge(from, to)
 	if !selected {
 		return actionNone
 	}
@@ -168,11 +170,11 @@ func (search *helperSearch) instructionJoins(instruction ssa.Instruction, kind t
 	if receiverJoins(common, kind, derives) {
 		return true
 	}
-	callee, closure := ssaflow.DirectCallee(common)
+	callee, closure := ssacall.DirectCallee(common)
 	if callee == nil {
 		return false
 	}
-	for pair := range ssaflow.CallBindingsWithin(common, callee, closure, search.budget) {
+	for pair := range ssacall.CallBindingsWithin(common, callee, closure, search.budget) {
 		if derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionJoin {
 			return true
 		}
@@ -190,7 +192,7 @@ func receiverJoins(common *ssa.CallCommon, kind trackedKind, derives func(ssa.Va
 	}
 	switch kind {
 	case trackedGroup:
-		return ssaflow.CallMatchesSymbol(common, waitGroupWait)
+		return ssacall.CallMatchesSymbol(common, waitGroupWait)
 	case trackedOwner:
 		return lifecycleMethod(ssaflow.CallName(common))
 	case trackedSignal:
@@ -242,7 +244,7 @@ func (search *helperSearch) callEscapes(instruction ssa.Instruction, kind tracke
 	// A launched Wait/cleanup may own shutdown on another goroutine; it is
 	// opaque handoff, never positive completion or a read-only receiver use.
 	if _, launched := instruction.(*ssa.Go); launched {
-		_, closure := ssaflow.DirectCallee(common)
+		_, closure := ssacall.DirectCallee(common)
 		return helperCallCarries(common, closure, derives)
 	}
 	if builtin, ok := common.Value.(*ssa.Builtin); ok {
@@ -256,11 +258,11 @@ func (search *helperSearch) callEscapes(instruction ssa.Instruction, kind tracke
 	if receiverCallRetainsNothing(common, kind, derives) {
 		return false
 	}
-	callee, closure := ssaflow.DirectCallee(common)
+	callee, closure := ssacall.DirectCallee(common)
 	if callee == nil || len(callee.Blocks) == 0 {
 		return helperCallCarries(common, closure, derives)
 	}
-	for pair := range ssaflow.CallBindingsWithin(common, callee, closure, search.budget) {
+	for pair := range ssacall.CallBindingsWithin(common, callee, closure, search.budget) {
 		if derives(pair.Supplied) && search.use(callee, pair.Local, kind) == actionUnknown {
 			return true
 		}

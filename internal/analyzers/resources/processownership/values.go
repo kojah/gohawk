@@ -7,7 +7,9 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -21,14 +23,14 @@ func commandPipeOperation(common *ssa.CallCommon) bool {
 	if common == nil {
 		return false
 	}
-	pipe, index, called := ssaflow.CallResultSource(ssaflow.CallReceiver(common))
-	if !called || index != 0 || !ssaflow.CallMatchesAnySymbol(pipe.Common(),
+	pipe, index, called := ssacall.CallResultSource(ssaflow.CallReceiver(common))
+	if !called || index != 0 || !ssacall.CallMatchesAnySymbol(pipe.Common(),
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "StdinPipe"}),
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "StdoutPipe"}),
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "StderrPipe"})) {
 		return false
 	}
-	return ssaflow.CallMatchesAnySymbol(common,
+	return ssacall.CallMatchesAnySymbol(common,
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "io", Receiver: "WriteCloser", Name: "Write"}),
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "io", Receiver: "WriteCloser", Name: "Close"}),
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "io", Receiver: "ReadCloser", Name: "Read"}),
@@ -74,7 +76,7 @@ func commandReturnedByHelperLeaf(walk ssaflow.ReachingWalk, command ssa.Value) b
 		_, called := typed.Tuple.(*ssa.Call)
 		return called && walk.Any(typed.Tuple, commandReturnedByHelperLeaf)
 	case *ssa.Call:
-		return !ssaflow.CallMatchesAnySymbol(
+		return !ssacall.CallMatchesAnySymbol(
 			typed.Common(),
 			syntax.PackageFunction("os/exec", "Command"),
 			syntax.PackageFunction("os/exec", "CommandContext"),
@@ -115,7 +117,7 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 		return false
 	}
 	receiver := ssaflow.CallReceiver(common)
-	if ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
+	if ssacall.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os/exec", Receiver: "Cmd", Name: "Wait"})) {
 		// A closure-local FreeVar is the mapped capture cell, not the command
 		// value. Its caller maps the captured command into this frame.
 		if _, captured := command.(*ssa.FreeVar); captured {
@@ -126,7 +128,7 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 	// Waiting through cmd.Process reaps the same operating-system child. Mache
 	// uses the lower-level handle after signaling an entire process group:
 	// https://github.com/agentic-research/mache/blob/ccaf44c3688c12324af57747b6fb0c6a33ca93e0/internal/leyline/procgroup_unix_test.go#L30-L51
-	return ssaflow.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Wait"})) &&
+	return ssacall.CallMatchesSymbol(common, syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "os", Receiver: "Process", Name: "Wait"})) &&
 		osProcessDerivedFromCommand(receiver, command)
 }
 
@@ -138,7 +140,7 @@ func waitsForCommand(instruction ssa.Instruction, command ssa.Value) bool {
 // https://github.com/threatexpert/gonc/blob/e14bc6b97efc2150c4e0bbb2bdc89f8548e28fa6/apps/nc.go#L3171-L3327
 func successfulCommandMerge(start *ssa.Call, command ssa.Value) *ssa.Phi {
 	for _, successor := range start.Block().Succs {
-		success, known := ssaflow.SuccessBranch(start.Block(), successor, start)
+		success, known := ssapath.SuccessBranch(start.Block(), successor, start)
 		if !known || !success || cfg.BlockInCycle(successor) {
 			continue
 		}
@@ -178,7 +180,7 @@ func proveImmediateProcessGuard(start *ssa.Call, command ssa.Value) processGuard
 		if len(guard.Preds) != 1 || guard.Preds[0] != start.Block() || len(guard.Instrs) != 4 {
 			continue
 		}
-		if success, known := ssaflow.SuccessBranch(start.Block(), guard, start); !known || !success {
+		if success, known := ssapath.SuccessBranch(start.Block(), guard, start); !known || !success {
 			continue
 		}
 		comparison := immediateProcessNilComparison(guard, command)
@@ -224,12 +226,12 @@ func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
 		return false
 	}
 	for _, predecessor := range returned.Block().Preds {
-		if success, known := ssaflow.SuccessBranch(predecessor, returned.Block(), start); known {
+		if success, known := ssapath.SuccessBranch(predecessor, returned.Block(), start); known {
 			return !success
 		}
 	}
 	for _, successor := range start.Block().Succs {
-		success, known := ssaflow.SuccessBranch(start.Block(), successor, start)
+		success, known := ssapath.SuccessBranch(start.Block(), successor, start)
 		if !known || success {
 			continue
 		}
@@ -240,7 +242,7 @@ func startFailureReturn(returned *ssa.Return, start *ssa.Call) bool {
 
 func successBranchReaches(start *ssa.Call, target *ssa.BasicBlock) bool {
 	for _, successor := range start.Block().Succs {
-		if success, known := ssaflow.SuccessBranch(start.Block(), successor, start); known && success {
+		if success, known := ssapath.SuccessBranch(start.Block(), successor, start); known && success {
 			return cfg.BlockReachable(successor, target)
 		}
 	}

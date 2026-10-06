@@ -9,6 +9,7 @@ import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/resourcemodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -127,7 +128,7 @@ func (analysis *resourceAnalysis) proveAggregateOwnerEscapeWithin(
 			return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 		}
 		if effects.Proven() {
-			if effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
+			if effects.Effects&(ssacall.EffectRetain|ssacall.EffectAsync) != 0 {
 				return aggregateEscapeProof(true, budget)
 			}
 			continue
@@ -289,5 +290,5 @@ func (analysis *resourceAnalysis) proveAsynchronousExposureWithin(
 	if effects.Reason == proofs.EvidenceBudgetExhausted {
 		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
 	}
-	return carriedValueProof(effects.Proven() && effects.Effects&ssaflow.EffectAsync != 0, resourceReasonCallEffectsAsynchronousExposure, budget)
+	return carriedValueProof(effects.Proven() && effects.Effects&ssacall.EffectAsync != 0, resourceReasonCallEffectsAsynchronousExposure, budget)
 }

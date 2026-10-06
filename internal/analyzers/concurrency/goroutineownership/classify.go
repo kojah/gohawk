@@ -5,6 +5,8 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
@@ -42,18 +44,18 @@ func (action ownershipAction) String() string {
 
 // obligation maps this classifier's labels onto the shared flow lattice: a
 // join or transfer is exact evidence and an opaque use is unknown.
-func (action ownershipAction) obligation() ssaflow.ObligationAction {
+func (action ownershipAction) obligation() ssapath.ObligationAction {
 	switch action {
 	case actionJoin, actionTransfer:
-		return ssaflow.ObligationExact
+		return ssapath.ObligationExact
 	case actionUnknown:
-		return ssaflow.ObligationUnknown
+		return ssapath.ObligationUnknown
 	case actionNone:
 	}
-	return ssaflow.ObligationNone
+	return ssapath.ObligationNone
 }
 
-func (analysis *spawnAnalysis) obligation(instruction ssa.Instruction) ssaflow.ObligationAction {
+func (analysis *spawnAnalysis) obligation(instruction ssa.Instruction) ssapath.ObligationAction {
 	return analysis.action(instruction).obligation()
 }
 
@@ -61,21 +63,21 @@ func (analysis *spawnAnalysis) obligation(instruction ssa.Instruction) ssaflow.O
 // join on that arm alone, and a selected receive of an opaque worker's
 // context as an opaque observation on that arm alone. The exit of a counted
 // select drain is an exact join on that edge alone.
-func (analysis *spawnAnalysis) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
+func (analysis *spawnAnalysis) edgeObligation(from, to *ssa.BasicBlock) ssapath.ObligationAction {
 	if analysis.selectedJoinEdge(from, to) {
-		return ssaflow.ObligationExact
+		return ssapath.ObligationExact
 	}
-	if drain := analysis.countedDrainAction(from, to); drain != ssaflow.ObligationNone {
+	if drain := analysis.countedDrainAction(from, to); drain != ssapath.ObligationNone {
 		return drain
 	}
-	if channel, selected := ssaflow.SelectedReceiveOnEdge(from, to); selected && analysis.possibleSignal(channel) {
-		analysis.recordEdge(from, to, reasonSelectedPossibleReceiveEdge, ssaflow.ObligationUnknown)
-		return ssaflow.ObligationUnknown
+	if channel, selected := ssapath.SelectedReceiveOnEdge(from, to); selected && analysis.possibleSignal(channel) {
+		analysis.recordEdge(from, to, reasonSelectedPossibleReceiveEdge, ssapath.ObligationUnknown)
+		return ssapath.ObligationUnknown
 	}
 	if analysis.selectedOwnershipEdge(from, to) {
-		return ssaflow.ObligationUnknown
+		return ssapath.ObligationUnknown
 	}
-	return ssaflow.ObligationNone
+	return ssapath.ObligationNone
 }
 
 // strongerAction merges the labels of several tracked values touched by one
@@ -189,7 +191,7 @@ func storedTerminationReceiver(common *ssa.CallCommon) bool {
 	copy := *common
 	copy.Args = slices.Clone(common.Args)
 	copy.Args[0] = resolved.Value
-	return ssaflow.HasLibraryContract(&copy, ssaflow.ContractTestingTermination)
+	return ssacall.HasLibraryContract(&copy, ssacall.ContractTestingTermination)
 }
 
 // An exact returned handle covers the obligation even if another result has

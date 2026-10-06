@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -23,7 +24,7 @@ func proveHeadClientUnconfiguredWithin(client ssa.Value, function *ssa.Function,
 	if !ok || load.Op != token.MUL {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
-	if ssaflow.ValueMatchesSymbol(load.X, httpDefaultClient) {
+	if ssacall.ValueMatchesSymbol(load.X, httpDefaultClient) {
 		if !onlyHTTPDoUsesWithin(load, budget) {
 			return carriedValueProof(false, resourceReasonUntouched, budget)
 		}
@@ -132,7 +133,7 @@ func onlyHTTPDoUsesWithin(value ssa.Value, budget *proofs.SearchBudget) bool {
 			return false
 		}
 		call, ok := ref.(*ssa.Call)
-		if !ok || !ssaflow.CallMatchesSymbol(call.Common(), httpClientDo) {
+		if !ok || !ssacall.CallMatchesSymbol(call.Common(), httpClientDo) {
 			return false
 		}
 	}

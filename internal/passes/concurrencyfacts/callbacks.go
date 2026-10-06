@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -130,17 +131,17 @@ func (engine *Engine) bindCallback(result *Summary, hole Operation, supplied ssa
 // result unknown.
 func (engine *Engine) suppliedCallback(supplied ssa.Value, method *types.Func, instruction ssa.CallInstruction) (Summary, Reason) {
 	var function *ssa.Function
-	var bindings []ssaflow.CallBinding
+	var bindings []ssacall.CallBinding
 	switch value := supplied.(type) {
 	case *ssa.Function:
 		function = value
 	case *ssa.MakeClosure:
 		function, _ = value.Fn.(*ssa.Function)
-		bindings = ssaflow.CallBindings(nil, function, value)
+		bindings = ssacall.CallBindings(nil, function, value)
 	case *ssa.MakeInterface:
 		function = concreteMethod(instruction.Parent().Prog, value.X.Type(), method)
 		if function != nil && len(function.Params) != 0 {
-			bindings = []ssaflow.CallBinding{{Local: function.Params[0], Supplied: value.X}}
+			bindings = []ssacall.CallBinding{{Local: function.Params[0], Supplied: value.X}}
 		}
 	}
 	if function == nil || len(function.Blocks) == 0 {
@@ -167,7 +168,7 @@ func concreteMethod(program *ssa.Program, concrete types.Type, method *types.Fun
 }
 
 // holeSupplied returns the caller's value for a hole's function input.
-func holeSupplied(hole Operation, bindings []ssaflow.CallBinding) (ssa.Value, bool) {
+func holeSupplied(hole Operation, bindings []ssacall.CallBinding) (ssa.Value, bool) {
 	for _, binding := range bindings {
 		if binding.Local == hole.Resource.Value {
 			return binding.Supplied, true

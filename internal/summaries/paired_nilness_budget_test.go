@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -28,7 +29,7 @@ func guarded(ok bool) *box {
 `)
 	fn := pkg.Func("guarded")
 	call := ssaflow.InstructionsOf[*ssa.Call](fn)[0]
-	value := ssaflow.CallResult(call, 0)
+	value := ssacall.CallResult(call, 0)
 	branches := ssaflow.InstructionsOf[*ssa.If](fn)
 	if len(branches) != 2 || len(ssaflow.InstructionsOf[*ssa.Call](fn)) != 65 {
 		t.Fatal("actual SSA must retain both guards and 64 error provenance calls")

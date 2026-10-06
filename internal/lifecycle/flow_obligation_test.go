@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -34,42 +34,42 @@ func obligationStart(t *testing.T, function *ssa.Function) ssa.Instruction {
 	})
 }
 
-func labelledCall(instruction ssa.Instruction) ssaflow.ObligationAction {
+func labelledCall(instruction ssa.Instruction) ssapath.ObligationAction {
 	call, ok := instruction.(*ssa.Call)
 	if !ok || call.Common().StaticCallee() == nil {
-		return ssaflow.ObligationNone
+		return ssapath.ObligationNone
 	}
 	switch call.Common().StaticCallee().Name() {
 	case "settle":
-		return ssaflow.ObligationExact
+		return ssapath.ObligationExact
 	case "opaque":
-		return ssaflow.ObligationUnknown
+		return ssapath.ObligationUnknown
 	}
-	return ssaflow.ObligationNone
+	return ssapath.ObligationNone
 }
 
 func TestEvaluateObligationKeepsUncertaintyOnItsPath(t *testing.T) {
 	pkg := buildTestSSA(t, obligationFixture)
-	want := map[string]ssaflow.ObligationOutcome{
-		"exactEverywhere": ssaflow.ObligationHonored,
-		"opaqueOneBranch": ssaflow.ObligationUncertain,
+	want := map[string]ssapath.ObligationOutcome{
+		"exactEverywhere": ssapath.ObligationHonored,
+		"opaqueOneBranch": ssapath.ObligationUncertain,
 		// An opaque handoff on the other branch must not excuse this early
 		// return: nothing on its path touched the obligation.
-		"earlyReturnUncovered": ssaflow.ObligationViolated,
-		"opaqueEverywhere":     ssaflow.ObligationUncertain,
-		"exactAfterOpaque":     ssaflow.ObligationHonored,
+		"earlyReturnUncovered": ssapath.ObligationViolated,
+		"opaqueEverywhere":     ssapath.ObligationUncertain,
+		"exactAfterOpaque":     ssapath.ObligationHonored,
 	}
 	for name, expected := range want {
 		function := pkg.Func(name)
 		start := obligationStart(t, function)
-		got := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{Start: start, Instruction: labelledCall})
+		got := ssapath.EvaluateObligation(ssapath.ObligationFlow{Start: start, Instruction: labelledCall})
 		if got != expected {
 			t.Errorf("%s: outcome %d, want %d", name, got, expected)
 		}
 		// The Boolean family is the same walk on a two-level lattice, so it
 		// must agree about violation exactly.
-		owns := func(instruction ssa.Instruction) bool { return labelledCall(instruction) != ssaflow.ObligationNone }
-		if unowned := ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{After: start, Owns: owns}) != nil; unowned != (expected == ssaflow.ObligationViolated) {
+		owns := func(instruction ssa.Instruction) bool { return labelledCall(instruction) != ssapath.ObligationNone }
+		if unowned := ssapath.UnownedReturn(ssapath.UnownedReturnQuery{After: start, Owns: owns}) != nil; unowned != (expected == ssapath.ObligationViolated) {
 			t.Errorf("%s: UnownedReturn = %v disagrees with outcome %d", name, unowned, expected)
 		}
 	}
@@ -80,8 +80,8 @@ func TestEvaluateObligationBudgetCutIsUncertain(t *testing.T) {
 	for _, name := range []string{"exactEverywhere", "earlyReturnUncovered"} {
 		function := pkg.Func(name)
 		start := obligationStart(t, function)
-		got := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{Start: start, Instruction: labelledCall, Budget: proofs.NewSearchBudget(0)})
-		if got != ssaflow.ObligationUncertain {
+		got := ssapath.EvaluateObligation(ssapath.ObligationFlow{Start: start, Instruction: labelledCall, Budget: proofs.NewSearchBudget(0)})
+		if got != ssapath.ObligationUncertain {
 			t.Errorf("%s: budget cut outcome = %d, want uncertain", name, got)
 		}
 	}
@@ -91,22 +91,22 @@ func TestEvaluateObligationEdgeActionsStayOnTheirSuccessor(t *testing.T) {
 	pkg := buildTestSSA(t, obligationFixture)
 	function := pkg.Func("selectArms")
 	start := obligationStart(t, function)
-	joinedOn := func(channel ssa.Value) func(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
-		return func(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
-			if received, ok := ssaflow.SelectedReceiveOnEdge(from, to); ok && received == channel {
-				return ssaflow.ObligationExact
+	joinedOn := func(channel ssa.Value) func(from, to *ssa.BasicBlock) ssapath.ObligationAction {
+		return func(from, to *ssa.BasicBlock) ssapath.ObligationAction {
+			if received, ok := ssapath.SelectedReceiveOnEdge(from, to); ok && received == channel {
+				return ssapath.ObligationExact
 			}
-			return ssaflow.ObligationNone
+			return ssapath.ObligationNone
 		}
 	}
-	firstArm := ssaflow.ObligationFlow{Start: start, Instruction: labelledCall, Edge: joinedOn(function.Params[0])}
-	if got := ssaflow.EvaluateObligation(firstArm); got != ssaflow.ObligationViolated {
+	firstArm := ssapath.ObligationFlow{Start: start, Instruction: labelledCall, Edge: joinedOn(function.Params[0])}
+	if got := ssapath.EvaluateObligation(firstArm); got != ssapath.ObligationViolated {
 		t.Errorf("a join on one select arm covered the other arm: outcome %d", got)
 	}
-	both := func(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
+	both := func(from, to *ssa.BasicBlock) ssapath.ObligationAction {
 		return max(joinedOn(function.Params[0])(from, to), joinedOn(function.Params[1])(from, to))
 	}
-	if got := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{Start: start, Instruction: labelledCall, Edge: both}); got != ssaflow.ObligationHonored {
+	if got := ssapath.EvaluateObligation(ssapath.ObligationFlow{Start: start, Instruction: labelledCall, Edge: both}); got != ssapath.ObligationHonored {
 		t.Errorf("joins on every select arm were not honored: outcome %d", got)
 	}
 }
@@ -115,28 +115,28 @@ func TestEvaluateObligationReturnAndNonNilPolicy(t *testing.T) {
 	pkg := buildTestSSA(t, obligationFixture)
 	returns := pkg.Func("returnsOwner")
 	start := obligationStart(t, returns)
-	transferred := func(*ssa.Return) ssaflow.ObligationAction { return ssaflow.ObligationExact }
-	transferFlow := ssaflow.ObligationFlow{Start: start, Instruction: labelledCall, Return: transferred}
-	if got := ssaflow.EvaluateObligation(transferFlow); got != ssaflow.ObligationHonored {
+	transferred := func(*ssa.Return) ssapath.ObligationAction { return ssapath.ObligationExact }
+	transferFlow := ssapath.ObligationFlow{Start: start, Instruction: labelledCall, Return: transferred}
+	if got := ssapath.EvaluateObligation(transferFlow); got != ssapath.ObligationHonored {
 		t.Errorf("a transferring return was not honored: outcome %d", got)
 	}
-	if got := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{Start: start, Instruction: labelledCall}); got != ssaflow.ObligationViolated {
+	if got := ssapath.EvaluateObligation(ssapath.ObligationFlow{Start: start, Instruction: labelledCall}); got != ssapath.ObligationViolated {
 		t.Errorf("a plain return with no action was not a violation: outcome %d", got)
 	}
 
 	guarded := pkg.Func("guarded")
 	start = obligationStart(t, guarded)
 	cancel := guarded.Params[0]
-	invokes := func(instruction ssa.Instruction) ssaflow.ObligationAction {
+	invokes := func(instruction ssa.Instruction) ssapath.ObligationAction {
 		if call, ok := instruction.(*ssa.Call); ok && call.Common().Value == cancel {
-			return ssaflow.ObligationExact
+			return ssapath.ObligationExact
 		}
-		return ssaflow.ObligationNone
+		return ssapath.ObligationNone
 	}
-	if got := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{Start: start, NonNil: cancel, Instruction: invokes}); got != ssaflow.ObligationHonored {
+	if got := ssapath.EvaluateObligation(ssapath.ObligationFlow{Start: start, NonNil: cancel, Instruction: invokes}); got != ssapath.ObligationHonored {
 		t.Errorf("the nil branch was walked despite the non-nil assumption: outcome %d", got)
 	}
-	if got := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{Start: start, Instruction: invokes}); got != ssaflow.ObligationViolated {
+	if got := ssapath.EvaluateObligation(ssapath.ObligationFlow{Start: start, Instruction: invokes}); got != ssapath.ObligationViolated {
 		t.Errorf("the nil branch was pruned without a non-nil assumption: outcome %d", got)
 	}
 }
@@ -147,18 +147,18 @@ func TestEvaluateObligationUsesSuppliedSuccessors(t *testing.T) {
 	pkg := buildTestSSA(t, obligationFixture)
 	function := pkg.Func("earlyReturnUncovered")
 	start := obligationStart(t, function)
-	flow := ssaflow.ObligationFlow{Start: start, Instruction: labelledCall}
-	if got := ssaflow.EvaluateObligation(flow); got != ssaflow.ObligationViolated {
+	flow := ssapath.ObligationFlow{Start: start, Instruction: labelledCall}
+	if got := ssapath.EvaluateObligation(flow); got != ssapath.ObligationViolated {
 		t.Fatalf("default feasibility: outcome %d, want violated", got)
 	}
 	flow.Successors = func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
-		successors := ssaflow.FeasibleSuccessorsWithin(block, predecessor, nil)
+		successors := ssapath.FeasibleSuccessorsWithin(block, predecessor, nil)
 		if len(successors) == 2 {
 			return successors[1:]
 		}
 		return successors
 	}
-	if got := ssaflow.EvaluateObligation(flow); got != ssaflow.ObligationUncertain {
+	if got := ssapath.EvaluateObligation(flow); got != ssapath.ObligationUncertain {
 		t.Fatalf("supplied feasibility: outcome %d, want uncertain (only the opaque path remains)", got)
 	}
 }

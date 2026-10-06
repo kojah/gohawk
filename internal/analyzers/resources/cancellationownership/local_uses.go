@@ -7,6 +7,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -96,11 +97,11 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value, observ
 	callee := common.StaticCallee()
 	// Proven read-only use is not cancellation. Unknown effects still go
 	// through the cancellation-specific invocation policy below.
-	if ssaflow.NewCallEffects(proofs.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Call(instruction, cancel).PreservesStorage() {
+	if ssacall.NewCallEffects(proofs.NewSearchBudget(cancellationCompletionBudget).Observed(observer)).Call(instruction, cancel).PreservesStorage() {
 		return true
 	}
 	found := false
-	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
+	for _, binding := range ssacall.CallBindings(common, callee, nil) {
 		argument := binding.Supplied
 		closureContainsCancel := false
 		if _, ok := argument.(*ssa.MakeClosure); ok {
@@ -121,7 +122,7 @@ func localCallOnlyObserves(instruction ssa.Instruction, cancel ssa.Value, observ
 // is resolved. The memo owns the cycle guard and the rule that an answer cut
 // short by it is not retained.
 type cancellationUse struct {
-	memo   *ssaflow.CallGraphMemo[cancellationUseKey, bool]
+	memo   *ssacall.CallGraphMemo[cancellationUseKey, bool]
 	budget *proofs.SearchBudget
 }
 
@@ -132,7 +133,7 @@ type cancellationUseKey struct {
 
 func newCancellationUse(observer proofs.Observer) *cancellationUse {
 	return &cancellationUse{
-		memo:   ssaflow.NewCallGraphMemo[cancellationUseKey, bool](),
+		memo:   ssacall.NewCallGraphMemo[cancellationUseKey, bool](),
 		budget: proofs.NewSearchBudget(cancellationCompletionBudget).Observed(observer),
 	}
 }
@@ -141,7 +142,7 @@ func (search *cancellationUse) parameterResolved(function *ssa.Function, paramet
 	key := cancellationUseKey{function: function, parameter: parameter}
 	return search.memo.Summarize(key, function, search.budget, func() bool {
 		return search.searchParameterResolved(function, parameter)
-	}, func(ssaflow.SummaryUnavailable, bool) bool {
+	}, func(ssacall.SummaryUnavailable, bool) bool {
 		// Unresolved use stays an opaque consumption at the classifier. A
 		// shortened search must not prove that the helper only observes cancel.
 		return false
@@ -180,7 +181,7 @@ func (search *cancellationUse) instructionResolved(instruction ssa.Instruction, 
 		return false
 	}
 	matched := false
-	for _, binding := range ssaflow.CallBindings(common, callee, nil) {
+	for _, binding := range ssacall.CallBindings(common, callee, nil) {
 		if !search.budget.Spend() {
 			return false
 		}

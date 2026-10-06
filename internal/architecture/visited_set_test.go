@@ -19,7 +19,7 @@ import (
 // short holds only for the path that produced it and must not be retained.
 // Those two rules travel together, and getting either wrong fails silently:
 // forget the memo and the walk is exponential, forget the cut and the memo
-// changes which proofs succeed. ssaflow.CallGraphMemo owns both, so this test
+// changes which proofs succeed. calls.CallGraphMemo owns both, so this test
 // requires the guard to go through it rather than be rebuilt by hand.
 //
 // The rule says nothing about a visited set that only ever marks. A monotonic
@@ -27,7 +27,7 @@ import (
 
 // callGraphMemoImplementation is the one file allowed to un-mark a call-graph
 // visited set, because it is the shared guard every other walk delegates to.
-const callGraphMemoImplementation = "internal/ssaflow/call_graph_memo.go"
+const callGraphMemoImplementation = "internal/ssaflow/calls/call_graph_memo.go"
 
 func TestCallGraphGuardsGoThroughTheSharedMemo(t *testing.T) {
 	t.Parallel()
@@ -69,7 +69,7 @@ func reportHandRolledGuards(t *testing.T, pkg *packages.Package, file *ast.File,
 			return true
 		}
 		line := pkg.Fset.Position(node.Pos()).Line
-		t.Errorf("%s:%d un-marks a call-graph visited set by hand; use ssaflow.CallGraphMemo, which keeps the "+
+		t.Errorf("%s:%d un-marks a call-graph visited set by hand; use calls.CallGraphMemo, which keeps the "+
 			"path guard and the memo together and withholds an answer the guard cut short",
 			repositoryPath, line)
 		return true

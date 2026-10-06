@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -63,7 +64,7 @@ func TestResultGuards(t *testing.T) {
 			continue
 		}
 		value, _ := ssaflow.ValueAtReturnWithin(returned, guards[0].Cells[0], nil)
-		states[value.String()] = guards[0].CompletesAtReturn(request, returned, ssaflow.ValueOutcome)
+		states[value.String()] = guards[0].CompletesAtReturn(request, returned, ssacall.ValueOutcome)
 	}
 	if states["nil:error"] != proofs.EvidenceDisproven {
 		t.Errorf("the nil return: %v, want the guarded close skipped (disproven); all: %v", states["nil:error"], states)

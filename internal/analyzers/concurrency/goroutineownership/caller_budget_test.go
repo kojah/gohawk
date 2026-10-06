@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
@@ -101,7 +103,7 @@ func asynchronous() { _,cancel:=context.WithCancel(context.Background()); go fun
 			function := pkg.Func(test.name)
 			spawn := ssaflow.InstructionsOf[*ssa.Go](function)[0]
 			calls := ssaflow.InstructionsOf[*ssa.Call](function)
-			cancel := ssaflow.CallResult(calls[1], 1)
+			cancel := ssacall.CallResult(calls[1], 1)
 			cutoff := proofs.NewSearchBudget(0)
 			if cancelCoversSpawn(spawn, cancel, heapmodel.NewStorage(cutoff)) || !cutoff.Exhausted() {
 				t.Fatal("unavailable coverage must not prove cancellation")

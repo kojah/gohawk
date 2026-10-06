@@ -7,6 +7,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -135,10 +136,10 @@ func TestCancellationOwnerCutoffCannotBecomeLoss(t *testing.T) {
  func released(cancel func())*owner{o:=&owner{cancel:cancel};cancel();return o}`)
 	for _, test := range []struct {
 		name          string
-		cut, complete ssaflow.ObligationOutcome
+		cut, complete ssapath.ObligationOutcome
 	}{
-		{"dropped", ssaflow.ObligationUncertain, ssaflow.ObligationViolated},
-		{"released", ssaflow.ObligationHonored, ssaflow.ObligationHonored},
+		{"dropped", ssapath.ObligationUncertain, ssapath.ObligationViolated},
+		{"released", ssapath.ObligationHonored, ssapath.ObligationHonored},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
@@ -147,7 +148,7 @@ func TestCancellationOwnerCutoffCannotBecomeLoss(t *testing.T) {
 					cancel: fn.Params[0], pool: proofs.NewSearchBudget(limit),
 					actions: make(map[ssa.Instruction]cancellationAction),
 				}
-				got := ssaflow.EvaluateObligation(ssaflow.ObligationFlow{
+				got := ssapath.EvaluateObligation(ssapath.ObligationFlow{
 					Start: fn.Blocks[0].Instrs[0], NonNil: fn.Params[0], Instruction: query.obligation, Edge: query.edgeObligation,
 				})
 				want := test.complete

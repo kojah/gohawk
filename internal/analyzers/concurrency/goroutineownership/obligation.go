@@ -12,7 +12,9 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -46,11 +48,11 @@ type trackedValue struct {
 
 type joinEdgeEvidence struct {
 	reason goroutineOwnershipReason
-	action ssaflow.ObligationAction
+	action ssapath.ObligationAction
 }
 
 func resolveSpawnedFunction(pass *analysis.Pass, spawn *ssa.Go, budget *proofs.SearchBudget) (*ssa.Function, *ssa.MakeClosure) {
-	function, closure := ssaflow.DirectCallee(spawn.Common())
+	function, closure := ssacall.DirectCallee(spawn.Common())
 	if closure != nil {
 		return function, closure
 	}
@@ -74,7 +76,7 @@ func resolveSpawnedFunction(pass *analysis.Pass, spawn *ssa.Go, budget *proofs.S
 		if !invoked {
 			continue
 		}
-		return ssaflow.ResolvedFunction(callback), callbackClosure
+		return ssacall.ResolvedFunction(callback), callbackClosure
 	}
 	return function, closure
 }
@@ -140,7 +142,7 @@ func spawnedCompletionValues(
 // https://github.com/vbauerster/mpb/blob/ddeb4bb7bcb86e114648760018b10700841a081a/heap_manager.go#L46-L61
 func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ssa.MakeClosure, budget *proofs.SearchBudget) []ssa.Value {
 	var groups []ssa.Value
-	for pair := range ssaflow.CallBindingsWithin(spawn.Common(), function, closure, budget) {
+	for pair := range ssacall.CallBindingsWithin(spawn.Common(), function, closure, budget) {
 		group := completionValueAtCall(spawn, function, closure, pair.Local, budget)
 		// A typed nil actual satisfies the parameter's static WaitGroup type,
 		// but the callee's guarded deferred Done cannot run for this launch.
@@ -157,7 +159,7 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 			if !ok {
 				return false
 			}
-			if ssaflow.CallMatchesSymbol(deferred.Common(), waitGroupDone) &&
+			if ssacall.CallMatchesSymbol(deferred.Common(), waitGroupDone) &&
 				heapmodel.DefinitelySameValue(ssaflow.CallReceiver(deferred.Common()), pair.Local) {
 				return true
 			}
@@ -166,7 +168,7 @@ func deferredCompletionGroups(spawn *ssa.Go, function *ssa.Function, closure *ss
 				Budget: budget,
 			})
 			return proof.Proven()
-		}) != ssaflow.ObligationHonored
+		}) != ssapath.ObligationHonored
 
 		if !unsettled {
 			groups = append(groups, group)
@@ -205,7 +207,7 @@ func spawnedCompletionSignal(
 	// A conditional defer cannot promise an unconditional worker join.
 	covered := completionReturnCoverage(function, nil, budget, func(candidate ssa.Instruction) bool {
 		return candidate == instruction
-	}) == ssaflow.ObligationHonored
+	}) == ssapath.ObligationHonored
 	_, deferred := instruction.(*ssa.Defer)
 	if !covered || (!deferred && !terminalCompletion(instruction, budget)) {
 		return nil
@@ -235,7 +237,7 @@ func completionNotification(
 		return nil
 	}
 	common := ssaflow.InstructionCall(instruction)
-	if common == nil || !ssaflow.CallMatchesSymbol(common, syntax.Builtin("close")) || len(common.Args) != 1 {
+	if common == nil || !ssacall.CallMatchesSymbol(common, syntax.Builtin("close")) || len(common.Args) != 1 {
 		return nil
 	}
 	// Closing entries in a loop is per-item cleanup. A deferred close can
@@ -265,7 +267,7 @@ func notifiesChannelOnEveryReturn(function *ssa.Function, channel ssa.Value, bud
 			notified = source
 		}
 		return heapmodel.DefinitelySameValue(notified, identity)
-	}) == ssaflow.ObligationHonored
+	}) == ssapath.ObligationHonored
 }
 
 // nestedClosureSignal returns the worker-level value that a synchronously
@@ -294,7 +296,7 @@ func nestedClosureSignal(
 			}
 			for _, captured := range ssaflow.ClosureBindingPairs(function, nested) {
 				if storage.Same(source, captured.Free).Proven() &&
-					ssaflow.CallbackCaptureReadOnly(nested, captured.Binding, budget) {
+					ssacall.CallbackCaptureReadOnly(nested, captured.Binding, budget) {
 					return captured.Binding
 				}
 			}
@@ -330,7 +332,7 @@ func waitGroupCompletionValues(
 				continue
 			}
 			common := ssaflow.InstructionCall(instruction)
-			if common == nil || !ssaflow.CallMatchesSymbol(common, waitGroupDone) {
+			if common == nil || !ssacall.CallMatchesSymbol(common, waitGroupDone) {
 				continue
 			}
 			receiver := ssaflow.CallReceiver(common)
@@ -377,15 +379,15 @@ func waitGroupSettlesFunction(function *ssa.Function, receiver ssa.Value, budget
 	// https://github.com/vitessio/vitess/blob/44321d8ca0e2b2689e869bc680b6ce6402bba977/go/vt/vttablet/tabletserver/state_manager.go#L605-L631
 	return completionReturnCoverage(function, receiver, budget, func(instruction ssa.Instruction) bool {
 		common := ssaflow.InstructionCall(instruction)
-		if common == nil || !ssaflow.CallMatchesSymbol(common, waitGroupDone) ||
-			!ssaflow.MayAliasThroughLoads(ssaflow.CallReceiver(common), receiver) {
+		if common == nil || !ssacall.CallMatchesSymbol(common, waitGroupDone) ||
+			!ssacall.MayAliasThroughLoads(ssaflow.CallReceiver(common), receiver) {
 			return false
 		}
 		if _, deferred := instruction.(*ssa.Defer); deferred {
 			return true
 		}
 		return terminalCompletion(instruction, budget)
-	}) == ssaflow.ObligationHonored
+	}) == ssapath.ObligationHonored
 }
 
 // sharedStorageSignals reports whether every completion signal was reached

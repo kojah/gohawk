@@ -49,7 +49,7 @@ func TestSummaryInfrastructureBoundaries(t *testing.T) {
 }
 
 func summaryRuleApplies(path, reason string) bool {
-	if reason == "" || path == "internal/ssaflow/call_graph_memo.go" || path == "internal/ssaflow/call_summaries.go" {
+	if reason == "" || path == "internal/ssaflow/calls/call_graph_memo.go" || path == "internal/ssaflow/calls/call_summaries.go" {
 		return false
 	}
 	// Shared searches retain the optional-budget contract of existing callers.
@@ -104,7 +104,7 @@ func summaryInfrastructureType(candidate types.Type) bool {
 		candidate = types.Unalias(pointer.Elem())
 	}
 	named, ok := candidate.(*types.Named)
-	if !ok || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != internalImportPrefix+"ssaflow" {
+	if !ok || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != internalImportPrefix+"ssaflow/calls" {
 		return false
 	}
 	return named.Obj().Name() == "FunctionSummaries" || named.Obj().Name() == "CallGraphMemo"

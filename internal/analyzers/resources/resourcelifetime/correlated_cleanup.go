@@ -6,6 +6,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -87,12 +88,12 @@ func (analysis *resourceAnalysis) proveCorrelatedErrorWithin(
 	if !syntax.IsErrorType(argument.Type()) {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
-	resource := ssaflow.CallResultWithin(analysis.acquisition, 0, budget)
+	resource := ssacall.CallResultWithin(analysis.acquisition, 0, budget)
 	if resourceFlowExhausted(budget) {
 		return carriedValueProof(false, resourceReasonUntouched, budget)
 	}
 	if resource == analysis.resource {
-		paired := ssaflow.CallResultWithin(analysis.acquisition, 1, budget)
+		paired := ssacall.CallResultWithin(analysis.acquisition, 1, budget)
 		proof := carriedValueProof(argument == paired, resourceReasonPairedErrorHelperCleanup, budget)
 		if proof.State != proofs.EvidenceDisproven {
 			return proof

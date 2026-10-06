@@ -444,7 +444,7 @@ checks origin, caller-lifetime and relay cutoff phases plus fresh recovery.
 This bounds selected query visits, not graph construction or type-system work.
 
 Retained-owner and caller-bound queries enumerate arguments/captures through
-`ssaflow.CallBindingsWithin` or `ClosureBindingPairsWithin`. These iterators
+`calls.CallBindingsWithin` or `ClosureBindingPairsWithin`. These iterators
 charge before yielding and allocate no binding slice. Default collectors use
 the same enumeration policy. Arguments precede captures; possible spawned-value
 selection still makes its capture-first pass before its argument pass.

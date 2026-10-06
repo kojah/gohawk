@@ -60,7 +60,7 @@ a wait blocked only on an error path needs the same decision. The retired
 
 - Condition identity and stability came from the guard decoder, now
   `guardConditionWithin`. Current consumers obtain that evidence through
-  `ssaflow.PathGuards.ExtendWithin`. A condition stored apart
+  `path.PathGuards.ExtendWithin`. A condition stored apart
   from its instruction also needed `GuardComparison`, which was removed with
   the graph and can be restored from the same revision.
 - Taking both arms of a stable guard (a parameter, a constant, or a value

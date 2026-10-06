@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -18,7 +19,7 @@ var rowsNextResultSet = syntax.PackageMethod(syntax.MethodSymbol{
 
 // ConditionalReleases binds one search budget to the external state contracts.
 func ConditionalReleases(budget *proofs.SearchBudget) lifecycle.CompletionSummaryLookup {
-	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssaflow.CallCondition) bool {
+	return func(instruction ssa.Instruction, target ssa.Value, method string, invoke bool, predicate ssacall.CallCondition) bool {
 		return ConditionalRelease(instruction, target, method, invoke, predicate, budget)
 	}
 }
@@ -31,12 +32,12 @@ func ConditionalRelease(
 	target ssa.Value,
 	method string,
 	invoke bool,
-	predicate ssaflow.CallCondition,
+	predicate ssacall.CallCondition,
 	budget *proofs.SearchBudget,
 ) bool {
 	call, synchronous := instruction.(*ssa.Call)
 	if !synchronous || invoke || method != "Close" ||
-		predicate.Result != 0 || predicate.Outcome != ssaflow.OutcomeFalse {
+		predicate.Result != 0 || predicate.Outcome != ssacall.OutcomeFalse {
 		return false
 	}
 	if budget == nil || !budget.Spend() {
@@ -52,7 +53,7 @@ func ConditionalRelease(
 }
 
 func resultSetCall(common *ssa.CallCommon, target ssa.Value) bool {
-	if ssaflow.CallMatchesSymbol(common, rowsNextResultSet) {
+	if ssacall.CallMatchesSymbol(common, rowsNextResultSet) {
 		return true
 	}
 	// An interface invocation is equivalent only when the exact value bound

@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/syntax"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -83,11 +84,11 @@ func ownedResults(pass *analysis.Pass, function *ssa.Function) ResultMask {
 // result as owned, so the claim composes across package boundaries.
 // https://github.com/quackduck/devzat/blob/2fb7d6f3b5c4b53bd9b0bd5bd8f8a6a5f2d2f9d1/twitter.go#L54-L75
 func freshlyAcquired(pass *analysis.Pass, acquired ssa.Value) bool {
-	call, index, ok := ssaflow.CallResultSource(acquired)
+	call, index, ok := ssacall.CallResultSource(acquired)
 	if !ok {
 		return false
 	}
-	callee := ssaflow.ResolvedCallee(call.Common())
+	callee := ssacall.ResolvedCallee(call.Common())
 	if callee == nil || callee.Object() == nil {
 		return false
 	}

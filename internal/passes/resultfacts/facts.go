@@ -9,6 +9,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 )
@@ -86,7 +87,7 @@ func validFact(fact *Fact) bool {
 		}
 	}
 	for _, proven := range fact.Cases {
-		if proven.Result < 0 || proven.Result >= len(fact.Results) || proven.Outcome == ssaflow.OutcomeAny || proven.Outcome > ssaflow.OutcomeNonNil {
+		if proven.Result < 0 || proven.Result >= len(fact.Results) || proven.Outcome == ssacall.OutcomeAny || proven.Outcome > ssacall.OutcomeNonNil {
 			return false
 		}
 	}

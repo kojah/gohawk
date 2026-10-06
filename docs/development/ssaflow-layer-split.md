@@ -52,7 +52,7 @@ those families into separate packages.
 Shared evidence outcomes, reasons, provenance, observers and work budgets now
 live in `internal/proof`, with direct consumer imports and no compatibility
 facade. Its seven production files depend on neither SSA nor higher engines.
-`internal/ssaflow` now has fifty-three direct production files; the remaining
+That extraction left `internal/ssaflow` with fifty-three direct production files; the remaining
 layers and the twenty-file architecture gate are still outstanding.
 
 `make verify` passed after the extraction: generation, module verification,
@@ -75,7 +75,45 @@ strict dominance tests accompany the extracted implementation. Focused SSA,
 CFG, architecture and generator tests pass. `make verify` also passed, covering
 generation, formatting, vet, lint, dead-code checking, repository self-analysis
 and the full ordinary test suite.
-`ssaflow` has fifty-two direct production files; `cfg` has five.
+That extraction left `ssaflow` with fifty-two direct production files; `cfg` has five.
+
+## Call and path-proof layers
+
+Value provenance, structural identity, source metadata and natural loops remain
+in `ssaflow`. Callee resolution, positional bindings, library contracts and
+memoized effects now belong to `ssaflow/calls`. Feasible successors, path guards,
+exact counted regions and obligation coverage now belong to `ssaflow/path`.
+Consumers import the owners directly; no compatibility aliases or forwarding
+functions remain in the value package.
+
+The import direction is enforced: path proofs may consume calls and values;
+calls may consume values; values may consume structural CFG mechanics. CFG
+mechanics depend only on shared work budgets. Shared proof vocabulary and
+source symbol identity sit below these engines. Summary infrastructure and
+call-graph guard tests recognize the memo's new package identity and retain
+their exact implementation boundaries.
+
+Boolean NOT peeling and integer-literal equality are value mechanics shared by
+the higher proofs. Their implementations and cutoff behavior were retained.
+Source function and instruction metadata now share `source_metadata.go`.
+Private tests moved with their owners; no lower-layer test imports a higher
+engine through the package under test.
+
+| Directory | Direct production Go files |
+|---|---:|
+| internal/proof | 7 |
+| internal/ssaflow/cfg | 5 |
+| internal/ssaflow | 20 |
+| internal/ssaflow/calls | 17 |
+| internal/ssaflow/path | 16 |
+
+Focused engine, consumer, architecture and documentation tests pass. The four
+consumer test fixtures repaired after import-name collisions retain their
+original raw SSA source. `make verify` passed: generation, formatting, vet,
+dead-code checking, lint, repository self-analysis and the full ordinary suite.
+The final direct-file inventory confirms the table above. The other
+seven initially over-limit directories and the repository-wide file-limit gate
+remain outstanding.
 
 The source graph tools are unavailable in this session. Dependency evidence
 comes from type-resolved references and exact source reads; no graph-index

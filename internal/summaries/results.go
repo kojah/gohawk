@@ -6,7 +6,8 @@ import (
 
 	"github.com/kojah/gohawk/internal/passes/resultfacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -14,12 +15,12 @@ import (
 // unconditional result guarantee. A nil provider still recognizes literals;
 // missing or unselected result knowledge remains unknown. This establishes no
 // ownership or cleanup, and arguments never strengthen a callee's guarantee.
-func (provider *Provider) OutcomeOf(value ssa.Value, budget *proofs.SearchBudget) (ssaflow.Outcome, bool) {
-	if outcome, known := ssaflow.ValueOutcome(value); known {
+func (provider *Provider) OutcomeOf(value ssa.Value, budget *proofs.SearchBudget) (ssacall.Outcome, bool) {
+	if outcome, known := ssacall.ValueOutcome(value); known {
 		return outcome, true
 	}
 	if provider == nil {
-		return ssaflow.OutcomeAny, false
+		return ssacall.OutcomeAny, false
 	}
 	return provider.ResultOf(value, budget).Outcome()
 }
@@ -27,11 +28,11 @@ func (provider *Provider) OutcomeOf(value ssa.Value, budget *proofs.SearchBudget
 // ResultOf maps a direct result to its function-summary slot. This is not
 // context-sensitive inference: arguments do not strengthen the guarantee.
 func (provider *Provider) ResultOf(value ssa.Value, budget *proofs.SearchBudget) resultfacts.Guarantee {
-	call, index, ok := ssaflow.CallResultSource(value)
+	call, index, ok := ssacall.CallResultSource(value)
 	if !ok {
 		return resultfacts.Unknown
 	}
-	result, available := provider.ForFunction(ssaflow.ResolvedCallee(call.Common())).Results(budget)
+	result, available := provider.ForFunction(ssacall.ResolvedCallee(call.Common())).Results(budget)
 	if available != Available {
 		return resultfacts.Unknown
 	}
@@ -42,7 +43,7 @@ func (provider *Provider) ResultOf(value ssa.Value, budget *proofs.SearchBudget)
 // with the requested result component. Unknown never eliminates a successor;
 // nilness here establishes neither resource ownership nor a cleanup duty.
 func (provider *Provider) FeasibleSuccessors(block, predecessor *ssa.BasicBlock, budget *proofs.SearchBudget) []*ssa.BasicBlock {
-	successors := ssaflow.FeasibleSuccessorsWithin(block, predecessor, budget)
+	successors := ssapath.FeasibleSuccessorsWithin(block, predecessor, budget)
 	if budget.Exhausted() {
 		return block.Succs
 	}
@@ -109,11 +110,11 @@ func (provider *Provider) resultCondition(value ssa.Value, block *ssa.BasicBlock
 // be non-nil below the failure arm. Only a comparison that dominates the
 // asking block counts, so the branch was taken on every path here.
 func (provider *Provider) pairedNilness(value ssa.Value, block *ssa.BasicBlock, budget *proofs.SearchBudget) (isNil bool, known bool) {
-	call, index, ok := ssaflow.CallResultSource(value)
+	call, index, ok := ssacall.CallResultSource(value)
 	if !ok || block == nil {
 		return false, false
 	}
-	summary, available := provider.ForFunction(ssaflow.ResolvedCallee(call.Common())).Results(budget)
+	summary, available := provider.ForFunction(ssacall.ResolvedCallee(call.Common())).Results(budget)
 	if available != Available {
 		return false, false
 	}
@@ -123,20 +124,20 @@ func (provider *Provider) pairedNilness(value ssa.Value, block *ssa.BasicBlock, 
 		}
 		condition := proven.Condition
 		if proven.Result != index || condition.Arguments.Bound != 0 || condition.Nilness.Bound != 0 ||
-			condition.Outcome != ssaflow.OutcomeNil && condition.Outcome != ssaflow.OutcomeNonNil {
+			condition.Outcome != ssacall.OutcomeNil && condition.Outcome != ssacall.OutcomeNonNil {
 			continue
 		}
-		errorValue := ssaflow.CallResultWithin(call, condition.Result, budget)
+		errorValue := ssacall.CallResultWithin(call, condition.Result, budget)
 		errorNil, decided := errorNilnessOnPath(block, errorValue, budget)
-		if !decided || errorNil != (condition.Outcome == ssaflow.OutcomeNil) {
+		if !decided || errorNil != (condition.Outcome == ssacall.OutcomeNil) {
 			continue
 		}
 		switch proven.Outcome {
-		case ssaflow.OutcomeNil:
+		case ssacall.OutcomeNil:
 			return true, true
-		case ssaflow.OutcomeNonNil:
+		case ssacall.OutcomeNonNil:
 			return false, true
-		case ssaflow.OutcomeAny, ssaflow.OutcomeTrue, ssaflow.OutcomeFalse:
+		case ssacall.OutcomeAny, ssacall.OutcomeTrue, ssacall.OutcomeFalse:
 		}
 	}
 	return false, false
@@ -159,7 +160,7 @@ func errorNilnessOnPath(block *ssa.BasicBlock, errorValue ssa.Value, budget *pro
 			if !budget.Spend() {
 				return false, false
 			}
-			if success, decided := ssaflow.SuccessBranchWithin(candidate, successor, errorValue, budget); decided && successor.Dominates(block) {
+			if success, decided := ssapath.SuccessBranchWithin(candidate, successor, errorValue, budget); decided && successor.Dominates(block) {
 				return success, true
 			}
 		}
@@ -186,11 +187,11 @@ func resultEqualsLiteral(guarantee resultfacts.Guarantee, literal *ssa.Const) (b
 //
 //nolint:ireturn // SSA values keep their concrete forms.
 func (provider *Provider) ArgumentReturnedUnchanged(value ssa.Value, budget *proofs.SearchBudget) (ssa.Value, bool) {
-	call, index, ok := ssaflow.CallResultSource(value)
+	call, index, ok := ssacall.CallResultSource(value)
 	if !ok {
 		return nil, false
 	}
-	summary, available := provider.ForFunction(ssaflow.ResolvedCallee(call.Common())).Results(budget)
+	summary, available := provider.ForFunction(ssacall.ResolvedCallee(call.Common())).Results(budget)
 	if available != Available {
 		return nil, false
 	}
@@ -203,13 +204,13 @@ func (provider *Provider) ArgumentReturnedUnchanged(value ssa.Value, budget *pro
 // Terminates adapts the result summaries to the walks' terminator hook: a
 // call to a function proven never to return normally ends the caller's path
 // as os.Exit does. A nil provider yields no hook.
-func (provider *Provider) Terminates() ssaflow.Terminator {
+func (provider *Provider) Terminates() ssapath.Terminator {
 	return provider.TerminatesWithin(nil)
 }
 
 // TerminatesWithin shares result inference with budget. A nil budget retains
 // a fresh summary allowance per call; an interrupted summary never terminates.
-func (provider *Provider) TerminatesWithin(budget *proofs.SearchBudget) ssaflow.Terminator {
+func (provider *Provider) TerminatesWithin(budget *proofs.SearchBudget) ssapath.Terminator {
 	if provider == nil {
 		return nil
 	}
@@ -218,7 +219,7 @@ func (provider *Provider) TerminatesWithin(budget *proofs.SearchBudget) ssaflow.
 		if query == nil {
 			query = proofs.NewSearchBudget(proofs.SummaryBudget)
 		}
-		summary, available := provider.ForFunction(ssaflow.ResolvedCallee(call.Common())).Results(query)
+		summary, available := provider.ForFunction(ssacall.ResolvedCallee(call.Common())).Results(query)
 		return available == Available && summary.NeverReturns()
 	}
 }

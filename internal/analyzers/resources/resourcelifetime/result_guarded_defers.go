@@ -3,7 +3,7 @@ package resourcelifetime
 import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -94,7 +94,7 @@ func (analysis *resourceAnalysis) resultGuardedLabel(instruction ssa.Instruction
 func (analysis *resourceAnalysis) resultGuardedReturn(returned *ssa.Return) (resourceAction, resourceLifetimeReason, bool) {
 	uncertain := false
 	budget := analysis.budget(releaseSearchBudget)
-	outcomeOf := func(value ssa.Value) (ssaflow.Outcome, bool) {
+	outcomeOf := func(value ssa.Value) (ssacall.Outcome, bool) {
 		return analysis.summaries.OutcomeOf(value, budget)
 	}
 	for _, guard := range analysis.guardedDefers {

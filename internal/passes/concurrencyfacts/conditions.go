@@ -6,7 +6,7 @@ import (
 	"go/types"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -22,7 +22,7 @@ func condPointer(value types.Type) bool {
 }
 
 func condLocker(call ssa.CallInstruction) (ssa.Value, bool) {
-	if !ssaflow.CallMatchesSymbol(call.Common(), newCond) || len(call.Common().Args) != 1 {
+	if !ssacall.CallMatchesSymbol(call.Common(), newCond) || len(call.Common().Args) != 1 {
 		return nil, false
 	}
 	wrapped, ok := call.Common().Args[0].(*ssa.MakeInterface)

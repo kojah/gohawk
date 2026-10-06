@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
@@ -213,13 +214,13 @@ func TestBranchBool(t *testing.T) {
 		{name: "false", value: false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			value, known := ssaflow.BranchBoolWithin(ssa.NewConst(constant.MakeBool(test.value), types.Typ[types.Bool]), nil, nil, nil)
+			value, known := ssapath.BranchBoolWithin(ssa.NewConst(constant.MakeBool(test.value), types.Typ[types.Bool]), nil, nil, nil)
 			if !known || value != test.value {
 				t.Fatalf("BranchBool = (%t, %t), want (%t, true)", value, known, test.value)
 			}
 		})
 	}
-	if value, known := ssaflow.BranchBoolWithin(nil, nil, nil, nil); known || value {
+	if value, known := ssapath.BranchBoolWithin(nil, nil, nil, nil); known || value {
 		t.Fatalf("BranchBoolWithin(nil) = (%t, %t), want (false, false)", value, known)
 	}
 
@@ -247,7 +248,7 @@ func firstIteration() {
 			continue
 		}
 		for _, predecessor := range block.Preds {
-			if _, known := ssaflow.BranchBoolWithin(branch.Cond, block, predecessor, nil); known {
+			if _, known := ssapath.BranchBoolWithin(branch.Cond, block, predecessor, nil); known {
 				recognized++
 			}
 		}

@@ -5,8 +5,8 @@ import (
 
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -26,7 +26,7 @@ type lockStateWalk struct {
 	unreleasedReturns map[string][]token.Pos
 	heldAtReturn      map[*ssa.Return]lockReturnState
 	possibleWriters   []*ssa.Defer
-	terminates        ssaflow.Terminator
+	terminates        ssapath.Terminator
 	remaining         int
 }
 
@@ -113,7 +113,7 @@ func (walk *lockStateWalk) expand(state lockFlowState) ([]lockFlowState, bool) {
 			return nil, false
 		}
 		// A proven terminating call leaves no normal return with this lock held.
-		if ssaflow.InstructionTerminatesWithin(instruction, walk.terminates, walk.budget) {
+		if ssapath.InstructionTerminatesWithin(instruction, walk.terminates, walk.budget) {
 			return nil, true
 		}
 		if walk.budget.Exhausted() {

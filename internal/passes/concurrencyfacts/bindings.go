@@ -6,7 +6,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
-
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -23,16 +23,16 @@ func (engine *Engine) instantiateEffects(instruction ssa.CallInstruction) Summar
 		return engine.importedCall(instruction, function)
 	}
 	if instruction.Common().IsInvoke() && !common.IsInvoke() {
-		function, closure := ssaflow.DirectCallee(common)
+		function, closure := ssacall.DirectCallee(common)
 		callee := engine.summaries.Function(function, engine.budget)
-		return engine.bindSummary(callee, ssaflow.CallBindings(common, function, closure), instruction)
+		return engine.bindSummary(callee, ssacall.CallBindings(common, function, closure), instruction)
 	}
-	return engine.summaries.AtCall(instruction, engine.budget, func(callee Summary, bindings []ssaflow.CallBinding) Summary {
+	return engine.summaries.AtCall(instruction, engine.budget, func(callee Summary, bindings []ssacall.CallBinding) Summary {
 		return engine.bindSummary(callee, bindings, instruction)
 	})
 }
 
-func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction) Summary {
+func (engine *Engine) bindSummary(callee Summary, bindings []ssacall.CallBinding, instruction ssa.CallInstruction) Summary {
 	if len(callee.Paths) != 0 {
 		return engine.bindPaths(callee.Paths, bindings, instruction)
 	}
@@ -105,7 +105,7 @@ func (engine *Engine) bindSummary(callee Summary, bindings []ssaflow.CallBinding
 }
 
 func (engine *Engine) bindWorkers(
-	workers []WorkerSummary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction,
+	workers []WorkerSummary, bindings []ssacall.CallBinding, instruction ssa.CallInstruction,
 ) ([]WorkerSummary, Reason) {
 	if len(workers) > maxWorkers {
 		return nil, ReasonParticipantsUnknown
@@ -122,7 +122,7 @@ func (engine *Engine) bindWorkers(
 }
 
 func (engine *Engine) bind(
-	reference Reference, bindings []ssaflow.CallBinding, instruction ssa.Instruction,
+	reference Reference, bindings []ssacall.CallBinding, instruction ssa.Instruction,
 ) (Reference, bool) {
 	if reference.Projection.Depth > 0 {
 		return engine.bindField(reference, bindings, instruction)
@@ -187,7 +187,7 @@ func (engine *Engine) resolvedReference(value ssa.Value) (Reference, bool) {
 	}
 	switch value := value.(type) {
 	case *ssa.Call:
-		return Reference{Value: value}, ssaflow.CallMatchesSymbol(value.Common(), newCond)
+		return Reference{Value: value}, ssacall.CallMatchesSymbol(value.Common(), newCond)
 	case *ssa.Parameter, *ssa.FreeVar, *ssa.MakeChan:
 		return Reference{Value: value, Cancellation: cancellationType(value.Type())}, true
 	case *ssa.Alloc:
@@ -244,7 +244,7 @@ func localAddressLeaf(walk ssaflow.ReachingWalk, value ssa.Value) bool {
 // hole can insert several operations, so the returned offsets map each callee
 // position, and the end, to its position in the bound sequence.
 func (engine *Engine) bindSequence(
-	result *Summary, operations []Operation, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction,
+	result *Summary, operations []Operation, bindings []ssacall.CallBinding, instruction ssa.CallInstruction,
 ) ([]int, Reason) {
 	offsets := make([]int, 0, len(operations)+1)
 	for _, op := range operations {

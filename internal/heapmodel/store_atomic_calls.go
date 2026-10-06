@@ -1,7 +1,7 @@
 package heapmodel
 
 import (
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -45,9 +45,9 @@ func (graph *regionGraph) definedAtomicCall(state *regionState, common *ssa.Call
 
 func atomicStore(common *ssa.CallCommon) (atomicWrite, bool) {
 	switch {
-	case ssaflow.CallMatchesAnySymbol(common, atomicStores...) && len(common.Args) == 2:
+	case ssacall.CallMatchesAnySymbol(common, atomicStores...) && len(common.Args) == 2:
 		return atomicWrite{cell: common.Args[0], value: common.Args[1]}, true
-	case ssaflow.CallMatchesAnySymbol(common, atomicCompareAndSwaps...) && len(common.Args) == 3:
+	case ssacall.CallMatchesAnySymbol(common, atomicCompareAndSwaps...) && len(common.Args) == 3:
 		return atomicWrite{cell: common.Args[0], value: common.Args[2], conditional: true}, true
 	default:
 		return atomicWrite{}, false

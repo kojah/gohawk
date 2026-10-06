@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
 )
@@ -19,16 +19,16 @@ import (
 // through the same authoritative trace path.
 func (evidence *LifecycleEvidence) CallEffectsWithin(
 	instruction ssa.Instruction, target ssa.Value, budget *proofs.SearchBudget,
-) ssaflow.CallEffectProof {
+) ssacall.CallEffectProof {
 	queryBudget := budget.Within(proofs.QueryBudget).Observed(evidence.probe.Observer())
-	proof := ssaflow.NewCallEffects(queryBudget).Call(instruction, target)
+	proof := ssacall.NewCallEffects(queryBudget).Call(instruction, target)
 	if !evidence.probe.Enabled() {
 		return proof
 	}
 	details := evidenceDetails(instruction, target)
-	for name, effect := range map[string]ssaflow.CallEffect{
-		"read": ssaflow.EffectRead, "mutate": ssaflow.EffectMutate,
-		"retain": ssaflow.EffectRetain, "async": ssaflow.EffectAsync, "invoke": ssaflow.EffectInvoke,
+	for name, effect := range map[string]ssacall.CallEffect{
+		"read": ssacall.EffectRead, "mutate": ssacall.EffectMutate,
+		"retain": ssacall.EffectRetain, "async": ssacall.EffectAsync, "invoke": ssacall.EffectInvoke,
 	} {
 		details[name] = strconv.FormatBool(proof.Effects&effect != 0)
 	}

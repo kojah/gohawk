@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -34,7 +35,7 @@ type enclosingFrame struct {
 type enclosingSearch struct {
 	request EnclosingCompletionRequest
 	search  *completionSearch
-	memo    *ssaflow.CallGraphMemo[*enclosingFrame, bool]
+	memo    *ssacall.CallGraphMemo[*enclosingFrame, bool]
 	found   bool
 }
 
@@ -52,7 +53,7 @@ func ProveEnclosingCompletion(request EnclosingCompletionRequest) proofs.Complet
 	}
 	search := &enclosingSearch{
 		request: request, search: newCompletionSearch("", CoverageEveryReturn, request.Budget),
-		memo: ssaflow.NewCallGraphMemo[*enclosingFrame, bool](),
+		memo: ssacall.NewCallGraphMemo[*enclosingFrame, bool](),
 	}
 	complete := search.walk(&enclosingFrame{function: root})
 	if request.Budget.Exhausted() {
@@ -84,7 +85,7 @@ func (search *enclosingSearch) walk(frame *enclosingFrame) bool {
 			}
 		}
 		return true
-	}, func(ssaflow.SummaryUnavailable, bool) bool {
+	}, func(ssacall.SummaryUnavailable, bool) bool {
 		return false
 	})
 }
@@ -160,9 +161,9 @@ func (search *enclosingSearch) instruction(frame *enclosingFrame, instruction ss
 		return true
 	}
 	if _, builtin := common.Value.(*ssa.Builtin); builtin {
-		return ssaflow.CallMatchesSymbol(common, syntax.Builtin("len"))
+		return ssacall.CallMatchesSymbol(common, syntax.Builtin("len"))
 	}
-	if ssaflow.HasLibraryContract(common, ssaflow.ContractTestingCleanup) || ssaflow.CallMatchesSymbol(common,
+	if ssacall.HasLibraryContract(common, ssacall.ContractTestingCleanup) || ssacall.CallMatchesSymbol(common,
 		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "testing", Receiver: "T", Name: "Run"})) {
 		return search.testingCallback(frame, instruction, common)
 	}
@@ -358,7 +359,7 @@ func (search *enclosingSearch) readOnly(value ssa.Value) bool {
 			callee := use.Common().StaticCallee()
 			ok := true
 			visited := search.memo.WithFunction(callee, func() {
-				for binding := range ssaflow.CallBindingsWithin(use.Common(), callee, nil, search.request.Budget) {
+				for binding := range ssacall.CallBindingsWithin(use.Common(), callee, nil, search.request.Budget) {
 					if binding.Supplied == value {
 						ok = ok && search.readOnly(binding.Local)
 					}

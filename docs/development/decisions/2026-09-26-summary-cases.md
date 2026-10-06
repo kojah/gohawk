@@ -21,7 +21,7 @@ decided only when it tests the bound value itself or its negation.
 
 The result-conditioned records that existed before are cases with no argument
 condition. There is one list, one proof, `lifecycle.ProveCompletionForCase`,
-and one condition type, `ssaflow.CallCondition`, with one matching rule,
+and one condition type, `calls.CallCondition`, with one matching rule,
 `Matches`. Every other summary that holds under a condition moves onto the same
 type, so there is one vocabulary to prove, export, and match; the completion
 search's own result-test enum was the first duplicate removed.
@@ -37,7 +37,7 @@ mirrored field, and `lockorder` reports the order that was lost.
 ## One condition vocabulary
 
 Every claim of the form "X holds when Y" now names Y with
-`ssaflow.CallCondition`: cleanup cases and the unconditional discharges share
+`calls.CallCondition`: cleanup cases and the unconditional discharges share
 one `Discharges` list whose empty condition is the Must claim; synchronous
 invocation is a discharge of its own method; result facts are result cases,
 an outcome of one result under a condition that may name a parameter's

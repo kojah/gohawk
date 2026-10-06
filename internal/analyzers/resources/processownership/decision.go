@@ -3,7 +3,7 @@ package processownership
 import (
 	"github.com/kojah/gohawk/internal/check"
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -41,7 +41,7 @@ func decideProcessReturn(start *ssa.Call, command ssa.Value, witness *ssa.Return
 	// Wait or assert that parent exit terminates the child. Repeated starts,
 	// referenced entries and reusable callees remain ordinary wait obligations.
 	// https://github.com/coder/acp-go-sdk/blob/0845a3bb9eddda5bfc22a94dd3598c90cb842451/example/agent/main.go#L401-L423
-	if ssaflow.RunsOnceInProgramEntry(start) {
+	if ssacall.RunsOnceInProgramEntry(start) {
 		return processDecision{proofs.EvidenceUnknown, reasonProgramLifetimeOwnershipUnknown}
 	}
 	return processDecision{proofs.EvidenceProven, reasonUnownedReturn}

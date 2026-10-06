@@ -4,6 +4,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -44,8 +45,8 @@ func acquisitionErrorAssertionsWithin(
 	var errorAssertions, nilAssertions []ssa.Instruction
 	for instruction := range ssaflow.InstructionsWithin(acquisition.Parent(), budget) {
 		common := ssaflow.InstructionCall(instruction)
-		errorClaim := ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyErrorClaim)
-		nilClaim := ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyNilClaim)
+		errorClaim := ssacall.HasLibraryContract(common, ssacall.ContractTestifyErrorClaim)
+		nilClaim := ssacall.HasLibraryContract(common, ssacall.ContractTestifyNilClaim)
 		if !errorClaim && !nilClaim {
 			continue
 		}
@@ -92,5 +93,5 @@ func errorAssertionDominatesNilWithin(assertedError ssa.Instruction, nilAssertio
 
 func fatalErrorAssertion(instruction ssa.Instruction) bool {
 	common := ssaflow.InstructionCall(instruction)
-	return ssaflow.HasLibraryContract(common, ssaflow.ContractTestifyFatalError)
+	return ssacall.HasLibraryContract(common, ssacall.ContractTestifyFatalError)
 }

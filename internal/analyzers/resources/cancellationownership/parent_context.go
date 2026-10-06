@@ -3,7 +3,7 @@ package cancellationownership
 import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -38,7 +38,7 @@ func parentCancellationClassifier(call *ssa.Call, observer proofs.Observer) *can
 	if !ok {
 		return nil
 	}
-	cancel := ssaflow.CallResult(constructor, parentContract.result)
+	cancel := ssacall.CallResult(constructor, parentContract.result)
 	if cancel == nil {
 		return nil
 	}

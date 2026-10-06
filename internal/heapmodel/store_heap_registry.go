@@ -3,7 +3,7 @@ package heapmodel
 import (
 	"sync"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -116,7 +116,7 @@ func heapSummaryOf(function *ssa.Function) (HeapSummary, bool) {
 	if len(function.Blocks) != 0 {
 		return projectHeapOnDemand(function)
 	}
-	resolved := ssaflow.ResolvedFunction(function)
+	resolved := ssacall.ResolvedFunction(function)
 	if summary, ok := registeredHeapSummary(resolved); ok {
 		return summary, true
 	}

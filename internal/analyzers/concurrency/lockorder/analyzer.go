@@ -11,6 +11,7 @@ import (
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
@@ -36,7 +37,7 @@ type lockFlowState struct {
 	condition      string
 	conditionValue bool
 	constants      []lockScalarConstant
-	constraints    ssaflow.PathGuards
+	constraints    ssapath.PathGuards
 }
 
 type lockScalarConstant struct {

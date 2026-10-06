@@ -65,7 +65,7 @@ var documentedPackagePatterns = []string{
 // appear in their own references. The regeneration check additionally discovers
 // new pass packages and checks complete declarations and methods.
 var inventoryPackages = []string{
-	"proof", "syntax", "ssaflow", "cfg", "lifecycle", "heapmodel", "resourcemodel", "summaries",
+	"proof", "syntax", "ssaflow", "cfg", "calls", "path", "lifecycle", "heapmodel", "resourcemodel", "summaries",
 	"lifecyclefacts", "concurrencyfacts", "resultfacts", "testvariant",
 }
 

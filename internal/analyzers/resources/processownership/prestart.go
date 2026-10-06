@@ -6,7 +6,9 @@ import (
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -54,7 +56,7 @@ func processOwnerDominatesStart(
 		// testing.Cleanup contract, which the completion engine also defers.
 		_, deferred := instruction.(*ssa.Defer)
 		call, called := instruction.(*ssa.Call)
-		registered := called && ssaflow.HasLibraryContract(call.Common(), ssaflow.ContractTestingCleanup)
+		registered := called && ssacall.HasLibraryContract(call.Common(), ssacall.ContractTestingCleanup)
 		if !deferred && !registered {
 			continue
 		}
@@ -113,12 +115,12 @@ func successfulStartCannotReturn(start *ssa.Call, budget *proofs.SearchBudget) p
 		if !budget.Spend() {
 			return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 		}
-		success, known := ssaflow.SuccessBranchWithin(block, successor, start, budget)
+		success, known := ssapath.SuccessBranchWithin(block, successor, start, budget)
 		if budget.Exhausted() || budget.PoolExhausted() {
 			return proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 		}
 		if known && success {
-			result := ssaflow.ProveNormalReturnWithin(successor, nil, budget).Proof
+			result := ssapath.ProveNormalReturnWithin(successor, nil, budget).Proof
 			switch result.State {
 			case proofs.EvidenceProven:
 				result.State = proofs.EvidenceDisproven
@@ -189,7 +191,7 @@ func possiblePreStartResultlessHandoff(proof *commandProof, instruction ssa.Inst
 			continue
 		}
 		effects := proof.evidence.CallEffectsWithin(call, argument, budget)
-		if !effects.Proven() || effects.Effects&(ssaflow.EffectRetain|ssaflow.EffectAsync) != 0 {
+		if !effects.Proven() || effects.Effects&(ssacall.EffectRetain|ssacall.EffectAsync) != 0 {
 			effects.State = proofs.EvidenceUnknown
 			return effects.Proof
 		}

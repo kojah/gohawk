@@ -3,9 +3,8 @@ package lockorder
 import (
 	"slices"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
-
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -23,7 +22,7 @@ func lockSuccessorStates(pass *analysis.Pass, state lockFlowState, budget *proof
 	// exploring both values invents a still-held return on the released path.
 	// Carried constants and stable parameter constraints are applied separately.
 	// https://github.com/enetx/surf/blob/7da0502899af06f8318f95e632797cb2ac0c6c20/pkg/connectproxy/connectproxy.go#L256-L294
-	feasible := ssaflow.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
+	feasible := ssapath.SuccessorPolicy{Feasible: func(block, predecessor *ssa.BasicBlock) []*ssa.BasicBlock {
 		return summaryKnowledge.Provider(pass).FeasibleSuccessors(block, predecessor, budget)
 	}}.SuccessorsWithin(block, state.predecessor, budget)
 	for index, successor := range block.Succs {

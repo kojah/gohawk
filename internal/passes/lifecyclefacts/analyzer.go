@@ -11,8 +11,8 @@ import (
 	"github.com/kojah/gohawk/internal/factcodec"
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
-
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 	ssa "golang.org/x/tools/go/ssa"
@@ -143,7 +143,7 @@ func calleesFirst(functions []*ssa.Function) []*ssa.Function {
 		state[function] = 1
 		for _, block := range function.Blocks {
 			for _, instruction := range block.Instrs {
-				if callee := ssaflow.ResolvedCallee(ssaflow.InstructionCall(instruction)); callee != nil && members[callee] {
+				if callee := ssacall.ResolvedCallee(ssaflow.InstructionCall(instruction)); callee != nil && members[callee] {
 					visit(callee)
 				}
 			}

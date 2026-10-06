@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -100,7 +101,7 @@ func correlatedCleanupInputs(t *testing.T, fn *ssa.Function) (*resourceAnalysis,
 	provider := resourceSummaries.Provider(nil)
 	evidence, _ := provider.LifecycleEvidence("resourcelifetime", "resourcelifetime/missing-release")
 	return &resourceAnalysis{
-		function: fn, acquisition: acquisition, resource: ssaflow.CallResult(acquisition, 0),
+		function: fn, acquisition: acquisition, resource: ssacall.CallResult(acquisition, 0),
 		evidence: evidence, summaries: provider, contract: resourceContract{cleanup: []string{"Close"}},
 	}, selected
 }

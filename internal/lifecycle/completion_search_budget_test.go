@@ -7,6 +7,8 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 )
 
 const completionCoverageBudgetFixture = `package ssaflowtest
@@ -80,10 +82,10 @@ func TestCompletionCaseCoverageAllowance(t *testing.T) {
 	pkg := buildTestSSA(t, completionCoverageBudgetFixture)
 	for _, test := range []struct {
 		name      string
-		condition ssaflow.CallCondition
+		condition ssacall.CallCondition
 	}{
-		{"caseTrue", ssaflow.CallCondition{Outcome: ssaflow.OutcomeTrue}},
-		{"argumentCase", ssaflow.CallCondition{Arguments: ssaflow.ArgumentConstants{Bound: 2, Values: 2}}},
+		{"caseTrue", ssacall.CallCondition{Outcome: ssacall.OutcomeTrue}},
+		{"argumentCase", ssacall.CallCondition{Arguments: ssacall.ArgumentConstants{Bound: 2, Values: 2}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fn := pkg.Func(test.name)
@@ -112,7 +114,7 @@ func TestCompletionUnavailableSummaryCut(t *testing.T) {
 	fn := pkg.Func("callOpaque")
 	pool := proofs.NewSearchBudget(proofs.SummaryBudget)
 	request := CompletionRequest{Instruction: findLaunch(t, fn), Target: fn.Params[0], Methods: []string{"Close"}, Budget: pool.Within(0)}
-	request.Summarized = func(ssa.Instruction, ssa.Value, string, bool, ssaflow.CallCondition) bool {
+	request.Summarized = func(ssa.Instruction, ssa.Value, string, bool, ssacall.CallCondition) bool {
 		return request.Budget.Spend()
 	}
 	cut := ProveCompletion(request)
@@ -129,11 +131,11 @@ func TestCompletionAssumedCoverageAllowance(t *testing.T) {
 	pkg := buildTestSSA(t, completionCoverageBudgetFixture)
 	for _, yes := range []bool{false, true} {
 		fn := pkg.Func("maybe")
-		outcome := ssaflow.OutcomeFalse
+		outcome := ssacall.OutcomeFalse
 		if yes {
-			outcome = ssaflow.OutcomeTrue
+			outcome = ssacall.OutcomeTrue
 		}
-		assumptions := ssaflow.EntryAssumptions{NonNil: fn.Params[0], Constants: ssaflow.FixedValues{fn.Params[1]: outcome}}
+		assumptions := ssapath.EntryAssumptions{NonNil: fn.Params[0], Constants: ssacall.FixedValues{fn.Params[1]: outcome}}
 		calls := func(instruction ssa.Instruction) bool {
 			common := ssaflow.InstructionCall(instruction)
 			return common != nil && ssaflow.CallName(common) == "Close"

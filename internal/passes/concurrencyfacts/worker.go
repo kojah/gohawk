@@ -1,8 +1,7 @@
 package concurrencyfacts
 
 import (
-	"github.com/kojah/gohawk/internal/ssaflow"
-
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -108,7 +107,7 @@ func (summary Summary) workerAlternativesOnly() bool {
 }
 
 func (engine *Engine) bindWorker(
-	worker WorkerSummary, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction,
+	worker WorkerSummary, bindings []ssacall.CallBinding, instruction ssa.CallInstruction,
 ) (WorkerSummary, Reason) {
 	bound := WorkerSummary{
 		Spawn: worker.Spawn, Site: instruction.Pos(), Prefix: worker.Prefix, Branches: worker.Branches, Replicated: worker.Replicated,
@@ -132,7 +131,7 @@ func (engine *Engine) bindWorker(
 	return bound, ReasonNone
 }
 
-func (engine *Engine) bindOperations(operations []Operation, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction) ([]Operation, Reason) {
+func (engine *Engine) bindOperations(operations []Operation, bindings []ssacall.CallBinding, instruction ssa.CallInstruction) ([]Operation, Reason) {
 	bound := make([]Operation, 0, len(operations))
 	for _, op := range operations {
 		if !engine.budget.Spend() {

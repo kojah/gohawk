@@ -1,6 +1,9 @@
 package ssaflow
 
 import (
+	"go/token"
+
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -89,4 +92,28 @@ func transparentOperand(operand ssa.Value, forms, form TransparentValueForm) (ss
 		return nil, false
 	}
 	return operand, true
+}
+
+// BooleanNegationSource returns the operand behind a chain of SSA Boolean NOT
+// instructions and whether an odd number of negations reverses its truth. It
+// stops at every other form, including loads, conversions, comparisons and phi
+// merges; it neither evaluates the operand nor establishes its stability.
+func BooleanNegationSource(value ssa.Value) (ssa.Value, bool) {
+	return BooleanNegationSourceWithin(value, nil)
+}
+
+// BooleanNegationSourceWithin charges each NOT step to budget. Cutoff returns
+// no operand evidence; callers retain the exhaustion state.
+func BooleanNegationSourceWithin(value ssa.Value, budget *proofs.SearchBudget) (ssa.Value, bool) {
+	negated := false
+	for {
+		if !budget.Spend() {
+			return nil, false
+		}
+		not, ok := value.(*ssa.UnOp)
+		if !ok || not.Op != token.NOT {
+			return value, negated
+		}
+		value, negated = not.X, !negated
+	}
 }

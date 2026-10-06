@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -22,7 +23,7 @@ var (
 )
 
 func isCancelConstructor(common *ssa.CallCommon) bool {
-	return ssaflow.CallMatchesAnySymbol(common, withCancel, withCancelCause)
+	return ssacall.CallMatchesAnySymbol(common, withCancel, withCancelCause)
 }
 
 func cancellationType(value types.Type) bool {
@@ -36,7 +37,7 @@ func cancelFunctionType(value types.Type) bool {
 func (engine *Engine) cancellationCall(call ssa.CallInstruction) (Summary, bool) {
 	common := call.Common()
 	switch {
-	case ssaflow.CallMatchesAnySymbol(common, background, todoContext):
+	case ssacall.CallMatchesAnySymbol(common, background, todoContext):
 		return Summary{}, true
 	case isCancelConstructor(common):
 		// Restrict fresh signals to non-canceling, known parents for now.
@@ -44,11 +45,11 @@ func (engine *Engine) cancellationCall(call ssa.CallInstruction) (Summary, bool)
 		// callbacks must not disappear into an effect-free constructor.
 		parent := engine.storage.Resolve(common.Args[0])
 		value, ok := parent.Value.(*ssa.Call)
-		if !parent.Proven() || !ok || !ssaflow.CallMatchesAnySymbol(value.Common(), background, todoContext) {
+		if !parent.Proven() || !ok || !ssacall.CallMatchesAnySymbol(value.Common(), background, todoContext) {
 			return Summary{Reason: ReasonContextParentUnknown}, true
 		}
 		return Summary{}, true
-	case ssaflow.CallMatchesSymbol(common, contextDone):
+	case ssacall.CallMatchesSymbol(common, contextDone):
 		return engine.cancellationOperation(call, ssaflow.CallReceiver(common), false), true
 	case !common.IsInvoke() && common.Value != nil && cancelFunctionType(common.Value.Type()):
 		return engine.cancellationOperation(call, common.Value, true), true
@@ -70,7 +71,7 @@ func (engine *Engine) cancellationOperation(call ssa.CallInstruction, value ssa.
 }
 
 func (engine *Engine) cancellationReference(value ssa.Value) (Reference, bool) {
-	if call, ok := value.(*ssa.Call); ok && ssaflow.CallMatchesSymbol(call.Common(), contextDone) {
+	if call, ok := value.(*ssa.Call); ok && ssacall.CallMatchesSymbol(call.Common(), contextDone) {
 		return engine.reference(ssaflow.CallReceiver(call.Common()))
 	}
 	extract, ok := value.(*ssa.Extract)
@@ -150,7 +151,7 @@ func requireCancellation(summary *Summary, inputs []Reference) {
 }
 
 func (engine *Engine) bindCancellationInputs(
-	inputs []Reference, bindings []ssaflow.CallBinding, instruction ssa.CallInstruction,
+	inputs []Reference, bindings []ssacall.CallBinding, instruction ssa.CallInstruction,
 ) ([]Reference, Reason) {
 	result := make([]Reference, 0, len(inputs))
 	for _, input := range inputs {

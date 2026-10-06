@@ -8,6 +8,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -97,7 +98,7 @@ func caller(supplied bool) {}
 		if test.compared {
 			condition.Compared = literal
 		}
-		bindings := []ssaflow.CallBinding{{Local: fn.Params[0], Supplied: supplied, Captured: test.captured}}
+		bindings := []ssacall.CallBinding{{Local: fn.Params[0], Supplied: supplied, Captured: test.captured}}
 		value, holds, ok := parameterCondition(condition, bindings)
 		if ok != test.wantOK || holds != test.wantHold || ok && value != supplied || !ok && value != nil {
 			t.Errorf("%+v: bound %v, holds=%t ok=%t", test, value, holds, ok)

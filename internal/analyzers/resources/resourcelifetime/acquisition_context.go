@@ -3,6 +3,7 @@ package resourcelifetime
 import (
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
@@ -65,7 +66,7 @@ func contextCancelConstructor(value ssa.Value) *ssa.Call {
 		return nil
 	}
 	constructor, ok := ctx.Tuple.(*ssa.Call)
-	if !ok || !ssaflow.CallMatchesAnySymbol(constructor.Common(),
+	if !ok || !ssacall.CallMatchesAnySymbol(constructor.Common(),
 		syntax.PackageFunction("context", "WithCancel"),
 		syntax.PackageFunction("context", "WithCancelCause"),
 		syntax.PackageFunction("context", "WithDeadline"),

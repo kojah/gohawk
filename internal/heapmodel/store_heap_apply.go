@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -305,7 +306,7 @@ func (substitution *heapSubstitution) results(call *ssa.Call) {
 			substitution.graph.values[call] = set.clone()
 			return
 		}
-		if extract := ssaflow.CallResult(call, index); extract != nil {
+		if extract := ssacall.CallResult(call, index); extract != nil {
 			for pointee := range set {
 				if pointee.region.kind == regionOpaque && pointee.region.origin == ssa.Value(call) && pointee.path == "" {
 					pointee.region.origin = extract

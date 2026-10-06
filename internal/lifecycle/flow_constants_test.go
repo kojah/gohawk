@@ -3,7 +3,7 @@ package lifecycle
 import (
 	"testing"
 
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -50,7 +50,7 @@ func recursive() { if recur() == nil { println("unknown") } }
 				if _, ok := block.Instrs[len(block.Instrs)-1].(*ssa.If); !ok {
 					continue
 				}
-				got := ssaflow.FeasibleSuccessorsWithin(block, nil, nil)
+				got := ssapath.FeasibleSuccessorsWithin(block, nil, nil)
 				if test.arm < 0 {
 					if len(got) != 2 {
 						t.Fatalf("opaque result pruned successors: %v", got)

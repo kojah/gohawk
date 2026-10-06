@@ -5,6 +5,7 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -14,7 +15,7 @@ func deferredCleared(p *resource, pick bool){held:=p;defer func(){if held!=nil{h
 `)
 	function := pkg.Func("deferredCleared")
 	deferred := ssaflow.InstructionsOf[*ssa.Defer](function)[0]
-	body, closure := ssaflow.DirectCallee(deferred.Common())
+	body, closure := ssacall.DirectCallee(deferred.Common())
 	if closure == nil || len(closure.Bindings) != 1 {
 		t.Fatal("expected captured deferred cell")
 	}

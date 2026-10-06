@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
@@ -25,7 +26,7 @@ import (
 // or every normal return when Condition is empty. Path is a joined access
 // path, empty for the parameter itself.
 type Discharge struct {
-	Condition ssaflow.CallCondition
+	Condition ssacall.CallCondition
 	Parameter int
 	Method    string
 	Path      string
@@ -116,7 +117,7 @@ func (fact *Fact) dischargesArgument(instruction ssa.Instruction, target ssa.Val
 // that the call's constant arguments select, with known fixing the caller's
 // own parameters when the call sits in a body searched under constants.
 func (fact *Fact) caseDischargesArgument(
-	instruction ssa.Instruction, target ssa.Value, method string, known ssaflow.FixedValues, observer proofs.Observer,
+	instruction ssa.Instruction, target ssa.Value, method string, known ssacall.FixedValues, observer proofs.Observer,
 ) bool {
 	return dischargesMatch(fact.casesSelectedBy(method, suppliedCondition(instruction, known)), instruction, target, method, observer)
 }

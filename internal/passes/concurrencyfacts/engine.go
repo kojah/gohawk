@@ -6,7 +6,7 @@ import (
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -19,8 +19,8 @@ import (
 type Engine struct {
 	cutoff    *summaryCutoff
 	mu        sync.Mutex
-	summaries *ssaflow.FunctionSummaries[Summary]
-	linear    *ssaflow.FunctionSummaries[Summary]
+	summaries *ssacall.FunctionSummaries[Summary]
+	linear    *ssacall.FunctionSummaries[Summary]
 	paths     bool
 	budget    *proofs.SearchBudget
 	storage   *heapmodel.Storage
@@ -40,8 +40,8 @@ func NewEngine() *Engine {
 // Fact publication cannot represent alternatives. Give it a separate, fixed
 // cache policy so exported functions do not pay for paths only graph queries
 // can use. A linear cutoff must not poison the richer query's cache.
-func (engine *Engine) newSummaries(paths bool) *ssaflow.FunctionSummaries[Summary] {
-	return ssaflow.NewFunctionSummaries(func(function *ssa.Function, budget *proofs.SearchBudget) Summary {
+func (engine *Engine) newSummaries(paths bool) *ssacall.FunctionSummaries[Summary] {
+	return ssacall.NewFunctionSummaries(func(function *ssa.Function, budget *proofs.SearchBudget) Summary {
 		builder := engine.query(budget)
 		builder.paths = paths
 		if !paths {
@@ -51,13 +51,13 @@ func (engine *Engine) newSummaries(paths bool) *ssaflow.FunctionSummaries[Summar
 	}, unavailableSummary)
 }
 
-func unavailableSummary(reason ssaflow.SummaryUnavailable) Summary {
+func unavailableSummary(reason ssacall.SummaryUnavailable) Summary {
 	switch reason {
-	case ssaflow.SummaryRecursive:
+	case ssacall.SummaryRecursive:
 		return Summary{Reason: ReasonRecursiveProtocol}
-	case ssaflow.SummaryBudgetExhausted:
+	case ssacall.SummaryBudgetExhausted:
 		return Summary{Reason: ReasonBudgetExhausted}
-	case ssaflow.SummaryBodyUnavailable:
+	case ssacall.SummaryBodyUnavailable:
 		return Summary{Reason: ReasonBodyUnavailable}
 	}
 	return Summary{Reason: ReasonEffectUnknown}

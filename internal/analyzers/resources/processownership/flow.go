@@ -5,7 +5,8 @@ import (
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -70,9 +71,9 @@ func proveProcessReturns(pass *analysis.Pass, proof *commandProof, function *ssa
 	// Fix only the immediate success-edge load. A later Process load may have
 	// changed, so this branch fact must not imply stable handle identity or
 	// excuse an additional Boolean condition around the wait or release.
-	assumptions := ssaflow.EntryAssumptions{}
+	assumptions := ssapath.EntryAssumptions{}
 	if guard := proveImmediateProcessGuard(start, command); guard.State == proofs.EvidenceProven {
-		assumptions.Constants = ssaflow.FixedValues{guard.NonNil: ssaflow.OutcomeNonNil}
+		assumptions.Constants = ssacall.FixedValues{guard.NonNil: ssacall.OutcomeNonNil}
 		emitImmediateProcessGuard(probe, function, guard)
 	}
 	// Result summaries exclude only branches the shared proof rules out.
@@ -80,7 +81,7 @@ func proveProcessReturns(pass *analysis.Pass, proof *commandProof, function *ssa
 	successors := summaryKnowledge.Provider(pass).Successors()
 	if merged != nil {
 		assumptions.NonNil = merged
-		witness = ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+		witness = ssapath.UnownedReturn(ssapath.UnownedReturnQuery{
 			After:       merged,
 			Owns:        owns,
 			AllowReturn: allowReturn,
@@ -88,7 +89,7 @@ func proveProcessReturns(pass *analysis.Pass, proof *commandProof, function *ssa
 			Successors:  successors,
 		})
 	} else {
-		witness = ssaflow.UnownedReturn(ssaflow.UnownedReturnQuery{
+		witness = ssapath.UnownedReturn(ssapath.UnownedReturnQuery{
 			AfterCallSuccess: start, Owns: owns, AllowReturn: allowReturn, Assume: assumptions, Successors: successors,
 		})
 	}

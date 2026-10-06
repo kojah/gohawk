@@ -8,6 +8,7 @@ import (
 	"github.com/kojah/gohawk/internal/ssaflow"
 
 	proofs "github.com/kojah/gohawk/internal/proof"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
 	"golang.org/x/tools/go/ssa"
 )
@@ -107,7 +108,7 @@ func proveHandleCarried(value, command ssa.Value, budget *proofs.SearchBudget) p
 	// https://github.com/kiwifs/kiwifs/blob/3961d5e70a9e0ef457e58e29c40c52c870d57e73/go.mod
 	var leaf func(ssaflow.ReachingWalk, ssa.Value) bool
 	leaf = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
-		if call, _, result := ssaflow.CallResultSource(value); result && commandPipeOperation(call.Common()) {
+		if call, _, result := ssacall.CallResultSource(value); result && commandPipeOperation(call.Common()) {
 			return false
 		}
 		if _, scalar := value.Type().Underlying().(*types.Basic); scalar {

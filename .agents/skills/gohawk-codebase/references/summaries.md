@@ -155,7 +155,7 @@ formal parameter guarantee with an instantiated caller obligation.
 [Source](../../../../internal/summaries/results.go)
 
 ```go
-func (provider *Provider) OutcomeOf(value ssa.Value, budget *proofs.SearchBudget) (ssaflow.Outcome, bool)
+func (provider *Provider) OutcomeOf(value ssa.Value, budget *proofs.SearchBudget) (ssacall.Outcome, bool)
 ```
 
 OutcomeOf combines a value's literal or construction outcome with an
@@ -203,7 +203,7 @@ its default feasibility.
 [Source](../../../../internal/summaries/results.go)
 
 ```go
-func (provider *Provider) Terminates() ssaflow.Terminator
+func (provider *Provider) Terminates() ssapath.Terminator
 ```
 
 Terminates adapts the result summaries to the walks' terminator hook: a
@@ -215,7 +215,7 @@ as os.Exit does. A nil provider yields no hook.
 [Source](../../../../internal/summaries/results.go)
 
 ```go
-func (provider *Provider) TerminatesWithin(budget *proofs.SearchBudget) ssaflow.Terminator
+func (provider *Provider) TerminatesWithin(budget *proofs.SearchBudget) ssapath.Terminator
 ```
 
 TerminatesWithin shares result inference with budget. A nil budget retains

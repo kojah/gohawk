@@ -4,7 +4,8 @@ import (
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
 	proofs "github.com/kojah/gohawk/internal/proof"
-	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	"github.com/kojah/gohawk/internal/summaries"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/ssa"
@@ -102,22 +103,22 @@ func proveCancellation(
 	}
 
 	if contract, ok := cancellationContractFor(call.Common()); ok && contract.packagePath == "context" {
-		classifier.context = ssaflow.CallResult(call, 0)
-		classifier.processLifetime = ssaflow.RunsOnceInProgramEntry(call)
+		classifier.context = ssacall.CallResult(call, 0)
+		classifier.processLifetime = ssacall.RunsOnceInProgramEntry(call)
 	}
 	// One walk carries the classifier's labels to every feasible return. A
 	// return no action reaches is loss; a return only an opaque handoff reaches
 	// is unknown, and that opacity excuses no other path's early return.
-	outcome, witness := ssaflow.EvaluateObligationWitness(ssaflow.ObligationFlow{
+	outcome, witness := ssapath.EvaluateObligationWitness(ssapath.ObligationFlow{
 		Start: call, NonNil: cancel, Successors: knowledge.Successors(), Terminates: knowledge.Terminates(),
 		Instruction: classifier.obligation, Edge: classifier.edgeObligation,
 	})
 	switch outcome {
-	case ssaflow.ObligationViolated:
+	case ssapath.ObligationViolated:
 		return CancellationProof{Outcome: CancellationLost, Reason: reasonCancellationLost, Witness: witness}
-	case ssaflow.ObligationUncertain:
+	case ssapath.ObligationUncertain:
 		return CancellationProof{Outcome: CancellationUnknown, Reason: reasonCancellationUnknown}
-	case ssaflow.ObligationHonored:
+	case ssapath.ObligationHonored:
 	}
 	if classifier.transfers {
 		return CancellationProof{Outcome: CancellationTransferred, Reason: reasonCancellationTransferred}
@@ -129,11 +130,11 @@ func proveCancellation(
 // labels onto the shared flow lattice: a release or transfer is exact
 // evidence, an ambiguous use is opaque, and a selected Done receive is an
 // edge-local opaque observation of cancellation.
-func (classifier *cancellationClassifier) obligation(instruction ssa.Instruction) ssaflow.ObligationAction {
+func (classifier *cancellationClassifier) obligation(instruction ssa.Instruction) ssapath.ObligationAction {
 	return cancellationObligation(classifier.action(instruction))
 }
 
-func (classifier *cancellationClassifier) edgeObligation(from, to *ssa.BasicBlock) ssaflow.ObligationAction {
+func (classifier *cancellationClassifier) edgeObligation(from, to *ssa.BasicBlock) ssapath.ObligationAction {
 	request := lifecycle.CompletionRequest{
 		Target: classifier.cancel, InvokeTarget: true, Budget: classifier.budget(),
 	}
@@ -144,21 +145,21 @@ func (classifier *cancellationClassifier) edgeObligation(from, to *ssa.BasicBloc
 		completed = lifecycle.ProveCompletionOnEdge(from, to, request).Proven()
 	}
 	if completed {
-		return ssaflow.ObligationExact
+		return ssapath.ObligationExact
 	}
 	if classifier.selectedDoneEdge(from, to) {
-		return ssaflow.ObligationUnknown
+		return ssapath.ObligationUnknown
 	}
-	return ssaflow.ObligationNone
+	return ssapath.ObligationNone
 }
 
-func cancellationObligation(action cancellationAction) ssaflow.ObligationAction {
+func cancellationObligation(action cancellationAction) ssapath.ObligationAction {
 	switch action {
 	case cancellationActionRelease, cancellationActionTransfer:
-		return ssaflow.ObligationExact
+		return ssapath.ObligationExact
 	case cancellationActionUnknown:
-		return ssaflow.ObligationUnknown
+		return ssapath.ObligationUnknown
 	case cancellationActionNone:
 	}
-	return ssaflow.ObligationNone
+	return ssapath.ObligationNone
 }
