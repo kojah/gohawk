@@ -618,3 +618,95 @@ workspace, run heavy jobs sequentially, and persist only useful final evidence.
 The broader performance completion audit remains open; actual root timing
 coverage is now established, while individual proof-engine profiles and
 remaining guard-key/heap costs still need review.
+
+
+## Guard-key capacity and canonical source selection
+
+The remaining guard-key builder growth is avoidable. A budgeted sizing pass
+charges exactly the same guard entries, then reserves the encoded byte count
+before rendering. Empty guards return immediately without spending allowance.
+Each entry still serializes the same identity, separator, equal sign and Boolean
+text, in input order. Capacity arithmetic detects integer overflow and disables
+the hint instead of wrapping a `Grow` argument; it does not establish proof or
+change the rendering policy. Tests cover exact/partial budgets and candidate
+pools, empty guards, literal format/separator characters and fitting/overflowing
+capacity arithmetic.
+
+Three-sample primitive medians under the RAM workflow are:
+
+| Guard count | Before | After | Before bytes / allocations | After bytes / allocations |
+| --- | ---: | ---: | ---: | ---: |
+| 0 | 3.129 ns | 1.871 ns | 0 / 0 | 0 / 0 |
+| 1 | 59.90 ns | 34.89 ns | 24 / 2 | 16 / 1 |
+| 8 | 247.7 ns | 181.2 ns | 248 / 5 | 112 / 1 |
+| 32 | 723.3 ns | 606.7 ns | 1016 / 7 | 480 / 1 |
+
+An ordinary `math/big` dependency profile samples 20 versus 11.5 MiB in guard
+key allocation. Whole-process sampled allocations are 249.46 versus 270.57 MiB,
+so this does not establish an overall memory reduction. Both versions have
+identical complete JSON diagnostics. The initial capacity-only candidate slowed
+empty keys slightly; the retained early return fixes that case. This profile
+pair predates the source-selection shortcut below.
+
+Actual catalog profiling exposes repeated source-file selection work. A
+processownership profile on ordinary runtime dependency analysis spends 50 of
+its 60 ms of own filtered CPU samples in `SourceSSAFunctions`. File-position
+queries and the package-wide test-file census are contributors. The profile
+interval also samples other concurrently running analyzer goroutines; unfiltered
+samples are not exclusive processownership CPU. `AnalyzeFile` formerly performed
+that census before asking whether a vet invocation or canonical-driver marker
+already supplied the answer. It now asks those sufficient conditions first.
+Generated and test-file exclusions still happen before any driver shortcut.
+
+Driver fixtures preserve ordinary production selection, uncanonical augmented
+variants, canonical augmented variants and vet variants, including generated
+and test files. A 200-file vet package lookup goes from a three-sample median
+10380 ns to 53.33 ns, with zero allocations in both versions. A post-change
+processownership CPU interval is too short to collect samples; this is not
+proof that its residual work has disappeared. Single runtime action timings
+fall across the catalog roots, for example processownership 220.9 to 10.3 ms,
+with concurrency and overlapping roots disclosed.
+
+Combined actual-driver self-analysis uses the same current source target for
+both executables, a shared warmed RAM build cache, two Go workers, low priority,
+all checks and identical Run timing wrappers. Each invocation forces fresh
+analysis with a distinct inactive candidate flag. Three alternating pairs are:
+
+| Pair | Before | Candidate |
+| --- | ---: | ---: |
+| 1 | 22.263 s | 21.540 s |
+| 2 | 26.866 s | 25.268 s |
+| 3 | 25.301 s | 23.950 s |
+
+The medians are 25.301 and 23.950 seconds. All six invocations exit successfully
+with identical empty complete diagnostics. Each emits 4060 action records,
+290 for each of the eight catalog analyzers and six prerequisites. Host load
+varies; these matched self-analysis results do not establish a general speedup
+on other repositories. Median summed catalog timings include processownership
+0.294 to 0.062 seconds, cancellationownership 0.352 to 0.106, goroutineownership
+0.265 to 0.044, and resourcelifetime 0.533 to 0.270; these sums overlap and do
+not partition wall time.
+
+Raw binaries, exact overlays, benchmarks, CPU/allocation profiles, paired action
+records and diagnostics remain in
+`/dev/shm/gohawk-perf-01a0f86c/guard-key/`. The first runtime profile launch used
+a relative wrapper path from the importing module and failed to start; only the
+corrected absolute-path launch supplies profiling evidence. Final validation
+uses the RAM workflow with heavy jobs sequential. The first local gate passed
+behavior but caught redundant test parentheses in the canonical formatter;
+they were corrected before the final gate.
+
+The completion audit remains open: actual root timing and a source-selection
+profile now cover more of the common cost, but residual lock-analysis, heap
+projection, pointee-set and visited-map costs still need bounded review.
+
+
+Final source passes all eight canonical `make verify` gates in the RAM
+workspace, plus `make coverage` at 92.5%. Pinned Caddy's two complete diagnostics
+are identical to the previous baseline, with its expected exit 3. Only small
+benchmarks, paired summaries, diagnostic comparisons and the final gate receipt
+are copied to `.build/perf-key-source-20261006/`; raw profiles and caches stay
+in RAM. The badge helper's first attempt while Caddy owned the workspace was
+rejected by the serialization lock; it is rerun after that job ends. No local
+race tests or full precision replay were run. Hosted CI at the parent commit
+`0a9f2f78` is fully green; current-commit hosted results remain separate.

@@ -76,8 +76,9 @@ func AnalyzeFile(pass *analysis.Pass, file *ast.File) bool {
 		return false
 	}
 	isTest := testFile(pass, file)
-	driverUsesTestVariant := canonicalTestVariant(pass)
-	if !testVariant(pass) || vetToolInvocation(os.Args) || driverUsesTestVariant {
+	// Vet already identifies the canonical pass. Avoid a package-wide test
+	// census for every source function when the driver's answer is sufficient.
+	if vetToolInvocation(os.Args) || canonicalTestVariant(pass) || !testVariant(pass) {
 		return true
 	}
 	return isTest

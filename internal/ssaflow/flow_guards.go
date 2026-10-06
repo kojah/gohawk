@@ -294,11 +294,21 @@ func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *Search
 // KeyWithin charges guard entries before rendering. An exhausted partial key
 // must not enter a visited set; a nil budget retains the default policy.
 func (guards PathGuards) KeyWithin(budget *SearchBudget) string {
-	var key strings.Builder
+	if len(guards) == 0 {
+		return ""
+	}
+	capacity := 0
 	for index, guard := range guards {
 		if !budget.Spend() {
 			return ""
 		}
+		capacity = pathGuardKeyCapacity(capacity, len(guard.Identity), guard.Value, index > 0)
+	}
+	var key strings.Builder
+	if capacity > 0 {
+		key.Grow(capacity)
+	}
+	for index, guard := range guards {
 		if index > 0 {
 			key.WriteByte(';')
 		}
@@ -311,4 +321,24 @@ func (guards PathGuards) KeyWithin(budget *SearchBudget) string {
 		}
 	}
 	return key.String()
+}
+
+// An oversized key disables the allocation hint; it must never wrap into a
+// negative Grow argument or an incorrectly small positive capacity.
+func pathGuardKeyCapacity(size, identityBytes int, value, separator bool) int {
+	if size < 0 {
+		return -1
+	}
+	suffix := len("=false")
+	if value {
+		suffix = len("=true")
+	}
+	if separator {
+		suffix++
+	}
+	maxInt := int(^uint(0) >> 1)
+	if identityBytes > maxInt-size-suffix {
+		return -1
+	}
+	return size + identityBytes + suffix
 }
