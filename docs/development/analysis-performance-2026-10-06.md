@@ -293,3 +293,75 @@ that result. Hosted CI at the preceding trace commit had only a stale badge
 failure (92.4% there); current-source coverage is the applicable local receipt.
 The performance goal remains open for production prerequisite attribution and
 a broad completion review; these fixture profiles do not prove its end state.
+
+## Production prerequisite timing and control-flow allocations
+
+At baseline `fa6f4ed1`, a temporary measurement executable invokes the real CLI
+and wraps prerequisite `Run` functions. It records timings without memory-stat
+stop-the-world reads. Self-analysis produces 290 records per prerequisite and
+passes in 15.921 seconds. Summed prerequisite durations are lifecycle facts
+28.854 seconds, SSA construction 3.643, result facts 3.605, concurrency facts
+0.830, inspection 0.452, and control-flow construction 0.234. These concurrent
+package actions overlap; their sums do not partition wall time. Type loading,
+fact import and publication outside `Run` are excluded. The wrapper is an
+ignored measurement artifact, not a new product option or source dependency.
+
+An actual unitchecker process profiling lifecycle inference in `math/big`
+identifies reachability queues and path-guard key formatting as allocation
+contributors. A direct vet target includes test files, so profiling its package
+name alone can overwrite profiles from different test variants. Initial such
+profiles are retained only as exploratory evidence. The corrected experiment
+uses a tiny importing module, skips test-source variants, writes per-process
+files, and forces fresh analysis with a unique inactive trace-candidate flag.
+A serial experiment uses `GOMAXPROCS=1` to reduce overlapping work. Allocation
+profiles still cover process allocations before their snapshot, not exclusively
+the lifecycle phase; CPU samples cover the selected pass interval.
+
+Two shared mechanics are improved without changing policy or budgets:
+
+- Path guard keys use a string builder instead of one formatted allocation per
+  entry and a joined slice. Key bytes, input order, separators and cutoff
+  behavior are unchanged. The regression includes empty identities and literal
+  separator/format characters.
+- CFG reachability keeps a queue head, reuses a drained owned buffer, and
+  compacts consumed entries before growth. Seeds are still cloned, so queue
+  reuse cannot mutate SSA successor arrays. Visits, revisits and successor
+  edges keep their original order and budget charges; the regression proves
+  an exact eight-step cyclic/duplicate-edge case and immutable seed backing.
+
+Three-sample benchmark medians include:
+
+| Workload | Before | After | Before allocations | After allocations |
+| --- | ---: | ---: | ---: | ---: |
+| 128-block chain | 14194 ns | 13238 ns | 135 | 12 |
+| 32 path guards | 3726 ns | 747.4 ns | 66 | 7 |
+
+The chain allocates 10344 versus 9360 bytes; the guard key 2017 versus 1016
+bytes. Timing noise remains. An initial queue that retained all consumed
+entries cut allocation counts but increased sampled reachability allocation
+bytes on the production workload; it was replaced with the compacting queue.
+The corrected serial baseline samples about 52 MiB in reachability and 37 MiB
+cumulatively in guard keys; the compacting candidate samples about 26 MiB in
+reachability and 18.5 MiB in builder writes. Total sampled process allocations
+are 330.75 versus 256.11 MiB, a single sample rather than a general memory claim.
+
+All profiles, wrapper source, binaries, exact timing records, consumer module,
+primitive benchmarks and focused tests are under `.build/perf-production-20261006/`.
+The production path has no checker test-harness fact round-trip stack. No
+budgets, search limits, analyzer selection or diagnostic policy were weakened.
+
+Final shared-control-flow source passes every canonical local gate in
+`compact-final-verify.log`; the initial attempt failed only import formatting in
+the new benchmark file. The reported/accepted HTTP fixture has identical complete
+JSON before and after (`diagnostic-comparison.json`), and the importing module
+has identical empty diagnostics. `make coverage` passes and measures 92.4%; the
+README badge was regenerated using the same pinned tool as hosted CI. Earlier
+hosted failures at `3870a965` and `fa6f4ed1` were only the stale badge gate.
+
+The temporary profiler first encountered cached runs with no profile files and
+direct vet targets containing test sources. Neither attempt is counted as a
+successful isolated profile. The applicable ordinary dependency profiles are
+`consumer-*` and `serial-*`; the final compacting queue uses `compact-*`.
+Profile matching and variant selection are explicit in the retained wrapper.
+The broader completion audit remains outstanding; these measurements identify
+and improve two costs rather than prove there are no easy wins left.

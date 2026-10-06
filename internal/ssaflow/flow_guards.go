@@ -294,12 +294,21 @@ func (guards PathGuards) AfterWithin(instruction ssa.Instruction, budget *Search
 // KeyWithin charges guard entries before rendering. An exhausted partial key
 // must not enter a visited set; a nil budget retains the default policy.
 func (guards PathGuards) KeyWithin(budget *SearchBudget) string {
-	parts := make([]string, 0, len(guards))
-	for _, guard := range guards {
+	var key strings.Builder
+	for index, guard := range guards {
 		if !budget.Spend() {
 			return ""
 		}
-		parts = append(parts, fmt.Sprintf("%s=%t", guard.Identity, guard.Value))
+		if index > 0 {
+			key.WriteByte(';')
+		}
+		key.WriteString(guard.Identity)
+		key.WriteByte('=')
+		if guard.Value {
+			key.WriteString("true")
+		} else {
+			key.WriteString("false")
+		}
 	}
-	return strings.Join(parts, ";")
+	return key.String()
 }

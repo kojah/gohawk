@@ -116,9 +116,15 @@ func BlockInCycleWithin(start *ssa.BasicBlock, budget *SearchBudget) bool {
 func blockReachableFromWithin(seeds []*ssa.BasicBlock, target *ssa.BasicBlock, budget *SearchBudget) bool {
 	seen := map[*ssa.BasicBlock]bool{}
 	queue := slices.Clone(seeds)
-	for len(queue) > 0 {
-		block := queue[0]
-		queue = queue[1:]
+	head := 0
+	for head < len(queue) {
+		block := queue[head]
+		head++
+		// A drained queue can reuse its owned backing array for successors.
+		if head == len(queue) {
+			queue = queue[:0]
+			head = 0
+		}
 		if !budget.Spend() {
 			return false
 		}
@@ -132,6 +138,10 @@ func blockReachableFromWithin(seeds []*ssa.BasicBlock, target *ssa.BasicBlock, b
 		for _, successor := range block.Succs {
 			if !budget.Spend() {
 				return false
+			}
+			if len(queue) == cap(queue) && head > 0 {
+				queue = queue[:copy(queue, queue[head:])]
+				head = 0
 			}
 			queue = append(queue, successor)
 		}
