@@ -1,8 +1,9 @@
 package heapmodel
 
 import (
+	"cmp"
 	"go/types"
-	"sort"
+	"slices"
 
 	"github.com/kojah/gohawk/internal/ssaflow"
 	"github.com/kojah/gohawk/internal/syntax"
@@ -142,27 +143,28 @@ func QueryEscape(value ssa.Value, scope EscapeScope) EscapeProof {
 		}
 	}
 	graph.resultEscapeEvents(target, &proof, budget)
-	sort.Slice(proof.Events, func(i, j int) bool {
-		return escapeEventLess(proof.Events[i], proof.Events[j])
-	})
+	slices.SortFunc(proof.Events, compareEscapeEvents)
 	return proof
 }
 
-func escapeEventLess(a, b EscapeEvent) bool {
+func compareEscapeEvents(a, b EscapeEvent) int {
 	if a.Instruction.Pos() != b.Instruction.Pos() {
-		return a.Instruction.Pos() < b.Instruction.Pos()
+		return cmp.Compare(a.Instruction.Pos(), b.Instruction.Pos())
 	}
 	if a.Instruction.Block().Index != b.Instruction.Block().Index {
-		return a.Instruction.Block().Index < b.Instruction.Block().Index
+		return cmp.Compare(a.Instruction.Block().Index, b.Instruction.Block().Index)
 	}
 	if a.Instruction != b.Instruction {
 		for _, instruction := range a.Instruction.Block().Instrs {
 			if instruction == a.Instruction || instruction == b.Instruction {
-				return instruction == a.Instruction
+				if instruction == a.Instruction {
+					return -1
+				}
+				return 1
 			}
 		}
 	}
-	return a.Destination < b.Destination
+	return cmp.Compare(a.Destination, b.Destination)
 }
 
 func heapEscapeDestination(kind HeapEscape) EscapeDestination {

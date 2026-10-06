@@ -1501,3 +1501,75 @@ receipts are retained in `.build/perf-publication-sort-20261006/`; full output
 and profiles remain in RAM. No local race tests or full precision replay were
 run. Hosted validation is separate from these local receipts. The performance
 goal remains active for escape-event sorting and broader proof-engine review.
+
+### Typed ordering of escape-proof events
+
+`QueryEscape` now sorts its existing event list with a typed comparator.
+Ordering remains source position, block index, instruction order within the
+block, then destination. The same-position block scan remains unchanged; this
+change neither precomputes instruction indices nor alters charged reachability
+work, publication events, outcomes or conservative cutoffs.
+
+The regression builds real SSA with same-position instructions in one block,
+requires that tie to exist, and compares complete event order against the legacy
+less relation across 100 seeded shuffles. It also exercises empty/singleton and
+8/32-event inputs. Paired sort benchmarks reset an owned work slice equally.
+Three-sample medians are:
+
+| Events | Reflective | Typed | Bytes before → after | Allocations before → after |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | 29.32 ns | 4.083 ns | 24 → 0 | 1 → 0 |
+| 1 | 32.48 ns | 5.363 ns | 24 → 0 | 1 → 0 |
+| 8 | 653.4 ns | 221 ns | 96 → 0 | 3 → 0 |
+| 32 | 3493 ns | 1846 ns | 96 → 0 | 3 → 0 |
+
+A complete warm confined-object query is more modest: 185.4 → 176.8 ns median,
+64 bytes/one allocation unchanged. The counterfactual overlay restores only
+reflective sorting while retaining the equivalent comparator; its empty event
+list invokes neither comparator. In this query the nil event list did not
+allocate through the old sort either, so the primitive's empty allocated-work
+slice result must not be presented as a query allocation reduction. The
+remaining query allocation is not attributed without allocation evidence.
+
+Raw evidence stays in the retained RAM workspace's `escape-sort/`. Before
+heavy validation, 21 obsolete binaries created by this investigation are
+retired after checking no live executable uses them, reclaiming 365754044
+bytes. Their paths, sizes and SHA-256 hashes are retained; cache and measured
+receipts remain. No foreign cache or process is touched.
+
+Source review of the remaining query allocation identifies a candidate for
+measurement: `NewSearchBudget` includes optional recording-site capture in its
+constructor. Whether extracting that path would enable constructor inlining,
+remove allocation, and preserve recorder site attribution is unverified. This
+candidate and deeper proof-engine review keep the broader goal open. Graph
+tools remain unavailable; source lookup/read fallback is used.
+
+All eight canonical local gates pass, including the full ordinary suite (70
+seconds) and all-check self-analysis. The first Caddy scan is invalidated by
+RAM capacity: it exits 1 after fact exports and vet configuration writes fail
+with `no space left on device`; diagnostic comparison cannot be used. Its
+failed output/receipt is retained under `caddy-first*` in the RAM artifacts.
+Initial free-space monitoring underestimated peak temporary/cache growth.
+
+Before retrying, source review of the active Go toolchain's cache confirms
+`OutputFile` calls `markUsed`, which refreshes output timestamps. Under the
+workspace's serial lock, and after checking no live Go tool uses this cache,
+5788 regular data entries older than 90 minutes are evicted oldest-first,
+reclaiming 4298557151 bytes. Recent data and action metadata remain; an evicted
+output becomes a normal cache miss. The path/size/time manifest stays in RAM.
+No global/foreign cache is examined or changed. Free capacity returns to 4.8
+GiB, and the retry uses a new action flag to prevent partial cached success
+from masquerading as a complete fresh scan.
+
+The complete fresh-action Caddy retry preserves diagnostic JSON, exit 3 and
+empty stderr. It takes 101.061 seconds and writes 4 KiB physically. These
+results replace the invalid first attempt for compatibility evidence, without
+a whole-run speedup claim.
+
+Canonical RAM coverage passes at 92.6%; the README badge is regenerated with
+`github.com/AlexBeauchemin/gobadge@v0.4.0`, the pinned hosted action's generator.
+Small receipts are retained in `.build/perf-escape-sort-20261006/`. Full output,
+profiles and the cache-prune manifest remain in RAM. No local race tests or full
+precision replay were run. Hosted checks for this commit are separate from
+these local passing receipts. The budget-constructor candidate and deeper
+proof-engine review keep the broader performance goal active.
