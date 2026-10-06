@@ -83,6 +83,33 @@ profiles and the original source snapshot remain in RAM. No new behavior
 fixtures or precision replay are required for unchanged bodies. No local race
 tests were run; hosted checks remain separate.
 
+## Lifecycle capture and tracing review
+
+The lifecycle evidence file mixed proof orchestration with the distinct capture
+cell model. `captured_evidence.go` now owns literal retention, unreadable
+handoffs, capture uses and immutable imported-argument completion. `evidence.go`
+retains one local/imported proof decision path and its outcome-based tracing.
+Capture uncertainty, exact completion requirements and the pinned rationale
+move with their implementation.
+
+The tracing file mixed evidence events with configuration and timing output.
+`configuration.go` owns flag parsing, process-wide destinations and temporary
+capture; `timing.go` owns independently enabled measurement output. `trace.go`
+retains event selection, candidate attribution and JSONL serialization.
+All 50 function signatures and bodies match the original ASTs. Declarations
+and initializers are copied without changing flags, output schemas, locking
+or disabled paths.
+
+All eight canonical local verification gates pass for this layout. Focused
+capture/proof and tracer tests pass, including the CLI cancellation-trace
+invocation that validates diagnostic JSON and stable rejected/unknown events.
+Standalone package coverage passes for lifecyclefacts (67.5%) and trace
+(78.0%); these exclude contributions from other packages and are not comparable
+to the preceding 92.6% full-repository profile. No new behavior fixtures or
+precision replay are needed for unchanged implementations. Small receipts live
+in `.build/evidence-layout-audit-20261006/`; source snapshots and profiles stay
+in RAM. No local race tests were run; hosted checks remain separate.
+
 ## Validation receipts
 
 All eight final `make verify` gates pass. The corrected canonical coverage
@@ -95,18 +122,21 @@ validation.
 
 ## Remaining review
 
-Eight production source files remain to be reviewed for cohesion. These
+Six production source files remain to be reviewed for cohesion. These
 exceed the 400-line review trigger; that is not a finding that they should be
 split. The larger heap projection file has been reviewed above.
 
 - cancellationownership/proof.go
 - resourcelifetime/contracts.go
-- lifecyclefacts/evidence.go
 - goroutineownership/classify.go
 - goroutineownership/obligation.go
 - heapmodel/store_regions.go
-- trace/trace.go
 - heapmodel/store_regions_effects.go
+
+The next resource-contract review has identified API catalog declarations and
+release classification in the same file. Its callback rationale is currently
+attached to the search-budget constant rather than the callback function;
+this boundary and comment placement remain to be cleaned up.
 
 The returned-view availability question is confirmed and fixed. An actual SSA
 fixture storing a closable parameter into a returned owner originally produced

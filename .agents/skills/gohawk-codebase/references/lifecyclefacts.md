@@ -568,7 +568,7 @@ nothing with an argument from one it knows nothing about.
 
 ## LifecycleEvidence.ClosureHandsValueToUnreadableCallee
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
+[Source](../../../../internal/passes/lifecyclefacts/captured_evidence.go)
 
 ```go
 func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCallee(
@@ -593,7 +593,7 @@ and let the caller keep the old opaque answer.
 
 ## LifecycleEvidence.ClosureHandsValueToUnreadableCalleeWithin
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
+[Source](../../../../internal/passes/lifecyclefacts/captured_evidence.go)
 
 ```go
 func (evidence *LifecycleEvidence) ClosureHandsValueToUnreadableCalleeWithin(
@@ -607,7 +607,7 @@ that the callback leaves target with its caller.
 
 ## LifecycleEvidence.ClosureRetainsValue
 
-[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
+[Source](../../../../internal/passes/lifecyclefacts/captured_evidence.go)
 
 ```go
 func (evidence *LifecycleEvidence) ClosureRetainsValue(closure *ssa.MakeClosure, target ssa.Value) bool

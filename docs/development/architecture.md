@@ -30,6 +30,16 @@ point in `analyzer.go` owns scheduling and publication; `summarize.go` composes
 the per-function guarantees. These boundaries preserve one fact schema and
 one inference path rather than adding adapters between parallel models.
 
+Lifecycle proof orchestration remains in `lifecyclefacts/evidence.go`;
+`captured_evidence.go` owns capture-cell uses, possible literal retention and
+immutable imported-argument completion. The same proof entry point consumes
+these answers and preserves abandoned searches as unknown.
+
+Trace event selection, attribution and serialization live in
+`internal/trace/trace.go`. `configuration.go` owns process-wide flags,
+destinations and temporary capture; `timing.go` owns independently enabled
+measurement output. Their shared lock and disabled fast paths are unchanged.
+
 Synchronization evidence contracts and completeness live in
 `internal/passes/concurrencyfacts/summary.go`. `engine.go` owns serialized
 queries, cache policy and collection retries; `effects.go` accounts for ordered
