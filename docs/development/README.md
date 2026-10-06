@@ -38,6 +38,8 @@ Start with [Understanding SSA](../understanding-ssa.md) and the public
 
 ## Working on a change
 
+- [Performance workflow](performance-workflow.md) — reuse caches and keep
+  disposable Go writes off the shared disk while profiling and validating.
 - [Debugging reference](debugging-reference.md) — the SSA, fact, and
   evidence-trace dumps, and how to read them.
 - [Decisions](decisions/) — why a policy exists, one file per decision.

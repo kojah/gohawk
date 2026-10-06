@@ -550,3 +550,71 @@ complete diagnostics are identical to the retained lazy-copy baseline: no
 added or removed findings (`caddy-comparison.json`). Diagnostics produce the
 expected nonzero exit; no analyzer error objects appear. This scan overlapped
 validation and is diagnostic evidence only, not an elapsed-time benchmark.
+
+
+## Actual analyzer timing and shared-disk contention
+
+An ignored Go source overlay now wraps `result.invocation.analyzers` immediately
+before `unitchecker.Main` in the CLI, after selection. It does not change the
+production checkout. This observes the actual root analyzers as well as their
+shared prerequisites. An initial self-analysis records 4060 actions: 290 for
+each of the eight catalog analyzers and six prerequisites. Complete diagnostics
+remain empty. Lifecycle inference sums to 20.852 seconds; lockorder 3.815;
+result inference 2.830; SSA construction 2.639. These concurrently running
+package actions overlap and are not a wall-time partition. The wrapper excludes
+record encoding and output I/O from each duration and uses no memory-stat STW
+reads. The overlay, executable, source hash, initial output and exact timing
+records are under `.build/perf-actual-analyzers-20261006/`.
+
+The user identified shared-disk contention during this investigation. Repeated
+forced-fresh vet actions publish new dependency facts; isolated Go caches,
+compiler workspaces, and overlapping verification/coverage amplify the writes.
+The recent benchmark/artifact and isolated-cache directories consume about
+2.5 GiB. Shared Go build-cache and temp directories measured 299 and 106 GiB;
+those totals contain other sessions' work and are not attributed to this task.
+No shared cache or another session's job was removed or interrupted.
+
+A current five-second `/proc/PID/io` sample after the Go scan ends has no active
+Go writer. It observes 3.254 MiB of writes from the shared Codex server and
+2.680 MiB from the Mash experiment. I/O pressure still reports stalls. These
+observations do not reconstruct the earlier Caddy write burst or attribute all
+system stalls to gohawk; the earlier fresh-analysis workload plausibly
+contributed substantial cache and temporary-file writes.
+
+The new `scripts/with-ram-go.sh` places `GOCACHE`, `GOTMPDIR`, and `TMPDIR`
+in a reusable private tmpfs workspace. A nonblocking lock serializes use of
+that workspace. Go concurrency defaults to two; verification runs one gate at
+a time; child commands use reduced CPU priority and idle I/O priority where
+available. Output and exit status are preserved. Module downloads and explicit
+output paths retain their configured locations. The maintained
+[performance workflow](performance-workflow.md) describes reuse and measurement.
+
+Real command-tree I/O receipts using a fresh RAM cache are:
+
+| Target | Physical writes | Physical reads | Exit | Complete diagnostics |
+| --- | ---: | ---: | ---: | --- |
+| Self | 36 KiB | 0.72 MiB | 0 | Identical, empty |
+| Pinned Caddy | 192 KiB | 129.6 MiB | 3 | Identical, two findings |
+
+Linux child `ru_inblock`/`ru_oublock` deltas supply physical I/O counts; tmpfs
+writes do not count as disk writes. The first self run takes 39.387 seconds and
+Caddy 190.531 seconds. Their cache state, lower concurrency and priority differ
+from earlier runs, so these are I/O validation, not evidence of a latency
+speedup. The RAM workspace uses about 1.9 GiB of a 32 GiB tmpfs after both jobs;
+raw timing and temporary output remain there. Only small receipts, diagnostics
+and the aggregate timing summary are copied to `.build/perf-low-io-20261006/`.
+
+Shell syntax and behavior checks cover inherited environment, retained cache,
+stdout, exit status, invalid concurrency, mutual exclusion, and rejection of a
+disk-backed workspace. The first negative test incorrectly assumed `/tmp` was
+disk-backed on this host; the corrected test uses the checkout filesystem and
+passes. All Go production source remains at `54b33853`, whose hosted CI is
+fully green (37400193884). Existing Go receipts remain applicable; no full
+local Go test or coverage rerun is needed for this opt-in shell wrapper and
+development documentation.
+
+Further profiling and validation for this investigation use the reusable RAM
+workspace, run heavy jobs sequentially, and persist only useful final evidence.
+The broader performance completion audit remains open; actual root timing
+coverage is now established, while individual proof-engine profiles and
+remaining guard-key/heap costs still need review.
