@@ -1573,3 +1573,89 @@ profiles and the cache-prune manifest remain in RAM. No local race tests or full
 precision replay were run. Hosted checks for this commit are separate from
 these local passing receipts. The budget-constructor candidate and deeper
 proof-engine review keep the broader performance goal active.
+
+### Rejected budget-constructor inlining change
+
+The compiler reports `NewSearchBudget` at cost 86, above its inline budget 80,
+and allocates the returned budget on the heap. A plain helper extraction is
+inlined back into the constructor and raises its cost to 88. An unconditional
+non-inlined recording helper makes the constructor inlineable, but adds work
+to escaping callers: retained-budget median 18.34 → 22.21 ns. That prototype
+is not retained.
+
+The tested constructor checks the recorder once, calls a non-inlined recorded
+constructor only when recording is active, and returns the ordinary budget
+literal directly otherwise. Both forms initialize the same limit/remaining
+fields; all other fields retain their zero values. Its measured compiler cost
+is 80, so callers may keep nonescaping budgets on their stack. The noinline
+annotation keeps optional stack inspection out of this path. No budgets,
+charges, parent links, observer inheritance, or exhaustion reasons change.
+
+The recorder regression checks direct construction, a real pool's child and a
+nil pool's child. Site attribution remains the asking test function, including
+through constructor frames; limits, pooled attribution, once-only exhaustion
+and silence after stopping recording remain tested. Focused budget regressions
+pass for both the original overlay and the prototype.
+
+Three-sample matched medians are:
+
+| Budget usage | Original | Prototype | Bytes before → after | Allocations before → after |
+| --- | ---: | ---: | ---: | ---: |
+| Local | 23.51 ns | 6.426 ns | 64 → 0 | 1 → 0 |
+| Pooled | 51.88 ns | 46.67 ns | 128 → 128 | 2 → 2 |
+| Retained | 18.34 ns | 19.21 ns | 64 → 64 | 1 → 1 |
+
+The complete warm confined-object query improves 177.1 → 166.2 ns and
+64 bytes/one allocation → zero. Retained/pooled budgets still allocate; this
+is an allocation win for nonescaping callers, not a blanket zero-allocation
+budget API. Compiler receipts and rejected prototypes stay in RAM under
+`budget-constructor/`.
+
+Matched real profiles use an overlay restoring only the original budget file
+for the baseline and the same temporary CLI profiler for both. Each full
+all-check Caddy scan preserves diagnostic JSON, exit 3 and empty stderr, with
+all 14 passes observed for 1066 package variants (14924 actions). Selected
+certmagic lifecycle-facts time is 8.205 → 8.995 seconds; full scan time is
+106.876 → 109.021 seconds, so that pair establishes no speedup. Physical
+writes are 20 → 12 KiB.
+
+At the selected pass's end, sampled process allocation attributed to the
+constructor is 1.50 → 0.50 MiB; the remaining sample includes pooled children.
+Total sampled process allocation is 2484.72 → 2450.80 MiB. These are cumulative
+process snapshots, not exclusive pass allocation or peak RSS, and sampling
+variation/other work prevents attributing the total difference to this change.
+Constructor allocation is a small part of this real workload. A reverse-order
+profile pair checks that timing before a retention decision.
+
+All eight canonical local verification gates pass. The broader proof-engine
+review remains open; graph tools remain unavailable and source/compiler
+evidence is used without a graph-coverage claim.
+
+The reverse-order pair also preserves full diagnostics, exit 3, empty stderr
+and all 14924 pass actions. Its selected phase takes 9.326 seconds for the
+prototype then 8.530 for the original; full scans take 113.675 and 111.386
+seconds respectively. Both pairs favor the original: about 9–10% for the
+selected phase and 2% for the full scan. Four scans are not a universal timing
+claim, but they do not justify retaining a small allocation optimization.
+
+The production constructor is restored byte-for-byte to the committed version.
+The compiler/inlining boundary and rejected variants remain documented, and
+repeatable local/pooled/retained benchmarks plus the nil-pool recorder
+regression remain. Constructor allocation is no longer an unmeasured easy-win
+candidate; a further representation or compiler-layout experiment would need
+separate evidence. The broader proof-engine review still keeps the goal open.
+
+The retained version (original production constructor, extended recorder test
+and benchmarks) passes all eight final canonical verification gates; the
+ordinary suite is cached except the new tests and takes 7 seconds. Recent Go
+cache data stays retained; under the serial workspace lock, only cold data
+older than 90 minutes is evicted before large jobs to restore 4–5 GiB of
+headroom. Exact pruning manifests remain in RAM and small summaries in the
+ignored receipt directory.
+
+Canonical RAM coverage passes at 92.6%, matching the README badge. Small
+receipts are retained under `.build/perf-budget-constructor-20261006/`; raw
+profiles, timing records, overlays and cache manifests remain in RAM. No local
+race tests or full precision replay were run. Hosted checks are separate from
+these local receipts. The constructor candidate is closed as rejected; the
+broader proof-engine review keeps the performance goal active.
