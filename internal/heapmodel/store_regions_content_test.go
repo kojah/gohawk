@@ -1,6 +1,9 @@
 package heapmodel
 
-import "testing"
+import (
+	"maps"
+	"testing"
+)
 
 func TestContentBackingCyclesAreUnknown(t *testing.T) {
 	for _, test := range []struct {
@@ -97,5 +100,38 @@ func TestContentQueriesReturnIndependentWritableSets(t *testing.T) {
 	read[second] = true
 	if next := graph.content(state, unwritten); len(next) != 1 || next[slot{region: graph.nilR}] {
 		t.Fatal("a later implicit query reused a mutated result")
+	}
+}
+
+func TestContentIndexQueriesReturnIndependentSets(t *testing.T) {
+	graph := &regionGraph{nilR: &region{kind: regionNil}, unkR: &region{kind: regionUnknown}}
+	owner := &region{kind: regionSite}
+	value := slot{region: &region{kind: regionSite}}
+	zero := slot{region: graph.nilR}
+	unknown := slot{region: graph.unkR}
+	for _, test := range []struct {
+		name   string
+		path   string
+		stored map[slot]pointees
+		want   pointees
+	}{
+		{"constant from wildcard", "index:0", map[slot]pointees{{region: owner, path: pathStar}: {value: true}}, pointees{value: true}},
+		{"dynamic includes unwritten", pathStar, map[slot]pointees{{region: owner, path: "index:0"}: {value: false}}, pointees{value: false, zero: false}},
+		{"dynamic absorbs unknown", pathStar, map[slot]pointees{{region: owner, path: "index:0"}: {unknown: true}}, pointees{unknown: true}},
+		{"empty stored set", "index:0", map[slot]pointees{{region: owner, path: pathStar}: {}}, pointees{zero: false}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			state := newRegionState()
+			state.contents = test.stored
+			got := graph.content(state, slot{region: owner, path: test.path})
+			if !maps.Equal(got, test.want) {
+				t.Fatalf("content = %v, want %v", got, test.want)
+			}
+			clear(got)
+			got[value] = true
+			if next := graph.content(state, slot{region: owner, path: test.path}); !maps.Equal(next, test.want) {
+				t.Fatal("mutating query result changed later content")
+			}
+		})
 	}
 }

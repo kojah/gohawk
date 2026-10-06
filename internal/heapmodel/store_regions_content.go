@@ -39,23 +39,33 @@ func (graph *regionGraph) contentFollowing(state *regionState, target slot, path
 	if target.region.kind == regionNil {
 		return pointees{{region: graph.nilR}: false}
 	}
-	result := pointees{}
-	if set, ok := state.contents[target]; ok {
+	// Unwritten reads return their own set. Allocate a merge result only
+	// when stored evidence contributes or a dynamic read needs a union.
+	var result pointees
+	if set := state.contents[target]; len(set) > 0 {
+		result = pointees{}
 		result.union(set)
 	}
-	if isIndexStep(lastStep(target.path)) {
-		if lastStep(target.path) == pathStar {
-			for other, set := range state.contents {
-				if other.region == target.region && parentPath(other.path) == parentPath(target.path) && isIndexStep(lastStep(other.path)) {
-					result.union(set)
-				}
-			}
-			// A dynamic read may also hit an element nobody wrote, which
-			// the unwritten answer below describes.
-			result.union(graph.unwritten(state, target, path))
-			return result
+	step := lastStep(target.path)
+	if step == pathStar {
+		if result == nil {
+			result = pointees{}
 		}
-		if set, ok := state.contents[graph.starSlot(target)]; ok {
+		for other, set := range state.contents {
+			if other.region == target.region && parentPath(other.path) == parentPath(target.path) && isIndexStep(lastStep(other.path)) {
+				result.union(set)
+			}
+		}
+		// A dynamic read may also hit an element nobody wrote, which
+		// the unwritten answer below describes.
+		result.union(graph.unwritten(state, target, path))
+		return result
+	}
+	if isIndexStep(step) {
+		if set := state.contents[graph.starSlot(target)]; len(set) > 0 {
+			if result == nil {
+				result = pointees{}
+			}
 			result.union(set)
 		}
 	}

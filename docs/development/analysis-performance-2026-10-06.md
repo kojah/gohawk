@@ -441,8 +441,8 @@ Current evidence and remaining questions are:
 | --- | --- | --- |
 | Runner and cache behavior | Controlled cold, cached and forced-fresh pairs; identical diagnostics | Repeat representative larger targets; distinguish build work from pass work |
 | Shared prerequisites | Actual unitchecker timing across 290 package actions; ordinary `math/big`, `runtime`, `reflect`, and `go/types` profiles | Review residual heap projection/map costs and broaden representative target coverage |
-| Heap snapshots and content joins | Ownership regressions, counterfactuals, paired microbenchmarks and real-target measurements | Review remaining pointee-set union/unknown scans and projection work |
-| Shared control flow | Reachability and state queues improved with exact-order/budget tests | Review remaining key-builder growth and visited-map costs |
+| Heap snapshots, joins and queries | Ownership regressions, counterfactuals, paired benchmarks and real-target profiles; repeated union scans removed and unused query map avoided | Review individual-add unknown scans and residual projection work |
+| Shared control flow | Reachability/state queues and key capacity improved with exact-order/budget tests | Review remaining guard filtering and visited-map costs |
 | Reaching-value folds | Production allocation profile identifies `Every`; branches already clone with `maps.Clone` | Preserve branch independence and shared leaf visit semantics while investigating allocation |
 | Trace metadata | Disabled/enabled allocation tests and 36261-record complete evidence comparison | Review any remaining unconditional metadata construction in profiled paths |
 | Lifecycle type vocabulary | Eight discarded slices removed; rejected/package lookups allocate zero; matched result ownership and non-call acquisition boundary tested | Lookup overhead addressed; no whole-run improvement established |
@@ -757,3 +757,56 @@ nothing. The Caddy comparison above is the pre-change profile run; this change
 does not claim a measured Caddy speedup. No local race tests or full precision
 replay were run. Hosted CI for parent `20973ecb` is fully green; the new commit's
 hosted checks remain separate.
+
+## Content queries: allocate a merge set only when needed
+
+The certmagic lock profile also records allocations in `contentFollowing` and
+`unwritten`. An ordinary read with no stored contents allocated an empty merge
+map, discarded it, then returned the independently owned map from `unwritten`.
+The merge map is now created only when stored evidence contributes or a dynamic
+index query needs to union possible elements. Queries still return independent,
+writable sets; stored sets and implicit answers are never shared with callers.
+Unknown absorption, stale flags, cycle detection, hop limits, backing snapshots,
+constant/wildcard selection and the unwritten alternative remain unchanged.
+
+The primitive benchmark confirms an unwritten local query falls from 384 bytes
+and three allocations to 336 bytes and two allocations. Written queries remain
+336 bytes and two allocations. The first candidate run included the full heap
+test suite, unlike the baseline, so its timing is not comparable. Matching
+benchmark-only runs use the same warmed RAM cache, two workers and reduced
+priority. Three-sample unwritten medians are 135.2 ns before, 145.1 ns candidate,
+then 135.6 ns in a baseline repeat; the individual ranges overlap. Written
+medians are 171.7, 173.9 and 178.8 ns. The retained claim is fewer allocations,
+not lower latency or a whole-program speedup.
+
+The full heapmodel tests pass, including existing writable-result and backing
+cycle/depth regressions. New index-query cases preserve a constant read from
+wildcard storage, a dynamic read's unwritten alternative, unknown absorption,
+empty stored sets and independent results after mutation. Original source for
+the baseline repeat is supplied through a RAM-backed Go overlay; both versions
+use the same benchmark code. Raw results remain in the RAM workspace's
+`content-query/`. The broader performance audit remains open.
+
+The first local completion gate passes behavior but catches excessive nesting
+in the lazy-allocation index branches. Flattening dynamic and constant reads
+preserves the selection policy: the wildcard step always has the index prefix.
+The final source passes all eight `make verify` gates. A final benchmark-only
+repeat reports medians of 121.6 ns unwritten and 156.5 ns written, with the same
+allocation counts as the earlier candidate. Variation across the recorded
+trials still prevents a general latency claim. Hosted CI for parent `3046ef6b`
+is fully green, including its targeted race job; the final source has not run
+local race tests.
+
+Coverage also passes at 92.5%, using the canonical target's commands with its
+profile and summary paths redirected into RAM; the README badge stays accurate.
+Only benchmark output, the final gate log and the small coverage summary are
+copied to `.build/perf-content-query-20261006/`. The large profile and cache stay
+in RAM. No full precision replay or new whole-corpus timing comparison was run.
+
+A bounded projection source review confirms `orderedSlots` already reserves
+capacity, and its ordering controls which slots publication bounds retain.
+`resultContents` materializes otherwise implicit snapshot fields and
+`copyContent` rejects post-write placeholders, so those steps cannot simply be
+skipped. Two remaining measurement candidates are reflected sorting in
+`orderedSlots` and the split used only to count path depth in `boundedSlot`.
+Their source shape alone does not establish a worthwhile improvement.
