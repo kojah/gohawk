@@ -953,3 +953,54 @@ summary, Caddy receipt and focused profile summaries are retained in
 was run. The parent `18c1e035` hosted workflows are green; new-commit checks
 remain separate. The next guard opportunity must address immutable identity
 construction without changing identity bytes or traversal/budget semantics.
+
+## Walk-local loaded-guard formatting reuse
+
+An obligation walk now owns a lazy memo of rendered loaded-condition identities,
+keyed by its immutable SSA condition. Every visit still decodes Boolean
+negation, resolves the selected address and spends the same allowance before
+formatting reuse is considered. Only a resolved address admits a memo entry.
+Unknown addresses, stable-operand/cycle decisions and all non-formatting proof
+work retain their existing paths. Public guard and successor APIs delegate to
+the same implementation with no memo; no new global or shared mutable cache is
+introduced. Different obligation walks own different memos.
+
+The formatter preserves the exact existing identity grammar and typed-nil
+text. Formatting itself had no budget charges, so reuse avoids no charged
+analysis step. The memo passes through private condition, extension and
+successor helpers; filtering/reporting decisions remain in their existing
+authoritative functions. The focused implementation file owns only this
+budget-free representation concern.
+
+Tests compare cold/warm bytes, polarity, stability and availability for equality,
+inequality and negated Boolean loads. For local and shared-pool allowances
+0 through 15, a warm memo matches uncached results, remaining allowance and
+cutoff status. An unresolved indexed address never populates the memo.
+A repeated anonymous-struct nil comparison benchmark has three-sample medians
+of 1326 ns, 920 bytes and 11 allocations uncached, versus 182 ns, 72 bytes and
+three allocations warm. Address decoding remains the residual work. Fixture
+construction and initial memo warming are outside the timed section.
+
+The first completion gate passes behavior but catches complexity in a test
+combining local and shared-pool allowance checks; they are split by budget
+family, then all eight canonical gates pass. All-check self-analysis stays
+clean. A full Caddy profile rerun preserves the complete two-finding JSON,
+exit 3, empty stderr and 14924 action records; it writes 4 KiB physically.
+The certmagic process allocation snapshot falls from 3441.75 to 2702.46 MiB,
+about 739 MiB less. Type formatting disappears from the leading allocation
+sites; the guard-filter allocation remains roughly stable at 337.06 MiB.
+These sampled snapshots cover process startup through the selected Run, not
+peak RSS. The selected Run is 13.766 seconds versus 15.273 in the prior profile,
+but the complete command is slower at 138.913 seconds versus 110.565. Host and
+cache conditions vary, so no general end-to-end latency improvement is claimed.
+Guard-key construction, map hashing and visited-state work remain substantial.
+
+Raw data remains in the RAM workspace's `guard-formats/`. Heavy validation,
+profiling and coverage run serially with the reusable RAM cache and reduced
+priority. The broader completion audit remains open.
+
+Coverage passes at 92.5% with output paths redirected into RAM; the README badge
+remains accurate. Small benchmark, final gate, coverage summary, Caddy receipt
+and focused profile summaries are retained in `.build/perf-guard-formats-20261006/`.
+No local race tests or full precision replay were run. New-commit hosted checks
+remain separate from these passing local receipts.

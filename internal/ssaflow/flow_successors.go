@@ -77,6 +77,12 @@ type SuccessorEdge struct {
 // EdgesWithin shares successor selection and guard extension with budget.
 // Cutoff returns no complete edge set; callers must check exhaustion.
 func (policy SuccessorPolicy) EdgesWithin(block, predecessor *ssa.BasicBlock, guards PathGuards, budget *SearchBudget) []SuccessorEdge {
+	return policy.edgesWithFormats(block, predecessor, guards, budget, nil)
+}
+
+func (policy SuccessorPolicy) edgesWithFormats(
+	block, predecessor *ssa.BasicBlock, guards PathGuards, budget *SearchBudget, formats *guardFormats,
+) []SuccessorEdge {
 	if !budget.Spend() {
 		return nil
 	}
@@ -89,7 +95,7 @@ func (policy SuccessorPolicy) EdgesWithin(block, predecessor *ssa.BasicBlock, gu
 		if !budget.Spend() {
 			return nil
 		}
-		extended, contradiction := guards.ExtendWithin(block, successor, nil, budget)
+		extended, contradiction := guards.extendWithFormats(block, successor, nil, budget, formats)
 		if budget.Exhausted() {
 			return nil
 		}

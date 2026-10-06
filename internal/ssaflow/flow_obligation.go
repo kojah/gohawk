@@ -166,6 +166,7 @@ func obligationOutcome(initial []obligationState, flow ObligationFlow) (Obligati
 // One walk owns the outcome and witness. Every callback and shared guard query
 // must retain availability before it can settle, violate or prune a path.
 type obligationWalk struct {
+	formats guardFormats
 	flow    ObligationFlow
 	policy  SuccessorPolicy
 	outcome ObligationOutcome
@@ -195,7 +196,7 @@ func (walk *obligationWalk) step(state obligationState) ([]obligationState, bool
 			return nil, false
 		}
 	}
-	edges := walk.policy.EdgesWithin(state.block, state.predecessor, state.guards, walk.flow.Budget)
+	edges := walk.policy.edgesWithFormats(state.block, state.predecessor, state.guards, walk.flow.Budget, &walk.formats)
 	if walk.stopAtCutoff() {
 		return nil, false
 	}

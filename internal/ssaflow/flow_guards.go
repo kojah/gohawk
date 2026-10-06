@@ -63,19 +63,23 @@ const (
 // guardConditionWithin decodes condition identity, polarity and stability.
 // An interrupted decode supplies no identity or path-pruning evidence.
 func guardConditionWithin(condition ssa.Value, budget *SearchBudget) (identity string, negated, stable, ok bool) {
+	return guardConditionWithFormats(condition, budget, nil)
+}
+
+func guardConditionWithFormats(condition ssa.Value, budget *SearchBudget, formats *guardFormats) (identity string, negated, stable, ok bool) {
 	condition, inverted := booleanNegationSourceWithin(condition, budget)
 	if budget.Exhausted() {
 		return "", false, false, false
 	}
-	identity, negated, stable, ok = guardConditionSource(condition, budget)
+	identity, negated, stable, ok = guardConditionSource(condition, budget, formats)
 	if budget.Exhausted() {
 		return "", false, false, false
 	}
 	return identity, negated != inverted, stable, ok
 }
 
-func guardConditionSource(condition ssa.Value, budget *SearchBudget) (identity string, negated, stable, ok bool) {
-	if identity, negated, ok := loadedGuard(condition, budget); ok {
+func guardConditionSource(condition ssa.Value, budget *SearchBudget, formats *guardFormats) (identity string, negated, stable, ok bool) {
+	if identity, negated, ok := loadedGuard(condition, budget, formats); ok {
 		return identity, negated, false, true
 	}
 	if _, parameter := condition.(*ssa.Parameter); parameter && booleanValue(condition) {
@@ -107,14 +111,14 @@ func stableEquality(left, right ssa.Value) string {
 	return "eq(" + first + "," + second + ")"
 }
 
-func loadedGuard(condition ssa.Value, budget *SearchBudget) (string, bool, bool) {
+func loadedGuard(condition ssa.Value, budget *SearchBudget, formats *guardFormats) (string, bool, bool) {
 	switch typed := condition.(type) {
 	case *ssa.UnOp:
 		if typed.Op != token.MUL {
 			return "", false, false
 		}
 		address, ok := guardAddressIdentityWithin(typed.X, budget)
-		return "load(" + address + ")", false, ok
+		return formats.loadedIdentity(condition, address, nil, ok), false, ok
 	case *ssa.BinOp:
 		if typed.Op != token.EQL && typed.Op != token.NEQ {
 			return "", false, false
@@ -129,7 +133,7 @@ func loadedGuard(condition ssa.Value, budget *SearchBudget) (string, bool, bool)
 			return "", false, false
 		}
 		address, ok := guardAddressIdentityWithin(load.X, budget)
-		return "eq(load(" + address + ")," + guardOperandIdentity(literal) + ")", typed.Op == token.NEQ, ok
+		return formats.loadedIdentity(condition, address, literal, ok), typed.Op == token.NEQ, ok
 	}
 	return "", false, false
 }
@@ -210,6 +214,12 @@ func booleanValue(value ssa.Value) bool {
 func (guards PathGuards) ExtendWithin(
 	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *SearchBudget,
 ) (PathGuards, GuardContradiction) {
+	return guards.extendWithFormats(block, successor, keep, budget, nil)
+}
+
+func (guards PathGuards) extendWithFormats(
+	block, successor *ssa.BasicBlock, keep func(PathGuard) bool, budget *SearchBudget, formats *guardFormats,
+) (PathGuards, GuardContradiction) {
 	if len(block.Succs) != 2 || len(block.Instrs) == 0 {
 		return guards, GuardConsistent
 	}
@@ -217,7 +227,7 @@ func (guards PathGuards) ExtendWithin(
 	if !ok {
 		return guards, GuardConsistent
 	}
-	identity, negated, stable, ok := guardConditionWithin(branch.Cond, budget)
+	identity, negated, stable, ok := guardConditionWithFormats(branch.Cond, budget, formats)
 	if budget.Exhausted() {
 		return nil, GuardConsistent
 	}
