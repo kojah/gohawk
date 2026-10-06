@@ -863,3 +863,93 @@ profile remain in RAM. No local race test or full precision replay was run.
 Hosted CI for parent `b88b8be1` is fully green; new-commit hosted results remain
 separate. The broader completion audit still needs representative catalog
 profiles beyond the lock/process evidence and a larger controlled target pair.
+
+## Larger-target audit finds guard handling worth pursuing
+
+Three matched Caddy pairs compare production bodies at `20973ecb` with
+`18c1e035`. The baseline is rebuilt from the current checkout using an overlay
+of the five changed production files; both executables have identical actual
+CLI Run timing wrappers. The wrapper's production CLI body is checked against
+the current source. Both use the same warmed RAM build cache, two workers,
+reduced priority, pinned Caddy tree and distinct inactive candidate flags to
+force fresh analysis.
+
+| Pair | Before | Candidate |
+| --- | ---: | ---: |
+| 1 | 94.605 s | 95.361 s |
+| 2 | 96.303 s | 95.104 s |
+| 3 | 99.547 s | 102.611 s |
+
+Medians are 96.303 and 95.361 seconds; the candidate is faster in only one
+pair, so the recent heap primitives establish no convincing end-to-end
+speedup. All six full diagnostic JSONs match the known two findings, with exit
+3 and empty stderr. Each records 14924 Runs, 1066 for each of eight catalog
+roots and six prerequisites, and only 16 KiB of physical child-process writes.
+These observations do not undo earlier large improvements; the baseline
+already contains them. Median summed lifecycle-fact Run times are 75.239 and
+73.862 seconds. These concurrent action sums do not partition wall time.
+
+One further serial all-check Caddy scan profiles six remaining catalog roots
+on distinct ordinary dependency packages, plus lifecyclefacts on certmagic and
+resultfacts on reflect. Distinct packages prevent overlapping profilers inside
+one process. It preserves all diagnostics and action counts, exits 3 with
+empty stderr, and writes 4 KiB physically. Raw data stays in the RAM workspace's
+`catalog-audit/`; small receipts and focused summaries are retained under
+`.build/perf-catalog-audit-20261006/`. Short catalog CPU intervals and sparse
+allocation samples cannot prove those engines free of opportunities.
+
+The substantial remaining evidence is certmagic lifecycle-fact inference:
+its Run takes 12.888 seconds. Its process allocation snapshot is 4202.24 MiB;
+focused lifecycle stacks attribute 735.60 MiB flat to guard filtering and
+974.60 MiB cumulative to loaded-guard identities. These are allocations since
+process startup, not an exclusive interval measurement. The CPU interval
+samples all goroutines; focused lifecycle stacks include 1.510 seconds
+cumulative in guard-key construction. The broader goal is still unproven.
+
+### Bounded guard filtering without repeated slice growth
+
+The filter now collects the normal bounded guard list in a stack buffer, then
+allocates and copies exactly the retained entries. Oversized inputs retain the
+original growing-slice behavior. Both paths delegate to one charged filtering
+loop. Nil empty results, input ownership, guard order, values/stability, matching
+and every budget charge remain unchanged; a cutoff discards partial output.
+The new helper belongs beside the existing invalidation policy because it
+separates allocation strategy from that one authoritative loop, rather than
+introducing another evidence model.
+
+Three-sample primitive medians on the same warmed RAM workflow are:
+
+| Guards retained from eight | Before | Candidate | Bytes before/after | Allocations before/after |
+| --- | ---: | ---: | ---: | ---: |
+| Zero | 39.88 ns | 40.88 ns | 0 / 0 | 0 / 0 |
+| One | 74.50 ns | 59.88 ns | 24 / 24 | 1 / 1 |
+| Four | 122.70 ns | 85.77 ns | 144 / 96 | 2 / 1 |
+| Eight | 211.80 ns | 113.20 ns | 336 / 192 | 3 / 1 |
+
+Regression tests cover unchanged and selective output independence, preserved
+guard fields/order, empty results, oversized lists, exact and partial local
+allowances, shared-pool cutoff and charging removed entries. No identity bytes,
+matching rules or path feasibility policy changes accompany this optimization.
+
+The subsequent all-check Caddy profile preserves its complete two-finding JSON,
+exit 3, empty stderr and all 14924 action records. It writes 16 KiB physically.
+On lifecycle-focused stacks, guard filtering falls from 735.60 to 341.06 MiB
+flat allocation, about 54% less. The process allocation snapshot falls from
+4202.24 to 3441.75 MiB. These sampled, process-since-start snapshots support the
+allocation reduction, not a peak-memory claim. The selected certmagic Run takes
+15.273 rather than 12.888 seconds, and the complete profiled command takes
+110.565 seconds. The earlier run profiled eight packages whereas this one
+profiles only certmagic, and host load varies. No latency improvement is claimed.
+Guard identity generation and visited-state/key work remain substantial costs.
+
+All eight canonical local `make verify` gates pass, including all-check
+self-analysis and the full test suite. Raw profiles and large files remain in
+the RAM workspace's `guard-filter/`. The performance goal remains active.
+
+Coverage passes at 92.5% with the canonical target's output paths redirected
+into RAM; the README badge remains accurate. Small benchmark, gate, coverage
+summary, Caddy receipt and focused profile summaries are retained in
+`.build/perf-guard-filter-20261006/`. No local race test or full precision replay
+was run. The parent `18c1e035` hosted workflows are green; new-commit checks
+remain separate. The next guard opportunity must address immutable identity
+construction without changing identity bytes or traversal/budget semantics.

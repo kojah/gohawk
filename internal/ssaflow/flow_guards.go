@@ -266,7 +266,24 @@ func (guards PathGuards) forgetWithin(store *ssa.Store, budget *SearchBudget) Pa
 // Store invalidation and rerun-result invalidation share the same exact
 // identity filtering; neither may keep a partial guard list at cutoff.
 func (guards PathGuards) withoutIdentityWithin(identity string, budget *SearchBudget) PathGuards {
-	var kept PathGuards
+	if len(guards) > GuardLimit {
+		return guards.withoutIdentityInto(nil, identity, budget)
+	}
+	// Collect the bounded list on the stack,
+	// then detach exactly the retained entries so sibling paths stay independent.
+	var buffer [GuardLimit]PathGuard
+	kept := guards.withoutIdentityInto(buffer[:0], identity, budget)
+	if len(kept) == 0 {
+		return nil
+	}
+	result := make(PathGuards, len(kept))
+	copy(result, kept)
+	return result
+}
+
+// withoutIdentityInto owns filtering and its charges for both bounded and
+// oversized inputs. A cutoff never publishes the partially collected guards.
+func (guards PathGuards) withoutIdentityInto(kept PathGuards, identity string, budget *SearchBudget) PathGuards {
 	for _, guard := range guards {
 		if !budget.Spend() {
 			return nil
