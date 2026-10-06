@@ -440,12 +440,12 @@ Current evidence and remaining questions are:
 | Scope | Current evidence | Remaining work |
 | --- | --- | --- |
 | Runner and cache behavior | Controlled cold, cached and forced-fresh pairs; identical diagnostics | Repeat representative larger targets; distinguish build work from pass work |
-| Shared prerequisites | Actual unitchecker timing across 290 package actions; lifecycle inference dominates summed prerequisite time | Profile more expensive ordinary package actions, not just `math/big` |
+| Shared prerequisites | Actual unitchecker timing across 290 package actions; ordinary `math/big`, `runtime`, `reflect`, and `go/types` profiles | Review residual heap projection/map costs and broaden representative target coverage |
 | Heap snapshots and content joins | Ownership regressions, counterfactuals, paired microbenchmarks and real-target measurements | Review remaining pointee-set union/unknown scans and projection work |
 | Shared control flow | Reachability and state queues improved with exact-order/budget tests | Review remaining key-builder growth and visited-map costs |
 | Reaching-value folds | Production allocation profile identifies `Every`; branches already clone with `maps.Clone` | Preserve branch independence and shared leaf visit semantics while investigating allocation |
 | Trace metadata | Disabled/enabled allocation tests and 36261-record complete evidence comparison | Review any remaining unconditional metadata construction in profiled paths |
-| Lifecycle type vocabulary | Profile includes repeated resource-type construction; source recreates cleanup slices | Measure rejected and matched lookups before choosing storage/ownership changes |
+| Lifecycle type vocabulary | Eight discarded slices removed; rejected/package lookups allocate zero; matched result ownership and non-call acquisition boundary tested | Lookup overhead addressed; no whole-run improvement established |
 | Catalog analyzers | Fresh-action baseline timings for all eight; lock/resource fixture profiles and Caddy scans | Inspect the remaining six proof engines against representative uncached production profiles |
 
 These are incomplete audit items, not findings that the remaining costs can
@@ -461,3 +461,92 @@ Final state-worklist source passes all eight canonical `make verify` gates
 The generated shared-helper reference includes the slice ownership contract.
 No local race tests or full precision replay were run; previous-commit hosted
 targeted races passed, and current-commit hosted verification will be separate.
+
+
+## Lifecycle type-vocabulary allocation
+
+The standard resource vocabulary previously constructed eight cleanup slices
+for every lookup, including a rejected type and a package-origin lookup that
+never returned cleanup methods. The vocabulary now stores its one or two
+method names in a fixed array. Only a successful `ResourceCleanup` allocates
+its own writable result slice. No global mutable vocabulary is introduced.
+All eight known types, value/pointer forms, cleanup ordering, caller mutation
+independence, wrong-package and wrong-name matches, timers, basic types and
+additional pointer layers retain their previous answers.
+
+Three-sample benchmark medians are:
+
+| Lookup | Before | After | Before bytes / allocations | After bytes / allocations |
+| --- | ---: | ---: | ---: | ---: |
+| Basic type cleanup | 210.6 ns | 35.07 ns | 144 / 8 | 0 / 0 |
+| Unknown named type cleanup | 208.6 ns | 49.46 ns | 144 / 8 | 0 / 0 |
+| File cleanup | 175.1 ns | 37.61 ns | 144 / 8 | 16 / 1 |
+| Transaction cleanup | 209.8 ns | 54.67 ns | 144 / 8 | 32 / 1 |
+| File defining package | 180.4 ns | 13.73 ns | 144 / 8 | 0 / 0 |
+| Transaction defining package | 228.1 ns | 18.44 ns | 144 / 8 | 0 / 0 |
+
+Acquisition inference also stops at its existing call-result requirement before
+looking up the type. A parameter, a load, or a zero-value allocation of a known
+resource type never established acquisition evidence; inspecting cleanup first
+was unused work. Real SSA fixtures prove those accepted forms still carry a
+known resource type but no acquisition. After the vocabulary change alone,
+these rejected forms still allocated one 16-byte cleanup slice at about 35 ns;
+the early call test reduces them to zero allocations and about 2.6 ns.
+This does not broaden or narrow the acquisition contract or spend any new
+query budget. Existing positive acquisition and cross-package fixtures remain
+the behavior gate for real constructor calls.
+
+The ignored production profiler was expanded to ordinary dependencies
+`runtime`, `reflect`, and `go/types`, reached through a tiny importing module.
+Each pair selects lifecycle inference in exactly one non-test package process,
+uses `GOMAXPROCS=1`, and forces fresh analysis with a distinct inactive trace
+candidate flag. The baseline is `d7fda097`; both binaries use the same wrapper,
+with only the resource-vocabulary file overlaid back for the baseline. This
+profile pair predates the final early call test. Complete JSON diagnostics
+match for every pair; the final candidate is separately compared against all
+baseline JSON results.
+
+Single sampled process allocation totals are 567.77 versus 568.78 MiB for
+runtime, 219.20 versus 187.35 MiB for reflect, and 319.51 versus 288.65 MiB for
+go/types. These cover process allocations before the pass snapshot, not only
+the selected lifecycle work, and vary with map order and sampling. They do not
+establish an overall memory or speed improvement. Runtime and reflect samples
+continue to identify state-map cloning, pointee unions and GC work as large
+costs; go/types also spends time constructing and interpreting type evidence.
+Those operations need a separate semantic review rather than a guessed cache.
+
+The wrapper attempt to wrap catalog roots does not observe their actual runs:
+`analyzers.Analyzers` creates fresh root analyzers for the CLI's later selection.
+The shared prerequisite objects do survive that construction. Each completed
+scan has 81 records for each of the six prerequisites and zero catalog-root
+records. These are prerequisite profiles only, not evidence of catalog-profile
+coverage. Future catalog profiling must wrap the roots actually submitted to
+the driver.
+
+Artifacts are under `.build/perf-vocabulary-20261006/`: before/after primitive
+benchmarks, borrowed SSA fixtures, identical-wrapper binaries, the exact source
+overlay, all six per-process profiles, prerequisite timings, and complete JSON.
+The first final-scan launch preceded binary construction finishing; it failed
+to start and supplies no validation evidence. The later successful launch is
+the applicable final diagnostic comparison.
+
+Hosted CI at `d7fda097` is green, including coverage and targeted races (run
+37398782706). Broader analyzer profiling and guard-key sizing remain open;
+there is no completion claim for the overall performance objective.
+
+
+Final vocabulary and acquisition source passes all eight canonical local gates
+in `final-verify.log`. The initial verification attempt passed behavior but
+caught an unused test assignment and a missing `tb.Helper`; both were corrected
+before the final gate. `make coverage` passes and measures 92.5%, matching the
+pinned badge generator without a README change. No local race tests or full
+precision replay were run. Previous-commit hosted races are green; hosted
+validation of this change will be tracked separately.
+
+
+The final production binary also scans clean, pinned Caddy revision
+`502691f5182123ef30f463d7f132e7c2fe55e2bf` with every check enabled. Its two
+complete diagnostics are identical to the retained lazy-copy baseline: no
+added or removed findings (`caddy-comparison.json`). Diagnostics produce the
+expected nonzero exit; no analyzer error objects appear. This scan overlapped
+validation and is diagnostic evidence only, not an elapsed-time benchmark.

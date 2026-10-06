@@ -18,19 +18,19 @@ import (
 type resourceType struct {
 	packagePath string
 	name        string
-	cleanup     []string
+	cleanup     [2]string
 }
 
 func resourceTypes() []resourceType {
 	return []resourceType{
-		{"os", "File", []string{"Close"}},
-		{"database/sql", "Tx", []string{"Commit", "Rollback"}},
-		{"database/sql", "Rows", []string{"Close"}},
-		{"database/sql", "Stmt", []string{"Close"}},
-		{"net/http", "Response", []string{"Close"}},
-		{"compress/gzip", "Reader", []string{"Close"}},
-		{"compress/gzip", "Writer", []string{"Close"}},
-		{"compress/zlib", "Writer", []string{"Close"}},
+		{"os", "File", [2]string{"Close"}},
+		{"database/sql", "Tx", [2]string{"Commit", "Rollback"}},
+		{"database/sql", "Rows", [2]string{"Close"}},
+		{"database/sql", "Stmt", [2]string{"Close"}},
+		{"net/http", "Response", [2]string{"Close"}},
+		{"compress/gzip", "Reader", [2]string{"Close"}},
+		{"compress/gzip", "Writer", [2]string{"Close"}},
+		{"compress/zlib", "Writer", [2]string{"Close"}},
 		// Channel timers are GC-managed under modern Go semantics. Treating
 		// their types as obligations would recreate missing-Stop reports via
 		// inferred timer-only owners after the acquisition contract declined
@@ -64,7 +64,12 @@ func ResponseBodyField(value ssa.Value) *ssa.FieldAddr {
 func ResourceCleanup(value types.Type) ([]string, bool) {
 	for _, entry := range resourceTypes() {
 		if syntax.NamedType(value, entry.packagePath, entry.name) {
-			return entry.cleanup, true
+			// Keep vocabulary lookups allocation-free; only a match needs a
+			// writable result owned by this caller, including both Tx actions.
+			if entry.cleanup[1] == "" {
+				return []string{entry.cleanup[0]}, true
+			}
+			return []string{entry.cleanup[0], entry.cleanup[1]}, true
 		}
 	}
 	return nil, false

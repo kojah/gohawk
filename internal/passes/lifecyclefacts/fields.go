@@ -90,13 +90,16 @@ func acquiredResource(pass *analysis.Pass, value ssa.Value) bool {
 	case *ssa.Extract:
 		call, _ = typed.Tuple.(*ssa.Call)
 	}
+	if call == nil {
+		return false
+	}
 	// A custom Close method proves only that cleanup can be requested, not
 	// that construction acquired anything. Lazy handles may acquire later.
 	// Restrict positive acquisition evidence to the concrete resource vocabulary;
 	// nested custom owners remain unknown rather than inheriting a guessed duty.
 	// https://github.com/prometheus-community/postgres_exporter/blob/e7e2095249dc369d943af1cef3d8c615228278ec/collector/instance.go#L31-L47
 	_, cleanup := ResourceCleanup(value.Type())
-	return call != nil && cleanup && !returnsExistingResource(pass, call)
+	return cleanup && !returnsExistingResource(pass, call)
 }
 
 // A cleanup-bearing result can wrap an existing resource rather than acquire
