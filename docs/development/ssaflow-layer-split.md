@@ -1,6 +1,6 @@
 # SSA responsibility layers and production-file limit
 
-Status: implementation in progress.
+Status: complete.
 
 The requested end state has two requirements: split the SSA machinery into
 packages with explicit responsibility layers, and enforce at most twenty
@@ -113,7 +113,82 @@ original raw SSA source. `make verify` passed: generation, formatting, vet,
 dead-code checking, lint, repository self-analysis and the full ordinary suite.
 The final direct-file inventory confirms the table above. The other
 seven initially over-limit directories and the repository-wide file-limit gate
-remain outstanding.
+were addressed by the next step below.
+
+## Repository-wide consolidation and gate
+
+All seven remaining directories now contain twenty direct production Go files.
+Related query fragments were combined inside their existing packages; no new
+adapter packages, forwarding functions or evidence rules were introduced.
+Declaration-token comparison against the preceding commit verifies identical
+implementation bodies and retained original comment groups in all seven scopes.
+Two pre-import responsibility comments were restored next to their owning
+declarations during that review.
+
+The larger consolidated files received the required cohesion review:
+
+| File | Responsibility retained together |
+|---|---|
+| heapmodel/store_regions_effects.go | Opaque storage effects and the atomic, mutex and builtin contracts that bound them |
+| heapmodel/store_regions_content.go | Versioned slot content, writes and bounded aggregate slot layout |
+| heapmodel/store_heap_summary.go | Return projection of completed graph states; bounded result-copy helpers remain separate |
+| heapmodel/store_projection.go | Exact aggregate paths and their observation-time stability |
+| heapmodel/query.go | Public and internal graph relationship queries with explicit polarity and availability |
+| heapmodel/store_cells.go | Occupant resolution and point-in-time or lifetime cell guarantees |
+| lockorder/callee_locks.go | Callee lock inventories and exact binding onto caller receiver paths |
+| resourcelifetime/flow.go | Initialization and expansion of the same resource activation/release state |
+| resourcelifetime/ownership.go | Possible holder discovery and exact storage destination disposition |
+
+These files exceed the 400-line review trigger because a complete evidence
+family is kept together. Their existing functions were not enlarged. Distinct
+lifetimes and boundaries remain separate: graph caching, graph state,
+requirements, caller substitution, rendering, acquisition-error correlation,
+wrapper-chain proofs and result ownership retain their own files. The separate
+500-code-line lint limit also remains enforced: result-copy helpers were kept
+separate when their merge would have exceeded it; no lint budget was raised.
+
+`TestProductionFileLimit` walks the maintained repository through the shared
+source inventory and fails any directory above twenty direct production files.
+The layout view includes generated source and inactive build variants, while
+authored conformance views retain their generated-file exclusion. Fixtures
+prove the twenty/twenty-one boundary, independent nested allowances, generated
+file counting, overlapping-root deduplication, and test/external exclusions.
+There is no baseline exemption. The focused gate and full module compilation
+pass. Canonical validation and the completion audit are recorded below.
+
+## Completion audit
+
+The final maintained-source inventory contains forty production directories,
+with a maximum of twenty direct Go files and no violations. The strict
+architecture gate and its counting fixtures pass. SSA responsibility and
+dependency boundaries are enforced by the layer tests; no compatibility facade
+was retained. Generated helper references and contributor instructions describe
+the new owners and counting scope.
+
+`make verify` passed generation, module verification, formatting, vet, dead-code
+checking, lint, all-checks repository self-analysis and the full ordinary test
+suite. Canonical coverage, now including `internal/proof`, passed at 92.6%.
+Local race testing was not run; it remains a CI gate.
+
+Round 2 was replayed against the pinned Workpool, Amboy, Vekil and Cerberus
+repositories with all checks enabled and scannability required. Five of five
+reviewed false positives remain absent and three of four reviewed true positives
+remain present. The replay is not wholly green: Cerberus's resource-lifetime
+label at `test/e2e/migration/tiers/tier2-ruler/receiver/main.go:133:15`, last
+confirmed at `9613f2d` on 2026-09-06, is missing. Separate binaries from both
+`7e613ad2` (before the directory consolidation) and `242d9471` (before the entire
+SSA layer split) miss the same pinned label. This is an existing recall gap;
+the label was not changed to make the replay pass.
+
+Validation artifacts are retained in the task's RAM workspace at
+`/dev/shm/gohawk-perf-01a0f86c/layer-split`: `verify-file-limit-final.log`,
+`coverage-summary.out`, `consolidation-equivalence-final.log`,
+`final-file-inventory.json`, `replay.log`, and both baseline Cerberus logs.
+The independent declaration-token comparison verifies that the final seven
+directory consolidations retained their implementation bodies and original
+comment groups. Every requirement of the requested layout and file limit is
+implemented and verified; the broader suggested grouping of all `internal/`
+packages remains a separate follow-up proposal.
 
 The source graph tools are unavailable in this session. Dependency evidence
 comes from type-resolved references and exact source reads; no graph-index

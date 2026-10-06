@@ -2,13 +2,14 @@ package lifecyclefacts
 
 import (
 	"go/token"
+	"strconv"
 	"strings"
 
 	"github.com/kojah/gohawk/internal/heapmodel"
 	"github.com/kojah/gohawk/internal/lifecycle"
-	"github.com/kojah/gohawk/internal/ssaflow"
-
 	proofs "github.com/kojah/gohawk/internal/proof"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
@@ -332,4 +333,41 @@ func instructionFunction(instruction ssa.Instruction) string {
 		return ""
 	}
 	return instruction.Parent().String()
+}
+
+// CallEffectsWithin exposes local call-effect evidence beside lifecycle evidence.
+// Effects are possible uses, never proof of cleanup or ownership transfer;
+// an absent Retained bit is not a read-only contract. Imported bodies stay unknown.
+// Existing visits share budget while retaining the local QueryBudget cap. Cutoff
+// is unknown even if the caller has allowance left. Graph/alias/type and binding
+// construction costs remain separate. Nil selects an independent default allowance
+// through the same authoritative trace path.
+func (evidence *LifecycleEvidence) CallEffectsWithin(
+	instruction ssa.Instruction, target ssa.Value, budget *proofs.SearchBudget,
+) ssacall.CallEffectProof {
+	queryBudget := budget.Within(proofs.QueryBudget).Observed(evidence.probe.Observer())
+	proof := ssacall.NewCallEffects(queryBudget).Call(instruction, target)
+	if !evidence.probe.Enabled() {
+		return proof
+	}
+	details := evidenceDetails(instruction, target)
+	for name, effect := range map[string]ssacall.CallEffect{
+		"read": ssacall.EffectRead, "mutate": ssacall.EffectMutate,
+		"retain": ssacall.EffectRetain, "async": ssacall.EffectAsync, "invoke": ssacall.EffectInvoke,
+	} {
+		details[name] = strconv.FormatBool(proof.Effects&effect != 0)
+	}
+	outcome := analysisTrace.OutcomeUnknown
+	if proof.Proven() {
+		outcome = analysisTrace.OutcomeAccepted
+	}
+	position := token.NoPos
+	if instruction != nil {
+		position = instruction.Pos()
+	}
+	evidence.probe.Evidence(analysisTrace.Step{
+		Reason: proof.Reason.String(), Outcome: outcome, Pos: position,
+		Function: instructionFunction(instruction), Details: details,
+	})
+	return proof
 }

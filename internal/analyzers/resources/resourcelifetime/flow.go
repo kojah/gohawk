@@ -7,14 +7,20 @@ import (
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/lifecycle"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
-	"github.com/kojah/gohawk/internal/ssaflow"
-
 	proofs "github.com/kojah/gohawk/internal/proof"
+	"github.com/kojah/gohawk/internal/resourcemodel"
+	"github.com/kojah/gohawk/internal/ssaflow"
 	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
+	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	ssapath "github.com/kojah/gohawk/internal/ssaflow/path"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
+
+// Resource flow owns candidate initialization and the path work list over
+// activation, release and uncertainty. Classifiers supply labels; this engine
+// uses one state model to determine which normal returns remain uncovered.
 
 // Resource flow tracks an acquired value from the successful call edge to each
 // feasible normal return. State records activation and release separately so
@@ -209,4 +215,272 @@ func processExitReclaims(call *ssa.Call, contract resourceContract, budget *proo
 	// establish that their acquisitions happen only once before process exit.
 	// https://github.com/boxesandglue/boxesandglue/blob/79509f4b6b0e2e7a1d0562139ab4d9946d4be080/helper/main.go#L10-L35
 	return ssacall.RunsOnceThroughPrivateEntryCallsWithin(call, budget)
+}
+
+// Flow setup collects bounded owner, collection and deferred-release evidence
+// before the path proof starts. A possible prior release stops at uncertainty;
+// partial discovery cannot supply classifiers with an authoritative census.
+func (analysis *resourceAnalysis) prepareResourceFlow() resourceProof {
+	// This query uses anywhere coverage, not every-return settlement. A
+	// dominating defer may release a later acquisition through captured storage.
+	deferred := analysis.proveDeferredBeforeAcquisitionWithin(analysis.acquisition, analysis.budget(releaseSearchBudget))
+	if deferred.State == proofs.EvidenceUnknown {
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: deferred.Reason}
+	}
+	if deferred.Proven() {
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonPriorDeferMayRelease}
+	}
+	owners := analysis.discoverResourceOwnersWithin(analysis.budget(releaseSearchBudget))
+	if !owners.Proven() {
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}
+	}
+	analysis.collection = analysis.localCollection()
+	guarded := analysis.discoverResultGuardedDefersWithin(analysis.budget(releaseSearchBudget))
+	if guarded.State == proofs.EvidenceUnknown {
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: guarded.Reason}
+	}
+	prior := analysis.provePriorCleanupWithin(analysis.acquisition, analysis.budget(releaseSearchBudget))
+	if prior.State == proofs.EvidenceUnknown {
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: prior.Reason}
+	}
+	if prior.Proven() {
+		analysis.emitAction(prior.Instruction, actionUnknown, prior.Reason)
+		return resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonOpaqueConsumption}
+	}
+	return resourceProof{State: proofs.EvidenceProven, Reason: resourceReasonNone}
+}
+
+// The resource walk keeps activation, cleanup and uncertainty on each path.
+// Shared traversal and guard mechanics charge the existing candidate pool;
+// incomplete evidence never retains a diagnostic witness or a release claim.
+
+type resourceFlowState struct {
+	block       *ssa.BasicBlock
+	predecessor *ssa.BasicBlock
+	index       int
+	obligation  resourcemodel.Obligation
+	// guards are the branch outcomes this path has established. An edge
+	// that contradicts one is unknown, never pruned: a guard read from a
+	// cell could have changed through a pointer the analysis does not see,
+	// and even a stable guard's contradiction only declines to report through
+	// a path the analysis cannot rule out. Mutagen guards a profiler's
+	// creation and its finalization on one address-taken flag, and fortio a
+	// profile file's creation and its close on one option field:
+	// https://github.com/mutagen-io/mutagen/blob/6ccfeaaf4dfd261e59ef9aac56e3c157b62e605b/tools/scan_bench/main.go#L140-L172
+	// https://github.com/fortio/fortio/blob/5c19725ff61c9f7ad944b91ec32d96a399341d87/fhttp/httprunner.go#L199-L215
+	guards ssapath.PathGuards
+}
+
+type resourceFlowKey struct {
+	location   ssapath.FlowLocationKey
+	obligation resourcemodel.Obligation
+}
+
+// proveResourceFlow owns setup, coverage and cutoff availability together.
+// Resource-specific activation and contradiction policy stays in this walk;
+// the shared engines supply traversal mechanics, never diagnostic policy.
+func (analysis *resourceAnalysis) proveResourceFlow(errorValue ssa.Value) resourceLifetimePolicyResult {
+	budget := analysis.budget(resourcePoolBudget)
+	index := cfg.InstructionIndexWithin(analysis.acquisition, budget)
+	if resourceFlowExhausted(budget) {
+		return unknownResourceLifetime(resourceReasonBudgetExhausted)
+	}
+	if index < 0 {
+		return unknownResourceLifetime(resourceReasonAcquisitionLocationUnknown)
+	}
+	// Retain reachability's existing per-question cap while charging all of its
+	// traversal and feasibility work to the candidate pool.
+	reachBudget := analysis.budget(proofs.SummaryBudget)
+	reachable := analysis.acquisitionReachable(reachBudget)
+	if resourceFlowExhausted(budget) || resourceFlowExhausted(reachBudget) {
+		return unknownResourceLifetime(resourceReasonBudgetExhausted)
+	}
+	if !reachable {
+		return acceptedResourceLifetime(resourceReasonAcquisitionUnreachable)
+	}
+	// Begin after acquisition; predecessor and obligation state distinguish
+	// error edges from paths that still owe cleanup.
+	guards := ssapath.GuardsDominatingWithin(analysis.acquisition, budget)
+	initial := []resourceFlowState{{block: analysis.acquisition.Block(), index: index + 1, obligation: resourcemodel.Acquired(), guards: guards}}
+	opaque, leaks, incomplete := false, false, false
+	cfg.WalkStatesWithin(initial, func(state resourceFlowState) resourceFlowKey { return resourceStateKey(state, budget) },
+		func(state resourceFlowState) ([]resourceFlowState, bool) {
+			state, leaks = advanceResourceState(analysis, state, budget)
+			if resourceFlowExhausted(budget) || leaks {
+				return nil, false
+			}
+			opaque = opaque || state.obligation.Unknown()
+			edges := resourceSuccessorStates(analysis, state, errorValue, budget)
+			incomplete = edges.State == proofs.EvidenceUnknown
+			return edges.states, !incomplete
+		}, budget)
+	// Cutoff cannot retain a leak witness or an exact release claim, even when
+	// a nested classifier or edge callback exhausted the candidate pool.
+	if resourceFlowExhausted(budget) || incomplete {
+		analysis.leak = nil
+		return unknownResourceLifetime(resourceReasonBudgetExhausted)
+	}
+	if leaks {
+		result := reportedResourceLifetime(resourceReasonUnownedReturn)
+		result.leak = analysis.leak
+		return result
+	}
+	if opaque {
+		return unknownResourceLifetime(resourceReasonOpaqueConsumption)
+	}
+	return acceptedResourceLifetime(resourceReasonReleaseProven)
+}
+
+func resourceStateKey(state resourceFlowState, budget *proofs.SearchBudget) resourceFlowKey {
+	return resourceFlowKey{
+		location:   ssapath.FlowLocationKeyWithin(state.block, state.predecessor, state.index, state.guards, budget),
+		obligation: state.obligation,
+	}
+}
+
+// A sibling classifier query can exhaust the shared parent without spending
+// through the walk's child again. Both limits must still invalidate its proof.
+func resourceFlowExhausted(budget *proofs.SearchBudget) bool {
+	return budget.Exhausted() || budget.PoolExhausted()
+}
+
+func advanceResourceState(analysis *resourceAnalysis, state resourceFlowState, budget *proofs.SearchBudget) (resourceFlowState, bool) {
+	// A release or transfer anywhere before a return settles the path. An
+	// opaque consumption does not settle it but removes the proof: the
+	// return is then neither owned nor a defect.
+	for _, instruction := range state.block.Instrs[state.index:] {
+		if !budget.Spend() {
+			return state, false
+		}
+		state.guards = state.guards.AfterWithin(instruction, budget)
+		if resourceFlowExhausted(budget) {
+			return state, false
+		}
+		switch analysis.action(instruction) {
+		case actionSettled:
+			state.obligation = state.obligation.Discharged()
+		case actionUnknown:
+			state.obligation = state.obligation.Uncertain()
+		case actionNone:
+		}
+		if resourceFlowExhausted(budget) {
+			return state, false
+		}
+		// A call that never returns, whether os.Exit or a project's own fatal
+		// wrapper the summaries prove, ends this path with nothing to release.
+		terminated := ssapath.InstructionTerminatesWithin(instruction, analysis.summaries.TerminatesWithin(budget), budget)
+		if resourceFlowExhausted(budget) {
+			return state, false
+		}
+		if terminated {
+			state.obligation = state.obligation.Absent()
+			break
+		}
+		returned, ok := instruction.(*ssa.Return)
+		if ok && analysis.probe.Enabled() {
+			analysis.probe.Evidence(analysisTrace.Step{
+				Reason: resourceReasonResourceReturnPath.String(), Outcome: analysisTrace.OutcomeObserved,
+				Pos: returned.Pos(), Function: returned.Parent().String(),
+				Details: map[string]string{
+					"active":   strconv.FormatBool(state.obligation.Active()),
+					"released": strconv.FormatBool(state.obligation.Settled()),
+					"unknown":  strconv.FormatBool(state.obligation.Unknown()),
+				},
+			})
+		}
+		if ok && state.obligation.Unsettled() {
+			proof := analysis.proveResourceReturn(returned, budget)
+			if proof.state == proofs.EvidenceUnknown {
+				return state, false
+			}
+			if proof.state == proofs.EvidenceProven {
+				analysis.leak = proof.leak
+				return state, true
+			}
+		}
+	}
+	return state, false
+}
+
+type resourceSuccessorsProof struct {
+	resourceProof
+	states []resourceFlowState
+}
+
+func resourceSuccessorStates(
+	analysis *resourceAnalysis, state resourceFlowState, errorValue ssa.Value, budget *proofs.SearchBudget,
+) resourceSuccessorsProof {
+	pass, resource, optionalAcquisition, candidate := analysis.pass, analysis.resource, analysis.optional, analysis.candidate
+	edges := analysis.successorPolicy().EdgesWithin(state.block, state.predecessor, state.guards, budget)
+	if optionalAcquisition.Proven() && state.block == optionalAcquisition.merge && state.predecessor == optionalAcquisition.acquisitionBlock {
+		acquired := optionalAcquisition.acquiredSuccessor
+		guards, contradiction := state.guards.ExtendWithin(state.block, acquired, nil, budget)
+		edges = []ssapath.SuccessorEdge{{To: acquired, Guards: guards, Contradiction: contradiction}}
+		traceOptionalAcquisition(pass, optionalAcquisition, candidate)
+	}
+	if resourceFlowExhausted(budget) {
+		return unavailableResourceSuccessors()
+	}
+	result := make([]resourceFlowState, 0, len(edges))
+	for _, edge := range edges {
+		if !budget.Spend() {
+			return unavailableResourceSuccessors()
+		}
+		successor := edge.To
+		obligation := state.obligation
+		branch := proveResourceSuccessBranch(pass, analysis.summaries, state.block, successor, errorValue, candidate,
+			budget.Within(proofs.SummaryBudget))
+		if branch.State == proofs.EvidenceUnknown {
+			return unavailableResourceSuccessors()
+		}
+		if branch.Proven() {
+			if !branch.success {
+				obligation = obligation.Absent()
+			}
+		}
+		presence := proveResourcePresenceBranch(state.block, state.predecessor, successor, resource, budget)
+		if presence.Proven() && !presence.Present {
+			obligation = obligation.Absent()
+		}
+		// Error and presence evidence change activation only on this edge.
+		// Repeated guard contradictions instead retain an unknown obligation:
+		// dropping it would turn unavailable path evidence into cleanup.
+		guards, contradiction := edge.Guards, edge.Contradiction
+		if contradiction != ssapath.GuardConsistent {
+			obligation = obligation.Uncertain()
+			analysis.traceUncertainEdge(state.block, successor, resourceReasonRepeatedGuardEdgeUnknown)
+		}
+		rows := proveSQLRowsExhaustionEdge(state.block, successor, resource, budget.Within(proofs.QueryBudget))
+		if rows.State == proofs.EvidenceUnknown {
+			return unavailableResourceSuccessors()
+		}
+		if rows.Proven() {
+			obligation = obligation.Uncertain()
+			analysis.traceUncertainEdge(state.block, successor, resourceReasonRowsExhaustedEdgeUnknown)
+		}
+		if analysis.collection.releasedOnEdge(state.block, successor) {
+			obligation = obligation.Discharged()
+			analysis.traceCollectionReleased(state.block, successor)
+		}
+		// A conditional helper settles only the edge selected by its result.
+		// Optional-acquisition phis retain their own stricter cleanup policy.
+		if !obligation.Settled() && !optionalAcquisition.Proven() {
+			if analysis.evidence.CompletionOnEdge(state.block, successor, lifecycle.CompletionRequest{
+				Target: resource, Methods: analysis.contract.cleanup, Budget: analysis.budget(1000),
+			}).Proven() {
+				obligation = obligation.Discharged()
+			}
+		}
+		if resourceFlowExhausted(budget) {
+			return unavailableResourceSuccessors()
+		}
+		result = append(result, resourceFlowState{
+			block: successor, predecessor: state.block, obligation: obligation, guards: guards,
+		})
+	}
+	return resourceSuccessorsProof{resourceProof: resourceProof{State: proofs.EvidenceProven}, states: result}
+}
+
+func unavailableResourceSuccessors() resourceSuccessorsProof {
+	return resourceSuccessorsProof{resourceProof: resourceProof{State: proofs.EvidenceUnknown, Reason: resourceReasonBudgetExhausted}}
 }

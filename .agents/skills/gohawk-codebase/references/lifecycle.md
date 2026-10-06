@@ -100,7 +100,7 @@ its result in a struct field, transferring cleanup to the receiving owner.
 
 ## ClosureCallsValue
 
-[Source](../../../../internal/lifecycle/completion_closures.go)
+[Source](../../../../internal/lifecycle/completion_callbacks.go)
 
 ```go
 func ClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool
@@ -181,7 +181,7 @@ deferred releases, select the instructions they submit.
 
 ## CompletionSummaryLookup
 
-[Source](../../../../internal/lifecycle/completion_predicates.go)
+[Source](../../../../internal/lifecycle/completion_summaries.go)
 
 ```go
 type CompletionSummaryLookup func(ssa.Instruction, ssa.Value, string, bool, ssacall.CallCondition) bool
@@ -212,7 +212,7 @@ const (
 
 ## DeferredClosureCallsValue
 
-[Source](../../../../internal/lifecycle/completion_closures.go)
+[Source](../../../../internal/lifecycle/completion_callbacks.go)
 
 ```go
 func DeferredClosureCallsValue(instruction ssa.Instruction, target ssa.Value) bool
@@ -222,7 +222,7 @@ DeferredClosureCallsValue reports whether a deferred closure calls target.
 
 ## DeferredClosureInvokesArgumentOnEveryReturn
 
-[Source](../../../../internal/lifecycle/completion_closures.go)
+[Source](../../../../internal/lifecycle/completion_callbacks.go)
 
 ```go
 func DeferredClosureInvokesArgumentOnEveryReturn(instruction ssa.Instruction, target ssa.Value) bool
@@ -315,7 +315,7 @@ OwnershipTransfer proves and memoizes an ownership-transfer request.
 
 ## MayContainValue
 
-[Source](../../../../internal/lifecycle/store_ownership.go)
+[Source](../../../../internal/lifecycle/store_escape.go)
 
 ```go
 func MayContainValue(owner, value ssa.Value) bool
@@ -393,7 +393,7 @@ Disproven.
 
 ## ProveCompletionForCase
 
-[Source](../../../../internal/lifecycle/completion_predicates.go)
+[Source](../../../../internal/lifecycle/completion_summaries.go)
 
 ```go
 func ProveCompletionForCase(function *ssa.Function, condition ssacall.CallCondition, request CompletionRequest) proofs.CompletionProof
@@ -435,7 +435,7 @@ guarantee. An incomplete traversal is Unknown, never a cleanup proof.
 
 ## ProveMayContainValueAtWithin
 
-[Source](../../../../internal/lifecycle/store_ownership.go)
+[Source](../../../../internal/lifecycle/store_escape.go)
 
 ```go
 func ProveMayContainValueAtWithin(owner, value ssa.Value, at ssa.Instruction, budget *proofs.SearchBudget) proofs.Proof
@@ -451,7 +451,7 @@ the graph cannot answer. A nil budget retains the existing default policy.
 
 ## ProveMayContainValueWithin
 
-[Source](../../../../internal/lifecycle/store_ownership.go)
+[Source](../../../../internal/lifecycle/store_escape.go)
 
 ```go
 func ProveMayContainValueWithin(owner, value ssa.Value, budget *proofs.SearchBudget) proofs.Proof
@@ -463,7 +463,7 @@ Cutoff is unknown; a negative means no modeled containment, not actual absence.
 
 ## ProveMethodCallCoverageWithin
 
-[Source](../../../../internal/lifecycle/completion_coverage.go)
+[Source](../../../../internal/lifecycle/completion_request.go)
 
 ```go
 func ProveMethodCallCoverageWithin(
@@ -477,7 +477,7 @@ Callbacks should use the same budget. Nil retains the default unbounded walk.
 
 ## ProvePossibleClosureCaptureWithin
 
-[Source](../../../../internal/lifecycle/store_ownership.go)
+[Source](../../../../internal/lifecycle/store_escape.go)
 
 ```go
 func ProvePossibleClosureCaptureWithin(callback, target ssa.Value, budget *proofs.SearchBudget) proofs.Proof
@@ -491,7 +491,7 @@ Graph construction and graph queries retain their independent bounds.
 
 ## ProveResultGuards
 
-[Source](../../../../internal/lifecycle/completion_result_guards.go)
+[Source](../../../../internal/lifecycle/completion_conditions.go)
 
 ```go
 func ProveResultGuards(function *ssa.Function, request CompletionRequest) ResultGuardsProof
@@ -528,7 +528,7 @@ this model found no owner. Graph/type and summary-hook internals remain separate
 
 ## ProveReturnedParameterWithin
 
-[Source](../../../../internal/lifecycle/store_return_identity.go)
+[Source](../../../../internal/lifecycle/store_returns.go)
 
 ```go
 func ProveReturnedParameterWithin(function *ssa.Function, parameter ssa.Value, index int, budget *proofs.SearchBudget) proofs.Proof
@@ -555,7 +555,7 @@ budget bounds this query; a cutoff stays unknown and proves no invocation.
 
 ## ProveValueCallsMethodWithin
 
-[Source](../../../../internal/lifecycle/completion_callback_values.go)
+[Source](../../../../internal/lifecycle/completion_callbacks.go)
 
 ```go
 func ProveValueCallsMethodWithin(value ssa.Value, method string, target ssa.Value, budget *proofs.SearchBudget) proofs.Proof
@@ -569,7 +569,7 @@ share budget. A cutoff is unknown; nil retains the default unbounded search.
 
 ## ResultGuard
 
-[Source](../../../../internal/lifecycle/completion_result_guards.go)
+[Source](../../../../internal/lifecycle/completion_conditions.go)
 
 ```go
 type ResultGuard struct {
@@ -584,7 +584,7 @@ named results of the function that defers it.
 
 ## ResultGuard.Completes
 
-[Source](../../../../internal/lifecycle/completion_result_guards.go)
+[Source](../../../../internal/lifecycle/completion_conditions.go)
 
 ```go
 func (guard ResultGuard) Completes(request CompletionRequest, fixed ssacall.FixedValues) proofs.EvidenceState
@@ -595,7 +595,7 @@ one of its returns, given what its captured named results hold.
 
 ## ResultGuard.CompletesAtReturn
 
-[Source](../../../../internal/lifecycle/completion_result_guards.go)
+[Source](../../../../internal/lifecycle/completion_conditions.go)
 
 ```go
 func (guard ResultGuard) CompletesAtReturn(
@@ -613,7 +613,7 @@ may not publish an outcome after exhausting that allowance.
 
 ## ResultGuard.ProveReachesReturn
 
-[Source](../../../../internal/lifecycle/completion_result_guards.go)
+[Source](../../../../internal/lifecycle/completion_conditions.go)
 
 ```go
 func (guard ResultGuard) ProveReachesReturn(returned *ssa.Return, budget *proofs.SearchBudget) proofs.Proof
@@ -625,7 +625,7 @@ or reachability searches remain unknown, never evidence of disconnection.
 
 ## ResultGuardsProof
 
-[Source](../../../../internal/lifecycle/completion_result_guards.go)
+[Source](../../../../internal/lifecycle/completion_conditions.go)
 
 ```go
 type ResultGuardsProof struct {
@@ -718,7 +718,7 @@ answer comes from its summary, which lives above this package.
 
 ## ReturnsParameterUnchanged
 
-[Source](../../../../internal/lifecycle/store_return_identity.go)
+[Source](../../../../internal/lifecycle/store_returns.go)
 
 ```go
 func ReturnsParameterUnchanged(function *ssa.Function, parameter ssa.Value, index int) bool
@@ -743,7 +743,7 @@ SendsValue reports whether instruction hands value to a channel receiver.
 
 ## StoredInto
 
-[Source](../../../../internal/lifecycle/store_values.go)
+[Source](../../../../internal/lifecycle/store_cells.go)
 
 ```go
 func StoredInto(address ssa.Value) iter.Seq[ssa.Value]
@@ -756,7 +756,7 @@ stored value. No ordering or observation-time identity is promised.
 
 ## StoredIntoWithin
 
-[Source](../../../../internal/lifecycle/store_values.go)
+[Source](../../../../internal/lifecycle/store_cells.go)
 
 ```go
 func StoredIntoWithin(address ssa.Value, budget *proofs.SearchBudget) iter.Seq[ssa.Value]
@@ -866,7 +866,7 @@ const (
 
 ## ValueCallsMethod
 
-[Source](../../../../internal/lifecycle/completion_callback_values.go)
+[Source](../../../../internal/lifecycle/completion_callbacks.go)
 
 ```go
 func ValueCallsMethod(value ssa.Value, method string, target ssa.Value) bool

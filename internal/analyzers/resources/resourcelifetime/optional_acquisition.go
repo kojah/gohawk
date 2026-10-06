@@ -7,11 +7,13 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/check"
-	"github.com/kojah/gohawk/internal/ssaflow"
-	analysisTrace "github.com/kojah/gohawk/internal/trace"
-
+	"github.com/kojah/gohawk/internal/heapmodel"
 	proofs "github.com/kojah/gohawk/internal/proof"
+	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	"github.com/kojah/gohawk/internal/syntax"
+	analysisTrace "github.com/kojah/gohawk/internal/trace"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -206,4 +208,168 @@ func optionalAcquisitionReleases(instruction ssa.Instruction, resource ssa.Value
 		receiver = unwrapped
 	}
 	return true
+}
+
+// Acquisition-error assertions supply the existing test-contract exclusion.
+// Census, ordering and argument provenance share one allowance; partial
+// evidence cannot establish that the successful resource path is unavailable.
+
+func proveAcquisitionErrorWithin(acquisition *ssa.Call, resource, errorValue ssa.Value, httpResponse bool, budget *proofs.SearchBudget) resourceProof {
+	// Test assertions can prove the owned-resource path infeasible even though
+	// the assertion package expresses that fact outside the CFG.
+	// https://github.com/siemens/wfx/blob/392dde941e73ce9560df2c42b2d480eb528bfc96/cmd/wfx/cmd/root/root_test.go#L154-L157
+	errorAssertions, nilAssertions := acquisitionErrorAssertionsWithin(acquisition, resource, errorValue, budget)
+	// A fatal Error assertion stops the test unless the acquisition failed,
+	// which is the same evidence as an `if err != nil { return }` guard for any
+	// acquisition. The non-fatal form is accepted only for net/http, whose
+	// paired Nil assertion carries the extra fact that a response returned
+	// together with an error has an already-closed body.
+	if resourceFlowExhausted(budget) {
+		return carriedValueProof(false, resourceReasonUntouched, budget)
+	}
+	for _, assertedError := range errorAssertions {
+		if !budget.Spend() {
+			break
+		}
+		if fatalErrorAssertion(assertedError) || httpResponse && errorAssertionDominatesNilWithin(assertedError, nilAssertions, budget) {
+			return carriedValueProof(true, resourceReasonReleaseProven, budget)
+		}
+	}
+	return carriedValueProof(false, resourceReasonUntouched, budget)
+}
+
+func acquisitionErrorAssertionsWithin(
+	acquisition *ssa.Call,
+	resource, errorValue ssa.Value,
+	budget *proofs.SearchBudget,
+) ([]ssa.Instruction, []ssa.Instruction) {
+	var errorAssertions, nilAssertions []ssa.Instruction
+	for instruction := range ssaflow.InstructionsWithin(acquisition.Parent(), budget) {
+		common := ssaflow.InstructionCall(instruction)
+		errorClaim := ssacall.HasLibraryContract(common, ssacall.ContractTestifyErrorClaim)
+		nilClaim := ssacall.HasLibraryContract(common, ssacall.ContractTestifyNilClaim)
+		if !errorClaim && !nilClaim {
+			continue
+		}
+		if !cfg.InstructionMayFollowWithin(acquisition, instruction, budget) {
+			continue
+		}
+		if errorClaim {
+			for _, argument := range common.Args {
+				if !budget.Spend() {
+					return nil, nil
+				}
+				if heapmodel.ValueDerivesFromWithin(argument, errorValue, budget) {
+					errorAssertions = append(errorAssertions, instruction)
+				}
+			}
+		}
+		if nilClaim {
+			for _, argument := range common.Args {
+				if !budget.Spend() {
+					return nil, nil
+				}
+				if budget.Spend() && heapmodel.MayAlias(argument, resource) {
+					nilAssertions = append(nilAssertions, instruction)
+				}
+			}
+		}
+	}
+	// An interrupted census publishes neither assertion list. Alias dispatch is
+	// charged here; graph construction and alias-query internals are independent.
+	if resourceFlowExhausted(budget) {
+		return nil, nil
+	}
+	return errorAssertions, nilAssertions
+}
+
+func errorAssertionDominatesNilWithin(assertedError ssa.Instruction, nilAssertions []ssa.Instruction, budget *proofs.SearchBudget) bool {
+	for _, assertedNil := range nilAssertions {
+		if cfg.InstructionDominatesWithin(assertedError, assertedNil, budget) {
+			return true
+		}
+	}
+	return false
+}
+
+func fatalErrorAssertion(instruction ssa.Instruction) bool {
+	common := ssaflow.InstructionCall(instruction)
+	return ssacall.HasLibraryContract(common, ssacall.ContractTestifyFatalError)
+}
+
+// Context cancellation pairs exact standard constructor results with their
+// cancel invocation. Pre-acquisition DB failure and later transaction cleanup
+// uncertainty share pairing mechanics but retain different lifecycle meanings.
+
+// These DB methods obtain a connection through DB.conn, which checks ctx.Done
+// before giving the driver any work. Conn, Tx, and Stmt methods do not share
+// that entry check. Only an ordinary invocation of the exact paired cancel
+// dominating acquisition counts; deadline expiry, deferred calls, and sleeps
+// do not establish cancellation before acquisition.
+// https://github.com/mariadb-operator/mariadb-operator/blob/e8ece7a8076954674e10e0381571bd80278ac35f/licenses/go-licenses/github.com/go-sql-driver/mysql/driver_test.go#L2794-L2803
+func proveAcquisitionContextCanceledWithin(acquisition *ssa.Call, budget *proofs.SearchBudget) resourceProof {
+	common := acquisition.Common()
+	if !sqlDatabaseCall(common, "PrepareContext", "QueryContext", "BeginTx") || len(common.Args) < 2 {
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonUntouched}
+	}
+	constructor := contextCancelConstructor(common.Args[1])
+	if constructor == nil {
+		return resourceProof{State: proofs.EvidenceDisproven, Reason: resourceReasonUntouched}
+	}
+	for instruction := range ssaflow.InstructionsWithin(acquisition.Parent(), budget) {
+		call, ok := instruction.(*ssa.Call)
+		if !ok {
+			continue
+		}
+		if invokesContextCancel(call.Common(), constructor) && cfg.InstructionDominates(call, acquisition) {
+			return carriedValueProof(true, resourceReasonCanceledAcquisition, budget)
+		}
+	}
+	return carriedValueProof(false, resourceReasonUntouched, budget)
+}
+
+// BeginTx binds the transaction lifetime to its context. Cancellation triggers
+// database/sql's rollback watcher; it does not prove synchronous rollback or
+// successful commit. Only the exact factory's paired cancel is recognized.
+// https://pkg.go.dev/database/sql#DB.BeginTx
+// https://github.com/OdyseeTeam/odysee-api/blob/6cb1fd36ef7d25a038e3ddf572e3ddb3bbbb3d79/apps/watchman/olapdb/olapdb.go#L112-L139
+func cancelsTransactionContext(acquisition *ssa.Call, instruction ssa.Instruction) bool {
+	common := acquisition.Common()
+	if !sqlReceiverCall(common, "DB", "BeginTx") && !sqlReceiverCall(common, "Conn", "BeginTx") || len(common.Args) < 2 {
+		return false
+	}
+	switch instruction.(type) {
+	case *ssa.Call, *ssa.Defer:
+		return invokesContextCancel(ssaflow.InstructionCall(instruction), contextCancelConstructor(common.Args[1]))
+	}
+	return false
+}
+
+// Pairing stays structural: context result zero and cancel result one from one
+// standard constructor. A deadline alone, a replaced context, or another
+// factory's cancel supplies no cancellation witness.
+func contextCancelConstructor(value ssa.Value) *ssa.Call {
+	ctx, ok := value.(*ssa.Extract)
+	if !ok || ctx.Index != 0 {
+		return nil
+	}
+	constructor, ok := ctx.Tuple.(*ssa.Call)
+	if !ok || !ssacall.CallMatchesAnySymbol(constructor.Common(),
+		syntax.PackageFunction("context", "WithCancel"),
+		syntax.PackageFunction("context", "WithCancelCause"),
+		syntax.PackageFunction("context", "WithDeadline"),
+		syntax.PackageFunction("context", "WithDeadlineCause"),
+		syntax.PackageFunction("context", "WithTimeout"),
+		syntax.PackageFunction("context", "WithTimeoutCause")) {
+		return nil
+	}
+	return constructor
+}
+
+func invokesContextCancel(common *ssa.CallCommon, constructor *ssa.Call) bool {
+	if common == nil || constructor == nil {
+		return false
+	}
+	cancel, ok := common.Value.(*ssa.Extract)
+	return ok && cancel.Tuple == constructor && cancel.Index == 1
 }

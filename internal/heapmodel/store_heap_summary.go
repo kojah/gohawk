@@ -9,6 +9,10 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+// Return projection owns the exported heap relationships, including bounded
+// by-value copies and lazy aggregate fields. It reads completed graph states;
+// requirements, caller substitution and summary caching have separate owners.
+
 // The projection reads one function's graph at its returns and names what
 // a caller can see: the contents of every named slot, how each escaped,
 // which results hold which parameters, what was read before being written,

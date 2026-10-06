@@ -24,8 +24,8 @@ without combining acquisition evidence, view classification and call binding
 in one implementation file.
 
 Lifecycle fact declarations and claim accessors live in `fact.go`. Presentation
-for dumps and tracing lives in `fact_descriptions.go`, while `fact_lookup.go`
-owns imported lookup and package-marker validation. The prerequisite entry
+for dumps and tracing lives in `fact_descriptions.go`, while `publication.go`
+owns publication, imported lookup and package-marker validation. The prerequisite entry
 point in `analyzer.go` owns scheduling and publication; `summarize.go` composes
 the per-function guarantees. These boundaries preserve one fact schema and
 one inference path rather than adding adapters between parallel models.
@@ -259,6 +259,9 @@ the code cannot drift apart silently.
 |---|---|
 | `TestSourceInventoryExcludesNonProductionTrees` | source inventories exclude fixtures, generated files, tests, and dot/underscore-prefixed trees such as cached audit checkouts |
 | `TestSourceInventoryIncludesAuthoredTests` | test-inclusive invariants share the source inventory, retaining fixture/generated exclusions and deduplicating overlapping roots |
+| `TestProductionFileLimit` | every directory has at most twenty direct production Go files, including generated source and inactive build variants, without a baseline exemption |
+| `TestProductionFileLimitBoundaryAndNesting` | twenty files pass and twenty-one fail; nested directories receive independent allowances |
+| `TestProductionFileLimitCountingScope` | generated production files count; tests, fixtures, hidden/underscore trees and external dependency trees do not |
 | `TestInternalPackagesRespectDependencyDirection` | analyzers may use shared tools; shared tools never depend on analyzers or the catalog |
 | `TestSSADependencyBoundaries` | CFG and value mechanics sit below calls, and calls below path proofs; reverse dependencies are forbidden |
 | `TestAnalyzerPackageLayout` | one package per analyzer under `internal/analyzers/<group>/<name>` |

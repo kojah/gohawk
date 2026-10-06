@@ -81,6 +81,12 @@ policy structure instead of merely wrapping a long Boolean expression.
 
 ## File cohesion and size
 
+Keep at most 20 production Go files directly in each directory. Nested packages
+are allowed and receive their own allowance; their boundaries must still own
+cohesive responsibilities. Generated production files and inactive build
+variants count. Tests, fixtures and external dependency trees do not. The
+architecture check has no migration-debt exemption.
+
 Organize a file around one vocabulary and one reason to change. Split a file
 when it acquires a second evidence model, lifecycle, or external boundary; do
 not split a cohesive implementation merely to satisfy a line-count target.

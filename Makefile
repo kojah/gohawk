@@ -122,7 +122,7 @@ vuln:
 
 coverage:
 	$(GO) test ./... -covermode=count \
-		-coverpkg=./internal/syntax/...,./internal/ssaflow/...,./internal/lifecycle,./internal/heapmodel,./internal/catalog,./internal/check,./internal/trace,./internal/cli,./analyzers,./internal/passes/...,./internal/analyzers/...,./internal/docexamples,./plugin/golangci \
+		-coverpkg=./internal/proof/...,./internal/syntax/...,./internal/ssaflow/...,./internal/lifecycle,./internal/heapmodel,./internal/catalog,./internal/check,./internal/trace,./internal/cli,./analyzers,./internal/passes/...,./internal/analyzers/...,./internal/docexamples,./plugin/golangci \
 		-coverprofile=coverage.out
 	$(GO) tool cover -func=coverage.out -o=coverage-summary.out
 

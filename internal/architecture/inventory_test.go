@@ -14,11 +14,19 @@ import (
 )
 
 // repositorySourceInventory gives architecture tests one stable view of
-// authored Go source. Production-only and test-inclusive views share the same
-// fixture and generated-file exclusions so invariants do not grow private walkers.
+// maintained Go source. Authored views exclude generated files, while layout
+// counts include them. All views share fixture and external-tree exclusions.
 type repositorySourceInventory struct {
 	root string
 }
+
+type sourceView uint8
+
+const (
+	authoredProduction sourceView = iota
+	authoredIncludingTests
+	productionLayout
+)
 
 type repositoryGoSource struct {
 	absolutePath   string
@@ -65,17 +73,24 @@ func findRepositoryRoot(start string) (string, error) {
 
 func (inventory repositorySourceInventory) productionGoFiles(t *testing.T, roots ...string) []repositoryGoSource {
 	t.Helper()
-	return inventory.goFiles(t, false, roots...)
+	return inventory.goFiles(t, authoredProduction, roots...)
 }
 
 // authoredGoFiles includes tests for invariants that apply to all maintained Go
 // code. Fixture, generated and external trees retain the shared exclusions.
 func (inventory repositorySourceInventory) authoredGoFiles(t *testing.T, roots ...string) []repositoryGoSource {
 	t.Helper()
-	return inventory.goFiles(t, true, roots...)
+	return inventory.goFiles(t, authoredIncludingTests, roots...)
 }
 
-func (inventory repositorySourceInventory) goFiles(t *testing.T, includeTests bool, roots ...string) []repositoryGoSource {
+// layoutGoFiles counts all production source, including generated files and
+// inactive build variants. Layout is a repository invariant, not a build view.
+func (inventory repositorySourceInventory) layoutGoFiles(t *testing.T, roots ...string) []repositoryGoSource {
+	t.Helper()
+	return inventory.goFiles(t, productionLayout, roots...)
+}
+
+func (inventory repositorySourceInventory) goFiles(t *testing.T, view sourceView, roots ...string) []repositoryGoSource {
 	t.Helper()
 	files := make(map[string]repositoryGoSource)
 	for _, root := range roots {
@@ -90,7 +105,7 @@ func (inventory repositorySourceInventory) goFiles(t *testing.T, includeTests bo
 				}
 				return nil
 			}
-			if filepath.Ext(path) != ".go" || !includeTests && strings.HasSuffix(path, "_test.go") {
+			if filepath.Ext(path) != ".go" || view != authoredIncludingTests && strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
 			source, readErr := os.ReadFile(path)
@@ -102,7 +117,7 @@ func (inventory repositorySourceInventory) goFiles(t *testing.T, includeTests bo
 			if parseErr != nil {
 				return parseErr
 			}
-			if ast.IsGenerated(file) {
+			if view != productionLayout && ast.IsGenerated(file) {
 				return nil
 			}
 			repositoryPath, relativeErr := filepath.Rel(inventory.root, path)
@@ -166,7 +181,7 @@ func excludedSourceDirectory(name string) bool {
 		return true
 	}
 	switch name {
-	case "fixture", "fixtures", "testdata", "vendor":
+	case "fixture", "fixtures", "testdata", "vendor", "node_modules":
 		return true
 	default:
 		return false

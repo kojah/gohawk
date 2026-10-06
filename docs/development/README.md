@@ -23,6 +23,9 @@ Start with [Understanding SSA](../understanding-ssa.md) and the public
   SSA form they handle.
 - [Architecture in detail](architecture.md) — the shared engine, how a run is
   driven, and the invariants the architecture tests enforce.
+- [SSA responsibility layers and file limit](ssaflow-layer-split.md) — the
+  value, CFG, call and path-proof boundaries and the repository-wide limit of
+  twenty direct production files per directory.
 - [Codebase cleanliness review](cleanliness-review-2026-10-06.md) — reviewed
   boundaries, completed cleanup and remaining source-review questions.
 - [Fact model](fact-model.md) — modular function summaries, their

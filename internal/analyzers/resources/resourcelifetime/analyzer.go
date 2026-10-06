@@ -6,13 +6,12 @@ import (
 
 	"github.com/kojah/gohawk/internal/check"
 	"github.com/kojah/gohawk/internal/passes/lifecyclefacts"
+	proofs "github.com/kojah/gohawk/internal/proof"
 	"github.com/kojah/gohawk/internal/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"github.com/kojah/gohawk/internal/summaries"
 	"github.com/kojah/gohawk/internal/syntax"
 	analysisTrace "github.com/kojah/gohawk/internal/trace"
-
-	proofs "github.com/kojah/gohawk/internal/proof"
-	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -118,4 +117,42 @@ func emitResourceDecision(
 		Function: function.String(),
 		Details:  details,
 	})
+}
+
+// missingReleaseEvidence cites the return the flow walk reached with the
+// resource still owed, naming the variable the acquisition assigned. The
+// witness is the proof's own, so the report and its evidence cannot disagree.
+func missingReleaseEvidence(pass *analysis.Pass, call *ssa.Call, result int, leak *ssa.Return) []analysis.RelatedInformation {
+	subject := "the resource"
+	if name := syntax.AssignedName(pass, call.Pos(), result); name != "" {
+		subject = "`" + name + "`"
+	}
+	return check.ReturnEvidence(pass, call, leak, "releasing "+subject)
+}
+
+// A resource lifetime policy result carries the analyzer's final disposition
+// together with the stable reason exposed by decision tracing. SSA and fact
+// queries establish evidence; this type owns only the reporting policy that
+// combines those proofs.
+type resourceLifetimePolicyResult struct {
+	// state proves whether this candidate permits a diagnostic, not whether
+	// cleanup occurred. Policy exclusions are disproven; opaque ownership is
+	// unknown. Both suppress reporting without claiming the same guarantee.
+	state  proofs.EvidenceState
+	reason resourceLifetimeReason
+	// leak is the normal return the flow reached with the resource still
+	// owed: the witness a reported diagnostic cites.
+	leak *ssa.Return
+}
+
+func acceptedResourceLifetime(reason resourceLifetimeReason) resourceLifetimePolicyResult {
+	return resourceLifetimePolicyResult{state: proofs.EvidenceDisproven, reason: reason}
+}
+
+func unknownResourceLifetime(reason resourceLifetimeReason) resourceLifetimePolicyResult {
+	return resourceLifetimePolicyResult{state: proofs.EvidenceUnknown, reason: reason}
+}
+
+func reportedResourceLifetime(reason resourceLifetimeReason) resourceLifetimePolicyResult {
+	return resourceLifetimePolicyResult{state: proofs.EvidenceProven, reason: reason}
 }

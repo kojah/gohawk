@@ -100,7 +100,7 @@ AtCall binds complete local or imported effects to the caller's exact values.
 
 ## Engine.CondMutex
 
-[Source](../../../../internal/passes/concurrencyfacts/conditions.go)
+[Source](../../../../internal/passes/concurrencyfacts/completion.go)
 
 ```go
 func (engine *Engine) CondMutex(reference Reference, budget *proofs.SearchBudget) (Reference, bool)
@@ -611,7 +611,7 @@ The call chain runs from the leaf outward and is explicitly marked if cut.
 
 ## Summary.Representatives
 
-[Source](../../../../internal/passes/concurrencyfacts/replicated_workers.go)
+[Source](../../../../internal/passes/concurrencyfacts/worker.go)
 
 ```go
 func (summary Summary) Representatives() Summary

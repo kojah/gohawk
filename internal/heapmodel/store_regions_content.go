@@ -1,11 +1,19 @@
 package heapmodel
 
 import (
+	"go/types"
 	"maps"
 	"slices"
+	"strconv"
+
+	"github.com/kojah/gohawk/internal/ssaflow"
 
 	"golang.org/x/tools/go/ssa"
 )
+
+// Slot content reads and writes share one versioned memory model. Aggregate
+// copying and destination selection preserve definite versus possible contents;
+// unknown selections never establish an exact occupant.
 
 // Slot contents: what a location holds at a point, how an aggregate is
 // copied whole, and how a store settles into the state. These rules decide
@@ -365,4 +373,195 @@ func (graph *regionGraph) clearSubtree(state *regionState, target slot) {
 			delete(state.clobbered, other)
 		}
 	}
+}
+
+// Definite and possible stores share destination selection, exposure and
+// aggregate/content updates. Only a definite store into one exact destination
+// replaces old contents; every conditional update retains the old possibilities.
+func (graph *regionGraph) store(state *regionState, stored *ssa.Store) {
+	graph.storeInto(state, stored.Addr, stored.Val, stored)
+}
+
+// storeInto writes written through address, as the instruction at does.
+func (graph *regionGraph) storeInto(state *regionState, address, written ssa.Value, at ssa.Instruction) {
+	graph.storeValue(state, address, written, at, true)
+}
+
+// A conditional update can retain the old contents even at one exact address.
+// Reuse the same selection, exposure and union mechanics as uncertain SSA stores.
+func (graph *regionGraph) storeConditionallyInto(state *regionState, address, written ssa.Value, at ssa.Instruction) {
+	graph.storeValue(state, address, written, at, false)
+}
+
+func (graph *regionGraph) storeValue(state *regionState, address, written ssa.Value, at ssa.Instruction, definite bool) {
+	targets := graph.pointees(address)
+	value := graph.pointees(written)
+	strong := definite && len(targets) == 1
+	for target, stale := range targets {
+		if stale || target.region.kind == regionUnknown || lastStep(target.path) == pathStar {
+			strong = false
+		}
+	}
+	if targets.unknown() {
+		state.opaque = true
+		graph.invalidateForeign(state, "", graph.id(at), reachAny)
+		graph.escape(state, value, HeapEscapedField, at)
+		return
+	}
+	// A write through a pointer that may reach an object the function did
+	// not allocate may have written the same step of any such object, so
+	// those slots are forgotten once, before any target is written: a
+	// target written first must not be forgotten again for a target
+	// written later, or the surviving entry would be whichever target the
+	// walk visited last, and a build that visits them in another order
+	// would never settle.
+	steps := map[string]bool{}
+	for target := range targets {
+		if target.region.kind == regionNil {
+			continue
+		}
+		if target.region.kind != regionSite || state.escaped[target.region] {
+			graph.escape(state, value, escapeInto(target.region)|graph.reachOf(state, target.region), at)
+		}
+		if target.region.kind != regionSite {
+			steps[stepKey(target.path)] = true
+		}
+	}
+	for _, step := range slices.Sorted(maps.Keys(steps)) {
+		graph.invalidateForeign(state, step, graph.id(at), reachAny)
+	}
+	for target := range targets {
+		if target.region.kind == regionNil {
+			continue
+		}
+		if isAggregate(written.Type()) {
+			graph.storeAggregate(state, target, value, strong, graph.id(at))
+			continue
+		}
+		graph.storeSlot(state, target, value, strong, at)
+	}
+}
+
+// storeSlot updates one selected scalar slot. SSA writes and imported edges
+// share replacement, uncertainty, history and aggregate-cache invalidation;
+// their callers retain destination selection and exposure policy.
+func (graph *regionGraph) storeSlot(state *regionState, target slot, value pointees, strong bool, at ssa.Instruction) {
+	if lastStep(target.path) == pathStar {
+		graph.weakElementStore(state, target, value)
+		return
+	}
+	graph.remember(target, value)
+	graph.forgetWholeAbove(state, target)
+	if strong {
+		graph.clearSubtree(state, target)
+		state.contents[target] = value.clone()
+		return
+	}
+	existing, ok := state.contents[target]
+	if !ok {
+		existing = graph.content(state, target)
+		state.contents[target] = existing
+	}
+	existing.union(value)
+	graph.bound(state, target, at)
+}
+
+// By-value type traversal follows struct fields, array elements and SSA tuples.
+// Reference edges remain leaves; the caller decides what matching a type means.
+func anyByValueType(value types.Type, matches func(types.Type) bool) bool {
+	if matches(value) {
+		return true
+	}
+	switch value := value.Underlying().(type) {
+	case *types.Struct:
+		for field := range value.Fields() {
+			if anyByValueType(field.Type(), matches) {
+				return true
+			}
+		}
+	case *types.Array:
+		return anyByValueType(value.Elem(), matches)
+	case *types.Tuple:
+		for variable := range value.Variables() {
+			if anyByValueType(variable.Type(), matches) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// walkStructReferences enumerates bounded reference slots in a by-value struct.
+// Pointers stay leaves. Arrays and exhausted limits invoke cut so both snapshot
+// construction and summary projection retain unknown evidence beyond the bound.
+func walkStructReferences(typ types.Type, visit, cut func(string)) {
+	count := 0
+	var fields func(types.Type, string, int)
+	fields = func(typ types.Type, path string, depth int) {
+		if !tracked(typ) {
+			return
+		}
+		if depth > SummaryPaths || count >= SummarySlots {
+			cut("")
+			return
+		}
+		switch typed := typ.Underlying().(type) {
+		case *types.Struct:
+			for index := range typed.NumFields() {
+				fields(typed.Field(index).Type(), joinSlotPath(path, "field:"+strconv.Itoa(index)), depth+1)
+			}
+		case *types.Array:
+			cut(path)
+		default:
+			count++
+			visit(path)
+		}
+	}
+	fields(typ, "", 0)
+}
+
+// Fixed views retain an offset into a local array; no backing-store alias set
+// is inferred for arbitrary slice values. Bounds are checked before translating
+// an element so different windows cannot silently name the same slot.
+type storageArrayView struct {
+	base              storageLocation
+	offset, size, cap int64
+}
+
+func (storage *Storage) indexLocation(index *ssa.IndexAddr) (storageLocation, bool) {
+	position, fixed := ssaflow.StorageInteger(index.Index, 0)
+	view, known := storage.arrayView(index.X)
+	if !fixed || !known || position < 0 || position >= view.size {
+		return storageLocation{}, false
+	}
+	view.base.path += "/i" + strconv.FormatInt(view.offset+position, 10)
+	return view.base, true
+}
+
+func (storage *Storage) arrayView(value ssa.Value) (storageArrayView, bool) {
+	if value == nil || !storage.budget.Spend() {
+		return storageArrayView{}, false
+	}
+	if sliced, ok := value.(*ssa.Slice); ok {
+		base, known := storage.arrayView(sliced.X)
+		low, lowOK := ssaflow.StorageInteger(sliced.Low, 0)
+		high, highOK := ssaflow.StorageInteger(sliced.High, base.size)
+		max, maxOK := ssaflow.StorageInteger(sliced.Max, base.cap)
+		if !known || !lowOK || !highOK || !maxOK || low < 0 || low > high || high > max || max > base.cap {
+			return storageArrayView{}, false
+		}
+		base.offset += low
+		base.size, base.cap = high-low, max-low
+		return base, true
+	}
+	pointer, ok := value.Type().Underlying().(*types.Pointer)
+	if !ok {
+		return storageArrayView{}, false
+	}
+	array, ok := pointer.Elem().Underlying().(*types.Array)
+	if !ok {
+		return storageArrayView{}, false
+	}
+	base, known := storage.location(value)
+	return storageArrayView{base: base, size: array.Len(), cap: array.Len()}, known
 }

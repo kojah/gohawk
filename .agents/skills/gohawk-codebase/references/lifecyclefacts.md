@@ -142,7 +142,7 @@ path, empty for the parameter itself.
 
 ## EachElementPath
 
-[Source](../../../../internal/passes/lifecyclefacts/element_discharges.go)
+[Source](../../../../internal/passes/lifecyclefacts/discharges.go)
 
 ```go
 const EachElementPath = "index:*"
@@ -437,7 +437,7 @@ method matches them.
 
 ## Kept
 
-[Source](../../../../internal/passes/lifecyclefacts/contents.go)
+[Source](../../../../internal/passes/lifecyclefacts/retention.go)
 
 ```go
 type Kept struct {
@@ -520,7 +520,7 @@ it. The proof outranks a lifecycle-looking method name on the result type.
 
 ## LifecycleEvidence.CallEffectsWithin
 
-[Source](../../../../internal/passes/lifecyclefacts/call_effects.go)
+[Source](../../../../internal/passes/lifecyclefacts/evidence.go)
 
 ```go
 func (evidence *LifecycleEvidence) CallEffectsWithin(
@@ -702,7 +702,7 @@ relationship.
 
 ## LifecycleEvidence.ReleasesEachElement
 
-[Source](../../../../internal/passes/lifecyclefacts/element_discharges.go)
+[Source](../../../../internal/passes/lifecyclefacts/discharges.go)
 
 ```go
 func (evidence *LifecycleEvidence) ReleasesEachElement(instruction ssa.Instruction, index int, methods []string) bool
@@ -844,7 +844,7 @@ String renders the stable trace code at the output boundary.
 
 ## ResourceCleanup
 
-[Source](../../../../internal/passes/lifecyclefacts/resource_types.go)
+[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
 
 ```go
 func ResourceCleanup(value types.Type) ([]string, bool)
@@ -855,7 +855,7 @@ when the type carries no obligation this vocabulary knows.
 
 ## ResponseBodyField
 
-[Source](../../../../internal/passes/lifecyclefacts/resource_types.go)
+[Source](../../../../internal/passes/lifecyclefacts/cleanup_contract.go)
 
 ```go
 func ResponseBodyField(value ssa.Value) *ssa.FieldAddr

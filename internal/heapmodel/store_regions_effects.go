@@ -6,8 +6,13 @@ import (
 
 	ssacall "github.com/kojah/gohawk/internal/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/ssaflow/cfg"
+	"github.com/kojah/gohawk/internal/syntax"
 	"golang.org/x/tools/go/ssa"
 )
+
+// Opaque storage effects and known mutation contracts share this boundary.
+// Unsupported calls expose or invalidate the selected graph state; known
+// atomics, mutexes and builtins retain only their documented storage effects.
 
 // Effects the graph cannot follow: calls, deferred calls, builtins, and map
 // updates. Each rule errs toward forgetting, never toward inventing
@@ -416,4 +421,140 @@ func (graph *regionGraph) definedCall(state *regionState, common *ssa.CallCommon
 		return true
 	}
 	return graph.definedMutexCall(state, common, instruction, started) || graph.definedAtomicCall(state, common, instruction, started)
+}
+
+// Atomic cells retain values through stores; they do not make the pointee's
+// identity opaque just because the implementation uses unsafe.Pointer.
+// Store and Swap replace contents. CompareAndSwap may leave the old value,
+// so its possible update must never publish a must-store or success guarantee.
+// https://go.dev/src/sync/atomic/type.go
+// https://go.dev/src/sync/atomic/value.go
+var (
+	atomicStores = []syntax.Symbol{
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Pointer", Name: "Store"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Pointer", Name: "Swap"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Value", Name: "Store"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Value", Name: "Swap"}),
+	}
+	atomicCompareAndSwaps = []syntax.Symbol{
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Pointer", Name: "CompareAndSwap"}),
+		syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync/atomic", Receiver: "Value", Name: "CompareAndSwap"}),
+	}
+)
+
+type atomicWrite struct {
+	cell, value ssa.Value
+	conditional bool
+}
+
+func (graph *regionGraph) definedAtomicCall(state *regionState, common *ssa.CallCommon, instruction ssa.Instruction, started bool) bool {
+	write, known := atomicStore(common)
+	if !known || started {
+		return false
+	}
+	if write.conditional {
+		graph.storeConditionallyInto(state, write.cell, write.value, instruction)
+	} else {
+		graph.storeInto(state, write.cell, write.value, instruction)
+	}
+	return true
+}
+
+func atomicStore(common *ssa.CallCommon) (atomicWrite, bool) {
+	switch {
+	case ssacall.CallMatchesAnySymbol(common, atomicStores...) && len(common.Args) == 2:
+		return atomicWrite{cell: common.Args[0], value: common.Args[1]}, true
+	case ssacall.CallMatchesAnySymbol(common, atomicCompareAndSwaps...) && len(common.Args) == 3:
+		return atomicWrite{cell: common.Args[0], value: common.Args[2], conditional: true}, true
+	default:
+		return atomicWrite{}, false
+	}
+}
+
+// Synchronous builtin effects operate on the selected storage. Deferred calls
+// use this same implementation at execution; asynchronous calls stay opaque.
+// https://go.dev/ref/spec#Appending_to_and_copying_slices
+// https://go.dev/ref/spec#Clear
+
+// builtin applies the builtins that touch memory. Append may share the
+// backing array with its first argument and stores the rest into it; copy
+// stores the source's elements into the destination.
+func (graph *regionGraph) builtin(state *regionState, builtin *ssa.Builtin, common *ssa.CallCommon, instruction ssa.Instruction) {
+	switch builtin.Name() {
+	case "append":
+		value, _ := instruction.(ssa.Value)
+		if len(common.Args) == 0 || value == nil {
+			return
+		}
+		result := graph.pointees(common.Args[0]).clone()
+		result.add(slot{region: graph.opaque(value)}, false)
+		graph.setValue(value, result)
+		for _, argument := range common.Args[1:] {
+			elements := graph.pointees(argument)
+			if _, ok := argument.Type().Underlying().(*types.Slice); ok {
+				// The spread slice's elements are copied into a collection
+				// the function may hand on, so the array behind it has
+				// escaped as far as its contents are concerned.
+				graph.escape(state, elements, HeapEscapedField, instruction)
+				elements = graph.load(state, graph.selectStep(elements, pathStar), argument)
+			}
+			for target := range result {
+				graph.weakElementStore(state, slot{region: target.region, path: joinSlotPath(target.path, pathStar)}, elements)
+			}
+			graph.escape(state, elements, HeapEscapedField, instruction)
+		}
+	case "copy":
+		if len(common.Args) < 2 {
+			return
+		}
+		elements := graph.load(state, graph.selectStep(graph.pointees(common.Args[1]), pathStar), common.Args[1])
+		for target := range graph.pointees(common.Args[0]) {
+			graph.weakElementStore(state, slot{region: target.region, path: joinSlotPath(target.path, pathStar)}, elements)
+		}
+	case "clear":
+		if len(common.Args) != 1 {
+			return
+		}
+		// Clearing writes the collection's elements, not the objects those
+		// elements previously pointed to. Forget only the selected storage;
+		// do not expose it or recursively clobber the former pointees. We do
+		// not infer exact zero contents or the extent of an arbitrary view.
+		substitution := heapSubstitution{graph: graph, state: state, instruction: instruction}
+		substitution.forgetSlots(graph.pointees(common.Args[0]))
+	case "delete", "len", "cap", "print", "println", "close", "recover", "min", "max", "panic", "real", "imag", "complex", "new":
+	}
+}
+
+// Standard mutex operations mutate their receiver's internal state; they do
+// not retain a pointer to the enclosing user object after a synchronous call.
+// Forget only that storage, preserving sibling fields and their destinations.
+// A launched call still exposes the receiver to another goroutine, and an
+// interface call or RLocker adapter does not satisfy this direct-call contract.
+// https://go.dev/src/sync/mutex.go
+// https://go.dev/src/sync/rwmutex.go
+var synchronousMutexMethods = []syntax.Symbol{
+	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "Mutex", Name: "Lock"}),
+	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "Mutex", Name: "Unlock"}),
+	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "Mutex", Name: "TryLock"}),
+	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "RWMutex", Name: "Lock"}),
+	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "RWMutex", Name: "Unlock"}),
+	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "RWMutex", Name: "TryLock"}),
+	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "RWMutex", Name: "RLock"}),
+	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "RWMutex", Name: "RUnlock"}),
+	syntax.PackageMethod(syntax.MethodSymbol{PackagePath: "sync", Receiver: "RWMutex", Name: "TryRLock"}),
+}
+
+func (graph *regionGraph) definedMutexCall(state *regionState, common *ssa.CallCommon, instruction ssa.Instruction, started bool) bool {
+	if started || common.StaticCallee() == nil || len(common.Args) != 1 || !ssacall.CallMatchesAnySymbol(common, synchronousMutexMethods...) {
+		return false
+	}
+	receiver := graph.pointees(common.Args[0])
+	if _, known := singleSlot(receiver); !known {
+		return false
+	}
+	// Reuse exact slot invalidation from summary substitution. Whole-object
+	// clobber would lose sibling map/slice identities and hide borrowed storage.
+	substitution := heapSubstitution{graph: graph, state: state, instruction: instruction}
+	substitution.forgetSlots(receiver)
+	return true
 }

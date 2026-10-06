@@ -13,7 +13,7 @@ analyzers decide what the evidence proves for a check.
 
 ## AccessPathFromParameter
 
-[Source](../../../../internal/heapmodel/store_access_paths.go)
+[Source](../../../../internal/heapmodel/store_projection.go)
 
 ```go
 func AccessPathFromParameter(value, parameter ssa.Value) ([]string, bool)
@@ -26,7 +26,7 @@ when its contents are read; writing only whole values is not sufficient.
 
 ## AccessPathFromParameterWithin
 
-[Source](../../../../internal/heapmodel/store_access_paths.go)
+[Source](../../../../internal/heapmodel/store_projection.go)
 
 ```go
 func AccessPathFromParameterWithin(value, parameter ssa.Value, budget *proofs.SearchBudget) ([]string, bool)
@@ -39,7 +39,7 @@ cannot name the original parameter. Nil retains the default storage allowance.
 
 ## AliasDecision
 
-[Source](../../../../internal/heapmodel/alias_decision.go)
+[Source](../../../../internal/heapmodel/query.go)
 
 ```go
 type AliasDecision struct {
@@ -52,7 +52,7 @@ AliasDecision records a graph disjointness answer for evidence dumps.
 
 ## CachedGraphEvidence
 
-[Source](../../../../internal/heapmodel/store_observation.go)
+[Source](../../../../internal/heapmodel/query.go)
 
 ```go
 func CachedGraphEvidence(function *ssa.Function) GraphEvidence
@@ -206,7 +206,7 @@ ContentValue returns the exact SSA value held by an address at observation.
 
 ## DeferredCellMatch
 
-[Source](../../../../internal/heapmodel/store_deferred_cells.go)
+[Source](../../../../internal/heapmodel/store_cells.go)
 
 ```go
 type DeferredCellMatch uint8
@@ -217,7 +217,7 @@ target from one whose every possible occupant contains it indirectly.
 
 ## DeferredCellRelationWithin
 
-[Source](../../../../internal/heapmodel/store_deferred_cells.go)
+[Source](../../../../internal/heapmodel/store_cells.go)
 
 ```go
 func DeferredCellRelationWithin(cell *ssa.Alloc, target ssa.Value, invocation ssa.Instruction, budget *proofs.SearchBudget) (DeferredCellMatch, bool)
@@ -232,7 +232,7 @@ costs. A nil budget retains the unbounded observation policy.
 
 ## DeferredCellUnknown, DeferredCellExact, DeferredCellContains
 
-[Source](../../../../internal/heapmodel/store_deferred_cells.go)
+[Source](../../../../internal/heapmodel/store_cells.go)
 
 ```go
 const (
@@ -423,7 +423,7 @@ ExclusiveAt proves a graph object's caller/local exclusivity at one point.
 
 ## ExclusiveObject
 
-[Source](../../../../internal/heapmodel/store_exclusivity.go)
+[Source](../../../../internal/heapmodel/store_alias.go)
 
 ```go
 type ExclusiveObject struct {
@@ -442,7 +442,7 @@ from one that never leaves the function.
 
 ## GraphBuildReason
 
-[Source](../../../../internal/heapmodel/store_build_reasons.go)
+[Source](../../../../internal/heapmodel/query.go)
 
 ```go
 type GraphBuildReason uint8
@@ -453,7 +453,7 @@ The zero value is unavailable, not evidence of a complete empty graph.
 
 ## GraphBuildReason.String
 
-[Source](../../../../internal/heapmodel/store_build_reasons.go)
+[Source](../../../../internal/heapmodel/query.go)
 
 ```go
 func (reason GraphBuildReason) String() string
@@ -463,7 +463,7 @@ String formats the stable reason code, not the optional explanatory detail.
 
 ## GraphBuildUnknown, GraphBuildComplete, GraphBuildNoBody, GraphBuildBudgetExhausted, GraphBuildFixpointLimit
 
-[Source](../../../../internal/heapmodel/store_build_reasons.go)
+[Source](../../../../internal/heapmodel/query.go)
 
 ```go
 const (
@@ -477,7 +477,7 @@ const (
 
 ## GraphEvidence
 
-[Source](../../../../internal/heapmodel/store_observation.go)
+[Source](../../../../internal/heapmodel/query.go)
 
 ```go
 type GraphEvidence struct {
@@ -840,7 +840,7 @@ NewStorage creates a bounded storage query using the caller's search budget.
 
 ## NewWriteOnceFields
 
-[Source](../../../../internal/heapmodel/store_write_once.go)
+[Source](../../../../internal/heapmodel/store_cells.go)
 
 ```go
 func NewWriteOnceFields(pkg *types.Package, functions []*ssa.Function) *WriteOnceFields
@@ -889,7 +889,7 @@ same object. An unavailable graph falls back to the structural value walk.
 
 ## ProveStoredPathWithin
 
-[Source](../../../../internal/heapmodel/store_access_paths.go)
+[Source](../../../../internal/heapmodel/store_projection.go)
 
 ```go
 func ProveStoredPathWithin(root, target ssa.Value, observation ssa.Instruction, budget *proofs.SearchBudget) StoredPathProof
@@ -981,7 +981,7 @@ Exhaustion cannot establish either a transfer or absence of one.
 
 ## SelectionsOf
 
-[Source](../../../../internal/heapmodel/store_access_paths.go)
+[Source](../../../../internal/heapmodel/store_projection.go)
 
 ```go
 func SelectionsOf(root ssa.Value, path []string) []ssa.Value
@@ -992,7 +992,7 @@ exactly path.
 
 ## SelectionsOfWithin
 
-[Source](../../../../internal/heapmodel/store_access_paths.go)
+[Source](../../../../internal/heapmodel/store_projection.go)
 
 ```go
 func SelectionsOfWithin(root ssa.Value, path []string, budget *proofs.SearchBudget) []ssa.Value
@@ -1003,7 +1003,7 @@ Cutoff returns no selections and cannot establish that a path is absent.
 
 ## SliceOnlyObserved
 
-[Source](../../../../internal/heapmodel/store_stability.go)
+[Source](../../../../internal/heapmodel/store_alias.go)
 
 ```go
 func SliceOnlyObserved(use, observation ssa.Instruction, budget *proofs.SearchBudget) bool
@@ -1113,7 +1113,7 @@ through to graph evidence. Graph construction has its own independent cost.
 
 ## Storage.StableContent
 
-[Source](../../../../internal/heapmodel/store_stability.go)
+[Source](../../../../internal/heapmodel/store_alias.go)
 
 ```go
 func (storage *Storage) StableContent(address ssa.Value, observation ssa.Instruction) StoredValue
@@ -1130,7 +1130,7 @@ https://github.com/marcus/sidecar/blob/9b8739f753ab235dda2630676833e9b46a52696c/
 
 ## Storage.StableFieldContent
 
-[Source](../../../../internal/heapmodel/store_field_stability.go)
+[Source](../../../../internal/heapmodel/store_cells.go)
 
 ```go
 func (storage *Storage) StableFieldContent(address ssa.Value, observation ssa.Instruction) StoredValue
@@ -1144,7 +1144,7 @@ address or write it. This says nothing about mutation of the loaded object.
 
 ## StoreMayFollowWithin
 
-[Source](../../../../internal/heapmodel/storage_order.go)
+[Source](../../../../internal/heapmodel/store_model.go)
 
 ```go
 func StoreMayFollowWithin(address ssa.Value, observation ssa.Instruction, store *ssa.Store, budget *proofs.SearchBudget) bool
@@ -1162,7 +1162,7 @@ a store absent. Re-entering a loop allocation still denotes a fresh cell.
 
 ## StoredPathProof
 
-[Source](../../../../internal/heapmodel/store_access_paths.go)
+[Source](../../../../internal/heapmodel/store_projection.go)
 
 ```go
 type StoredPathProof struct {
@@ -1222,7 +1222,7 @@ Version 2 distinguishes an address beneath a parameter from that slot's content.
 
 ## ValueAtPath
 
-[Source](../../../../internal/heapmodel/store_access_paths.go)
+[Source](../../../../internal/heapmodel/store_projection.go)
 
 ```go
 func ValueAtPath(root ssa.Value, path []string, observation ssa.Instruction) (ssa.Value, bool)
@@ -1237,7 +1237,7 @@ selected resolves to nothing.
 
 ## ValueDerivesFrom
 
-[Source](../../../../internal/heapmodel/store_derivation.go)
+[Source](../../../../internal/heapmodel/store_alias.go)
 
 ```go
 func ValueDerivesFrom(value, source ssa.Value) bool
@@ -1261,7 +1261,7 @@ analyzer must keep such a replaced resource reportable.
 
 ## ValueDerivesFromWithin
 
-[Source](../../../../internal/heapmodel/store_derivation.go)
+[Source](../../../../internal/heapmodel/store_alias.go)
 
 ```go
 func ValueDerivesFromWithin(value, source ssa.Value, budget *proofs.SearchBudget) bool
@@ -1273,7 +1273,7 @@ costs. Exhaustion is unavailable, never evidence that source is absent.
 
 ## WriteOnceFields
 
-[Source](../../../../internal/heapmodel/store_write_once.go)
+[Source](../../../../internal/heapmodel/store_cells.go)
 
 ```go
 type WriteOnceFields struct {
@@ -1285,7 +1285,7 @@ WriteOnceFields answers write-once queries for one package's fields.
 
 ## WriteOnceFields.Fixed
 
-[Source](../../../../internal/heapmodel/store_write_once.go)
+[Source](../../../../internal/heapmodel/store_cells.go)
 
 ```go
 func (fields *WriteOnceFields) Fixed(field *types.Var) bool
