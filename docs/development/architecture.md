@@ -23,6 +23,13 @@ queries live in `call_retention.go`. They share the same masks and proof helpers
 without combining acquisition evidence, view classification and call binding
 in one implementation file.
 
+Lifecycle fact declarations and claim accessors live in `fact.go`. Presentation
+for dumps and tracing lives in `fact_descriptions.go`, while `fact_lookup.go`
+owns imported lookup and package-marker validation. The prerequisite entry
+point in `analyzer.go` owns scheduling and publication; `summarize.go` composes
+the per-function guarantees. These boundaries preserve one fact schema and
+one inference path rather than adding adapters between parallel models.
+
 The CLI's delegated process boundary lives in `internal/cli/delegated_run.go`.
 `diagnostic_json.go` merges and normalizes go vet output; `diagnostic_render.go`
 formats the normalized diagnostics and source context. Process failure,

@@ -240,7 +240,7 @@ Claim returns the parameters this summary makes the claim about.
 
 ## Fact.DescribeFact
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+[Source](../../../../internal/passes/lifecyclefacts/fact_descriptions.go)
 
 ```go
 func (fact *Fact) DescribeFact(object types.Object) []string
@@ -252,7 +252,7 @@ follow SSA parameters, so a method's receiver is position zero.
 
 ## Fact.DescribeHeap
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+[Source](../../../../internal/passes/lifecyclefacts/fact_descriptions.go)
 
 ```go
 func (fact *Fact) DescribeHeap(types.Object) []string
@@ -387,7 +387,7 @@ parameter, safe to treat as an ownership transfer.
 
 ## Fact.String
 
-[Source](../../../../internal/passes/lifecyclefacts/fact.go)
+[Source](../../../../internal/passes/lifecyclefacts/fact_descriptions.go)
 
 ```go
 func (fact *Fact) String() string

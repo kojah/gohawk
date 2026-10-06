@@ -46,6 +46,18 @@ outside tests; architecture enum checks cover the broader authored-source
 scope. The architecture source inventory walks new files and excludes
 fixtures, generated source and external trees, with dedicated scope tests.
 
+The lifecycle fact file separates schema/accessors (230 lines), descriptions
+(259) and imported lookup (69). The prerequisite entry file separates
+scheduling/publication (202) from per-function inference (250). All 37 function
+signatures and bodies match their originals; fact types, method vocabularies,
+text labels, package-marker rules and cleanup-path rationale remain intact.
+These are semantic boundaries, not a new package per phase or type.
+All eight final canonical gates pass for this layout, and RAM coverage remains
+92.6%. AST and validation receipts are retained under
+`.build/fact-layout-audit-20261006/`; full profiles and original source snapshots
+stay in RAM. No new behavioral fixtures or cumulative precision replay are
+needed for unchanged bodies; existing lifecycle and analyzer suites pass.
+
 ## Validation receipts
 
 All eight final `make verify` gates pass. The corrected canonical coverage
@@ -58,7 +70,7 @@ validation.
 
 ## Remaining review
 
-Twelve production source files still exceed the 400-line review trigger. This
+Ten production source files still exceed the 400-line review trigger. This
 is not a finding that they should be split: each needs a cohesion judgment.
 
 - cancellationownership/proof.go
@@ -68,9 +80,7 @@ is not a finding that they should be split: each needs a cohesion judgment.
 - lifecyclefacts/evidence.go
 - goroutineownership/classify.go
 - goroutineownership/obligation.go
-- lifecyclefacts/fact.go
 - heapmodel/store_regions.go
-- lifecyclefacts/analyzer.go
 - trace/trace.go
 - heapmodel/store_regions_effects.go
 
