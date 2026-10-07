@@ -8,7 +8,6 @@ import (
 
 	proofs "github.com/kojah/gohawk/internal/engine/proof"
 	"github.com/kojah/gohawk/internal/engine/ssaflow"
-	. "github.com/kojah/gohawk/internal/engine/ssaflow"
 	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
@@ -519,8 +518,8 @@ func exactEverywhere(flag bool) { if flag { mark(); return }; mark() }
 `)
 	function := pkg.Func("exactEverywhere")
 	calls := func(instruction ssa.Instruction) bool {
-		common := InstructionCall(instruction)
-		return common != nil && CallName(common) == "mark"
+		common := ssaflow.InstructionCall(instruction)
+		return common != nil && ssaflow.CallName(common) == "mark"
 	}
 	if onEveryReturn(function, proofs.NewSearchBudget(0), calls) {
 		t.Fatal("an exhausted path search established a requirement")
