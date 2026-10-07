@@ -1944,7 +1944,7 @@ the census is unavailable. Shared unreadable callbacks preserve possible
 opaque consumption and stop immediately on a body cutoff. No new semantic
 guarantee, fact schema or reporting path is introduced.
 
-`instruction_census_test.go` verifies actual SSA order, zero and partial
+`source_functions_test.go` verifies actual SSA order, zero and partial
 allowances, exact complete spending, early stop and default typed collection.
 Existing caller/receiver/cancellation, retained-owner path-local flow,
 factory/selected-context, callback and receive-memo cutoff/fresh controls pass
@@ -2069,7 +2069,7 @@ is centralized instead of separately maintained by `SameAccessPath` and
 Caller-owned capture and retained-owner projection consumers use the bounded
 queries. Interrupted `ProveIdentityWithin` returns structured unknown with
 `EvidenceBudgetExhausted`, never different-path evidence or a credited owner.
-Actual SSA controls in `identity_budget_test.go` cover agreeing converted phi
+Actual SSA controls in `identity_test.go` cover agreeing converted phi
 alternatives, separate loads, static paths and differing/dynamic indexes,
 shared-pool cutoff and interruption during the last path-comparison step.
 Focused tests pass in `.build/goal-identity-focused.log`; final canonical
@@ -2160,7 +2160,7 @@ The shared obligation walk now charges its initial index lookup; cutoff is
 uncertain with no witness or classifier invocation, never honored or violated.
 Initial dominating-guard extraction remains independent review scope.
 
-Actual SSA controls in `flow_setup_budget_test.go` and
+Actual SSA controls in `flow_budget_test.go` and
 `store_flow_budget_test.go` cover block order, same/cross-block dominance,
 candidate-pool cutoff, incomplete setup, fresh honored/violated witnesses,
 sole initializer and address-use order cutoff. Existing storage snapshot,
@@ -2262,7 +2262,7 @@ instruction-visit charge while retaining nested storage work charges.
 One obligation walk owns the outcome and return witness. Exhaustion in a
 classifier, return, edge, successor or termination callback produces uncertain
 coverage with no witness before its answer can settle, violate or prune a path.
-Actual SSA controls in `flow_state_budget_test.go` cover loaded/stable guards,
+Actual SSA controls in `flow_budget_test.go` cover loaded/stable guards,
 store/key/edge cutoffs and callbacks; work-list controls cover revisits and
 interrupted key/step admission. The affected ssaflow/goroutineownership package
 suites pass in `.build/goal-flow-state-focused-final.log`; final early lint
@@ -2274,7 +2274,7 @@ proof availability. No production FP correction is credited.
 
 The first canonical gate passed ordinary tests and dogfood but found three
 facades used only by tests. `GuardCondition` and `GuardAddressIdentity` now live
-as test probes in `flow_guards_export_test.go`; the lifecycle mutation control
+as test probes in `export_test.go`; the lifecycle mutation control
 uses `PathGuards.After` and the unused production `Forget` facade is removed.
 Focused ssaflow/lifecycle controls and deadcode pass in
 `.build/goal-flow-state-cleanup-{tests,deadcode}.log`. Final canonical
@@ -2316,7 +2316,7 @@ is still insufficient; a terminating defer must dominate its execution point.
 The obligation driver supplies its existing allowance and becomes uncertain
 when termination work is unavailable before it can prune the path.
 
-Actual SSA controls in `flow_termination_budget_test.go` cover unconditional,
+Actual SSA controls in `flow_budget_test.go` cover unconditional,
 conditional and unrelated defers, every allowance shorter than a complete query,
 candidate-pool cutoff, call callback cutoff and fresh callback evidence.
 A nested-census flow control retains honored coverage for a fresh unconditional
@@ -2377,7 +2377,7 @@ Literal evidence is extracted into `flow_branch_literals.go` (190 lines),
 leaving `flow_paths.go` (389 lines) with CFG/order and assumed-path evidence.
 Existing pinned precision rationale comments move with their owning code.
 
-Actual SSA controls in `flow_literal_budget_test.go` cover predecessor selection,
+Actual SSA controls in `flow_budget_test.go` cover predecessor selection,
 agreeing/mixed helper returns, deferred mutation, result extraction, integer
 comparisons, interrupted visits and the exact helper-cap boundary. A flow
 control is honored with fresh literal evidence and uncertain when its helper
@@ -2432,7 +2432,7 @@ fields retain both edges. Type-check dispatch is charged, with type-system
 internals still separate costs. Assumption mechanics and their pinned rationale
 comments move to `flow_assumptions.go`, separate from CFG/order queries.
 
-Actual SSA controls in `flow_assumptions_budget_test.go` cover bound booleans,
+Actual SSA controls in `flow_budget_test.go` cover bound booleans,
 returned negation, nil comparisons/conversions, boxing, mixed phis, exact/foreign
 fields and compatible/incompatible assertions. Every incomplete visit allowance
 supplies no positive proof. Whole-flow controls retain fresh exact coverage
@@ -2500,7 +2500,7 @@ computed after exhaustion and cuts dependent cache entries. The existing domain
 publication loop exports only Available summaries; neither cache nor writer
 needs a second decision engine.
 
-Actual SSA controls in `flow_return_budget_test.go` cover normal returns, loops,
+Actual SSA controls in `flow_budget_test.go` cover normal returns, loops,
 direct/deferred exits, conditional registration, every incomplete allowance,
 pool and callback cutoffs, and missing entries. Result controls in
 `termination_budget_test.go` leave exactly enough allowance for lookup and the
@@ -4064,7 +4064,7 @@ the candidate's `signal-census` phase. There is no alternate tracing decision
 or ordinary-summary fallback that can revive a truncated answer.
 
 The
-[channel_aliases_budget_test.go](../../internal/engine/ssaflow/channel_aliases_budget_test.go)
+[channel_aliases_test.go](../../internal/engine/ssaflow/channel_aliases_test.go)
 controls record actual parent/closure SSA for ordinary capture, static
 send-only forwarding, escaping storage, older snapshots, late captures,
 conditional initialization, unsupported nested captures and cyclic pre-store

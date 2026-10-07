@@ -126,3 +126,56 @@ func TestSameAccessPathWithinKeepsPathOnlyPolicy(t *testing.T) {
 		t.Fatal("direct identity bypassed dynamic-index path policy")
 	}
 }
+
+func TestAccessPathReadKeepsSnapshotAndDiscardsCutMetadata(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "reads", `package reads
+ type box struct{child *box; value *int}
+ func saved(b,c box)*int{child:=b.child;b=c;return child.value}
+ `)
+	fn := pkg.Func("saved")
+	cells := InstructionsOf[*ssa.Alloc](fn)
+	loads := InstructionsOf[*ssa.UnOp](fn)
+	if len(cells) != 1 || len(loads) != 2 {
+		t.Fatal("expected one spill and two field reads")
+	}
+	value := InstructionsOf[*ssa.Return](fn)[0].Results[0]
+	sawCut := false
+	for limit := 1; limit <= proofs.QueryBudget; limit++ {
+		budget := proofs.NewSearchBudget(limit)
+		path, read, known := AccessPathReadWithin(value, cells[0], budget)
+		if budget.Exhausted() {
+			sawCut = true
+			if known || path != nil || read != nil {
+				t.Fatalf("cutoff %d published %v/%v/%v", limit, path, read, known)
+			}
+			continue
+		}
+		if !sawCut || !known || read != loads[0] || !slices.Equal(path, []string{"field:0", "field:1"}) {
+			t.Fatalf("fresh allowance %d path=%v read=%v known=%v", limit, path, read, known)
+		}
+		return
+	}
+	t.Fatal("path query did not recover")
+}
+
+func TestCapturedBindingValueBudget(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "captures", `package captures
+func subject() int { n:=1; n=2; f:=func() int { return n }; return f() }
+`)
+	closure := InstructionsOf[*ssa.MakeClosure](pkg.Func("subject"))[0]
+	binding := closure.Bindings[0]
+	budget := proofs.NewSearchBudget(0)
+	if got := CapturedBindingValueWithin(binding, budget); got != nil || !budget.Exhausted() {
+		t.Fatalf("cutoff returned %v, exhausted=%v", got, budget.Exhausted())
+	}
+	// This query retains the historical first-initializer candidate semantics;
+	// it must not pretend the returned value is the stable value at invocation.
+	got := CapturedBindingValueWithin(binding, proofs.NewSearchBudget(proofs.QueryBudget))
+	literal, ok := got.(*ssa.Const)
+	if !ok || literal.Int64() != 1 {
+		t.Fatalf("fresh candidate = %v, want initial 1", got)
+	}
+	if CapturedBindingValue(binding) != got {
+		t.Fatal("default facade must share possible-value selection")
+	}
+}

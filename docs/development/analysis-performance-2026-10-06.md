@@ -1154,9 +1154,9 @@ workspace's `guard-addresses/` and heavy jobs remain serialized.
 Graph tools are unavailable in this session, so this review uses exact source
 and call-site searches. `internal/engine/ssaflow/value_reaching.go` shares visits with
 leaf callbacks and clones them for `EveryOf`/`ResolveReachingValue` siblings.
-The sibling/revisit and shared-budget fixtures in `reaching_revisit_test.go`
-and `reaching_budget_test.go` confirm these distinctions. Replacing those
-copies with one shared mutable map would change results; rollback or persistent
+The sibling/revisit and shared-budget fixtures in `reaching_test.go` confirm
+these distinctions. Replacing those copies with one shared mutable map would
+change results; rollback or persistent
 storage would need a separate representation and API review. No clone-removal
 candidate is retained for that file.
 

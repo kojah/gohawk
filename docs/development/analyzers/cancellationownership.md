@@ -16,7 +16,7 @@ handling. An unrelated alternative cannot establish use of one formal.
 `local_uses_test.go` checks actual SSA for direct identity, conversions, loads,
 nested loads, converted loads, merged values and unrelated formals. The same
 controls pass against the original recursive walk and the shared fold. Shared
-`reaching_opaque_test.go` covers Any, Every and Resolve, wrapper handling,
+`reaching_test.go` covers Any, Every and Resolve, wrapper handling,
 sibling-policy propagation and exhausted allowances. Default reaching folds
 continue to inspect phi alternatives.
 

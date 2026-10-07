@@ -90,7 +90,7 @@ The shared `ssaflow.DerivesFromWithin` engine charges queued values, arbitrary
 operands, load/store referrers and aggregate-address use scans. Heap derivation
 adds an alias-dispatch charge without bounding graph construction or the alias
 query's internals. Default callers retain their existing unbounded traversal.
-`value_derivation_budget_test.go` checks calls, stores, nested whole-aggregate
+`value_derivation_test.go` checks calls, stores, nested whole-aggregate
 loads, replaced fields, cycles and callback cutoff. The remaining resource cost
 families are pre-acquisition evidence and returned-owner evidence; those still
 need separate review rather than a whole-query bound claim.

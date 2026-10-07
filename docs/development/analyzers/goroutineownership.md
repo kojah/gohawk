@@ -422,7 +422,7 @@ allowance. Leaf queries that exhaust it cannot return positive fold evidence;
 callers retain the existing authoritative unknown outcome at cutoff. Leaf-only
 charges are removed from these routes to avoid charging one visit twice.
 
-`internal/engine/ssaflow/reaching_budget_test.go` uses actual SSA wrappers and phis to
+`internal/engine/ssaflow/reaching_test.go` uses actual SSA wrappers and phis to
 check branch sharing, candidate-pool cutoffs, early possible witnesses,
 unchanged opaque forms and nested-leaf exhaustion. This bounds value visits;
 it does not bound visited-map cloning, all heap queries, metadata scans or
@@ -496,7 +496,7 @@ previously maintained by `SameAccessPath` and `ProveIdentity`.
 
 `ProveIdentityWithin` yields unknown with `EvidenceBudgetExhausted` when the
 query is interrupted; it cannot report different paths or credit an owner from
-partial evidence. Actual SSA controls in `identity_budget_test.go` cover
+partial evidence. Actual SSA controls in `identity_test.go` cover
 agreeing converted phi alternatives, distinct loads, static field/index paths,
 differing and dynamic indexes, candidate-pool cutoff and exhaustion at the last
 path-comparison step. Heap graph queries, storage's default structural calls,
@@ -509,7 +509,7 @@ The shared obligation walk charges its initial instruction lookup to the flow
 allowance. If that lookup is interrupted, it returns uncertain without a return
 witness or classifier invocation. This is a setup cutoff, not vacuous honored
 coverage. Caller cancellation's preceding-defer check also shares its allowance
-with exact dominance. `flow_setup_budget_test.go` pins actual block positions,
+with exact dominance. `flow_budget_test.go` pins actual block positions,
 same/cross-block dominance, shared-pool cutoff, initial uncertainty and fresh
 honored/violated outcomes. Initial guard extraction shares the allowance as described below; downstream
 feasibility internals remain open. Guard-state charging is described below.
@@ -549,7 +549,7 @@ again; its nested storage queries retain their own shared work charges.
 A classifier, return, edge, successor or termination callback that exhausts the
 shared allowance supplies no answer: the walk becomes uncertain and clears its
 return witness before accepting settlement, violation or path pruning.
-`flow_state_budget_test.go` pins queued/revisit and interrupted-key behavior,
+`flow_budget_test.go` pins queued/revisit and interrupted-key behavior,
 actual SSA stable/loaded guards, mutation/key/edge cutoffs and callback cutoffs.
 Existing default flow controls pin fresh honored and violated paths.
 
@@ -573,7 +573,7 @@ with nil allowance, retaining the documented library contracts.
 An interrupted census or dominance query provides no termination evidence;
 the obligation walk sees exhaustion and returns uncertain rather than pruning
 the path or reporting a return reached with incomplete evidence.
-`flow_termination_budget_test.go` builds actual SSA for unconditional,
+`flow_budget_test.go` builds actual SSA for unconditional,
 conditional and unrelated defers, checks all interrupted allowance sizes and a
 candidate-pool cutoff, and verifies fresh versus interrupted call callbacks.
 The flow control preserves honored coverage for a fresh unconditional deferred
@@ -603,7 +603,7 @@ and unreadable bodies remain opaque. Default feasibility/value facades use the
 same engines with nil allowance. The Boolean primitive is `BranchBoolWithin`;
 its old facade had only test callers and is removed.
 
-`flow_literal_budget_test.go` covers actual SSA incoming phi selection,
+`flow_budget_test.go` covers actual SSA incoming phi selection,
 agreeing/mixed helper returns, deferred mutation, result extraction, integer
 comparison, interrupted visits, the independent helper-cap boundary and fresh
 versus interrupted obligation coverage. Existing historical-phi and literal
@@ -635,7 +635,7 @@ mechanics and their pinned rationale comments now live in `flow_assumptions.go`,
 separate from CFG/order queries. Default facades use the same engines with nil
 allowance and preserve existing precision boundaries.
 
-`flow_assumptions_budget_test.go` constructs actual SSA for bound booleans,
+`flow_budget_test.go` constructs actual SSA for bound booleans,
 returned negation, nil comparisons, nil conversions, boxing, mixed phis,
 receiver fields and compatible/incompatible assertions. It checks interrupted
 visits, fresh filtering and both consumer cutoff paths. Whole-flow controls
