@@ -2110,7 +2110,7 @@ The final raw graph retry is retained because graph cache publication can
 change after registered summaries invalidate an entry; no fixed-generation
 assumption is introduced.
 
-Actual SSA controls in `store_identity_budget_test.go` cover distinct equivalent
+Actual SSA controls in `store_flow_budget_test.go` cover distinct equivalent
 field selections, zero-budget direct identity, writes-only and ordinary policy,
 observed cutoff, shared candidate-pool availability and contents with a warmed
 graph. Existing snapshot/aggregate/deferred controls pass in

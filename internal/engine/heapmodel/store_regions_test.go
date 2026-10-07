@@ -1,12 +1,17 @@
 package heapmodel
 
 import (
+	"fmt"
+	"go/types"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
-
-	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
+	"time"
 
 	proofs "github.com/kojah/gohawk/internal/engine/proof"
+	"github.com/kojah/gohawk/internal/engine/ssaflow"
+	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -207,4 +212,377 @@ func probe(a *int) *int { x := box{value: a}; return x.value }
 			t.Errorf("rendering lacks %q:\n%s", want, rendered)
 		}
 	}
+}
+
+// A result or lifecycle pass can finish a graph while another pass reads the
+// same cache entry. Both the lookup and the published pointer must use the
+// cache lock; returning a graph does not require holding the lock afterwards.
+func TestRegionGraphCacheConcurrentPublication(t *testing.T) {
+	function := &ssa.Function{Blocks: []*ssa.BasicBlock{{}}}
+	entry := &regionGraphEntry{function: function, graph: &regionGraph{available: true}}
+	regionGraphs.Lock()
+	regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
+	regionGraphs.Unlock()
+	t.Cleanup(func() {
+		regionGraphs.Lock()
+		evictLocked(entry)
+		regionGraphs.Unlock()
+	})
+
+	start := make(chan struct{})
+	var workers sync.WaitGroup
+	workers.Add(2)
+	go func() {
+		defer workers.Done()
+		<-start
+		for range 10000 {
+			if graph := regionsOfFunction(function); graph == nil || !graph.available {
+				t.Error("cache lookup returned no published graph")
+				return
+			}
+		}
+	}()
+	go func() {
+		defer workers.Done()
+		<-start
+		for range 10000 {
+			cacheRegionGraph(entry, &regionGraph{available: true})
+		}
+	}()
+	close(start)
+	workers.Wait()
+}
+
+// A lookup that finds another analyzer's build in progress waits for it and
+// returns the published graph, never an unavailable placeholder: answering
+// from the placeholder made results depend on scheduling.
+func TestRegionGraphLookupWaitsForBuild(t *testing.T) {
+	function := &ssa.Function{Blocks: []*ssa.BasicBlock{{}}}
+	entry := &regionGraphEntry{function: function, done: make(chan struct{})}
+	regionGraphs.Lock()
+	regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
+	regionGraphs.Unlock()
+	t.Cleanup(func() {
+		regionGraphs.Lock()
+		if element, ok := regionGraphs.entries[function]; ok {
+			delete(regionGraphs.entries, function)
+			regionGraphs.order.Remove(element)
+		}
+		regionGraphs.Unlock()
+	})
+	published := &regionGraph{available: true}
+	looked := make(chan *regionGraph, 1)
+	go func() { looked <- regionsOfFunction(function) }()
+	select {
+	case graph := <-looked:
+		t.Fatalf("lookup returned %+v before the build finished", graph)
+	case <-time.After(20 * time.Millisecond):
+	}
+	cacheRegionGraph(entry, published)
+	if graph := <-looked; graph != published {
+		t.Fatalf("lookup returned %+v, want the published graph", graph)
+	}
+}
+
+func TestRegionGraphStaleBuildKeepsReplacement(t *testing.T) {
+	function := &ssa.Function{Blocks: []*ssa.BasicBlock{{}}}
+	entry := &regionGraphEntry{function: function, done: make(chan struct{})}
+	regionGraphs.Lock()
+	regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
+	evictLocked(entry)
+	regionGraphs.Unlock()
+	select {
+	case <-entry.done:
+		t.Fatal("eviction finished a build that is still running")
+	default:
+	}
+	replacement := &regionGraphEntry{function: function, graph: &regionGraph{available: true}}
+	regionGraphs.Lock()
+	element := regionGraphs.order.PushFront(replacement)
+	regionGraphs.entries[function] = element
+	regionGraphs.Unlock()
+	t.Cleanup(func() {
+		regionGraphs.Lock()
+		evictLocked(replacement)
+		regionGraphs.Unlock()
+	})
+	cacheRegionGraph(entry, &regionGraph{available: true})
+	select {
+	case <-entry.done:
+	default:
+		t.Fatal("rejected publication did not finish its build")
+	}
+	regionGraphs.Lock()
+	kept := regionGraphs.entries[function] == element && element.Value == replacement && !replacement.stale
+	rejected := entry.stale && entry.graph == nil
+	regionGraphs.Unlock()
+	if !kept || !rejected {
+		t.Fatalf("stale publication changed replacement: kept=%v rejected=%v", kept, rejected)
+	}
+}
+
+func TestRegionGraphRejectsChangedSummary(t *testing.T) {
+	function, callee := &ssa.Function{}, &ssa.Function{}
+	entry := &regionGraphEntry{function: function, done: make(chan struct{})}
+	graph := &regionGraph{available: true, consulted: map[*ssa.Function]int{callee: heapSummaryGeneration(callee)}}
+	regionGraphs.Lock()
+	regionGraphs.entries[function] = regionGraphs.order.PushFront(entry)
+	regionGraphs.Unlock()
+	t.Cleanup(func() {
+		regionGraphs.Lock()
+		evictLocked(entry)
+		delete(regionGraphs.dependents, callee)
+		regionGraphs.Unlock()
+		heapSummaries.Lock()
+		delete(heapSummaries.entries, callee)
+		delete(heapSummaries.generations, callee)
+		heapSummaries.Unlock()
+	})
+	RegisterHeapSummary(callee, HeapSummary{})
+	cacheRegionGraph(entry, graph)
+	select {
+	case <-entry.done:
+	default:
+		t.Fatal("changed-summary rejection did not finish its build")
+	}
+	regionGraphs.Lock()
+	_, cached := regionGraphs.entries[function]
+	indexed := regionGraphs.dependents[callee][entry]
+	rejected := entry.stale && entry.graph == nil
+	regionGraphs.Unlock()
+	if cached || indexed || !rejected {
+		t.Fatalf("changed-summary build was published: cached=%v indexed=%v rejected=%v", cached, indexed, rejected)
+	}
+}
+
+func TestRegionHistoryWidensConservatively(t *testing.T) {
+	owner := &region{kind: regionSite}
+	unknown := &region{kind: regionUnknown}
+	held := slot{region: owner, path: "field:0"}
+	graph := &regionGraph{history: map[slot]pointees{}, unkR: unknown}
+	objects := make([]slot, pointeeLimit+1)
+	for index := range objects {
+		objects[index] = slot{region: &region{kind: regionSite, serial: index}}
+		graph.remember(held, pointees{objects[index]: false})
+		if index == pointeeLimit-1 && len(graph.history[held]) != pointeeLimit {
+			t.Fatalf("history below limit has %d objects, want %d", len(graph.history[held]), pointeeLimit)
+		}
+	}
+	if got := graph.history[held]; len(got) != 1 || !got.unknown() {
+		t.Fatalf("history above limit = %v, want unknown only", got)
+	}
+	graph.remember(held, pointees{objects[0]: false})
+	if got := graph.history[held]; len(got) != 1 || !got.unknown() {
+		t.Fatalf("widened history grew again: %v", got)
+	}
+	from, target := pointees{{region: owner}: false}, pointees{objects[0]: false}
+	if !containsThroughSlots(graph.history, from, target) {
+		t.Fatal("widened slot history must admit possible transitive containment")
+	}
+	if !graph.everContainedUnlocked(slot{region: owner}, pointees{objects[0]: false}, nil) {
+		t.Fatal("unknown history must admit possible containment")
+	}
+}
+
+func TestFreshLoopAllocationDoesNotKeepEarlierContents(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "regionreset", `package regionreset
+type box struct{value *int}
+func observe(a,b *int){}
+func probe(value *int, again bool){
+ for again {var local box; observe(local.value,value);local.value=value}
+}
+`)
+	function := pkg.Func("probe")
+	var dump strings.Builder
+	if _, err := function.WriteTo(&dump); err != nil {
+		t.Fatal(err)
+	}
+	t.Log(dump.String())
+	call := heapObservation(t, function)
+	graph := regionsOfFunction(function)
+	if !graph.available {
+		t.Fatalf("graph unavailable: %s", graph.buildReason)
+	}
+	arguments := call.Common().Args
+	if graph.aliasProof(arguments[0], arguments[1]).Aliases {
+		t.Fatal("zero field of a fresh loop allocation retained an earlier iteration's value")
+	}
+}
+
+func TestRegionContainmentObservation(t *testing.T) {
+	for _, test := range []struct {
+		name, body             string
+		history, before, after bool
+	}{
+		{"laterStore", `x := node{}; observe(&x,a); x.value=a; observe(&x,a)`, true, false, true},
+		{"replacedStore", `x := node{value:a}; observe(&x,a); x.value=b; observe(&x,a)`, true, true, false},
+		{"unrelated", `x := node{value:b}; observe(&x,a); x.value=b; observe(&x,a)`, false, false, false},
+		{"nested", `x,y := node{},node{}; x.next=&y; observe(&x,a); y.value=a; observe(&x,a)`, true, false, true},
+		{"cycleApart", `x := node{}; x.next=&x; observe(&x,a); observe(&x,a)`, false, false, false},
+		{"cycleContains", `x := node{value:a}; x.next=&x; observe(&x,a); observe(&x,a)`, true, true, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			checkRegionContainment(t, test.body, test.history, test.before, test.after)
+		})
+	}
+}
+
+func TestRegionContainmentDepth(t *testing.T) {
+	for _, links := range []int{aliasDepth - 1, aliasDepth} {
+		t.Run(fmt.Sprintf("links%d", links), func(t *testing.T) {
+			var body strings.Builder
+			for index := range links + 1 {
+				fmt.Fprintf(&body, "n%d := node{}; ", index)
+			}
+			for index := range links {
+				fmt.Fprintf(&body, "n%d.next=&n%d; ", index, index+1)
+			}
+			fmt.Fprintf(&body, "n%d.value=a; observe(&n0,a); observe(&n0,a)", links)
+			// Each node link consumes one level; reaching its value consumes another.
+			want := links < aliasDepth
+			checkRegionContainment(t, body.String(), want, want, want)
+		})
+	}
+}
+
+func checkRegionContainment(t *testing.T, body string, history, before, after bool) {
+	t.Helper()
+	pkg := ssaflowtest.BuildPackage(t, "containmentprobe", `package containmentprobe
+type node struct { next *node; value *int }
+func observe(a,b any) {}
+func probe(a,b *int) { `+body+` }
+`)
+	var observations []*ssa.Call
+	for _, call := range ssaflow.InstructionsOf[*ssa.Call](pkg.Func("probe")) {
+		if ssaflow.CallName(call.Common()) == "observe" {
+			observations = append(observations, call)
+		}
+	}
+	if len(observations) != 2 {
+		t.Fatalf("want two observations, got %d", len(observations))
+	}
+	for index, observation := range observations {
+		owner, target := unwrapInterface(observation.Common().Args[0]), unwrapInterface(observation.Common().Args[1])
+		if got := Contains(owner, target); got != history {
+			t.Errorf("observation %d: history = %t, want %t", index, got, history)
+		}
+		want := []bool{before, after}[index]
+		if got, known := ContainsAt(owner, target, observation); !known || got != want {
+			t.Errorf("observation %d: at = %t, known = %t, want %t", index, got, known, want)
+		}
+		if got, known := ContainsAt(owner, target, nil); known || got {
+			t.Errorf("missing observation must remain unknown, got %t, known = %t", got, known)
+		}
+	}
+}
+
+func TestContentIsNilAcrossPointerField(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "nilpathprobe", `package nilpathprobe
+type inner struct{ value *int }
+type outer struct{ next *inner }
+type inline struct{ next inner }
+func external() *inner
+func observe(any) {}
+func opaque() { o := &outer{next: external()}; observe(o) }
+func knownNil() { o := &outer{next: &inner{}}; observe(o) }
+func nilParent() { o := &outer{}; observe(o) }
+func inlineNil() { o := &inline{}; observe(o) }
+`)
+	for _, test := range []struct {
+		name string
+		path []string
+		want bool
+	}{
+		{"opaque", []string{"field:0", "field:0"}, false},
+		{"knownNil", []string{"field:0", "field:0"}, true},
+		{"nilParent", []string{"field:0"}, true},
+		{"nilParent", []string{"field:0", "field:0"}, false},
+		{"inlineNil", []string{"field:0", "field:0"}, true},
+	} {
+		t.Run(test.name+"/"+test.path[len(test.path)-1], func(t *testing.T) {
+			call := heapObservation(t, pkg.Func(test.name))
+			root := unwrapInterface(call.Common().Args[0])
+			got := regionsOfFunction(call.Parent()).contentIsNil(root, test.path, call)
+			if got != test.want {
+				t.Errorf("contentIsNil(%v) = %t, want %t\n%s", test.path, got, test.want, RenderRegions(call.Parent()))
+			}
+		})
+	}
+}
+
+// The nil query only supports these tests since its analyzer was removed.
+// contentIsNil reports whether the slot at path beneath the root's object
+// certainly holds nil when the instruction runs: one non-stale entry, and
+// it is nil. An empty path asks about the root itself. Intermediate pointer
+// fields must be followed to their pointee; a local outer object's zero
+// slots say nothing about the pointed-to object's fields.
+func (graph *regionGraph) contentIsNil(root ssa.Value, path []string, at ssa.Instruction) bool {
+	defer graph.lock()()
+	set, ok := graph.pointsToUnlocked(root)
+	if !ok {
+		return false
+	}
+	base, ok := singleSlot(set)
+	if !ok {
+		return false
+	}
+	if len(path) == 0 {
+		return base.region.kind == regionNil
+	}
+	state := graph.stateAt(at)
+	if state == nil {
+		return false
+	}
+	target := base
+	if len(path) > 1 {
+		// A flattened path through a pointer field would inspect the local
+		// outer object's unwritten slot, not the pointee's field. Follow only
+		// exact pointer contents; an opaque pointee leaves the answer unknown.
+		// https://github.com/timescale/timescaledb-tune/blob/c7a642bd4e16d48a51c060a43dc6dff864cb42d7/pkg/tstune/config_file_test.go#L25-L26
+		currentType := root.Type()
+		if pointer, ok := currentType.Underlying().(*types.Pointer); ok {
+			currentType = pointer.Elem()
+		}
+		for _, step := range path[:len(path)-1] {
+			target.path = joinSlotPath(target.path, step)
+			fieldType, ok := selectedFieldType(currentType, step)
+			if !ok {
+				return false
+			}
+			switch typed := fieldType.Underlying().(type) {
+			case *types.Pointer:
+				held, exact := singleSlot(graph.content(state, target))
+				if !exact || held.region.kind == regionNil {
+					return false
+				}
+				target = held
+				currentType = typed.Elem()
+			case *types.Struct:
+				currentType = fieldType
+			default:
+				return false
+			}
+		}
+		target.path = joinSlotPath(target.path, path[len(path)-1])
+	} else {
+		target.path = joinSlotPath(target.path, ssaflow.JoinAccessPath(path))
+	}
+	held, ok := singleSlot(graph.content(state, target))
+	return ok && held.region.kind == regionNil
+}
+
+func selectedFieldType(parent types.Type, step string) (types.Type, bool) {
+	indexText, hasField := strings.CutPrefix(step, "field:")
+	if !hasField {
+		return nil, false
+	}
+	structure, ok := parent.Underlying().(*types.Struct)
+	if !ok {
+		return nil, false
+	}
+	index, err := strconv.Atoi(indexText)
+	if err != nil || index < 0 || index >= structure.NumFields() {
+		return nil, false
+	}
+	return structure.Field(index).Type(), true
 }

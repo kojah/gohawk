@@ -27,7 +27,7 @@ implementation and the consolidated implementation.
 
 Existing [storage snapshot tests](../../internal/engine/heapmodel/store_model_test.go),
 [field stability tests](../../internal/engine/heapmodel/store_field_stability_test.go)
-and [give-up observer tests](../../internal/engine/heapmodel/store_observer_test.go)
+and [give-up observer tests](../../internal/engine/heapmodel/store_model_test.go)
 retain aggregate-copy, ancestor/sibling-write, observation and budget checks.
 No fact schema or audited production FP count changes in this consolidation.
 

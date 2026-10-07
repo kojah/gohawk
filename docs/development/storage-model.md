@@ -43,7 +43,7 @@ keeps its independent child cap, and its budget reason survives even if the
 storage request still has allowance. Embedded-field discovery for
 `StableFieldContent` uses that same request budget. The root/source-instruction,
 wrapper, mutation and exposure policies are unchanged.
-`storage_projection_budget_test.go` covers cold cutoffs, read-only and mutating
+`store_projection_test.go` covers cold cutoffs, read-only and mutating
 uses, uses after observation, nested field setup and independent child recovery.
 
 `StoreMayFollowWithin` shares dispatch, instruction-index scans and queued CFG
@@ -60,7 +60,7 @@ intervening-write proof; no prefix or shortened negative ordering can establish
 target-relative cleanup. Stable binding lookup retains its `QueryBudget` child
 cap and explicitly invalidates the enclosing memo if that child stops while
 the request remains available. Default queries retain their prior alias and
-stable-content policy. `storage_order_budget_test.go` and
+stable-content policy. `store_flow_budget_test.go` and
 `store_values_test.go` cover later/intervening writes, fresh/reused
 loop cells, conditional acquisition, padded censuses, cutoff and recovery.
 
@@ -73,7 +73,7 @@ cleanup can settle a contained field target only when its published path
 matches that field. Other roots retain the existing storage-derived rule;
 their positive projection proof may carry no exact static path. Cutoff is
 unknown and carries no path, even while the parent remains available.
-`strict_parameter_projection_test.go` and `completion_bindings_test.go`
+`parameter_paths_test.go` and `completion_bindings_test.go`
 pin saved/wrapped reads, agreeing and conflicting writes, replacement, sibling
 cleanup, exact path publication and cold cutoff recovery.
 
@@ -88,7 +88,7 @@ separate costs. A nil budget retains the existing default storage allowance.
 `resourcemodel.ProveRelation` first asks exact identity, then requests this
 stored-path proof. Interrupted identity cannot fall through to path evidence.
 An unavailable completed relation may still leave the position unknown; it
-never proves a path absent. `stored_path_budget_test.go` and
+never proves a path absent. `store_projection_test.go` and
 `relations_budget_test.go` cover exact/replaced paths, the depth boundary,
 structural child cutoff, fresh recovery and identity-to-path cutoff.
 
@@ -104,7 +104,7 @@ must agree. Path discovery uses writes-only storage identity and never requests
 a points-to graph. Supplied budgets cover path visits, contents and identity;
 cutoff publishes neither a path nor read metadata.
 
-`parameter_spill_replacement_test.go`, `spill_replacement_test.go` in
+`parameter_paths_test.go`, `spill_replacement_test.go` in
 `lifecyclefacts`, and `completion_mapping_test.go` pin the storage,
 exported-contract and caller-target boundaries. Completion may not fall back to
 possible derivation when an aggregate field target's exact path is unavailable.
@@ -198,7 +198,7 @@ Fresh available queries keep the existing exact graph supplementation. The
 last raw-value graph retry in `Same` is retained: the graph cache can be
 invalidated by changing registered summaries, so this review does not assume
 all repeated graph lookups necessarily see the same published generation.
-`store_identity_budget_test.go` pins actual field selections, direct equality,
+`store_flow_budget_test.go` pins actual field selections, direct equality,
 shared-pool cutoff, observed unknown, and content cutoff with a warmed graph.
 Existing storage snapshot fixtures cover fresh load and aggregate resolution.
 Graph construction, waiting and internal traversal remain independent costs;

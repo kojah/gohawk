@@ -1117,9 +1117,8 @@ and the possible replacement, using the existing weak-store mechanics. Its heap
 publication cannot claim that the replacement is the only value at exit. The
 contract establishes neither CAS success nor the value returned by `Swap`.
 Asynchronous atomic calls and project-defined lookalikes remain opaque.
-Compiled SSA controls in `store_atomic_calls_test.go`,
-`store_atomic_boundaries_test.go`, and `store_deferred_contracts_test.go` cover
-direct/deferred updates, publication, captured values and uncertain execution.
+Compiled SSA controls in `store_calls_test.go` cover direct/deferred updates,
+publication, captured values and uncertain execution.
 
 Synchronous `clear` forgets the selected collection storage through the existing
 summary invalidation path. It neither exposes the collection nor recursively
@@ -1132,7 +1131,7 @@ Invalidating a sub-slot also drops whole-aggregate content above it. A later
 aggregate load cannot reuse the pre-write value. Subtree copies carry unknown
 write stamps as well as content and backing copies, so later snapshots preserve
 unknown fields while earlier snapshots and untouched siblings remain intact.
-`store_builtin_calls_test.go` covers these boundaries and asynchronous,
+`store_calls_test.go` covers these boundaries and asynchronous,
 conditional and repeated builtin execution.
 
 SSA scalar stores and imported heap edges share one selected-slot update in
@@ -1143,12 +1142,12 @@ when an edge says Must: an uncertain selection cannot establish one exact slot.
 A first wildcard update retains existing elements and the unwritten nil or
 foreign possibilities before unioning the replacement. An unknown index cannot
 establish the contents of a particular untouched element; known-index strong
-writes keep their exact replacement guarantee. `store_wildcard_writes_test.go`
+writes keep their exact replacement guarantee. `store_writes_test.go`
 covers fresh and caller-supplied arrays. Earlier snapshots and untouched siblings
 stay intact. SSA destination exposure
 and foreign-write invalidation remain outside this update, as do imported
 escape metadata, result binding and aggregate-value writes. The compiled
-summary controls are in `store_summary_writes_test.go`.
+summary controls are in `store_writes_test.go`.
 
 A possible or undescribed aggregate replacement invalidates both the selected
 concrete contents and cached aggregates above it. An unknown write stamp alone
@@ -1157,7 +1156,7 @@ invalidation also serves summary forgetting of local storage; foreign epoch and
 closure invalidation retain their separate policies. Definite aggregate copies
 remain exact, and a definite zero clears selected fields. Prior snapshots,
 untouched siblings and former pointee storage remain intact.
-`store_aggregate_writes_test.go` covers mixed destinations, mixed source values,
+`store_writes_test.go` covers mixed destinations, mixed source values,
 exact replacements, zero values and preservation controls.
 
 

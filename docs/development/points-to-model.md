@@ -74,7 +74,7 @@ alternative belongs to the same unescaped object. Exact identity queries still
 require one exact slot. This distinguishes caller-owned and local destination
 tables without conflating their local holders with the destination. Mixed
 objects, nil, opaque pointers, unknown or oversized windows, and dynamic
-replacement stay unknown. `store_destination_exclusivity_test.go` covers these
+replacement stay unknown. `store_exclusivity_test.go` covers these
 boundaries, including slice offsets and nested fields.
 
 The motivating [ferro statement storage](https://github.com/ferro-labs/ai-gateway/blob/d025ca1a3c6e0c6a83ed7c93147e36f39a1e6cb4/internal/admin/repository/sql_store.go#L73-L99)
@@ -111,7 +111,7 @@ the graph lock and follow the same depth-limited search, including cycles,
 stale may-pointees and unknown contents. Later or replaced storage remains in
 history but cannot become current containment. A missing observation is
 unavailable rather than a known negative. No search result establishes cleanup
-or exact identity. Real SSA controls in `store_regions_containment_test.go`
+or exact identity. Real SSA controls in `store_regions_test.go`
 pin later/replaced stores, unrelated objects, nested and cyclic containment,
 and both sides of the existing depth limit; the history widening test retains
 possible containment after an overfull slot becomes unknown.
@@ -181,7 +181,7 @@ with eviction; completion notification stays with publication under the cache
 lock. Removing a running build does not wake its waiters before the build
 finishes. A consulted summary generation that changed during construction
 rejects publication before the graph enters the dependency index.
-`store_regions_cache_test.go` covers replacement preservation, stale completion
+`store_regions_test.go` covers replacement preservation, stale completion
 notification, changed-summary rejection and concurrent publication/lookup.
 
 Allocation reset and full overwrites share `clearSubtree`; that operation clears
@@ -198,7 +198,7 @@ reading an unchanged copied field names the same source slot as a direct read.
 Root lookup uses the same traversal; copy propagation consumes that normalized
 path without repairing it again. Source stamps still distinguish later writes,
 opaque clobbers and sibling fields; cycle and depth cutoffs remain unknown.
-`store_backing_paths_test.go` pins nested/deeper/repeated copies and snapshots
+`store_writes_test.go` pins nested/deeper/repeated copies and snapshots
 taken before a source change beside mutation and opaque-call controls.
 
 ## By-value type queries
@@ -209,7 +209,7 @@ predicates remain separate. Reference capability accepts pointer, interface,
 slice and function leaves; overwrite capability matches the owner's underlying
 struct identity. Distinct named declarations with identical underlying structs
 retain the existing conservative overwrite answer. Zero-length arrays retain
-element traversal. Compiled-type controls in `byvalue_types_test.go` cover these
+element traversal. Compiled-type controls in `query_reference_test.go` cover these
 boundaries, aliases and recursive types whose recursion crosses a pointer.
 
 `containsPrimitive` retains its field-based synchronization predicate rather
@@ -256,7 +256,7 @@ This projection follows by-value struct fields within `SummaryPaths` and
 cut. A lazy placeholder stamped by an opaque write becomes unknown because
 the summary cannot name that later version of the caller's slot. The existing
 graph can also lose an earlier copy across an opaque call; projection keeps
-that uncertainty. `store_heap_copy_test.go` pins preserved and replaced fields,
+that uncertainty. `store_heap_summary_test.go` pins preserved and replaced fields,
 nested extraction, snapshots, opaque writes, and both bounds.
 
 Applying a summary at a call site is substitution. The callee's parameter
