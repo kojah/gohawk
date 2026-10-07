@@ -281,6 +281,8 @@ the code cannot drift apart silently.
 | `TestProductionFileLimit` | every directory has at most twenty direct production Go files, including generated source and inactive build variants, without a baseline exemption |
 | `TestProductionFileLimitBoundaryAndNesting` | twenty files pass and twenty-one fail; nested directories receive independent allowances |
 | `TestProductionFileLimitCountingScope` | generated production files count; tests, fixtures, hidden/underscore trees and external dependency trees do not |
+| `TestTestFileLimit` | every directory has at most twenty direct `_test.go` files, counted separately from production files; tests are grouped by behavior rather than moved, because white-box tests must stay beside their package |
+| `TestTestFileLimitCountingScope` | twenty tests and twenty production files may share a directory; generated tests count, fixture and hidden trees do not, and a twenty-first test fails |
 | `TestInternalPackagesRespectDependencyDirection` | analyzers may use shared tools; shared tools never depend on analyzers or the catalog |
 | `TestSSADependencyBoundaries` | CFG and value mechanics sit below calls, and calls below path proofs; reverse dependencies are forbidden |
 | `TestAnalyzerPackageLayout` | one package per analyzer under `internal/analysis/analyzers/<group>/<name>` |
