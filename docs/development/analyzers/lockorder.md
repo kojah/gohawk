@@ -153,7 +153,7 @@ that return, preserving held-for-caller contracts without guessing from names.
 
 The Boolean type check and identity construction use one branch for parameters
 and computed SSA values outside cycles; comparisons retain their own operand
-identity. `condition_identity_test.go` keeps named Boolean parameters,
+identity. `identity_test.go` keeps named Boolean parameters,
 loads/calls/phis, cyclic computations and comparison boundaries separate.
 This consolidation changes no branch policy.
 
@@ -177,10 +177,9 @@ diagnostics and order edges are discarded, rather than treating a partial walk
 as a complete release contract. Complex lock protocols can therefore be missed.
 
 `flow_walk.go` owns expansion and the publication barrier; `state_copy.go`
-detaches mutable predecessor collections before transfer. `flow_budget_test.go`,
-`state_budget_test.go` and `branch_budget_test.go` cover late cutoff after buffered
-findings/order edges, child versus parent exhaustion, fresh retries, phi/cycle
-availability and nested result inference. `setup.go` builds one bounded
+detaches mutable predecessor collections before transfer. `flow_test.go`
+covers late cutoff after buffered findings/order edges, child versus parent
+exhaustion, fresh retries, phi/cycle availability and nested result inference. `setup.go` builds one bounded
 instruction/call/defer inventory, memoizes direct effects for state transfer,
 and derives acquisition eligibility, caller-owned first actions and possible
 deferred writer witnesses from it. Helper summaries retain a shared 2,000-step
@@ -195,7 +194,7 @@ held-on-success and conditional caller-release contracts. Return masks,
 acquisition dominance, Boolean polarity, caller cycle/coverage and private-lock
 use censuses share the function allowance. Final report metadata reuses cached
 direct effects; interrupted final queries discard earlier buffered findings
-and order edges. `return_contracts_test.go` covers both Boolean polarities,
+and order edges. `returns_test.go` covers both Boolean polarities,
 held-success, exact guarded errors, cold/fresh queries, padded caller coverage
 and final-stage publication cutoffs.
 
@@ -205,7 +204,7 @@ containing-owner access paths and opaque callback handoffs use the bounded
 lifecycle callback-capability proof. Its shared reaching fold keeps the existing
 any-origin policy and one origin history per completion request; revisits
 invalidate shortened memo answers. A capability establishes ownership uncertainty,
-never invocation. `return_retention_test.go` covers owner/callback returns,
+never invocation. `returns_test.go` covers owner/callback returns,
 path merges, late cutoff and fresh recovery. The three flow cutoff families
 share one assertion helper.
 
@@ -217,7 +216,7 @@ completion request owner. Each question retains its 250,000-step cap. A cutoff
 at either level makes the function unavailable before publication; it never
 stands in for an unlock. Only synchronous call instructions enter the
 synchronous release path. Candidate/identity/defer censuses and pre-acquisition
-dominance also charge the pool. `release_queries_test.go` covers launch/coverage
+dominance also charge the pool. `release_test.go` covers launch/coverage
 semantics, opaque callbacks, cold and fresh evidence, independent question
 cutoff and late cutoff after buffered findings/order edges.
 
@@ -282,7 +281,7 @@ argument, so a fresh direct caller cannot excuse a callback, Go/Defer use or
 shared initialization caller. Methods remain unknown because this operand census
 does not establish their complete interface/method-value callers. The consumers
 retain separate cleanup and ownership policies; neither infers a field's guard
-or participant confinement. `callers_test.go` and `exclusive_callers_test.go`
+or participant confinement. `callees_test.go` and `exclusive_test.go`
 pin scope, escape, call-count, fresh caller and cutoff boundaries with compiled
 SSA. `exclusive_callbacks.go` keeps the callback cycle diagnostic alongside the
 accepted direct-only initialization pattern in `exclusive_owners.go`.
@@ -390,7 +389,7 @@ reported, so it cannot drift from the diagnostics.
 `GraphEdge` retains numeric `LockMode` values through the CLI renderer. Read
 edges are compared with `ModeRead`, never with a formatted method name. Trace
 details and serialized graph edges retain `Lock`/`RLock` labels at their output
-boundaries. `graph_modes_test.go` covers label round trips and rejects an
+boundaries. `analyzer_test.go` covers label round trips and rejects an
 invalid acquisition label without replacing the mode; the CLI's
 `dump_lock_modes_test.go` covers both read-edge directions and an exclusive
 control in text and DOT views. This changes representation only, not lock
@@ -434,7 +433,7 @@ impossible arm. Complete empty binding censuses and non-budget depth limits
 retain the existing ordinary declaration-summary fallback.
 No partial binding map can select a callee arm or enter its context search.
 
-`callee_constants_budget_test.go` covers both constant arms, forwarded flags,
+`callees_test.go` covers both constant arms, forwarded flags,
 child cutoff/fresh queries and a large nested binding census whose body would
 otherwise be pruned. Existing constant-argument and helper-field fixtures keep
 their policies. `callee_lock_bindings.go` now owns the distinct caller snapshot,
@@ -540,7 +539,7 @@ interrupted result read cannot become a successful Boolean return, caller
 release contract or fresh constructor; the enclosing walk retains its cutoff
 and discards staged reports and order edges.
 
-`return_storage_test.go` checks deferred true/false and direct true returns at
+`returns_test.go` checks deferred true/false and direct true returns at
 zero, tiny and complete allowances using actual SSA. The shared lifecycle
 controls sweep through first completion for deferred, direct and opaque loaded
 results, and verify recovery with a fresh child after a local cutoff. Unavailable
@@ -563,7 +562,7 @@ function walk allowance. A cutoff leaves the final mutation proof unknown with
 A deferred writer after the write remains absent, as does a matching release
 between registration and mutation. A dominating writer defer without an
 intervening release remains possible and suppresses the read-lock diagnostic.
-`writer_budget_test.go` checks the actual SSA consumer's zero allowance,
+`readlock_test.go` checks the actual SSA consumer's zero allowance,
 sweeps all allowances through first completion for same-block, intervening
 release, later defer and branched write shapes, and checks fresh-child recovery.
 Existing `opaque_writer.go` accepted and diagnostic forms pin the complete
@@ -588,7 +587,7 @@ phi agreement and storage observation time are preserved. Acquisition metadata
 still names the original receiver expression rather than substituting the
 selected concrete receiver; this preserves its separate attribution contract.
 
-`identity_budget_test.go` reproduces a parent bound-operation allowance bypass
+`identity_test.go` reproduces a parent bound-operation allowance bypass
 and checks real SSA for direct/field/copy/snapshot/getter/index identities,
 agreed interface choices and mixed choices. It sweeps local cutoffs through
 first completion, preserves complete default actions and exact receivers, and
@@ -615,7 +614,7 @@ methods and incomplete or empty inventories cannot establish exclusivity.
 Local acquisitions before later publication retain their existing acceptance;
 never-published local acquisitions retain the existing order policy. Positive
 trace reasons and details are unchanged; tracing consumes the returned proof
-and builds parameter details only when enabled. `exclusive_budget_test.go` logs real
+and builds parameter details only when enabled. `exclusive_test.go` logs real
 SSA for fresh, shared and callback cases, sweeps caller and acquisition cutoffs,
 checks cache admission and fresh-child recovery. Existing census fixtures pin
 initialization, method, asynchronous and caller-count boundaries.
@@ -632,7 +631,7 @@ bound root is an exact local allocation, that same identity supplies its local
 comparison class; instance resolution already declines allocations inside a
 loop. This does not infer private ownership or safe publication. The separate
 class-only query still uses `localMutexPathIdentity` when no prior instance
-proof exists. `binding_identity_test.go` checks actual SSA for an ordinary fresh
+proof exists. `identity_test.go` checks actual SSA for an ordinary fresh
 helper argument and an allocation repeated inside a loop; existing constructor,
 publication and pointer-field fixtures preserve their policy boundaries.
 
@@ -645,7 +644,7 @@ charges derivation and nil folds as well as branch selection. A cutoff supplies
 no nil guard; the enclosing contract and function publication barriers retain
 its unavailable evidence. Exact checked-result matching, single-predecessor
 success coverage and caller-owned lock policy remain unchanged.
-`return_guard_budget_test.go` covers actual checked/unrelated SSA returns,
+`returns_test.go` covers actual checked/unrelated SSA returns,
 a selection-only child cutoff with a live parent, intermediate cutoffs and
 fresh completed evidence. Existing return-contract fixtures still pin reports.
 
@@ -667,7 +666,7 @@ The one completion query owner retains function-wide cutoff invalidation.
 Complete summarized release/reacquire sequences still take precedence over
 fallback completion and leave the lock held when reacquired.
 
-`release_transition_test.go` compiles actual SSA for exact and conditional calls
+`release_test.go` compiles actual SSA for exact and conditional calls
 and workers, opaque callbacks and deferred calls. It checks held/released/guard
 state and the call-only uncertainty boundary against both parent and consolidated
 implementations. Existing query cutoff and late-cut publication tests retain
@@ -691,7 +690,7 @@ safety or an exact release. `bindLockAcquisition` separately composes caller
 paths without a live request budget; it retains its existing default binding
 policy and independently owned identity/class queries.
 
-`slot_binding_budget_test.go` uses compiled SSA for an observer and a helper
+`identity_test.go` uses compiled SSA for an observer and a helper
 that replaces the slot with a shared mutex, checking cutoff veto and fresh-query
 recovery. Constructor controls distinguish fresh, borrowed and mixed returns.
 Existing `constructor_slot_bindings.go` and `escaped_fresh_field.go` fixtures

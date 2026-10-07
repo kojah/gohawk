@@ -16,6 +16,87 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+func TestHelperSummaryKeepsTargetAndKind(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "helpers", `package helpers
+func receive(first, second chan struct{}) { <-first }
+func forward(first, second chan struct{}) { receive(first, second) }
+`)
+	search := newHelperSearch()
+	for _, name := range []string{"forward", "receive"} {
+		function := pkg.Func(name)
+		for _, test := range []struct {
+			parameter int
+			kind      trackedKind
+			want      ownershipAction
+		}{
+			{0, trackedSignal, actionJoin},
+			{1, trackedSignal, actionNone},
+			{0, trackedOwner, actionNone},
+			{0, trackedSignal, actionJoin},
+		} {
+			if got := search.use(function, function.Params[test.parameter], test.kind); got != test.want {
+				t.Errorf("%s parameter %d kind %d: got %v, want %v", name, test.parameter, test.kind, got, test.want)
+			}
+		}
+	}
+}
+
+func TestHelperRecursiveCutDoesNotPoisonRetry(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "helpers", `package helpers
+func receive(ch chan struct{}) { <-ch }
+`)
+	function := pkg.Func("receive")
+	search := newHelperSearch()
+	var shortened ownershipAction
+	if !search.memo.WithFunction(function, func() {
+		shortened = search.use(function, function.Params[0], trackedSignal)
+	}) {
+		t.Fatal("could not enter helper")
+	}
+	if shortened != actionUnknown {
+		t.Errorf("recursive cut = %v, want unknown", shortened)
+	}
+	if got := search.use(function, function.Params[0], trackedSignal); got != actionJoin {
+		t.Errorf("fresh call path = %v, want join; recursive answer must not be cached", got)
+	}
+}
+
+func TestHelperSummaryBudget(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "helpers", `package helpers
+func receive(ch chan struct{}) { <-ch }
+func forward(ch chan struct{}) { receive(ch) }
+func ignore(ch chan struct{}) {}
+func recursive(ch chan struct{}) { recursive(ch); receive(ch) }
+`)
+	for _, test := range []struct {
+		name  string
+		limit int
+		want  ownershipAction
+	}{
+		{"forward", 5, actionJoin}, // Enters receive, then runs out before its return.
+		{"ignore", 1, actionNone},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			function := pkg.Func(test.name)
+			search := newHelperSearch()
+			search.budget = proofs.NewSearchBudget(test.limit)
+			if got := search.use(function, function.Params[0], trackedSignal); got != actionUnknown {
+				t.Fatalf("shortened answer = %v, want unknown (neither join nor absence)", got)
+			}
+			search.budget = proofs.NewSearchBudget(helperUseBudget)
+			if got := search.use(function, function.Params[0], trackedSignal); got != test.want {
+				t.Errorf("fresh budget = %v, want %v; incomplete answer must not be cached", got, test.want)
+			}
+		})
+	}
+	function := pkg.Func("recursive")
+	search := newHelperSearch()
+	search.budget = proofs.NewSearchBudget(1)
+	if got := search.use(function, function.Params[0], trackedSignal); got != actionUnknown || !search.budget.Exhausted() {
+		t.Errorf("recursive query = %v, exhausted=%v", got, search.budget.Exhausted())
+	}
+}
+
 func TestHelperCallSharesCandidateAllowance(t *testing.T) {
 	tracePath := enableSummaryJoinTrace(t)
 	pkg := ssaflowtest.BuildPackage(t, "helpercall", "package helpercall; func tick()int{return 1}; func slow(ch chan int)int{n:=0;"+

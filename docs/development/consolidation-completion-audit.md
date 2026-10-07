@@ -1872,7 +1872,7 @@ that later participants now qualify. The direct caller receive census retains
 its existing policy; helper chains continue through the shared value-specific
 worker receive engine, whose select-state enumeration now spends the allowance.
 
-Actual SSA tests in `caller_budget_test.go` exercise fresh/cutoff channel,
+Actual SSA tests in `owners_test.go` exercise fresh/cutoff channel,
 receiver, cancellation and relay decisions with attributed trace phases.
 Cancellation tests pair exact and preceding-defer coverage with conditional
 and asynchronous negatives. Shared `call_binding_budget_test.go` checks
@@ -3942,7 +3942,7 @@ goal remain active.
 
 The final root cutoff rule drops witnesses rather than falling back to an
 unconstrained acquisition set. Complete empty binding censuses and non-budget
-depth failures preserve the existing fallback. `callee_constants_budget_test.go`
+depth failures preserve the existing fallback. `callees_test.go`
 includes an ordinary-summary control that does acquire, a cutoff that must not
 revive it, and a fresh completed query proving the arm is pruned. Focused lock
 and full architecture suites pass in `.build/goal-fixed-binding-root-reviewed.log`.
@@ -4073,7 +4073,7 @@ retains unavailable evidence afterward. Every allowance
 boundary agrees with the completed default census or discards both outputs.
 A larger census discards an already collected close use on child cutoff while
 leaving its parent available; a fresh request completes. Consumer controls in
-[signal_census_test.go](../../internal/analysis/analyzers/concurrency/goroutineownership/signal_census_test.go)
+[receive_test.go](../../internal/analysis/analyzers/concurrency/goroutineownership/receive_test.go)
 prove that the old nil snapshot creates no observation protocol, check
 child/fresh behavior, and keep cutoff from reporting an unowned return. The
 cutoff test also checks its attributed structured evidence event. Accepted
@@ -5593,9 +5593,9 @@ explicit owners and completed bounded reviews:
 
 | Requirement | Authoritative implementation and evidence |
 | --- | --- |
-| Observe before constructor queries | `newSpawnAnalysis` initializes check, tracing and probe before `discoverCompletion`; `queryBudget` attaches the observer when creating the candidate pool. `discovery_budget_test.go` verifies candidate attribution. |
+| Observe before constructor queries | `newSpawnAnalysis` initializes check, tracing and probe before `discoverCompletion`; `queryBudget` attaches the observer when creating the candidate pool. `discovery_test.go` verifies candidate attribution. |
 | Share constructor discovery allowance | `discoverCompletion` draws one child; `discoverAdapters` passes it through relay, owner and pipe queries. Binding and nil queries receive the same allowance. Stages .1, .2, .7 and .9 cover these routes. |
-| Preserve incomplete discovery as unknown | `discoveryUnavailable` stops each constructor stage; `prove` checks child exhaustion before obligations or any later proof. Partial-discovery and adapter cutoff tests in `discovery_budget_test.go`, plus nil-fold controls verify this boundary and fresh recovery. |
+| Preserve incomplete discovery as unknown | `discoveryUnavailable` stops each constructor stage; `prove` checks child exhaustion before obligations or any later proof. Partial-discovery and adapter cutoff tests in `discovery_test.go`, plus nil-fold controls verify this boundary and fresh recovery. |
 | Preserve exact obligations and possible ownership polarity | `completion_bindings.go` uses lazy capture-first bindings and stable cells for exact values; aggregate ownership remains possible evidence. Notification and group coverage retain every-normal-return semantics. The exact binding and notification stages preceded this budget review. |
 | Charge selected suppression queries and attribute cutoffs | Retained-owner, caller-bound and relay-dependency stages .3-.4 retain request-local availability and observed candidate costs. Factory-origin .8 uses the same fold allowance; typed census .6 shares the instruction engine. |
 | Review transitive ownership without claiming universal time bounds | Stage .5's 31 completed subreviews distinguish shared reaching, storage, identity, result and flow costs from graph build/cache/wait, type internals, callbacks, allocation, codec and rendering owners. Its source-backed reconciliation is recorded above. |

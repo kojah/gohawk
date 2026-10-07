@@ -22,7 +22,7 @@ not a proof that an unbuffered join obligation exists.
 Callback-target resolution uses `ResolveReachingValue` with opaque phis and
 explicit wrapper forms. Static functions and exact closure bindings remain
 visible; loads, assertions, parameters and merged choices remain opaque.
-`callback_target_test.go` checks actual SSA before and after the traversal
+`closures_test.go` checks actual SSA before and after the traversal
 cleanup. This changes the guard machinery, not the diagnostic policy.
 
 ## Detection boundaries
@@ -40,9 +40,9 @@ even if a partial census found a signal before missing an alternative handle.
 The probe is initialized before discovery, and its cutoff evidence records
 whether the local allowance or candidate pool ran out. Constructor follow-up
 work stops at that cutoff. No incomplete discovery is cached.
-`discovery_budget_test.go` checks an oversized actual SSA body, attributed trace
+`discovery_test.go` checks an oversized actual SSA body, attributed trace
 cutoff, partial evidence at a candidate-pool cutoff and a fresh full-budget
-missing-join proof. `discovery_nil_budget_test.go` checks direct channel, direct
+missing-join proof. `discovery_test.go` checks direct channel, direct
 group and deferred group nil folds, a live channel, small-child/live-parent
 cutoffs and fresh recovery. Optional nil handles remain excluded. This can miss
 defects in oversized workers. Owner/lifecycle
@@ -56,7 +56,7 @@ has a budgeted capture/body census; its default facade preserves existing
 possible-consumption policy. A retained-owner cutoff produces unknown at the
 affected instruction or selected edge, with `retained-owner-budget-exhausted`
 and attributed evidence. It does not excuse a return that bypasses that point.
-`retained_budget_test.go` exercises the classifier, path-local flow, fresh
+`owners_test.go` exercises the classifier, path-local flow, fresh
 unrelated owners, factory availability and selected-context cutoffs;
 `capture_evidence_test.go` checks fresh and exhausted shared callback queries.
 Constructor discovery remains independently guarded. These changes bound the
@@ -72,7 +72,7 @@ defer still requires dominance. The lifecycle proof checks availability after
 each query before naming a bound, and stops immediately on exhaustion. Relay
 cutoff is `relay-dependency-budget-exhausted`; caller cutoff retains
 `worker-receive-budget-exhausted`, with attributed phase evidence.
-`caller_budget_test.go` checks fresh/cutoff channel, receiver, cancellation and
+`owners_test.go` checks fresh/cutoff channel, receiver, cancellation and
 relay queries, plus exact, deferred, conditional and asynchronous cancellation.
 `call_binding_budget_test.go` pins budgeted possible capture mapping and the
 existing reachability direction. Relay participant filtering preserves the
@@ -438,7 +438,7 @@ return a structured proof, and the lifecycle decision stops with
 `factory-origin-budget-exhausted` and unknown before trying an external transfer
 or caller-lifetime explanation when the relevant origin query is incomplete.
 The evidence event uses phase `factory-origin`; tracing consumes that decision.
-`factory_origin_budget_test.go` covers actual SSA direct, wrapped, phi, field,
+`owners_test.go` covers actual SSA direct, wrapped, phi, field,
 opaque and fresh origins with tiny and swept allowances. Caller integration
 checks origin, caller-lifetime and relay cutoff phases plus fresh recovery.
 This bounds selected query visits, not graph construction or type-system work.
@@ -454,7 +454,7 @@ Exact completion mapping, deferred group discovery, helper join/escape searches
 and the worker receive search also use lazy binding metadata under their supplied
 allowance. Exact mapping visits captures first without preparing unrelated
 formal arguments. It retains the existing mutable-capture and aggregate-owner
-boundaries. `completion_metadata_test.go` proves that a captured aggregate can
+boundaries. `discovery_test.go` proves that a captured aggregate can
 be selected within a fixed allowance despite 64 unrelated arguments, and that
 cutoff never publishes a binding. Helper escape cutoff remains opaque; receive
 cutoff remains unknown and cannot enter the completed memo. Existing helper,
@@ -469,7 +469,7 @@ it. Owner cleanup and possible binding still supply only unknown ownership.
 Cutoff produces a structured helper-call proof with reason
 `helper-call-budget-exhausted` and evidence phase `helper-call`, including
 testing-cleanup callbacks; pipe-peer consumers retain unknown participation.
-`helper_call_budget_test.go` checks a helper too large for a tiny candidate
+`helpers_test.go` checks a helper too large for a tiny candidate
 allowance, fresh exact completion, attributed cutoff and distinct formal keys.
 Default standalone searches and graph/alias/type/flow internals retain separate
 cost owners; the candidate pool is not a complete wall-clock bound.
@@ -679,7 +679,7 @@ instruction iterator. Deferred and testing cleanup, ordinary prior Wait,
 transfer and opaque actions retain their analyzer policies. A positive witness
 can stop enumeration; a completed negative needs the full traversal. Cutoff
 returns unknown with `pre-spawn-census-budget-exhausted` and cannot reach a
-violation proof. `dominating_census_test.go` pins cutoff and fresh recovery.
+violation proof. `discovery_test.go` pins cutoff and fresh recovery.
 The very large signal-census fixture now cuts off at this earlier stage; its
 direct signal-census cutoff/trace assertions still cover that separate query.
 
@@ -708,7 +708,7 @@ It cannot become absent completion or an exact join, including from a cached
 summary. The classifier consumes that result before later helper fallback.
 An unrelated return that bypasses the instruction receives no unknown credit.
 
-`summary_budget_test.go` builds actual synchronous receive helpers. Small outer
+`joins_test.go` builds actual synchronous receive helpers. Small outer
 allowances cut before completion; a larger fresh request recovers an exact
 join. An oversized helper exhausts the child while the candidate pool stays
 live. A completed independent engine query then permits fresh cached recovery,
@@ -737,7 +737,7 @@ before using a negative result as possible publication. The caller's lifecycle
 proof still consumes cutoff as unknown; an incomplete guard cannot establish
 that the worker has no blocking output. Fresh nil arguments remain disabled,
 and fresh live channels retain possible publication.
-`publication_nil_budget_test.go` builds bodyless publishing calls for both
+`discovery_test.go` builds bodyless publishing calls for both
 forms, checks small-child/live-parent cutoffs and fresh recovery. Parent SSA
 controls measured completed queries at limits 3 and 2 respectively; restoring
 the old standalone nil fold fails both cutoff assertions.
