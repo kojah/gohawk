@@ -924,7 +924,7 @@ credit cleanup of the original field target. Saved reads and agreeing writes
 retain exact cleanup, while possible dynamic-element cleanup inside a cycle
 retains `helper-cleanup-in-loop` uncertainty. The same receiver proof supplies
 both answers; possible cleanup never becomes a settling action. Shared controls
-live in `completion_spill_replacement_test.go`; the accepted loop cases remain
+live in `completion_mapping_test.go`; the accepted loop cases remain
 in `looped_helper_cleanup.go` and `returned_slice_elements.go`.
 
 Forwarded cleanup carries the strict projection's read-time parameter path
@@ -932,7 +932,7 @@ through nested helpers. A saved by-value field retains its original resource
 after whole-aggregate replacement; a sibling-field cleanup cannot settle it.
 The shared strict-projection proof owns the path, and completion requires an
 exact matching nested path when the caller's target sits inside an aggregate.
-`completion_forwarded_fields_test.go` pins both the honored field and the
+`completion_bindings_test.go` pins both the honored field and the
 unsettled sibling/replacement forms.
 
 Passing the collection whole to a helper that releases every element of it on
@@ -1100,7 +1100,7 @@ ordinary reuse. `prior_deferred_completion_test.go` covers captured conditional
 cleanup, unrelated and by-value defers, non-deferred registration, multiple
 defers, child cutoff, nested completion under a census-sufficient allowance,
 and fresh recovery. The independent nested-budget counterfactual must fail;
-`evidence_local_test.go` separately pins no cache publication at cutoff.
+`evidence_test.go` separately pins no cache publication at cutoff.
 Graph/type/alias internals retain separate cost scope.
 Ordinary resource flow remains the sole diagnostic proof.
 
@@ -1366,7 +1366,7 @@ without such a store remain unknown; another cell cannot establish the result.
 Literal outcomes precede summary lookup, and imported outcomes spend the same
 return query allowance. Cutoffs cannot turn a missing binding into a skipped
 cleanup or a completed cleanup. The shared
-`completion_result_return_budget_test.go` pins actual SSA for multiple results,
+`completion_results_test.go` pins actual SSA for multiple results,
 multiple returns, overwritten stores, earlier-block assignments, conditional
 registration and interrupted callbacks. Consumer `result_guard_budget_test.go`
 checks cutoff unknown followed by fresh release and skipped-cleanup answers.

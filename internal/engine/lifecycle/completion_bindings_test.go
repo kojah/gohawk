@@ -1,12 +1,15 @@
 package lifecycle
 
 import (
+	"bytes"
+	"reflect"
+	"strings"
 	"testing"
 
-	"github.com/kojah/gohawk/internal/engine/ssaflow"
-	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
-
 	proofs "github.com/kojah/gohawk/internal/engine/proof"
+	"github.com/kojah/gohawk/internal/engine/ssaflow"
+	ssacall "github.com/kojah/gohawk/internal/engine/ssaflow/calls"
+	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -185,5 +188,206 @@ func TestCallbackBindingsBudget(t *testing.T) {
 	})
 	if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted {
 		t.Fatalf("exhausted callback search = %+v", proof)
+	}
+}
+
+func TestCompletionFixedBindingCutoff(t *testing.T) {
+	source := completionCoverageBudgetFixture + `
+ func many(p *resource,flag *int){p.Close();` + strings.Repeat("println(flag);", proofs.QueryBudget+1) + `if flag==nil{println("nil")}}
+ func runMany(p *resource){many(p,nil)}
+ `
+	fn := buildTestSSA(t, source).Func("runMany")
+	call := findLaunch(t, fn)
+	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
+	child := pool.Within(proofs.QueryBudget)
+	request := CompletionRequest{Instruction: call, Target: fn.Params[0], Methods: []string{"Close"}, Coverage: CoverageAnywhere, Budget: child}
+	proof := ProveCompletion(request)
+	if proof.State != proofs.EvidenceUnknown || proof.Reason != proofs.EvidenceBudgetExhausted || !child.Exhausted() || pool.Exhausted() {
+		t.Fatalf("binding child=%+v, parent exhausted=%v", proof, pool.Exhausted())
+	}
+	request.Budget = pool.Within(2 * proofs.SummaryBudget)
+	if proof := ProveCompletion(request); !proof.Proven() {
+		t.Fatalf("fresh completion=%+v", proof)
+	}
+	search := newCompletionSearch("Close", CoverageAnywhere, pool.Within(proofs.QueryBudget))
+	if got := search.completes(call, fn.Params[0]); got.proven || !search.budget.Exhausted() {
+		t.Fatalf("memo child=%+v", got)
+	}
+	search.budget = pool.Within(2 * proofs.SummaryBudget)
+	if got := search.completes(call, fn.Params[0]); !got.proven {
+		t.Fatalf("fresh memo=%+v", got)
+	}
+}
+
+func TestResultGuardNamedCellCensusReuse(t *testing.T) {
+	fn := buildTestSSA(t, `package ssaflowtest
+ func repeated()(err error){
+  defer func(){println(err)}()
+  defer func(){println(err)}()
+  defer func(){println(err)}()
+  return nil
+ }
+ `).Func("repeated")
+	closures := ssaflow.InstructionsOf[*ssa.MakeClosure](fn)
+	if len(closures) != 3 {
+		t.Fatalf("closures=%d", len(closures))
+	}
+	pool := proofs.NewSearchBudget(10000)
+	var named ssaflow.NamedResultCellsProof
+	first := capturedResultCells(fn, closures[0], pool.Within(proofs.SummaryBudget), &named)
+	if !named.Proven() || len(first) != 1 || len(named.Cells) != 1 {
+		t.Fatalf("first=%v census=%+v", first, named)
+	}
+	for _, closure := range closures[1:] {
+		budget := pool.Within(len(closure.Bindings))
+		cells := capturedResultCells(fn, closure, budget, &named)
+		if budget.Exhausted() || pool.Exhausted() || !reflect.DeepEqual(cells, first) {
+			t.Fatalf("warm=%v first=%v exhausted=%v", cells, first, budget.Exhausted())
+		}
+	}
+	var cold ssaflow.NamedResultCellsProof
+	cut := pool.Within(3)
+	if cells := capturedResultCells(fn, closures[0], cut, &cold); len(cells) != 0 || cold.Proven() || cold.Cells != nil || !cut.Exhausted() {
+		t.Fatalf("cut=%v census=%+v", cells, cold)
+	}
+	fresh := pool.Within(proofs.SummaryBudget)
+	cells := capturedResultCells(fn, closures[0], fresh, &cold)
+	if fresh.Exhausted() || pool.Exhausted() || !reflect.DeepEqual(cells, first) || !reflect.DeepEqual(cold, named) {
+		t.Fatalf("fresh=%v census=%+v", cells, cold)
+	}
+}
+
+func TestCompletionForwardedFields(t *testing.T) {
+	pkg := buildTestSSA(t, completionCoverageBudgetFixture+`
+ type box struct{first,second *resource}
+ func acquire()*resource{return new(resource)}
+ func closeOne(p *resource){p.Close()}
+ func first(b *box){closeOne(b.first)}
+ func earlier(b,c box){p:=b.first;b=c;closeOne(p)}
+ func replacement(b,c box){b=c;closeOne(b.first)}
+ func ambiguous(b,c box,flag bool){if flag{b=c};closeOne(b.first)}
+ func runFirst(q *resource){p:=acquire();first(&box{p,q})}
+ func runSibling(q *resource){p:=acquire();first(&box{q,p})}
+ func runEarlier(q *resource){p:=acquire();earlier(box{p,q},box{q,q})}
+ func runEarlierSibling(q *resource){p:=acquire();earlier(box{q,p},box{q,q})}
+ func runReplacement(q *resource){p:=acquire();replacement(box{p,q},box{q,q})}
+ func runAmbiguous(q *resource,flag bool){p:=acquire();ambiguous(box{p,q},box{q,q},flag)}
+ `)
+	for _, test := range []struct {
+		name      string
+		completes bool
+	}{
+		{"runFirst", true},
+		{"runSibling", false},
+		{"runEarlier", true},
+		{"runEarlierSibling", false},
+		{"runReplacement", false},
+		{"runAmbiguous", false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			calls := ssaflow.InstructionsOf[*ssa.Call](pkg.Func(test.name))
+			if len(calls) != 2 || ssaflow.CallName(calls[0].Common()) != "acquire" {
+				t.Fatal("expected acquisition followed by cleanup helper")
+			}
+			var ir bytes.Buffer
+			if _, err := calls[1].Common().StaticCallee().WriteTo(&ir); err != nil {
+				t.Fatal(err)
+			}
+			t.Log(ir.String())
+			request := CompletionRequest{
+				Instruction: calls[1], Target: calls[0], Methods: []string{"Close"},
+				Budget: proofs.NewSearchBudget(10 * proofs.SummaryBudget),
+			}
+			proof := ProveCompletion(request)
+			if proof.Proven() != test.completes {
+				t.Fatalf("completion=%+v, want %v", proof, test.completes)
+			}
+			if test.completes {
+				if !proof.PathKnown || proof.Path != "" {
+					t.Fatalf("exact field target lost path: %+v", proof)
+				}
+				assertCompletionSpillCutoff(t, request)
+			}
+		})
+	}
+}
+
+func TestDeferredCellMappingSharesRequestAllowance(t *testing.T) {
+	pkg := buildTestSSA(t, completionCoverageBudgetFixture+`
+func deferredCleared(p *resource, pick bool){held:=p;defer func(){if held!=nil{held.Close()}}();if pick{p.Close();held=nil}}
+`)
+	function := pkg.Func("deferredCleared")
+	deferred := ssaflow.InstructionsOf[*ssa.Defer](function)[0]
+	body, closure := ssacall.DirectCallee(deferred.Common())
+	if closure == nil || len(closure.Bindings) != 1 {
+		t.Fatal("expected captured deferred cell")
+	}
+	cell, ok := closure.Bindings[0].(*ssa.Alloc)
+	if !ok {
+		t.Fatalf("capture is %T, want actual cell", closure.Bindings[0])
+	}
+	pool := proofs.NewSearchBudget(10 * proofs.QueryBudget)
+	search := newCompletionSearch("Close", CoverageEveryReturn, pool.Within(1))
+	if _, mapped := search.deferredCellLocal(body.FreeVars[0], cell, function.Params[0], deferred); mapped || !search.budget.Exhausted() {
+		t.Fatal("graph relation bypassed the exhausted mapping allowance")
+	}
+	if pool.Exhausted() {
+		t.Fatal("independent child cutoff exhausted the pool")
+	}
+	search.budget = pool.Within(proofs.QueryBudget)
+	local, mapped := search.deferredCellLocal(body.FreeVars[0], cell, function.Params[0], deferred)
+	if !mapped || local.kind != localExact || search.budget.Exhausted() {
+		t.Fatalf("fresh exact cell mapping did not recover: %+v, mapped=%v", local, mapped)
+	}
+}
+
+// Exact cleanup crosses only the selected identity wrappers. A phi or load
+// cannot become the parameter just because its possible origins contain it.
+func TestExactCleanupReceiverAllowance(t *testing.T) {
+	pkg := buildTestSSA(t, completionCoverageBudgetFixture+`
+ type same resource
+ func observe(interface{}){}
+ func wrapped(p *resource){observe(p)}
+ func converted(p *resource){observe((*same)(p))}
+ func merged(p,q *resource,flag bool){v:=p;if flag{v=q};observe(v)}
+ func loaded(p **resource){observe(*p)}
+ `)
+	for _, test := range []struct {
+		name string
+		want bool
+	}{{"wrapped", true}, {"converted", true}, {"merged", false}, {"loaded", false}} {
+		t.Run(test.name, func(t *testing.T) {
+			fn := pkg.Func(test.name)
+			var receiver ssa.Value
+			for _, call := range ssaflow.InstructionsOf[*ssa.Call](fn) {
+				if ssaflow.CallName(call.Common()) == "observe" {
+					receiver = call.Common().Args[0]
+				}
+			}
+			if receiver == nil {
+				t.Fatal("receiver not found")
+			}
+			if test.want {
+				cut := proofs.NewSearchBudget(1)
+				if exactCleanupReceiver(receiver, fn.Params[0], cut) || !cut.Exhausted() {
+					t.Fatal("wrapper traversal bypassed allowance")
+				}
+			}
+			for limit := 1; limit <= proofs.QueryBudget; limit++ {
+				budget := proofs.NewSearchBudget(limit)
+				got := exactCleanupReceiver(receiver, fn.Params[0], budget)
+				if budget.Exhausted() {
+					if got {
+						t.Fatal("cut proves exact receiver")
+					}
+					continue
+				}
+				if got != test.want {
+					t.Fatalf("complete %d match=%v", limit, got)
+				}
+				return
+			}
+			t.Fatal("receiver query never completed")
+		})
 	}
 }

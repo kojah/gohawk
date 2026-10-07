@@ -100,6 +100,12 @@ linters:
       - path: _test\.go
         linters:
           - gosec
+      # Test files are grouped by behavior under a per-directory file-count
+      # limit instead of a length limit, so one file may hold many scenarios.
+      - path: _test\.go
+        text: "file-length-limit:"
+        linters:
+          - revive
       # These command boundaries intentionally execute the current gohawk
       # process or a command supplied by the measurement caller.
       - path: ^(internal/cli/delegated_run|tools/measure/main)\.go$

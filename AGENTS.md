@@ -94,6 +94,13 @@ cohesive responsibilities. Generated production files and inactive build
 variants count. Tests, fixtures and external dependency trees do not. The
 architecture check has no migration-debt exemption.
 
+Keep at most 20 `_test.go` files directly in each directory as well, counted
+separately from production files. Go compiles a package's tests from its own
+directory, so tests cannot move into a subdirectory without losing access to
+unexported code. Group them by behavior instead: one file per proof family or
+subsystem, holding its accepted, diagnostic and budget scenarios together. Test
+files have no length limit.
+
 Organize a file around one vocabulary and one reason to change. Split a file
 when it acquires a second evidence model, lifecycle, or external boundary; do
 not split a cohesive implementation merely to satisfy a line-count target.
@@ -101,12 +108,11 @@ Name extracted files for their concern, such as `contracts.go`, `flow.go`, or
 `persistence.go`, rather than creating `helpers.go`, `types.go`, or a package
 per type.
 
-Treat 400 lines for production source, 700 lines for tests, 60 lines for a
-function, and cognitive complexity above 25 as review triggers rather than
-hard limits. When a change crosses one of these thresholds or materially grows
+Treat 400 lines for production source, 60 lines for a function, and cognitive
+complexity above 25 as review triggers rather than hard limits. When a change crosses one of these thresholds or materially grows
 an existing outlier, either extract a focused responsibility or document why
-the code remains cohesive. Split large test files by behavior and keep shared
-fixture construction separate from the scenarios it supports.
+the code remains cohesive. Keep shared fixture construction separate from the
+scenarios it supports.
 
 If automated size or complexity checks are added, baseline existing outliers
 and fail only new regressions. Existing debt must not block unrelated changes,

@@ -190,12 +190,12 @@ malformed JSON and analyzer errors keep their existing distinct handling.
   Callback transfer and aggregate containment keep their distinct policies,
   while sharing capture-binding identity and cell-content checks. A callback
   capturing an aggregate can contain a resource without establishing the
-  narrower callback-transfer claim; `store_capture_policy_test.go` pins this.
+  narrower callback-transfer claim; `store_values_test.go` pins this.
   Forward transfer and field-storage queries share referrer enumeration,
   forwarding forms and a `WalkStates` cycle guard. Their positive witnesses
   and additional transitions remain separate: general transfer follows local
   cell loads and same-type fluent receivers, while field-storage stops there.
-  `store_uses_test.go` pins these distinctions alongside opaque and cyclic uses.
+  `store_values_test.go` pins these distinctions alongside opaque and cyclic uses.
 - `internal/engine/heapmodel` owns demand-driven storage queries, the per-function
   points-to graph and its cache, heap-summary projection and registration,
   and application at call sites. `heapmodel.Storage` combines reaching-write

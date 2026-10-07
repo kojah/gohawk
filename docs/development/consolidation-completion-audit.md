@@ -2817,7 +2817,7 @@ storage child cap and ambiguous-alias exclusion.
 Constructor parameter indexing was checked against actual SSA before approving
 the review. Direct methods carry the receiver in `Args`; invoked interface
 methods have no static callee and are declined by this engine. The new
-`store_constructor_binding_test.go` covers direct, dynamic and boxed-concrete
+`store_values_test.go` covers direct, dynamic and boxed-concrete
 call shapes and interrupted allowance. The completed decline means this model
 found no owner; it does not prove that an opaque constructor cannot retain input.
 
@@ -3039,7 +3039,7 @@ remain uncached. No additional lookup engine or analyzer policy is introduced.
 The CompletionRequest comment, architecture reference and generated lifecycle
 API reference describe the same boundary.
 
-`evidence_contract_test.go` covers none/accepts, accepts/none, accepts/rejects
+`evidence_test.go` covers none/accepts, accepts/none, accepts/rejects
 and rejects/accepts transitions followed by a repeated policy. Corrected tests
 pass with the ordinary memo-reuse and cutoff/fresh controls in 0.010 seconds.
 Actual SSA is recorded in `.build/goal-completion-contract-fixture.ssa.txt`.
@@ -3618,7 +3618,7 @@ and fails the same assertion. Receipts are
 `.build/goal-guarded-body-{unbudgeted,coverage-unbudgeted,class-cut,class-unchecked}.log`.
 The first gate's behavior tests pass but the architecture requires lifecycle
 filenames to name their completion family. The shared implementation and test
-are moved to `completion_coverage.go` and `completion_coverage_test.go`;
+are moved to `completion_coverage.go` and `completion_conditions_test.go`;
 the focused layering/commentary/documentation gate is rechecked.
 
 Immutable `.build/goal-guarded-body-current` implements parent `1ac2d44` plus
@@ -3993,7 +3993,7 @@ local query's worth of unrelated instructions: ordering exhausts the child
 while the parent remains available, and a fresh query recovers the binding.
 
 The
-[completion_capture_timing_test.go](../../internal/engine/lifecycle/completion_capture_timing_test.go)
+[completion_callbacks_test.go](../../internal/engine/lifecycle/completion_callbacks_test.go)
 controls check eight cleanup contexts at the
 consumer boundary, including both supplied named-result outcomes. The original
 implementation fails the temporal controls before the change. An ignored source

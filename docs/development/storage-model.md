@@ -61,7 +61,7 @@ target-relative cleanup. Stable binding lookup retains its `QueryBudget` child
 cap and explicitly invalidates the enclosing memo if that child stops while
 the request remains available. Default queries retain their prior alias and
 stable-content policy. `storage_order_budget_test.go` and
-`deferred_store_budget_test.go` cover later/intervening writes, fresh/reused
+`store_values_test.go` cover later/intervening writes, fresh/reused
 loop cells, conditional acquisition, padded censuses, cutoff and recovery.
 
 `ProveStrictProjectionPathWithin` retains its `QueryBudget` child cap and
@@ -73,7 +73,7 @@ cleanup can settle a contained field target only when its published path
 matches that field. Other roots retain the existing storage-derived rule;
 their positive projection proof may carry no exact static path. Cutoff is
 unknown and carries no path, even while the parent remains available.
-`strict_parameter_projection_test.go` and `completion_forwarded_fields_test.go`
+`strict_parameter_projection_test.go` and `completion_bindings_test.go`
 pin saved/wrapped reads, agreeing and conflicting writes, replacement, sibling
 cleanup, exact path publication and cold cutoff recovery.
 
@@ -105,7 +105,7 @@ a points-to graph. Supplied budgets cover path visits, contents and identity;
 cutoff publishes neither a path nor read metadata.
 
 `parameter_spill_replacement_test.go`, `spill_replacement_test.go` in
-`lifecyclefacts`, and `completion_spill_replacement_test.go` pin the storage,
+`lifecyclefacts`, and `completion_mapping_test.go` pin the storage,
 exported-contract and caller-target boundaries. Completion may not fall back to
 possible derivation when an aggregate field target's exact path is unavailable.
 The same receiver proof retains possible cleanup as loop uncertainty, preserving

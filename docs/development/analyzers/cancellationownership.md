@@ -58,7 +58,7 @@ method cleanup, including exact identity, stable capture mapping, callback
 bindings and bounded recursion. The Boolean adapter projects only a proven
 result; unavailable or recursively rejected bodies remain unknown to the
 underlying proof. Invocation on another goroutine never establishes a
-synchronous release. Shared tests in `lifecycle/completion_invocation_test.go`
+synchronous release. Shared tests in `lifecycle/completion_callees_test.go`
 cover replaced and mixed callbacks, conditional invocation, bound invokers,
 asynchronous launches, recursion and budget exhaustion.
 
@@ -184,7 +184,7 @@ without such a store remain unknown; another cell cannot establish the result.
 Literal outcomes precede summary lookup, and imported outcomes spend the same
 return query allowance. Cutoffs cannot turn a missing binding into a skipped
 cleanup or a completed cleanup. The shared
-`completion_result_return_budget_test.go` pins actual SSA for multiple results,
+`completion_results_test.go` pins actual SSA for multiple results,
 multiple returns, overwritten stores, earlier-block assignments, conditional
 registration and interrupted callbacks. Consumer `result_guard_budget_test.go`
 checks cutoff unknown followed by fresh release and skipped-cleanup answers.
