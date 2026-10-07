@@ -5,10 +5,11 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/engine/heapmodel"
+	"github.com/kojah/gohawk/internal/engine/lifecycle"
+	proofs "github.com/kojah/gohawk/internal/engine/proof"
 	"github.com/kojah/gohawk/internal/engine/ssaflow"
 	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
-
-	proofs "github.com/kojah/gohawk/internal/engine/proof"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -618,4 +619,186 @@ func AddClosing(w io.Writer) closerSyncer { return closingWrapper{w} }
 // summarize gives body-level tests an independent package inference context.
 func summarize(pass *analysis.Pass, function *ssa.Function) Fact {
 	return newCallbackInference(pass, nil).summarize(function)
+}
+
+func TestReasonCodes(t *testing.T) {
+	want := map[Reason]string{
+		reasonNone:                              "",
+		reasonLifecycleSummary:                  "lifecycle-summary",
+		reasonLifecycleSummaryProjectedArgument: "lifecycle-summary-projected-argument",
+		reasonLifecycleSummaryCapturedArgument:  "lifecycle-summary-captured-argument",
+		reasonReceiverStoreTransfer:             "receiver-store-transfer",
+		reasonReceiverDoesNotEscape:             "receiver-does-not-escape",
+		reasonOwnedResultContract:               "owned-result-contract",
+		reasonOwnedResultUnreleasable:           "owned-result-unreleasable",
+		reasonRetainingResultContract:           "retaining-result-contract",
+		reasonStoredByCallee:                    "stored-by-callee",
+		reasonConditionalSummary:                "conditional-lifecycle-summary",
+		reasonArgumentCase:                      "argument-case-summary",
+		reasonRetentionBudget:                   "retention-budget-exhausted",
+		reasonSummarizingFunction:               "summarizing-function",
+		reasonFunctionSummarized:                "function-summarized",
+	}
+	if len(want) != int(reasonCount) {
+		t.Fatal("every reason needs a boundary spelling assertion")
+	}
+	for reason := range reasonCount {
+		code, ok := want[reason]
+		if !ok || reason.String() != code {
+			t.Errorf("reason %d: got %q, want %q", reason, reason.String(), code)
+		}
+	}
+	for _, reason := range []Reason{reasonCount, 255} {
+		if reason.String() != "invalid-lifecycle-summary-reason" {
+			t.Errorf("invalid reason %d: %q", reason, reason.String())
+		}
+	}
+}
+
+func TestProofKeepsSummaryAndLocalEvidenceSeparate(t *testing.T) {
+	local := Proof{Proof: proofs.Proof{Reason: proofs.EvidenceBudgetExhausted}}
+	if local.Known() || local.SummaryReason != reasonNone || local.traceReason() != "budget-exhausted" {
+		t.Fatalf("local cutoff changed: %+v", local)
+	}
+	imported := importedProof(reasonLifecycleSummary, "Close")
+	if !imported.Proven() || imported.Reason != proofs.EvidenceNone || imported.SummaryReason != reasonLifecycleSummary ||
+		imported.Method != "Close" || imported.Provenance != proofs.EvidenceFromImportedFact || imported.traceReason() != "lifecycle-summary" {
+		t.Fatalf("summary proof changed: %+v", imported)
+	}
+	if (Proof{}).Known() || (Proof{}).traceReason() != "" {
+		t.Fatal("zero proof must stay unknown")
+	}
+}
+
+func TestLifecycleEvidenceImportedSummaryThroughImmutableCapture(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+type closer struct{}
+
+func helper(*closer) {}
+
+func accepted(value *closer) {
+	defer func() { helper(value) }()
+}
+
+func reassigned(value, other *closer) {
+	defer func() { helper(value) }()
+	value = other
+}
+
+func sibling(value, other *closer) {
+	defer func() { helper(other) }()
+}
+`)
+	for _, test := range []struct {
+		name string
+		want bool
+	}{
+		{name: "accepted", want: true},
+		{name: "reassigned"},
+		{name: "sibling"},
+	} {
+		function := pkg.Func(test.name)
+		deferred := findDefer(t, function)
+		helper := findAnonymousCall(t, function, "helper")
+		pass := &analysis.Pass{ResultOf: map[*analysis.Analyzer]any{
+			Analyzer: Summaries{helper.Common().StaticCallee(): {Discharges: []Discharge{{Parameter: 0, Method: "Close"}}}},
+		}}
+		completion := lifecycle.CompletionRequest{Instruction: deferred, Target: function.Params[0], Methods: []string{"Close"}}
+		proof := NewLifecycleEvidence(pass, "test", "test/check").Prove(EvidenceRequest{
+			Instruction: deferred,
+			Target:      function.Params[0],
+			Completion:  &completion,
+			SelectMask: func(fact Fact) ParameterMask {
+				return fact.MethodMask("Close")
+			},
+		})
+		if got := proof.Proven(); got != test.want {
+			t.Errorf("%s imported capture proof = %#v, proven %t, want %t", test.name, proof, got, test.want)
+		}
+		if test.want && proof.SummaryReason != reasonLifecycleSummaryCapturedArgument {
+			t.Errorf("%s imported capture reason = %q, want %q", test.name, proof.SummaryReason, reasonLifecycleSummaryCapturedArgument)
+		}
+	}
+}
+
+func TestTypeCanReleaseUsesLifecycleVocabulary(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `
+package lifecyclefactstest
+
+type committer struct{}
+func (*committer) Commit() error { return nil }
+
+type rollbacker struct{}
+func (*rollbacker) Rollback() error { return nil }
+
+type waiter struct{}
+func (*waiter) Wait() {}
+
+type observer struct{}
+func (*observer) Observe() {}
+`)
+	for _, test := range []struct {
+		name string
+		want bool
+	}{
+		{name: "committer", want: true},
+		{name: "rollbacker", want: true},
+		{name: "waiter", want: true},
+		{name: "observer"},
+	} {
+		got := typeCanRelease(types.NewPointer(pkg.Type(test.name).Type()))
+		if got != test.want {
+			t.Errorf("typeCanRelease(*%s) = %t, want %t", test.name, got, test.want)
+		}
+	}
+}
+
+func findDefer(t *testing.T, function *ssa.Function) *ssa.Defer {
+	t.Helper()
+	for _, block := range function.Blocks {
+		for _, instruction := range block.Instrs {
+			if deferred, ok := instruction.(*ssa.Defer); ok {
+				return deferred
+			}
+		}
+	}
+	t.Fatal("defer not found")
+	return nil
+}
+
+func findAnonymousCall(t *testing.T, function *ssa.Function, name string) *ssa.Call {
+	t.Helper()
+	for _, member := range function.AnonFuncs {
+		for _, block := range member.Blocks {
+			for _, instruction := range block.Instrs {
+				call, ok := instruction.(*ssa.Call)
+				if ok && ssaflow.CallName(call.Common()) == name {
+					return call
+				}
+			}
+		}
+	}
+	t.Fatalf("anonymous call %s not found", name)
+	return nil
+}
+
+func TestImportedHeapSummaryVersion(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `package lifecyclefactstest
+func Exported() {}
+`)
+	version := heapmodel.SummaryVersion - 1
+	pass := &analysis.Pass{ImportObjectFact: func(_ types.Object, target analysis.Fact) bool {
+		fact := target.(*publishedFact) //nolint:forcetypeassert // The query imports this fact type.
+		*fact = *publish(Fact{Heap: &heapmodel.HeapSummary{Version: version}})
+		return true
+	}}
+	if _, ok := factForFunction(pass, pkg.Func("Exported")); ok {
+		t.Fatal("older heap edge semantics must not be imported")
+	}
+	version = heapmodel.SummaryVersion
+	if _, ok := factForFunction(pass, pkg.Func("Exported")); !ok {
+		t.Fatal("current heap edge semantics should be imported")
+	}
 }

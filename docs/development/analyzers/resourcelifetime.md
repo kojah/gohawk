@@ -178,7 +178,7 @@ keeps its independent `QueryBudget` cap inside the caller pool, and its cutoff
 propagates as unknown even when the pool still has allowance. Ambiguous aliasing
 cannot become exact binding through containment. Legacy Boolean binding callers
 retain their previous independent cap and fallback; broader integration remains
-open. `binding_budget_test.go` checks exact, unrelated, ambiguous and contained
+open. `returned_test.go` checks exact, unrelated, ambiguous and contained
 arguments, fresh recovery, and an actual SSA conversion chain exceeding the
 storage cap without exhausting its caller. Broker tests distinguish absent
 knowledge from an available declaration with no view claim.
@@ -356,7 +356,7 @@ The broker preserves its default cap and trace when passed a nil allowance.
 All resource effect consumers now pass their allowance through `CallEffectsWithin`;
 the unused default-only broker method has been removed. This does not claim a
 transitive bound over graph/alias/type or call-binding construction internals.
-`call_effects_budget_test.go` checks exact read/async/unavailable effects, every
+`callbacks_test.go` checks exact read/async/unavailable effects, every
 insufficient allowance and the local child cap. `ownership_test.go`
 covers imported and local exposure, accepted borrowing/unrelated forms, and
 unknown at the classifier when the effect child exhausts while the candidate
@@ -843,7 +843,7 @@ as exported methods. A missing or bodiless method remains unknown; it cannot tur
 an empty release mask into proof that the wrapper leaves the field untouched.
 Known empty summaries still support that distinction, and independent type-only
 view rules retain their existing behavior. The focused
-`returned_views_unknown_test.go` cases cover unavailable, releasing, no-op and
+`returned_test.go` cases cover unavailable, releasing, no-op and
 type-only receiver behavior using actual SSA.
 
 Every instruction after an acquisition is classified once as a release or

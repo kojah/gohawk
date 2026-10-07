@@ -7,6 +7,119 @@ import (
 	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
 )
 
+// Builtins, helper results, assertions, and panicking branches are passive
+// only when every value involved is inert. Each admitted form has a
+// neighbouring form that could carry a resource and stays unknown.
+func TestInertCallsAssertionsAndPanics(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "inertcalls", `package inertcalls
+type problem struct{ msg string }
+func (p *problem) Error() string { return p.msg }
+func fail(msg string) error { return &problem{msg} }
+func channel(ch chan int) chan int { return ch }
+func Helpers(ch chan int, msg string) error {
+	err := fail(msg)
+	close(ch)
+	return err
+}
+func ChannelHelper(ch chan int) { close(channel(ch)) }
+func Builtins(ch chan int, items []int) int {
+	items = append(items, len(items), cap(items))
+	close(ch)
+	return max(len(items), 1)
+}
+func ChannelAppend(ch chan int, all []chan int) { all = append(all, ch); close(ch) }
+func Assert(ch chan int, value any) string {
+	close(ch)
+	name, _ := value.(string)
+	return name
+}
+func AssertChannel(value any) { close(value.(chan int)) }
+func PanicBranch(ch chan int, bad bool) {
+	if bad { panic("bad") }
+	close(ch)
+}
+func AlwaysPanics(ch chan int) { close(ch); panic("always") }
+func EveryBranchPanics(ch chan int, bad bool) {
+	if bad { panic("bad") }
+	panic("worse")
+}
+`)
+	engine := NewEngine()
+	for _, name := range []string{"Helpers", "Builtins", "Assert", "PanicBranch"} {
+		got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000))
+		if got.Completeness() != CompleteWithEffects || len(got.Operations) != 1 || got.Operations[0].Kind != Close {
+			t.Errorf("%s = %+v, want one close", name, got)
+		}
+	}
+	if got := engine.Function(pkg.Func("fail"), proofs.NewSearchBudget(2000)); got.Completeness() != CompleteNoEffects {
+		t.Errorf("helper returning an error = %+v, want complete", got)
+	}
+	for _, name := range []string{"ChannelHelper", "ChannelAppend", "AssertChannel", "AlwaysPanics", "EveryBranchPanics"} {
+		if got := engine.Root(pkg.Func(name), proofs.NewSearchBudget(2000)); got.Complete() {
+			t.Errorf("%s = %+v, want incomplete", name, got)
+		}
+	}
+}
+
+const deferredEffectsFixture = `package deferred
+import "sync"
+func finish(mu *sync.Mutex, done chan struct{}) { mu.Unlock(); close(done) }
+func finishGroup(mu *sync.Mutex, group *sync.WaitGroup) { mu.Unlock(); group.Done() }
+func ordered(mu *sync.Mutex, done, last chan struct{}) {
+ mu.Lock()
+ defer close(last)
+ defer finish(mu, done)
+}
+func grouped(mu *sync.Mutex, group *sync.WaitGroup) { mu.Lock(); defer finishGroup(mu, group) }
+func twoGroups(first, second *sync.Mutex, done, last chan struct{}) {
+ first.Lock(); second.Lock(); defer finish(first, done); defer finish(second, last)
+}
+func acquire(mu *sync.Mutex, done chan struct{}) { mu.Lock(); close(done) }
+func receive(done chan struct{}) { <-done; close(done) }
+func maybe(mu *sync.Mutex, done chan struct{}, yes bool) { if yes { finish(mu, done) } }
+func deferredAcquire(mu *sync.Mutex, done chan struct{}) { defer acquire(mu, done) }
+func deferredReceive(done chan struct{}) { defer receive(done) }
+func deferredMaybe(mu *sync.Mutex, done chan struct{}, yes bool) { defer maybe(mu, done, yes) }
+func reassigned(mu, other *sync.Mutex, done chan struct{}) {
+ mu.Lock(); defer finish(mu, done); mu = other; _ = mu
+}
+func changedCapture(mu, other *sync.Mutex, done chan struct{}) {
+ mu.Lock(); defer func() { finish(mu, done) }(); mu = other
+}
+`
+
+func TestDeferredEffectGroups(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "deferred", deferredEffectsFixture)
+	for _, test := range []struct {
+		name       string
+		kinds      []Kind
+		parameters []int
+	}{
+		{"ordered", []Kind{Lock, Unlock, Close, Close}, []int{0, 0, 1, 2}},
+		{"grouped", []Kind{Lock, Unlock, GroupDone}, []int{0, 0, 1}},
+		{"twoGroups", []Kind{Lock, Lock, Unlock, Close, Unlock, Close}, []int{0, 1, 1, 3, 0, 2}},
+		{"reassigned", []Kind{Lock, Unlock, Close}, []int{0, 0, 2}},
+		{"deferredAcquire", nil, nil},
+		{"deferredReceive", nil, nil},
+		{"deferredMaybe", nil, nil},
+		{"changedCapture", nil, nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			function := pkg.Func(test.name)
+			result := NewEngine().Function(function, proofs.NewSearchBudget(2000))
+			if result.Complete() != (test.kinds != nil) || len(result.Operations) != len(test.kinds) {
+				t.Fatalf("unexpected summary: %+v", result)
+			}
+			for index, kind := range test.kinds {
+				op := result.Operations[index]
+				if op.Kind != kind || op.Resource.Value != function.Params[test.parameters[index]] {
+					t.Errorf("operation %d: %+v", index, op)
+				}
+			}
+		})
+	}
+}
+
 // A sync/atomic operation is a memory access that never blocks, so it adds
 // no effect when every value it moves is inert. A value that could carry a
 // resource still stops the summary, and a project method that merely shares

@@ -58,7 +58,7 @@ affected instruction or selected edge, with `retained-owner-budget-exhausted`
 and attributed evidence. It does not excuse a return that bypasses that point.
 `owners_test.go` exercises the classifier, path-local flow, fresh
 unrelated owners, factory availability and selected-context cutoffs;
-`capture_evidence_test.go` checks fresh and exhausted shared callback queries.
+`callbacks_test.go` checks fresh and exhausted shared callback queries.
 Constructor discovery remains independently guarded. These changes bound the
 enumerated scans, not every transitive identity/alias helper or method-set
 construction; those mechanics and the remaining caller-bound routes still need

@@ -104,7 +104,7 @@ must agree. Path discovery uses writes-only storage identity and never requests
 a points-to graph. Supplied budgets cover path visits, contents and identity;
 cutoff publishes neither a path nor read metadata.
 
-`parameter_paths_test.go`, `spill_replacement_test.go` in
+`parameter_paths_test.go`, `cleanup_contract_test.go` in
 `lifecyclefacts`, and `completion_mapping_test.go` pin the storage,
 exported-contract and caller-target boundaries. Completion may not fall back to
 possible derivation when an aggregate field target's exact path is unavailable.

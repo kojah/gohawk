@@ -20,7 +20,7 @@ The [projection tests](../../internal/engine/heapmodel/store_projection_test.go)
 cover unchanged roots/slots, mutation, retention, later escapes, ambiguous
 roots, unrelated owners, and converted roots/slot addresses. Converted cases
 check that the built SSA actually retains a `ChangeType` wrapper. The
-[capture evidence tests](../../internal/analysis/passes/lifecyclefacts/capture_evidence_test.go)
+[capture evidence tests](../../internal/analysis/passes/lifecyclefacts/callbacks_test.go)
 compare visible retention, opaque handoff, read-only use, unrelated captures,
 derived captures and multiple captures. Both sets pass against the parent
 implementation and the consolidated implementation.

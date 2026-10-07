@@ -328,7 +328,7 @@ deferring a helper on that saved value, discharges the original `out` field.
 Reading it after replacement discharges only the replacement parameter's field.
 Conflicting writes export no discharge. A helper on a sibling field never
 discharges `out`; the nested completion must name the selected field.
-`forwarded_discharge_paths_test.go` pins these exported contracts.
+`summary_test.go` pins these exported contracts.
 
 ## Three answers to "what happened to my value?"
 
@@ -611,7 +611,7 @@ it never proves cleanup, a join, or absence of exposure when the bit is clear.
   and a shared `SummaryBudget`. Both invocation modes use one instruction
   classifier. Recursive or exhausted queries advertise no invocation guarantee
   and do not cache an incomplete answer; a later query with sufficient budget
-  can retry. `callback_facts_test.go` pins forwarding, asynchronous invocation,
+  can retry. `callbacks_test.go` pins forwarding, asynchronous invocation,
   conditional and replacement callbacks, cycles, and budget recovery.
 - Cleanup that happens deeper in a chain of exported calls, because one
   summary is allowed to read the summaries of the functions it calls.
@@ -649,7 +649,7 @@ Each limit traces straight back to one of the four things above.
   for unsuccessful-construction return shapes. Exact builtin error identity
   includes aliases; an unrelated nonnil owner result or a separately declared
   error-like type does not satisfy this exception. The shape alone proves
-  neither failure nor cleanup. `returned_owner_errors_test.go` pins the alias
+  neither failure nor cleanup. `returned_test.go` pins the alias
   case and the existing boundary for delegated tuple results.
 - **Interface calls** — *named callee only*. A call through an interface has no
   fact and is `unknown`, unless the method name matches a documented cleanup
@@ -1056,7 +1056,7 @@ from an interrupted search; a fresh request can recover the same canonical load.
 Complete positive field identities remain reusable.
 
 The actual SSA and child/fresh controls are in
-[spill_paths_budget_test.go](../../internal/analysis/passes/concurrencyfacts/spill_paths_budget_test.go).
+[fields_test.go](../../internal/analysis/passes/concurrencyfacts/fields_test.go).
 Existing imported formal-field guarantees and the fact schema remain unchanged.
 
 ### Concurrency publication allowance
@@ -1074,7 +1074,7 @@ cancellation requirements, workers or path alternatives. A pre-inferred projecti
 cannot rescue an interrupted field-path search. Actual SSA cold/cache queries,
 child/parent/fresh controls, cancellation requirements, a padded spill path, and
 an alternative cut after an earlier path are covered in
-[publication_budget_test.go](../../internal/analysis/passes/concurrencyfacts/publication_budget_test.go).
+[cutoff_test.go](../../internal/analysis/passes/concurrencyfacts/cutoff_test.go).
 
 Imported `Declaration` lookup also shares its allowance with metadata copying.
 One copy path detaches effects and nested fields, cancellation inputs and worker

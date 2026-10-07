@@ -4142,7 +4142,7 @@ query; new dho.44.11.5.25.5 owns that separate allowance boundary. Package
 write-once inventory construction, heap graph and type internals also retain
 independent costs; this is not an all-query cost claim.
 
-[spill_paths_budget_test.go](../../internal/analysis/passes/concurrencyfacts/spill_paths_budget_test.go)
+[fields_test.go](../../internal/analysis/passes/concurrencyfacts/fields_test.go)
 records SSA for pre-store, post-store, entry-spill and reassigned snapshots,
 checks every allowance boundary, and verifies canonical-cache child/fresh
 recovery. Large read-only captures discard interrupted reads. A padded spill

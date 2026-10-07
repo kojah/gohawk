@@ -1,9 +1,13 @@
 package lifecyclefacts
 
 import (
+	"go/token"
 	"go/types"
+	"slices"
 	"testing"
 
+	"github.com/kojah/gohawk/internal/engine/ssaflow"
+	"github.com/kojah/gohawk/internal/engine/ssaflow/ssaflowtest"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -192,5 +196,212 @@ func (c *Clock) Stop() { c.timer.Stop(); c.ticker.Stop() }
 `)
 	if contract, ok := contracts["Clock"]; ok {
 		t.Errorf("Clock has cleanup contract %v, want none for channel timers", contract.Methods)
+	}
+}
+
+// A cleanup of a replacement aggregate must never settle the original
+// parameter's field. A saved field value keeps its own earlier snapshot.
+func TestSpillReplacementCleanupContracts(t *testing.T) {
+	pkg := buildLifecycleTestSSA(t, `package lifecyclefactstest
+ type closer struct{}
+ func(*closer)Close()error{return nil}
+ type job struct {file *closer}
+ func Replacement(j,other job){j=other;j.file.Close()}
+ func Earlier(j,other job){saved:=j.file;j=other;saved.Close()}
+ func WrappedEarlier(j,other job){saved:=j.file;j=other;var c interface{Close()error}=saved;c.Close()}
+ func RestoredAfterRead(j,other job){original:=j;j=other;saved:=j.file;j=original;saved.Close()}
+ func Ambiguous(j,other job,flag bool){if flag{j=other};j.file.Close()}
+ func Agreeing(j job,flag bool){original:=j;if flag{j=original};j.file.Close()}
+ `)
+	pass := &analysis.Pass{ImportObjectFact: func(types.Object, analysis.Fact) bool { return false }}
+	for _, test := range []struct {
+		name       string
+		parameters []int
+	}{
+		{"Replacement", []int{1}},
+		{"Earlier", []int{0}},
+		{"WrappedEarlier", []int{0}},
+		{"RestoredAfterRead", []int{1}},
+		{"Ambiguous", nil},
+		{"Agreeing", []int{0}},
+	} {
+		fact := summarize(pass, pkg.Func(test.name))
+		var got []int
+		for _, discharge := range fact.Discharges {
+			if discharge.Method == "Close" && discharge.Path == "field:0" {
+				got = append(got, discharge.Parameter)
+			}
+		}
+		if !slices.Equal(got, test.parameters) || fact.MethodMask("Close") != 0 {
+			t.Errorf("%s fields=%v, whole mask=%v, want%v", test.name, got, fact.MethodMask("Close"), test.parameters)
+		}
+	}
+}
+
+func TestFreshResourceAcquisitionContracts(t *testing.T) {
+	contracts := contractsFor(t, `
+package lifecyclefactstest
+import "os"
+type Lazy struct { file *os.File }
+func NewLazy() *Lazy { return &Lazy{} }
+func (l *Lazy) Close() error {
+	if l.file != nil { return l.file.Close() }
+	return nil
+}
+type Holder struct { lazy *Lazy }
+func NewHolder() *Holder { return &Holder{lazy:NewLazy()} }
+func (h *Holder) Close() error { return h.lazy.Close() }
+type FileOwner struct { file *os.File }
+func NewFileOwner(path string) (*FileOwner, error) {
+	f, err := os.Open(path)
+	if err != nil { return nil, err }
+	return &FileOwner{file:f}, nil
+}
+func (o *FileOwner) Close() error { return o.file.Close() }
+type Manager struct { handles map[string]*os.File }
+type Shared struct { file *os.File }
+func (m *Manager) Open(path string) (*Shared, error) {
+	f, err := os.Open(path)
+	if err != nil { return nil, err }
+	m.handles[path] = f
+	return &Shared{file:f}, nil
+}
+func (o *Shared) Close() error { return o.file.Close() }
+type Local struct { file *os.File }
+func LocalOpen(path string) (*Local, error) {
+	f, err := os.Open(path)
+	if err != nil { return nil, err }
+	local := map[string]*os.File{path:f}
+	_ = local
+	return &Local{file:f}, nil
+}
+func (o *Local) Close() error { return o.file.Close() }
+`)
+	for name, wantOwned := range map[string]bool{"Holder": false, "FileOwner": true, "Shared": false, "Local": true} {
+		got := contracts[name]
+		if owned := got != nil && got.Owned.contains(0); owned != wantOwned {
+			t.Errorf("%s ownership = %v (%v), want %v", name, owned, got, wantOwned)
+		}
+	}
+}
+
+func resourceTestType(packagePath, name string) *types.Named {
+	pkg := types.NewPackage(packagePath, "fixture")
+	object := types.NewTypeName(token.NoPos, pkg, name, nil)
+	return types.NewNamed(object, types.NewStruct(nil, nil), nil)
+}
+
+func TestResourceCleanupIdentityAndOwnership(t *testing.T) {
+	for _, test := range []struct {
+		packagePath string
+		name        string
+		methods     []string
+	}{
+		{"os", "File", []string{"Close"}},
+		{"database/sql", "Tx", []string{"Commit", "Rollback"}},
+		{"database/sql", "Rows", []string{"Close"}},
+		{"database/sql", "Stmt", []string{"Close"}},
+		{"net/http", "Response", []string{"Close"}},
+		{"compress/gzip", "Reader", []string{"Close"}},
+		{"compress/gzip", "Writer", []string{"Close"}},
+		{"compress/zlib", "Writer", []string{"Close"}},
+	} {
+		named := resourceTestType(test.packagePath, test.name)
+		for _, value := range []types.Type{named, types.NewPointer(named)} {
+			methods, known := ResourceCleanup(value)
+			if !known || !slices.Equal(methods, test.methods) {
+				t.Fatalf("%s.%s cleanup %v, known %t", test.packagePath, test.name, methods, known)
+			}
+			if pkg, known := resourcePackage(value); !known || pkg != test.packagePath {
+				t.Fatalf("%s.%s package %q, known %t", test.packagePath, test.name, pkg, known)
+			}
+			for index := range methods {
+				methods[index] = "Changed"
+			}
+			methods = append(methods, "Added")
+			fresh, _ := ResourceCleanup(value)
+			if !slices.Equal(fresh, test.methods) {
+				t.Fatalf("caller mutation %v changed later cleanup: %v", methods, fresh)
+			}
+		}
+	}
+	for _, value := range []types.Type{
+		nil, types.Typ[types.Int], resourceTestType("example.com/user", "File"),
+		resourceTestType("os", "Other"), resourceTestType("time", "Timer"),
+		types.NewPointer(types.NewPointer(resourceTestType("os", "File"))),
+	} {
+		if methods, known := ResourceCleanup(value); known || methods != nil {
+			t.Fatalf("unknown type %v gained cleanup %v", value, methods)
+		}
+		if pkg, known := resourcePackage(value); known || pkg != "" {
+			t.Fatalf("unknown type %v gained package %q", value, pkg)
+		}
+	}
+}
+
+func BenchmarkResourceVocabulary(b *testing.B) {
+	for _, test := range []struct {
+		name  string
+		value types.Type
+	}{
+		{"basic", types.Typ[types.Int]},
+		{"unknown_named", resourceTestType("example.com/user", "File")},
+		{"file", types.NewPointer(resourceTestType("os", "File"))},
+		{"transaction", types.NewPointer(resourceTestType("database/sql", "Tx"))},
+	} {
+		b.Run(test.name, func(b *testing.B) {
+			b.Run("cleanup", func(b *testing.B) {
+				b.ReportAllocs()
+				for b.Loop() {
+					_, _ = ResourceCleanup(test.value)
+				}
+			})
+			b.Run("package", func(b *testing.B) {
+				b.ReportAllocs()
+				for b.Loop() {
+					_, _ = resourcePackage(test.value)
+				}
+			})
+		})
+	}
+}
+
+func borrowedResourceValues(tb testing.TB) []ssa.Value {
+	tb.Helper()
+	pkg := ssaflowtest.BuildPackage(tb, "os", `package os
+type File struct{}
+func parameter(file *File) *File { return file }
+func load(cell **File) *File { return *cell }
+func zero() *File { return new(File) }
+`)
+	return []ssa.Value{
+		pkg.Func("parameter").Params[0],
+		ssaflow.InstructionsOf[*ssa.UnOp](pkg.Func("load"))[0],
+		ssaflow.InstructionsOf[*ssa.Alloc](pkg.Func("zero"))[0],
+	}
+}
+
+func TestResourceTypesDoNotEstablishAcquisition(t *testing.T) {
+	for _, value := range borrowedResourceValues(t) {
+		if _, known := ResourceCleanup(value.Type()); !known {
+			t.Fatalf("fixture lost known resource type: %v", value)
+		}
+		if acquiredResource(nil, value) {
+			t.Fatalf("non-call value gained acquisition evidence: %T %v", value, value)
+		}
+	}
+}
+
+func BenchmarkNonCallResourceAcquisition(b *testing.B) {
+	values := borrowedResourceValues(b)
+	for _, value := range values {
+		b.Run(value.Name(), func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				if acquiredResource(nil, value) {
+					b.Fatal("non-call value gained acquisition evidence")
+				}
+			}
+		})
 	}
 }
