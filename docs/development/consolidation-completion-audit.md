@@ -2905,7 +2905,7 @@ queries retain independent storage costs; child `.17.3` tracks those shared
 contracts across both prior registration and ordinary classification. Earlier
 acquisition predicates and graph/alias/type internals remain separate work.
 
-`prior_cleanup_test.go` records actual SSA for mutable captured cleanup, testing
+`cleanup_test.go` records actual SSA for mutable captured cleanup, testing
 registration, unrelated captures, by-value defers, later registration, a leak
 and exact release. Controls cover every insufficient allowance, a child cutoff
 while the parent remains available, fresh recovery and deferred-closure
@@ -3267,7 +3267,7 @@ insufficient allowances, parent-available child cutoff, fresh writer memo recove
 and oversized header-only handler cutoff in complete resource flow.
 
 Focused tests (0.770 seconds), lint and architecture pass. Lint found duplicate
-HEAD/local cutoff and source-construction scaffolding; `http_allowance_test.go` now owns
+HEAD/local cutoff and source-construction scaffolding; `http_test.go` now owns
 those shared controls while each protocol keeps its source fixture. Ignored-
 allowance and unchecked-child counterfactuals plus SSA receipts are retained
 under `.build/goal-local-http-*`: ignoring allowance fails all thirteen families

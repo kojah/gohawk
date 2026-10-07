@@ -67,7 +67,7 @@ keys and invalidation, termination summaries, and successor guard extension.
 either the walk child or a sibling query's parent pool yields unknown and
 discards any tentative leak witness; it cannot establish release or absence
 of an acquisition. Optional acquisition and error-edge activation retain their
-existing policy. `flow_budget_test.go` exercises actual SSA cleanup and leak
+existing policy. `flow_test.go` exercises actual SSA cleanup and leak
 paths, including dominating guards, at every insufficient allowance.
 
 The existing bounded guard and successor engines are exposed for this custom
@@ -83,7 +83,7 @@ Incoming-phi selection, nil evidence, assertion storage identity and possible
 derivation spend the flow allowance. Only a completed presence proof can remove
 an obligation on its absent arm. Assertion and nil-comparison policies remain
 unchanged; possible derivation is not strengthened into exact identity.
-`flow_presence_test.go` checks both arms, reversed nil comparisons, assertions,
+`flow_test.go` checks both arms, reversed nil comparisons, assertions,
 unrelated values and every insufficient allowance on actual SSA.
 
 The shared `ssaflow.DerivesFromWithin` engine charges queued values, arbitrary
@@ -115,7 +115,7 @@ witness on child or parent cutoff. Its result census, wrapper-result census,
 possible derivation and cleanup-method visits spend the flow allowance.
 `heapmodel.ReturnedMayAliasAnyWithin` shares the result/candidate census and
 alias dispatch; it preserves the original may-alias policy. Cutoff cannot
-establish that no owner was returned. `flow_returns_test.go` covers direct,
+establish that no owner was returned. `flow_test.go` covers direct,
 aggregate, derived and known-owner handoffs against unrelated and scalar
 results at every insufficient allowance. The heap census test uses two actual
 SSA results and two candidates to check dispatch cutoff and fresh recovery.
@@ -168,7 +168,7 @@ remains under Beads `gohawk-dho.44.11.5.18.1`.
 Wrapper return queries now charge explicit interface/type/boxing decoding,
 constructor arguments, recursive chain steps and callee-claim dispatch against
 that flow allowance. The four-step chain cap and must-hold constructor policy
-are unchanged. `flow_wrapper_test.go` covers boxed direct/nested chains, unrelated
+are unchanged. `wrappers_test.go` covers boxed direct/nested chains, unrelated
 inputs and over-depth chains at every insufficient allowance.
 
 Returned-view binding uses one domain proof through
@@ -190,7 +190,7 @@ one caller allowance. A nested wrapper must be constructed before every path to
 that return; a constructor confined to a sibling branch cannot cover it. A
 positive possibility still labels opaque ownership, never settlement. Cutoff
 labels `budget-exhausted`/unknown and is not memoized; completed negatives and
-positives are reused. `returned_wrapper_test.go` covers direct/nested wrappers,
+positives are reused. `wrappers_test.go` covers direct/nested wrappers,
 unrelated and discarded values, non-dominating construction, every insufficient
 allowance, fresh classifier recovery and reuse without another search. The
 obsolete Boolean/default facades are removed, and the return-specific chain
@@ -228,7 +228,7 @@ object containment separate from the analyzer's derived stored-value fallback:
 a pointer to a resource's field can be carried without containing the resource
 object. Both families supply possible consumption, never cleanup.
 
-`carried_values_test.go` exercises actual SSA for direct and loaded values,
+`carried_test.go` exercises actual SSA for direct and loaded values,
 aggregates, captures, unrelated inputs and derived field pointers, all
 insufficient allowances, payload classifier recovery, and a conversion chain
 exceeding the storage child cap. An overlay ignoring that child cutoff fails
@@ -261,7 +261,7 @@ user/write census with the wrapper allowance and discards partial results at
 cutoff. The default append helper delegates to the same mechanics. Spread
 slices remain unsupported by this special constructor-chain traversal, while
 ordinary argument containment still retains its existing policy.
-`possible_wrappers_test.go` covers these distinctions, unknown on insufficient
+`wrappers_test.go` covers these distinctions, unknown on insufficient
 allowance, publication through strict stores, local versus foreign destinations
 and classifier recovery. The shared slice tests cover complete and interrupted
 explicit/spread queries. Effect and graph/alias/type internals retain independent
@@ -295,7 +295,7 @@ Known testing cleanup registration retains its separate coverage proof; a
 visible callback observer and a summarized non-retaining helper stay transparent.
 Imported loop-release claims still establish uncertainty, never completion.
 
-`carried_callbacks_test.go` covers exact and nested captures, unrelated and
+`carried_test.go` covers exact and nested captures, unrelated and
 empty callbacks, one/two wrapper recognition, retaining/observing helpers,
 mixed direct/aggregate arguments, callback exclusion, imported loop consumption
 and started-closure classifier recovery at insufficient allowances. Prior
@@ -326,7 +326,7 @@ The existing filters remain distinct: returned errors are excluded, while
 global stores exclude both errors and scalar observations. Returned scalars
 retain the existing broader may-derivation policy. Foreign field stores and
 discarded/unrelated results remain outside this result-publication query.
-`result_publication_test.go` covers these shapes, all insufficient allowances,
+`results_test.go` covers these shapes, all insufficient allowances,
 fresh recovery, and a real SSA census exceeding the child cap while the
 candidate pool remains available. An overlay ignoring publication allowance
 must fail both the census and classifier controls. The shared proof allowance
@@ -357,7 +357,7 @@ All resource effect consumers now pass their allowance through `CallEffectsWithi
 the unused default-only broker method has been removed. This does not claim a
 transitive bound over graph/alias/type or call-binding construction internals.
 `call_effects_budget_test.go` checks exact read/async/unavailable effects, every
-insufficient allowance and the local child cap. `asynchronous_exposure_test.go`
+insufficient allowance and the local child cap. `ownership_test.go`
 covers imported and local exposure, accepted borrowing/unrelated forms, and
 unknown at the classifier when the effect child exhausts while the candidate
 pool remains available. An overlay ignoring effect-cutoff propagation fails
@@ -382,7 +382,7 @@ than cleanup. The pointer-struct restriction and resource-self exclusion are
 unchanged. Owner discovery and graph/alias/type internals retain independent
 costs; this does not bound them transitively.
 
-`captured_owner_test.go` checks captured and reassigned owners, unrelated
+`carried_test.go` checks captured and reassigned owners, unrelated
 captures, scalar/value owners, the resource-self exclusion and no owners.
 The late-populated local-owner control also consumes actual owner discovery:
 SSA exposes both the captured pointer cell and the holder loaded from it,
@@ -410,7 +410,7 @@ a local child cutoff with an available caller. A completed unavailable position
 retains the existing whole-aggregate query. Path identity identifies the slot;
 it does not prove ownership or cleanup, and fact encoding is unchanged.
 
-`aggregate_path_test.go` checks imported retention of the exact field versus
+`aggregate_test.go` checks imported retention of the exact field versus
 an independent sibling field, interrupted allowances and classifier recovery.
 The shared tests cover overwritten contents, the two-selection boundary and
 structural storage cutoff with parent allowance left. Conditional result-set
@@ -438,7 +438,7 @@ each consumer's existing policy; unavailable bodies retain their prior fallback.
 Wrapper retention still requires its existing retain effect, rather than
 treating every possible asynchronous use as ownership of the returned wrapper.
 
-`ownership_effects_test.go` covers visible borrowing, retention and asynchronous
+`ownership_test.go` covers visible borrowing, retention and asynchronous
 exposure, unrelated values and unavailable bodies, then long read-only helpers
 whose effect child exhausts while the caller remains available. It checks both
 the aggregate and wrapper proofs and the aggregate-call/foreign-store
@@ -531,7 +531,7 @@ recursive bodies and budget cuts retain their previous conservative answers.
 The 4,000-step child quota is retained; HEAD default-load use visits also charge
 that allowance. Cut summaries are
 not cached, and a fresh query in the same memo can recover an unchanged helper.
-`http_default_effects_test.go` covers root versus nested Do, harmless helpers,
+`http_test.go` covers root versus nested Do, harmless helpers,
 client/transport stores, field mutation, recursion and cutoff/fresh recovery.
 HEAD and local-server provenance compose with the candidate allowance. Operand
 visits and alias dispatch are charged, while graph/type/alias and list
@@ -729,7 +729,7 @@ and point-in-time containment instead of walking historical stores. A saved
 Body or aggregate copy may retain the original after later replacement.
 Loading a replaced Body, sending an overwritten aggregate or another response's
 Body, and passing response metadata or bytes do not establish this boundary.
-`body_handoff_test.go` isolates these distinctions because broader rules can
+`aggregate_test.go` isolates these distinctions because broader rules can
 already decline mutated responses. `body_handoffs.go` pins send/select forms
 and keeps discarded aggregates, metadata and byte handoffs diagnostic.
 The [ACP HTTP worker](https://github.com/Contextualist/acp/blob/579b477d0281df41ab8753a7cbcb8f7807e52e2c/pkg/pnet/p2p.go#L79-L91)
@@ -765,10 +765,10 @@ before flow classification. Possible holders still establish no cleanup or
 ownership guarantee. Local, foreign, unrelated and ambiguous destinations keep
 their prior policy. Destination-origin and graph/alias/type internals retain
 independent costs. Earlier acquisition predicates remain separate work under
-`gohawk-dho.44.11.5.17`. `storage_test.go` checks actual SSA for foreign/local,
+`gohawk-dho.44.11.5.17`. `ownership_test.go` checks actual SSA for foreign/local,
 unrelated/contained, copied/replaced and opaque destinations at every
 insufficient allowance, plus fresh retry and reuse without a second search.
-`owner_discovery_test.go` checks the candidate census at every insufficient
+`ownership_test.go` checks the candidate census at every insufficient
 allowance, child cutoff with parent allowance remaining, atomic commitment on a
 fresh query, classifier-cache reuse with no available pool, and complete-flow
 leak/release controls. Small actual-SSA inputs exercise the same discovery
@@ -1058,7 +1058,7 @@ The callback recognizer retains its single transparent wrapper step. SQL stateme
 identity proof with ordinary classification. Paired transaction-context
 contracts, graph/alias/type internals and earlier acquisition predicates remain
 separate cost work. Deferred witnesses
-keep precedence over callback registrations. `prior_cleanup_test.go` covers
+keep precedence over callback registrations. `cleanup_test.go` covers
 mutable captured cleanup, exact testing registration, unrelated captures,
 by-value defers, later registration, all insufficient allowances, child/pool
 cutoff, fresh recovery and full-flow leak/release controls using actual SSA.
@@ -1096,7 +1096,7 @@ rather than an exhausted negative or an exact cleanup label.
 
 Local completion memoization discards interrupted proofs, allowing a larger
 fresh query in the same evidence context to retry. Complete evidence retains
-ordinary reuse. `prior_deferred_completion_test.go` covers captured conditional
+ordinary reuse. `cleanup_test.go` covers captured conditional
 cleanup, unrelated and by-value defers, non-deferred registration, multiple
 defers, child cutoff, nested completion under a census-sufficient allowance,
 and fresh recovery. The independent nested-budget counterfactual must fail;
@@ -1119,7 +1119,7 @@ same probe/pool is passed into resource analysis after error/optional evidence
 has selected the final resource binding. The memory policy exclusion
 remains before pool construction; canceled acquisitions retain their accepted
 reason, while cutoff returns budget unknown before any leak witness. No alias
-traversal or deadline timing is added. `acquisition_context_test.go` checks
+traversal or deadline timing is added. `acquisition_test.go` checks
 exact/cause cancellation, all eligible APIs, the exclusions above, every
 insufficient allowance, child cutoff with parent available, fresh recovery and
 complete-flow canceled versus independent statement-leak controls. Earlier
@@ -1141,7 +1141,7 @@ so the authoritative flow never binds a phi from partial evidence. A completed
 structural decline continues ordinary acquisition analysis. The observed pool
 already exists before this query and remains shared with later owner and flow
 queries; graph/type/alias internals remain separate costs.
-`optional_acquisition_test.go` covers exact/inverse guards, a retained leak,
+`acquisition_test.go` covers exact/inverse guards, a retained leak,
 ambiguous alternatives, boxed error nilness, cycles, every insufficient allowance,
 child cutoff with parent available and fresh recovery. Shared reachability tests
 separately retain reachable and sibling-block answers after fresh recovery.
@@ -1160,7 +1160,7 @@ alias dispatch share a child of the observed candidate pool. Contract matching
 precedes reachability, avoiding CFG queries for unrelated instructions. Any
 cutoff returns budget unknown, and an interrupted census publishes neither
 assertion list. Graph construction and alias-query internals remain independent
-costs. `acquisition_error_test.go` pins require/assert functions and methods,
+costs. `acquisition_test.go` pins require/assert functions and methods,
 NotNil, exact/non-HTTP pairs, reversed and sibling branches, unrelated inputs,
 earlier claims, no-assertion leaks, all insufficient allowances, partial-list
 discard and child cutoff/fresh recovery. Ordinary resource flow remains the
@@ -1185,7 +1185,7 @@ now starts after the memory exclusion and before HTTP, then continues unchanged
 through context/error/optional binding and resource flow. Local-server endpoint
 and handler proofs use the same candidate pool with their own effect child.
 
-`http_head_allowance_test.go` covers exact and cloned/context HEAD requests,
+`http_test.go` covers exact and cloned/context HEAD requests,
 headers, default and captured clients, GET, phi/opaque inputs, mutation/escape,
 configured clients, every insufficient allowance, child cutoff and fresh
 recovery. A large visible harmless helper exhausts the default-effect child;
@@ -1211,13 +1211,13 @@ Opaque writers, body writes, framing headers, redirects, changed endpoints and
 client configuration retain their former declines. Graph/type/alias and list
 materialization internals are separate costs, not bounded by these visits.
 
-`http_local_allowance_test.go` pins direct/server-client/path requests, headers,
+`http_test.go` pins direct/server-client/path requests, headers,
 cookies, visible helper forwarding and the declines above, all insufficient
 allowances, child/fresh recovery and same-memo writer recovery. An oversized
 visible header-only handler exhausts the effect child; full resource flow returns
 budget unknown without a leak. Ignoring child availability emits a leak on that
 actual-SSA fixture. HEAD and local-server tests share fixture construction and
-cutoff-flow controls in `http_allowance_test.go`; each keeps its own protocol
+cutoff-flow controls in `http_test.go`; each keeps its own protocol
 source and policy expectations. No production-audit FP correction is claimed.
 
 ## Acquisition error-result availability
@@ -1232,7 +1232,7 @@ flow can reinterpret an unavailable error as an absent one. Scalar calls,
 non-error final results and concrete error implementations remain outside this
 paired-error contract and require no referrer search.
 
-`acquisition_result_test.go` checks two- and three-result identity, blank and
+`acquisition_test.go` checks two- and three-result identity, blank and
 unused error assignments, a discarded tuple call with no extracts, scalar and
 non-last/concrete errors, every insufficient lookup allowance, child and
 shared-parent cuts, fresh recovery, and full-flow cleanup/leak controls. Actual
@@ -1254,7 +1254,7 @@ so repeated complete discovery retains the same guards.
 setup sequence, preserving anywhere may-release uncertainty and prior cleanup
 labels before the path proof. Its structured availability result keeps the
 entry limited to collecting inputs, requesting proofs and applying policy.
-`result_guard_budget_test.go` covers interrupted publication, duplicate cleanup
+`results_test.go` covers interrupted publication, duplicate cleanup
 methods, repeated fresh discovery, the close-on-error success-path leak and
 close-on-success cleanup. Shared lifecycle tests cover error/Boolean guards,
 unrelated/opaque captures, multiple defers and child/fresh cutoff. Per-return
@@ -1278,7 +1278,7 @@ Conditional/read-only helpers, overwritten fields, non-merged exact arguments
 and unrelated origins keep their existing declines. Exact cleanup remains the
 separate earlier completion decision.
 
-`ambiguous_cleanup_test.go` exercises ten actual-SSA direct, merged, projected,
+`cleanup_test.go` exercises ten actual-SSA direct, merged, projected,
 helper and rejected forms, every insufficient allowance, child/fresh recovery,
 optional/non-call exclusions and seven full-flow controls. The controls assert
 unknown for ambiguous cleanup, completed cleanup for the exact direct call,
@@ -1311,7 +1311,7 @@ The reusable contract and representative
 [wg-portal helper](https://github.com/h44z/wg-portal/blob/eb44c8c4ff120f34c26b2415c47560f4fba0603c/internal/lowlevel/mikrotik.go#L267-L280)
 remain unchanged.
 
-`correlated_cleanup_test.go` covers ten actual-SSA proof families with fresh
+`cleanup_test.go` covers ten actual-SSA proof families with fresh
 query evidence per allowance, a child cutoff with available parent and a fresh
 retry, and six full-flow controls for unknown cleanup and retained leak witnesses.
 The existing `paired_error_cleanup.go` reporting fixtures retain generic
@@ -1368,7 +1368,7 @@ return query allowance. Cutoffs cannot turn a missing binding into a skipped
 cleanup or a completed cleanup. The shared
 `completion_results_test.go` pins actual SSA for multiple results,
 multiple returns, overwritten stores, earlier-block assignments, conditional
-registration and interrupted callbacks. Consumer `result_guard_budget_test.go`
+registration and interrupted callbacks. Consumer `results_test.go`
 checks cutoff unknown followed by fresh release and skipped-cleanup answers.
 
 
@@ -1411,7 +1411,7 @@ or an unknown proof; a child cutoff discards every accumulated edge even when
 the outer pool remains live. The final flow declines both leak and release
 claims from that unknown list.
 
-`branch_budget_test.go` covers direct/reversed error comparisons, unrelated
+`flow_test.go` covers direct/reversed error comparisons, unrelated
 errors, type assertions, filesystem sentinels, wrapped legacy predicates,
 joined errors, visible and captured result predicates, long provenance chains,
 and matching/wrong SQL receivers. It checks zero and intermediate cutoffs,
