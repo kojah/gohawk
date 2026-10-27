@@ -62,3 +62,34 @@ func openHeader(path string) (*os.File, error) {
 }
 
 // #endregion transfer
+
+// #region validation-leak
+func openValidated(path string) (*os.File, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	var header [4]byte
+	if _, err := io.ReadFull(file, header[:]); err != nil {
+		return nil, fmt.Errorf("read header: %w", err)
+	}
+	return file, nil // Caller continues reading after the header.
+}
+
+// #endregion validation-leak
+
+// #region validation-fixed
+func openValidatedSafely(path string) (*os.File, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	var header [4]byte
+	if _, err := io.ReadFull(file, header[:]); err != nil {
+		_ = file.Close()
+		return nil, fmt.Errorf("read header: %w", err)
+	}
+	return file, nil // Caller now owns the open file.
+}
+
+// #endregion validation-fixed

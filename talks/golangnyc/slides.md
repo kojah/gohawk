@@ -39,7 +39,7 @@ mermaid:
 </div>
 
 <!--
-SECTION 1 — 8 minutes total, slides 1–5. Elapsed target: 08:00.
+SECTION 1 — 8 minutes total, slides 1–7. Elapsed target: 08:00.
 Spend about 45 seconds here. Introduce yourself and the project in your own words.
 This talk assumes familiarity with Go functions, errors, defer, and goroutines.
 The question for the hour: when a function starts something, who owns finishing it?
@@ -55,7 +55,7 @@ No live network or running external worker is needed for any example.
 <!--
 Context for the speaker: Read a short header, then close the file. Take 30 seconds.
 
-Spend about 2 minutes. Pause before explaining anything. Ask for a show of hands:
+Spend about 1 minute. Pause before explaining anything. Ask for a show of hands:
 who sees a problem, and on which line? Let someone describe the error path.
 This is an actual compiled snippet, shared with the example validation.
 Do not claim Close errors never matter: the happy path deliberately returns its error.
@@ -70,7 +70,7 @@ Do not claim Close errors never matter: the happy path deliberately returns its 
 <!--
 Context for the speaker: io.CopyN can fail: a short input or a failing destination is enough.
 
-Spend about 90 seconds. Success closes the descriptor. A successful Open followed
+Spend about 45 seconds. Success closes the descriptor. A successful Open followed
 by a failed CopyN returns before Close. A short input is a very ordinary trigger.
 Repeated use in a long-lived process can accumulate open descriptors.
 Distinguish a reachable return from an imaginary combination of incompatible branches.
@@ -94,7 +94,7 @@ flowchart LR
 <!--
 Context for the speaker: The obligation begins after acquisition succeeds.
 
-Spend about 2 minutes. Walk the picture with the audience. Open failure creates no
+Spend about 45 seconds. Walk the picture with the audience. Open failure creates no
 file cleanup obligation. The lower copy-error branch is the witness for this bug.
 Explain what path-sensitive means using this picture before introducing the term.
 Static analysis considers code paths without waiting for production to take them.
@@ -109,11 +109,44 @@ Static analysis considers code paths without waiting for production to take them
 <!--
 Context for the speaker: For this read-only example, defer covers both later returns.
 
-Spend about 1 minute 45 seconds. Defer moves the duty to function exit, immediately
+Spend about 45 seconds. Defer moves the duty to function exit, immediately
 after success. The file is used for reading, so this example ignores the deferred
 Close error. Write/flush/commit code may need to preserve a finalization error.
-Ask: easy in twelve lines—but what if cleanup lives in another package?
-That question is the bridge to gohawk.
+Acknowledge the obvious objection: yes, defer is the right habit here.
+Now ask what happens when this function must return the file still open.
+-->
+
+---
+
+# Just add defer?
+
+<<< @/examples/resources.go#validation-leak {8-11}
+
+<!--
+Spend about 90 seconds. This function reads a four-byte header and returns the
+open file, positioned for the caller to continue reading. A short file makes
+ReadFull fail. Which return still owns the file? Let the audience explain it.
+Adding defer file.Close immediately after Open would close the returned file on
+success. Returning the file transfers ownership only on the successful path;
+returning nil with an error leaves this function responsible for closing it.
+The analyzer reports this missing-release example in the validated examples.
+-->
+
+---
+
+# Close here. Or hand it on.
+
+<<< @/examples/resources.go#validation-fixed {8,11}
+
+<!--
+Spend about 90 seconds. On failure, close before returning the error. On success,
+return the live file and let the caller own Close. The read failure is the primary
+error; this read-only example deliberately ignores a secondary Close error.
+The header read is intentionally minimal: it establishes that four bytes exist,
+not that they match a particular format. The caller continues after those bytes.
+This accepted form is analyzed beside the leaking form. The useful question is
+which paths still owe cleanup, rather than whether the function contains defer.
+Bridge to gohawk: keep that ownership question in mind across helpers and packages.
 -->
 
 ---
@@ -123,7 +156,7 @@ class: section
 # Meet gohawk.
 
 <!--
-SECTION 2 — 10 minutes total, slides 6–12. Elapsed target: 18:00.
+SECTION 2 — 10 minutes total, slides 8–14. Elapsed target: 18:00.
 Spend about 45 seconds. Describe the scope narrowly. This is a domain-focused
 analyzer suite. Avoid claims that it proves all Go code safe or replaces tests.
 Source: repository README and docs/analyzers/.
@@ -246,7 +279,7 @@ class: section
 # Across helpers.
 
 <!--
-SECTION 3 — 15 minutes total, slides 13–21. Elapsed target: 33:00.
+SECTION 3 — 15 minutes total, slides 15–23. Elapsed target: 33:00.
 Spend about 45 seconds. We have explained the bugs before the machinery.
 The next section is an explanation of a bounded model, not a formal proof that
 all resources in every program are accounted for.
@@ -420,7 +453,7 @@ class: section
 # Warnings cost attention.
 
 <!--
-SECTION 4 — 10 minutes total, slides 22–28. Elapsed target: 43:00.
+SECTION 4 — 10 minutes total, slides 24–30. Elapsed target: 43:00.
 Spend about 45 seconds. Explain the project's precision-first goal as a design
 choice. No claimed precision percentage: the deck does not contain a fresh corpus
 measurement. A trustworthy diagnostic should point toward an actionable change.
@@ -554,7 +587,7 @@ class: section
 <!--
 Context for the speaker: moby/moby #53517 · Reap nft process on errors
 
-SECTION 5 — 7 minutes total, slides 29–34. Elapsed target: 50:00.
+SECTION 5 — 7 minutes total, slides 31–36. Elapsed target: 50:00.
 Spend about 45 seconds. The linked PR explicitly attributes discovery to gohawk's
 processownership check. Do not imply the static analyzer proved the pipe deadlock.
 The same review found both incomplete process cleanup and sequential pipe draining.

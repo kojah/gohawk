@@ -16,8 +16,8 @@
 <title>hook</title>
 <path fill="#203149" stroke="#6096ba" d="M463,-629C463,-629 12,-629 12,-629 6,-629 0,-623 0,-617 0,-617 0,-563 0,-563 0,-557 6,-551 12,-551 12,-551 463,-551 463,-551 469,-551 475,-557 475,-563 475,-563 475,-617 475,-617 475,-623 469,-629 463,-629"/>
 <text text-anchor="middle" x="237.5" y="-604.2" font-family="Helvetica,sans-Serif" font-size="16.00" fill="#f1f5f9">1 · Can you spot the bug? &#160;&#160;/ &#160;&#160;8 min</text>
-<text text-anchor="middle" x="237.5" y="-586.2" font-family="Helvetica,sans-Serif" font-size="16.00" fill="#f1f5f9">Small Go example → audience guesses</text>
-<text text-anchor="middle" x="237.5" y="-568.2" font-family="Helvetica,sans-Serif" font-size="16.00" fill="#f1f5f9">Reveal the failure and its consequences</text>
+<text text-anchor="middle" x="237.5" y="-586.2" font-family="Helvetica,sans-Serif" font-size="16.00" fill="#f1f5f9">Missed return → defer fixes it</text>
+<text text-anchor="middle" x="237.5" y="-568.2" font-family="Helvetica,sans-Serif" font-size="16.00" fill="#f1f5f9">Validated file → close on error, transfer on success</text>
 </g>
 <!-- scope -->
 <g id="node2" class="node">

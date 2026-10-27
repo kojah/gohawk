@@ -2,7 +2,7 @@ digraph talk {
  graph [rankdir=TB, bgcolor="#101827", pad=0.4, nodesep=0.3, ranksep=0.35, label="gohawk at GolangNYC\n60-minute talk · proposed flow", labelloc=t, fontname="Helvetica", fontsize=24, fontcolor="#e5e7eb"];
  node [shape=box, style="rounded,filled", fillcolor="#203149", color="#6096ba", fontcolor="#f1f5f9", fontname="Helvetica", fontsize=16, margin="0.25,0.16", width=6.6];
  edge [color="#91a4bc", arrowsize=0.7];
- hook [label="1 · Can you spot the bug?   /   8 min\nSmall Go example → audience guesses\nReveal the failure and its consequences"];
+ hook [label="1 · Can you spot the bug?   /   8 min\nMissed return → defer fixes it\nValidated file → close on error, transfer on success"];
  scope [label="2 · What gohawk catches   /   10 min\nReveal the diagnostic and fix\nResource and concurrency examples"];
  reasoning [label="3 · How it follows the code   /   15 min\nTrace the opening bug through helpers\nVisualize obligations, function summaries and paths\nIntroduce SSA only where it helps explain the result", fillcolor="#29334f", color="#a78bfa"];
  trust [label="4 · When should it stay silent?   /   10 min\nCompare the bug with a safe lookalike\nOwnership transfer, uncertainty and false positives\nExplain the evidence needed for a report"];
