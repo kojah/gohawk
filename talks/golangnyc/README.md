@@ -1,4 +1,4 @@
-# Who cleans up? — gohawk at GolangNYC
+# Resource ownership in Go
 
 A Slidev talk for Go developers: 50 minutes of presentation and 10 minutes of
 questions. There are 37 main slides and three backup slides. Every slide has

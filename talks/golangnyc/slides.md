@@ -1,6 +1,6 @@
 ---
 theme: default
-title: 'gohawk: Who cleans up?'
+title: 'gohawk resource ownership in Go'
 info: 'GolangNYC · Resource management and concurrency in Go · 50 minutes + 10 minutes Q&A'
 author: James Ko
 colorSchema: dark
@@ -32,7 +32,7 @@ mermaid:
 <div class="hero">
 <div>
 <div class="eyebrow">GolangNYC · James Ko</div>
-<h1>Who<br>cleans up?</h1>
+<h1>Resource ownership<br>in Go</h1>
 <p class="subtitle"><strong>gohawk</strong></p>
 </div>
 <img src="/gohawk-logo.png" alt="A hawk sheltering a Go gopher" />
@@ -48,7 +48,7 @@ No live network or running external worker is needed for any example.
 
 ---
 
-# Spot the bug.
+# File cleanup example
 
 <<< @/examples/resources.go#leaky
 
@@ -63,7 +63,7 @@ Do not claim Close errors never matter: the happy path deliberately returns its 
 
 ---
 
-# The missed return.
+# Cleanup on error paths
 
 <<< @/examples/resources.go#leaky {6-8}
 
@@ -78,7 +78,7 @@ Distinguish a reachable return from an imaginary combination of incompatible bra
 
 ---
 
-# Two paths.
+# Return paths
 
 ```mermaid
 flowchart LR
@@ -102,7 +102,7 @@ Static analysis considers code paths without waiting for production to take them
 
 ---
 
-# Defer it.
+# Deferred cleanup
 
 <<< @/examples/resources.go#fixed {6}
 
@@ -118,7 +118,7 @@ Now ask what happens when this function must return the file still open.
 
 ---
 
-# Just add defer?
+# Returning an open file
 
 <<< @/examples/resources.go#validation-leak {8-11}
 
@@ -134,7 +134,7 @@ The analyzer reports this missing-release example in the validated examples.
 
 ---
 
-# Close here. Or hand it on.
+# Cleanup and ownership transfer
 
 <<< @/examples/resources.go#validation-fixed {8,11}
 
@@ -153,7 +153,7 @@ Bridge to gohawk: keep that ownership question in mind across helpers and packag
 class: section
 ---
 
-# Meet gohawk.
+# gohawk overview
 
 <!--
 SECTION 2 — 10 minutes total, slides 8–14. Elapsed target: 18:00.
@@ -164,7 +164,7 @@ Source: repository README and docs/analyzers/.
 
 ---
 
-# There it is.
+# Resource lifetime diagnostic
 
 <div class="terminal">
 <p>owned resource from os.Open is not<br>released on every return path</p>
@@ -181,7 +181,7 @@ Source: internal/analysis/analyzers/resources/resourcelifetime/analyzer.go.
 
 ---
 
-# Who finishes?
+# Lifecycle obligations
 
 <div class="steps">
 <div class="step"><b>FILE</b><span>Close</span></div>
@@ -202,7 +202,7 @@ Sources: public resourcelifetime, goroutineownership and processownership pages.
 
 ---
 
-# Who waits?
+# Worker completion
 
 <<< @/examples/workers.go#unjoined
 
@@ -218,7 +218,7 @@ obligation is the positive evidence this check starts from.
 
 ---
 
-# Join it.
+# Waiting for workers
 
 <<< @/examples/workers.go#joined {9}
 
@@ -235,7 +235,7 @@ The accepted example is checked against the same analyzer as the bad example.
 
 <div class="eyebrow">Experimental</div>
 
-# And processes?
+# Process completion
 
 <<< @/examples/processes.go#process {6-9}
 
@@ -252,7 +252,7 @@ executed during validation: examples are compiled and analyzed only.
 
 ---
 
-# Choose your checks.
+# Check selection
 
 ```sh
 gohawk ./...
@@ -276,7 +276,7 @@ use list and doc from the installed version. Source: docs/configuration.md.
 class: section
 ---
 
-# Across helpers.
+# Analysis across functions
 
 <!--
 SECTION 3 — 15 minutes total, slides 15–23. Elapsed target: 33:00.
@@ -287,7 +287,7 @@ all resources in every program are accounted for.
 
 ---
 
-# Still closed.
+# Cleanup in a helper
 
 <<< @/examples/resources.go#helpers
 
@@ -302,7 +302,7 @@ The example is imported directly from the validated Go source.
 
 ---
 
-# Remember the promise.
+# Function summaries
 
 <div class="two">
 <div class="panel">
@@ -326,7 +326,7 @@ Source: docs/development/fact-model.md and docs/architecture.md.
 
 ---
 
-# The same file.
+# Argument binding
 
 ```mermaid
 flowchart LR
@@ -348,7 +348,7 @@ full heap or alias model.
 
 ---
 
-# Follow the value.
+# Static single assignment
 
 ```text
 file₁, err₁ = Open(path)
@@ -370,7 +370,7 @@ we will not derive the whole intermediate representation on stage.
 
 ---
 
-# Find → classify → follow
+# Lifecycle analysis
 
 <div class="steps">
 <div class="step"><span>Obligation</span></div>
@@ -391,10 +391,10 @@ Source: docs/architecture.md, lifecycle analyzer section.
 
 ---
 
-# Unknown is an answer.
+# Uncertain ownership
 
 <div class="two">
-<div class="panel"><h2>Cleanup / transfer</h2><p>No report.</p></div>
+<div class="panel"><h2>Cleanup or transfer</h2><p>No report.</p></div>
 <div class="panel"><h2>Unknown</h2><p>No report.</p></div>
 </div>
 
@@ -410,7 +410,7 @@ The last row says may because final reporting can include other policy exclusion
 
 ---
 
-# Across packages.
+# Cross package summaries
 
 ```mermaid
 flowchart LR
@@ -430,7 +430,7 @@ Source: docs/development/fact-model.md, selecting knowledge before analysis.
 
 ---
 
-# Built on go vet.
+# Package analysis with go vet
 
 <div class="terminal">
 <p>gohawk ./...<br>  → go vet -vettool=… -json<br>  → package analysis + cached facts<br>  → diagnostics</p>
@@ -450,7 +450,7 @@ Source: docs/architecture.md, how a run is driven.
 class: section
 ---
 
-# Warnings cost attention.
+# Diagnostic precision
 
 <!--
 SECTION 4 — 10 minutes total, slides 24–30. Elapsed target: 43:00.
@@ -461,7 +461,7 @@ measurement. A trustworthy diagnostic should point toward an actionable change.
 
 ---
 
-# A leak?
+# Returned ownership
 
 <<< @/examples/resources.go#transfer
 
@@ -476,7 +476,7 @@ prove its eventual caller will close it; it changes the local ownership question
 
 ---
 
-# Dropped or handed on?
+# Abandonment and transfer
 
 <div class="two">
 <div class="panel">
@@ -500,7 +500,7 @@ require deeper ownership evidence; it is outside this simple example.
 
 ---
 
-# Silence ≠ safety.
+# Analysis coverage
 
 <div class="steps">
 <div class="step"><span>Covered</span></div>
@@ -518,7 +518,7 @@ contract, not a claim of whole-program correctness.
 
 ---
 
-# Test the lookalikes.
+# Regression fixtures
 
 <div class="two">
 <div class="panel">
@@ -543,7 +543,7 @@ set and do not replace the analyzer's larger local testdata suite.
 
 ---
 
-# Into the wild.
+# Validation on real projects
 
 <div class="steps">
 <div class="step"><span>Run</span></div>
@@ -564,7 +564,7 @@ Source: AGENTS.md precision policy and development audit guidance.
 
 ---
 
-# Precision first.
+# False positive policy
 
 <p class="statement">Don’t flag<br><strong>correct code.</strong></p>
 
@@ -582,7 +582,7 @@ Bridge: here is what a reviewed report can turn into in a real project.
 class: section
 ---
 
-# Docker. A missing Wait.
+# Docker process cleanup
 
 <!--
 Context for the speaker: moby/moby #53517 · Reap nft process on errors
@@ -596,7 +596,7 @@ Status/merge claims are intentionally omitted: this slide explains the patch.
 
 ---
 
-# One report. Two bugs.
+# Analyzer and review findings
 
 <div class="two">
 <div class="panel">
@@ -621,7 +621,7 @@ came from review and a reproduction; do not attribute general deadlock detection
 
 ---
 
-# Let Run handle it.
+# Process execution with Run
 
 ```go
 // Simplified from the proposed Docker patch.
@@ -647,7 +647,7 @@ Source: https://pkg.go.dev/os/exec#Cmd.Run and the linked PR diff.
 
 ---
 
-# Try it.
+# Installation
 
 ```sh
 go install github.com/kojah/gohawk@latest
@@ -667,15 +667,15 @@ on an unfamiliar large repository as the first demo.
 
 ---
 
-# Make it routine.
+# Integration and contributions
 
 <div class="two">
 <div class="panel">
-<h2>Use it</h2>
+<h2>Integration</h2>
 <p>Pin. Run. Review.</p>
 </div>
 <div class="panel">
-<h2>Improve it</h2>
+<h2>Contributions</h2>
 <p>Small reproductions.</p>
 </div>
 </div>
@@ -691,7 +691,7 @@ lifecycle. Tests and source review remain part of the workflow.
 
 ---
 
-# Who cleans up?
+# Resource ownership
 
 <p class="statement">Open → ? → Close</p>
 
@@ -706,7 +706,7 @@ Next slide begins the reserved ten-minute Q&A.
 class: section
 ---
 
-# Your questions.
+# Questions
 
 <p class="subtitle"><strong>gohawk.dev</strong></p>
 
@@ -723,7 +723,7 @@ need a pinned version, a corpus and reviewed measurements. Do not improvise numb
 
 <div class="eyebrow">Backup / scope</div>
 
-# The limits.
+# Analysis limitations
 
 - Silence ≠ safety
 - Cancellation ≠ completion
@@ -741,7 +741,7 @@ unreported case, inspect the actual version and trace before promising coverage.
 
 <div class="eyebrow">Backup / process lifecycle</div>
 
-# Run.
+# Process lifecycle example
 
 <<< @/examples/processes.go#processfixed
 
@@ -757,7 +757,7 @@ causes the child to exit. This accepted example is compiled and analyzed, not ru
 
 <div class="eyebrow">Backup / sources</div>
 
-# Sources.
+# References
 
 - [Resource lifetime](https://gohawk.dev/analyzers/resources-and-lifecycle/resourcelifetime/)
 - [Goroutine ownership](https://gohawk.dev/analyzers/concurrency-and-synchronization/goroutineownership/)
