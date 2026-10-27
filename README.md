@@ -81,6 +81,17 @@ for build and configuration instructions.
 Contributions are welcome. See [How to contribute](https://gohawk.dev/contributing/)
 for the development workflow, analyzer requirements, and verification steps.
 
+## Contributors
+
+Thanks to everyone who contributes to gohawk.
+
+[<img src="https://avatars.githubusercontent.com/u/317433745?v=4&amp;s=64" width="64" height="64" alt="@kojah">](https://github.com/kojah)
+[<img src="https://avatars.githubusercontent.com/u/9159214?v=4&amp;s=64" width="64" height="64" alt="@jamesqo">](https://github.com/jamesqo)
+[<img src="https://avatars.githubusercontent.com/u/3228886?v=4&amp;s=64" width="64" height="64" alt="@alexandear">](https://github.com/alexandear)
+[<img src="https://avatars.githubusercontent.com/u/64619057?v=4&amp;s=64" width="64" height="64" alt="@heymaikol">](https://github.com/heymaikol)
+
+See the [full contributor history](https://github.com/kojah/gohawk/graphs/contributors).
+
 ## AI policy
 
 gohawk was developed with assistance from LLMs, and AI-assisted contributions
