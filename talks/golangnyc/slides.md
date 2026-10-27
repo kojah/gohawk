@@ -39,7 +39,7 @@ mermaid:
 </div>
 
 <!--
-SECTION 1 — 8 minutes total, slides 1–7. Elapsed target: 08:00.
+SECTION 1 — 8 minutes total, slides 1–8. Elapsed target: 08:00.
 Spend about 45 seconds here. Introduce yourself and the project in your own words.
 This talk assumes familiarity with Go functions, errors, defer, and goroutines.
 The question for the hour: when a function starts something, who owns finishing it?
@@ -120,10 +120,22 @@ Now ask what happens when this function must return the file still open.
 
 # Returning an open file
 
+<<< @/examples/resources.go#validation-leak
+
+<!--
+Spend about 45 seconds. Let the audience read the whole function before pointing
+at any lines. It reads a four-byte header and returns the file positioned for the
+caller to continue reading. Ask where cleanup belongs and allow time for answers.
+-->
+
+---
+
+# Ownership on each return path
+
 <<< @/examples/resources.go#validation-leak {8-11}
 
 <!--
-Spend about 90 seconds. This function reads a four-byte header and returns the
+Spend about 45 seconds. This function reads a four-byte header and returns the
 open file, positioned for the caller to continue reading. A short file makes
 ReadFull fail. Which return still owns the file? Let the audience explain it.
 Adding defer file.Close immediately after Open would close the returned file on
@@ -156,7 +168,7 @@ class: section
 # gohawk overview
 
 <!--
-SECTION 2 — 10 minutes total, slides 8–14. Elapsed target: 18:00.
+SECTION 2 — 10 minutes total, slides 9–15. Elapsed target: 18:00.
 Spend about 45 seconds. Describe the scope narrowly. This is a domain-focused
 analyzer suite. Avoid claims that it proves all Go code safe or replaces tests.
 Source: repository README and docs/analyzers/.
@@ -279,7 +291,7 @@ class: section
 # Analysis across functions
 
 <!--
-SECTION 3 — 15 minutes total, slides 15–23. Elapsed target: 33:00.
+SECTION 3 — 15 minutes total, slides 16–24. Elapsed target: 33:00.
 Spend about 45 seconds. We have explained the bugs before the machinery.
 The next section is an explanation of a bounded model, not a formal proof that
 all resources in every program are accounted for.
@@ -453,7 +465,7 @@ class: section
 # Diagnostic precision
 
 <!--
-SECTION 4 — 10 minutes total, slides 24–30. Elapsed target: 43:00.
+SECTION 4 — 10 minutes total, slides 25–31. Elapsed target: 43:00.
 Spend about 45 seconds. Explain the project's precision-first goal as a design
 choice. No claimed precision percentage: the deck does not contain a fresh corpus
 measurement. A trustworthy diagnostic should point toward an actionable change.
@@ -587,7 +599,7 @@ class: section
 <!--
 Context for the speaker: moby/moby #53517 · Reap nft process on errors
 
-SECTION 5 — 7 minutes total, slides 31–36. Elapsed target: 50:00.
+SECTION 5 — 7 minutes total, slides 32–37. Elapsed target: 50:00.
 Spend about 45 seconds. The linked PR explicitly attributes discovery to gohawk's
 processownership check. Do not imply the static analyzer proved the pipe deadlock.
 The same review found both incomplete process cleanup and sequential pipe draining.

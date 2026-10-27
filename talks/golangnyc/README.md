@@ -1,7 +1,7 @@
 # Resource ownership in Go
 
 A Slidev talk for Go developers: 50 minutes of presentation and 10 minutes of
-questions. There are 37 main slides and three backup slides. Every slide has
+questions. There are 38 main slides and three backup slides. Every slide has
 speaker notes. The opening file leak connects the examples, analysis model,
 precision discussion and closing question.
 
@@ -25,13 +25,13 @@ bundled locally; presenting the built deck does not require Google Fonts or a CD
 
 | Slides | Section                           | Time      | Elapsed |
 | ------ | --------------------------------- | --------- | ------- |
-| 1–7    | Spot the bug                      | 8 min     | 08:00   |
-| 8–14   | What gohawk catches               | 10 min    | 18:00   |
-| 15–23  | How it follows the code           | 15 min    | 33:00   |
-| 24–30  | When it should stay silent        | 10 min    | 43:00   |
-| 31–36  | Docker finding and adoption       | 7 min     | 50:00   |
-| 37     | Questions                         | 10 min    | 60:00   |
-| 38–40  | Backup: scope, processes, sources | As needed | —       |
+| 1–8    | Spot the bug                      | 8 min     | 08:00   |
+| 9–15   | What gohawk catches               | 10 min    | 18:00   |
+| 16–24  | How it follows the code           | 15 min    | 33:00   |
+| 25–31  | When it should stay silent        | 10 min    | 43:00   |
+| 32–37  | Docker finding and adoption       | 7 min     | 50:00   |
+| 38     | Questions                         | 10 min    | 60:00   |
+| 39–41  | Backup: scope, processes, sources | As needed | —       |
 
 `flow.dot` is the editable Bobby plan. `public/talk-flow.svg` is its rendering.
 Re-render it with Bobby's `diagram flow.dot --svg public/talk-flow.svg` command.
@@ -56,7 +56,7 @@ pnpm export:notes
 and content outside the canvas, then saves screenshots to `dist/shots/` and a
 report to `dist/slide-check.json`. Inspect screenshots as well as the report.
 `SLIDEV_CHECK_URL` overrides the preview URL (default `http://127.0.0.1:4173`).
-PDFs are written under `dist/`. Use `pnpm export --range 1-37` to omit backups.
+PDFs are written under `dist/`. Use `pnpm export --range 1-38` to omit backups.
 The deck has no custom TypeScript or Vue components needing a separate type check.
 Browser checks and example analysis validate the actual rendered/code artifacts;
 there is no unit-test suite for slide text or styling.
