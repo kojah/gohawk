@@ -2,11 +2,11 @@ digraph talk {
  graph [rankdir=TB, bgcolor="#101827", pad=0.4, nodesep=0.3, ranksep=0.35, label="gohawk at GolangNYC\n60-minute talk · proposed flow", labelloc=t, fontname="Helvetica", fontsize=24, fontcolor="#e5e7eb"];
  node [shape=box, style="rounded,filled", fillcolor="#203149", color="#6096ba", fontcolor="#f1f5f9", fontname="Helvetica", fontsize=16, margin="0.25,0.16", width=6.6];
  edge [color="#91a4bc", arrowsize=0.7];
- hook [label="1 · Can you spot the bug?   /   8 min\nMissed return → defer fixes it\nValidated file → close on error, transfer on success"];
- scope [label="2 · What gohawk catches   /   10 min\nReveal the diagnostic and fix\nResource and concurrency examples"];
- reasoning [label="3 · How it follows the code   /   15 min\nTrace the opening bug through helpers\nVisualize obligations, function summaries and paths\nIntroduce SSA only where it helps explain the result", fillcolor="#29334f", color="#a78bfa"];
- trust [label="4 · When should it stay silent?   /   10 min\nCompare the bug with a safe lookalike\nOwnership transfer, uncertainty and false positives\nExplain the evidence needed for a report"];
- impact [label="5 · Real impact → try it yourself   /   7 min\nWalk through one verified real-world fix\nRun gohawk and show integration options\nReturn to the opening example"];
- qa [label="6 · Questions and discussion   /   10 min\nAudience examples, limitations and deeper internals", fillcolor="#153f43", color="#5ec9b6"];
+ hook [label="1 · Cleanup and ownership transfer   /   10 min\nMissed return → deferred cleanup\nValidated file → close on error, transfer on success"];
+ scope [label="2 · Diagnostics and worker completion   /   8 min\nResource diagnostic and lifecycle obligations\nWorker completion and joining"];
+ reasoning [label="3 · Helpers and lifecycle analysis   /   13 min\nCleanup helpers and exact argument binding\nSSA, lifecycle flow and cross-package facts", fillcolor="#29334f", color="#a78bfa"];
+ trust [label="4 · Precision and validation   /   7 min\nEvidence for reports and reasons to stay silent\nAccepted fixtures and reviewed real-world findings"];
+ impact [label="5 · Process cleanup and adoption   /   12 min\nStart and Wait → Docker case study\nInstall, select checks and integrate"];
+ qa [label="6 · Questions   /   10 min\nAudience examples, limitations and deeper internals", fillcolor="#153f43", color="#5ec9b6"];
  hook -> scope -> reasoning -> trust -> impact -> qa;
 }
