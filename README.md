@@ -83,15 +83,10 @@ for the development workflow, analyzer requirements, and verification steps.
 
 ## Contributors
 
-Thanks to everyone who contributes to gohawk. This list of commit contributors
+Thanks to everyone who contributes to gohawk. This image of commit contributors
 is refreshed daily.
 
-<!-- contributors:start -->
-[<img src="https://avatars.githubusercontent.com/u/317433745?v=4&amp;s=64" width="64" height="64" alt="@kojah">](https://github.com/kojah)
-[<img src="https://avatars.githubusercontent.com/u/9159214?v=4&amp;s=64" width="64" height="64" alt="@jamesqo">](https://github.com/jamesqo)
-[<img src="https://avatars.githubusercontent.com/u/3228886?v=4&amp;s=64" width="64" height="64" alt="@alexandear">](https://github.com/alexandear)
-[<img src="https://avatars.githubusercontent.com/u/64619057?v=4&amp;s=64" width="64" height="64" alt="@heymaikol">](https://github.com/heymaikol)
-<!-- contributors:end -->
+[![gohawk contributors](.github/contributors.svg)](https://github.com/kojah/gohawk/graphs/contributors)
 
 See the [full contributor history](https://github.com/kojah/gohawk/graphs/contributors).
 

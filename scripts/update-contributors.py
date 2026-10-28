@@ -1,56 +1,74 @@
 #!/usr/bin/env python3
-"""Refresh the README's contributor avatars from GitHub's commit contributors."""
+"""Render GitHub's commit contributors as a grid of round avatars in one SVG."""
 
 import argparse
+import base64
 import html
 import json
 from pathlib import Path
 import subprocess
+import urllib.request
 
-START = "<!-- contributors:start -->"
-END = "<!-- contributors:end -->"
+SIZE = 40
+GAP = 6
+COLUMNS = 18
 
 
-def avatar_row(pages):
+def contributors(pages):
     # GitHub paginates this endpoint; retain its contribution-count ordering.
-    contributors = [person for page in pages for person in page if person["type"] == "User"]
-    if not contributors:
-        raise ValueError("GitHub returned no human contributors; leaving the README unchanged")
-    avatars = []
-    for person in contributors:
-        avatar = person["avatar_url"]
-        separator = "&" if "?" in avatar else "?"
-        image = html.escape(f"{avatar}{separator}s=64", quote=True)
+    people = [person for page in pages for person in page if person["type"] == "User"]
+    if not people:
+        raise ValueError("GitHub returned no human contributors; leaving the image unchanged")
+    return people
+
+
+def avatar_data_uri(url):
+    # GitHub renders README SVGs as images, which cannot load external resources,
+    # so each avatar is embedded. Fetch at twice the display size for HiDPI screens.
+    separator = "&" if "?" in url else "?"
+    with urllib.request.urlopen(f"{url}{separator}s={2 * SIZE}", timeout=30) as response:
+        kind = response.headers.get_content_type()
+        data = base64.b64encode(response.read()).decode("ascii")
+    return f"data:{kind};base64,{data}"
+
+
+def render_svg(people, avatars):
+    columns = min(len(people), COLUMNS)
+    rows = -(-len(people) // columns)
+    width = columns * (SIZE + GAP) - GAP
+    height = rows * (SIZE + GAP) - GAP
+    lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}" role="img" aria-label="gohawk contributors">',
+        '<defs><clipPath id="avatar" clipPathUnits="objectBoundingBox">'
+        '<circle cx="0.5" cy="0.5" r="0.5"/></clipPath></defs>',
+    ]
+    for index, (person, avatar) in enumerate(zip(people, avatars)):
+        x = index % columns * (SIZE + GAP)
+        y = index // columns * (SIZE + GAP)
         login = html.escape(person["login"], quote=True)
-        profile = person["html_url"]
-        avatars.append(
-            f'[<img src="{image}" width="64" height="64" alt="@{login}">]({profile})'
+        lines.append(
+            f'<image x="{x}" y="{y}" width="{SIZE}" height="{SIZE}" clip-path="url(#avatar)" '
+            f'href="{avatar}"><title>@{login}</title></image>'
         )
-    return "\n".join(avatars)
-
-
-def update_readme(text, row):
-    if text.count(START) != 1 or text.count(END) != 1:
-        raise ValueError("README must contain exactly one contributor marker pair")
-    before, remainder = text.split(START, 1)
-    _, after = remainder.split(END, 1)
-    return f"{before}{START}\n{row}\n{END}{after}"
+    lines.append("</svg>")
+    return "\n".join(lines) + "\n"
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", required=True, help="GitHub owner/repository")
-    parser.add_argument("--readme", type=Path, default=Path("README.md"))
+    parser.add_argument("--output", type=Path, default=Path(".github/contributors.svg"))
     args = parser.parse_args()
     response = subprocess.check_output(
         ["gh", "api", "--paginate", "--slurp", f"repos/{args.repository}/contributors"],
         text=True,
     )
-    row = avatar_row(json.loads(response))
-    original = args.readme.read_text(encoding="utf-8")
-    updated = update_readme(original, row)
-    if updated != original:
-        args.readme.write_text(updated, encoding="utf-8")
+    people = contributors(json.loads(response))
+    svg = render_svg(people, [avatar_data_uri(person["avatar_url"]) for person in people])
+    original = args.output.read_text(encoding="utf-8") if args.output.exists() else ""
+    if svg != original:
+        args.output.write_text(svg, encoding="utf-8")
         print("Updated contributor avatars")
     else:
         print("Contributor avatars are already current")
