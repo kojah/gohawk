@@ -92,6 +92,16 @@ gohawk checks production code, so `_test.go` files are never analyzed: their
 functions are not checked, they do not count as callers or users of package
 state, and no findings are reported in them.
 
+## Workspaces
+
+In a `go.work` workspace, the go command's `work` pattern names every module.
+`./...` names the module you run from, as it does for `go vet`, and fails
+outside one, such as at the workspace root:
+
+```sh
+gohawk work
+```
+
 ## No analyzer options
 
 Analyzers have no options: each check reports the same things in every

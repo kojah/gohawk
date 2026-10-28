@@ -56,6 +56,9 @@ func runViaGoVet(invocation *analysisInvocation, runtime cliRuntime) int {
 	// failing exit with no analysis output means stderr holds the real error.
 	if mergeErr != nil || execErr != nil && len(bytes.TrimSpace(result.stdout)) == 0 {
 		_, _ = runtime.errorsOutput.Write(result.stderr)
+		if hint := workspaceHint(result.stderr); hint != "" {
+			writeLine(runtime.errorsOutput, hint)
+		}
 		if execErr != nil && result.exitCode > 0 {
 			return result.exitCode
 		}

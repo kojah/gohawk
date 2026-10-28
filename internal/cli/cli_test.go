@@ -337,6 +337,19 @@ func TestRunViaGoVet(t *testing.T) {
 			wantCode:      1,
 			wantErrOutput: "bad.go:1: oops",
 		},
+		{
+			// go refuses ./... outside every workspace module; the hint names
+			// the pattern that covers the workspace.
+			name:   "go.work refusal gains a hint",
+			render: renderRich,
+			result: processOutput{
+				stderr:   []byte("pattern ./...: directory prefix . does not contain modules listed in go.work or their selected dependencies\n"),
+				exitCode: 1,
+			},
+			err:           errors.New("exit status 1"),
+			wantCode:      1,
+			wantErrOutput: `gohawk: run "gohawk work"`,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
