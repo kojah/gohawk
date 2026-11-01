@@ -163,14 +163,51 @@ jobs:
             coverage.out
             coverage-summary.out
 
-      - name: Generate coverage badge
-        uses: tj-actions/coverage-badge-go@481919ec72da287775fef015fd9011dc75a5db05 # v3
-        with:
-          filename: coverage-summary.out
-          link: https://github.com/kojah/gohawk/actions/workflows/ci.yml
+  # The badge is data, not committed text: this job publishes a shields.io
+  # endpoint document to the badges branch after coverage lands on main.
+  # Pull requests never fail because the committed badge is stale.
+  publish-badge:
+    name: publish coverage badge
+    needs: coverage
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
 
-      - name: Check coverage badge
-        run: git diff --exit-code -- README.md
+    steps:
+      - name: Download coverage summary
+        uses: actions/download-artifact@v7
+        with:
+          name: coverage
+
+      - name: Publish badge endpoint document
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          percentage=$(awk '/^total:/ {gsub("%", "", $NF); print $NF}' coverage-summary.out)
+          test -n "$percentage"
+          color=$(awk -v p="$percentage" 'BEGIN {
+            if (p >= 90) print "brightgreen";
+            else if (p >= 85) print "green";
+            else if (p >= 80) print "yellowgreen";
+            else if (p >= 70) print "yellow";
+            else if (p >= 60) print "orange";
+            else print "red";
+          }')
+          printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}\n' \
+            "$percentage" "$color" > coverage.json
+          git init -q badge
+          cp coverage.json badge/
+          cd badge
+          git checkout -q -b badges
+          git add coverage.json
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Update coverage badge to ${percentage}%"
+          git push -q --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges
 
   compatibility:
     name: compatibility (${{ matrix.go-version }})

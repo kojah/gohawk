@@ -8,7 +8,7 @@
 [![Go 1.26](https://img.shields.io/github/actions/workflow/status/kojah/gohawk/go-1.26.yml?branch=main&label=Go%201.26)](https://github.com/kojah/gohawk/actions/workflows/go-1.26.yml)
 [![Go 1.27](https://img.shields.io/github/check-runs/kojah/gohawk/main?nameFilter=compatibility%20%281.27%29&label=Go%201.27)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 [![Windows](https://img.shields.io/github/check-runs/kojah/gohawk/main?nameFilter=Windows%20tests&label=Windows)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/Coverage-89.4%25-brightgreen)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/kojah/gohawk/badges/coverage.json)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/github/actions/workflow/status/kojah/gohawk/pages.yml?branch=website&label=docs)](https://github.com/kojah/gohawk/actions/workflows/pages.yml)
 [![Documentation links](https://img.shields.io/github/actions/workflow/status/kojah/gohawk/links.yml?branch=main&label=links)](https://github.com/kojah/gohawk/actions/workflows/links.yml)
 
