@@ -51,6 +51,9 @@ task rather than re-deriving the procedure:
   belongs, and whether a shared helper already exists.
 - `.agents/skills/gohawk-analyzer-change/SKILL.md` — changing an analyzer,
   fixing a false positive or negative, responding to a failed precision label.
+- `.agents/skills/gohawk-pr-review/SKILL.md` — reviewing a pull request,
+  judging an automated review comment, and deciding whether an analyzer change
+  is safe to merge.
 - `.agents/skills/gohawk-precision-audit/SKILL.md` — running a precision
   round, labelling findings, recording a batch audit.
 - `.agents/skills/gohawk-recall-audit/SKILL.md` — measuring where a check
