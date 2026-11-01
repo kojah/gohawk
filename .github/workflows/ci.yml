@@ -165,7 +165,8 @@ jobs:
 
   # The badge is data, not committed text: this job publishes a shields.io
   # endpoint document to the badges branch after coverage lands on main.
-  # Pull requests never fail because the committed badge is stale.
+  # Pull requests never fail because the committed badge is stale. README reads
+  # it through jsDelivr, which caches branches for up to 12 hours.
   publish-badge:
     name: publish coverage badge
     needs: coverage
