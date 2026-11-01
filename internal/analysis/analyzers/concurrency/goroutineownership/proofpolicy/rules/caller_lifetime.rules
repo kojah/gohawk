@@ -3,11 +3,13 @@ host
   context! = CallerLifetimeQueries.Context
   canceled! = CallerLifetimeQueries.Canceled
   receiver! = CallerLifetimeQueries.Receiver
+  group! = CallerLifetimeQueries.Group
   cutoff! = CallerLifetimeQueries.Cutoff
   StopLifecycle
   ContextLifecycle
   LocallyCanceledContext
   ReceiverContext
+  WaitGroupBound
   available! = LifetimeObservation.Available
   matched! = LifetimeObservation.Matched
 
@@ -55,4 +57,13 @@ total fn rewrite
         false <- matched receiver
           else
             true -> outputs (Unknown { reason: ^ReceiverContext }) true
+        group <- group queries
+        true <- available group
+          else
+            false -> do
+              proof <- cutoff queries
+              outputs proof true
+        false <- matched group
+          else
+            true -> outputs (Unknown { reason: ^WaitGroupBound }) true
         outputs emptyProof() false

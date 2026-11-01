@@ -13,6 +13,7 @@ import (
 	ssacall "github.com/kojah/gohawk/internal/engine/ssaflow/calls"
 	cfg "github.com/kojah/gohawk/internal/engine/ssaflow/cfg"
 	ssapath "github.com/kojah/gohawk/internal/engine/ssaflow/path"
+	"github.com/kojah/gohawk/internal/engine/ssaflow/valueforms"
 	"github.com/kojah/gohawk/internal/engine/syntax"
 	"github.com/kojah/gohawk/internal/reporting/check"
 	"golang.org/x/tools/go/analysis"
@@ -395,4 +396,90 @@ func (search *workerReceiveSearch) throughCall(common *ssa.CallCommon, local ssa
 		}
 	}
 	return result
+}
+
+// workerBlocking labels each worker instruction by whether it can keep the
+// goroutine alive. Only a Wait on a WaitGroup gets its own label; the bound
+// asks who owns the receiver. Every other potentially blocking form —
+// channel sends and receives, selects, nested launches, and ordinary calls —
+// leaves the worker's lifetime open-ended and defeats the external-group
+// bound.
+type workerBlocking int
+
+const (
+	workerBlockingNone workerBlocking = iota
+	workerBlockingWait
+	workerBlockingOther
+)
+
+func blockingWorkerInstruction(instruction ssa.Instruction) workerBlocking {
+	switch typed := instruction.(type) {
+	case *ssa.Send, *ssa.Select, *ssa.Go:
+		return workerBlockingOther
+	case *ssa.UnOp:
+		if typed.Op == token.ARROW {
+			return workerBlockingOther
+		}
+		return workerBlockingNone
+	}
+	common := ssaflow.InstructionCall(instruction)
+	if common == nil {
+		return workerBlockingNone
+	}
+	if _, builtin := common.Value.(*ssa.Builtin); builtin {
+		return workerBlockingNone
+	}
+	if ssacall.CallMatchesSymbol(common, waitGroupWait) {
+		return workerBlockingWait
+	}
+	// Add and Done signal the group; neither can block the worker itself.
+	if ssacall.CallMatchesSymbol(common, waitGroupAdd) || ssacall.CallMatchesSymbol(common, waitGroupDone) {
+		return workerBlockingNone
+	}
+	return workerBlockingOther
+}
+
+// goroutineBoundedByExternalWaitGroup reports whether every blocking
+// operation in the worker is a Wait on a WaitGroup owned outside this
+// function. Such a worker's lifetime is bounded by whoever settles the
+// group — an external owner — rather than by this frame, so an unjoined
+// return is unknown, not a leak. A locally built group, a Wait on anything
+// else, or any other blocking instruction keeps the open-ended diagnostic:
+// https://github.com/kojah/gohawk/issues/57
+func goroutineBoundedByExternalWaitGroup(pass *analysis.Pass, spawn *ssa.Go, budget *proofs.SearchBudget) bool {
+	function, closure := resolveSpawnedFunction(pass, spawn, budget)
+	if function == nil {
+		return false
+	}
+	bounded := false
+	for instruction := range ssaflow.InstructionsWithin(function, budget) {
+		switch blockingWorkerInstruction(instruction) {
+		case workerBlockingWait:
+			receiver := ssaflow.CallReceiver(ssaflow.InstructionCall(instruction))
+			if !callerSuppliedValue(spawn, function, closure, receiver, budget) && !globalOwnedGroup(receiver, budget) {
+				return false
+			}
+			bounded = true
+		case workerBlockingNone:
+		default:
+			return false
+		}
+	}
+	return bounded && !budget.Exhausted()
+}
+
+// globalOwnedGroup reports whether receiver resolves to package-level
+// storage. A package global is externally owned by construction; parameters
+// and captures reach the caller through callerSuppliedValue instead.
+func globalOwnedGroup(receiver ssa.Value, budget *proofs.SearchBudget) bool {
+	forms := ssaflow.TransparentChangeInterface | ssaflow.TransparentChangeType | ssaflow.TransparentConvert | ssaflow.TransparentMakeInterface
+	var leaf func(walk ssaflow.ReachingWalk, value ssa.Value) bool
+	leaf = func(walk ssaflow.ReachingWalk, value ssa.Value) bool {
+		if _, global := value.(*ssa.Global); global {
+			return true
+		}
+		source, ok := valueforms.OwnershipSource(value)
+		return ok && walk.Any(source, leaf)
+	}
+	return ssaflow.NewReachingWalk(forms).Within(budget).Any(receiver, leaf)
 }

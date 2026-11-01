@@ -23,15 +23,17 @@ func (q *callerQueries) Stop() proofpolicy.LifetimeObservation     { return q.ob
 func (q *callerQueries) Context() proofpolicy.LifetimeObservation  { return q.observe("context") }
 func (q *callerQueries) Canceled() proofpolicy.LifetimeObservation { return q.observe("canceled") }
 func (q *callerQueries) Receiver() proofpolicy.LifetimeObservation { return q.observe("receiver") }
+func (q *callerQueries) Group() proofpolicy.LifetimeObservation    { return q.observe("group") }
 func (q *callerQueries) Cutoff() proofpolicy.Proof {
 	q.calls = append(q.calls, "cutoff")
 	return q.cutoff
 }
 
 func TestCallerLifetimeStopsAtFirstWitnessOrCutoff(t *testing.T) {
-	stages := []string{"stop", "context", "canceled", "receiver"}
+	stages := []string{"stop", "context", "canceled", "receiver", "group"}
 	reasons := []proofpolicy.Reason{
 		proofpolicy.StopLifecycle, proofpolicy.ContextLifecycle, proofpolicy.LocallyCanceledContext, proofpolicy.ReceiverContext,
+		proofpolicy.WaitGroupBound,
 	}
 	for index, stage := range stages {
 		for _, interrupted := range []bool{false, true} {
@@ -63,7 +65,7 @@ func TestCallerLifetimeStopsAtFirstWitnessOrCutoff(t *testing.T) {
 func TestCallerLifetimeAbsentWitnessesRemainUndecided(t *testing.T) {
 	host := &callerQueries{}
 	got, decided := proofpolicy.CallerLifetime(host)
-	if decided || got != (proofpolicy.Proof{}) || !reflect.DeepEqual(host.calls, []string{"stop", "context", "canceled", "receiver"}) {
+	if decided || got != (proofpolicy.Proof{}) || !reflect.DeepEqual(host.calls, []string{"stop", "context", "canceled", "receiver", "group"}) {
 		t.Fatalf("proof=%+v decided=%t calls=%v", got, decided, host.calls)
 	}
 }

@@ -13,6 +13,7 @@ const (
 	reasonContextLifecycle               = proofpolicy.ContextLifecycle
 	reasonLocallyCanceledContext         = proofpolicy.LocallyCanceledContext
 	reasonReceiverContext                = proofpolicy.ReceiverContext
+	reasonWaitGroupBound                 = proofpolicy.WaitGroupBound
 	reasonRelayDependency                = proofpolicy.RelayDependency
 	reasonSynctestBubbleOwner            = proofpolicy.SynctestBubbleOwner
 	reasonCallerOrExternalOwner          = proofpolicy.CallerOrExternalOwner

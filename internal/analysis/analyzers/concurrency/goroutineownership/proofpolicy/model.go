@@ -122,6 +122,7 @@ type CallerLifetimeQueries interface {
 	Context() LifetimeObservation
 	Canceled() LifetimeObservation
 	Receiver() LifetimeObservation
+	Group() LifetimeObservation
 	Cutoff() Proof
 }
 

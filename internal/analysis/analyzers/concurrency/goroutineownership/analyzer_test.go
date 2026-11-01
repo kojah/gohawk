@@ -36,6 +36,7 @@ func TestGoroutineOwnershipReasonCodes(t *testing.T) {
 		reasonContextLifecycle:               "context-lifecycle",
 		reasonLocallyCanceledContext:         "locally-canceled-context",
 		reasonReceiverContext:                "receiver-context-lifecycle",
+		reasonWaitGroupBound:                 "waitgroup-bound-lifecycle",
 		reasonRelayDependency:                "relay-dependency-lifecycle",
 		reasonSynctestBubbleOwner:            "synctest-bubble-owner",
 		reasonCallerOrExternalOwner:          "caller-or-external-owner",

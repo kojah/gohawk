@@ -543,7 +543,7 @@
     },
     "worker_caller_lifetime": {
       "path": "internal/analysis/analyzers/concurrency/goroutineownership/proofpolicy/caller_lifetime_gen.go",
-      "sha256": "b239356219024dbe8e4036099b9234e00e849394ffb858228cb22a525d2a00e3"
+      "sha256": "92218a64a5734622ed54d2222f7fbdde33937e1cf05f890202492699c8a2538c"
     },
     "worker_completion_notification": {
       "path": "internal/analysis/analyzers/concurrency/goroutineownership/completionsteps/notification_gen.go",

@@ -10,195 +10,241 @@ func hyruleCallerLifetimeRecognize(harg0 struct{ P0 CallerLifetimeQueries }) (st
 	{
 		hv1 := harg0.P0
 		_ = hv1
-		// Rule Caller (internal/analysis/analyzers/concurrency/goroutineownership/proofpolicy/rules/caller_lifetime.rules:19).
-		var hv18 CallerLifetimeQueries = hv1
-		hv2 := (CallerLifetimeQueries).Stop(hv18)
+		// Rule Caller (internal/analysis/analyzers/concurrency/goroutineownership/proofpolicy/rules/caller_lifetime.rules:21).
+		var hv22 CallerLifetimeQueries = hv1
+		hv2 := (CallerLifetimeQueries).Stop(hv22)
 		_ = hv2
-		var hv19 LifetimeObservation = hv2
-		hv3 := (LifetimeObservation).Available(hv19)
+		var hv23 LifetimeObservation = hv2
+		hv3 := (LifetimeObservation).Available(hv23)
 		_ = hv3
-		var hv20 struct {
+		var hv24 struct {
 			V0 Proof
 			V1 bool
 		}
 		switch hv3 {
 		case true:
-			var hv21 LifetimeObservation = hv2
-			hv4 := (LifetimeObservation).Matched(hv21)
+			var hv25 LifetimeObservation = hv2
+			hv4 := (LifetimeObservation).Matched(hv25)
 			_ = hv4
-			var hv22 struct {
+			var hv26 struct {
 				V0 Proof
 				V1 bool
 			}
 			switch hv4 {
 			case false:
-				var hv23 CallerLifetimeQueries = hv1
-				hv5 := (CallerLifetimeQueries).Context(hv23)
+				var hv27 CallerLifetimeQueries = hv1
+				hv5 := (CallerLifetimeQueries).Context(hv27)
 				_ = hv5
-				var hv24 LifetimeObservation = hv5
-				hv6 := (LifetimeObservation).Available(hv24)
+				var hv28 LifetimeObservation = hv5
+				hv6 := (LifetimeObservation).Available(hv28)
 				_ = hv6
-				var hv25 struct {
+				var hv29 struct {
 					V0 Proof
 					V1 bool
 				}
 				switch hv6 {
 				case true:
-					var hv26 LifetimeObservation = hv5
-					hv7 := (LifetimeObservation).Matched(hv26)
+					var hv30 LifetimeObservation = hv5
+					hv7 := (LifetimeObservation).Matched(hv30)
 					_ = hv7
-					var hv27 struct {
+					var hv31 struct {
 						V0 Proof
 						V1 bool
 					}
 					switch hv7 {
 					case false:
-						var hv28 CallerLifetimeQueries = hv1
-						hv8 := (CallerLifetimeQueries).Canceled(hv28)
+						var hv32 CallerLifetimeQueries = hv1
+						hv8 := (CallerLifetimeQueries).Canceled(hv32)
 						_ = hv8
-						var hv29 LifetimeObservation = hv8
-						hv9 := (LifetimeObservation).Available(hv29)
+						var hv33 LifetimeObservation = hv8
+						hv9 := (LifetimeObservation).Available(hv33)
 						_ = hv9
-						var hv30 struct {
+						var hv34 struct {
 							V0 Proof
 							V1 bool
 						}
 						switch hv9 {
 						case true:
-							var hv31 LifetimeObservation = hv8
-							hv10 := (LifetimeObservation).Matched(hv31)
+							var hv35 LifetimeObservation = hv8
+							hv10 := (LifetimeObservation).Matched(hv35)
 							_ = hv10
-							var hv32 struct {
+							var hv36 struct {
 								V0 Proof
 								V1 bool
 							}
 							switch hv10 {
 							case false:
-								var hv33 CallerLifetimeQueries = hv1
-								hv11 := (CallerLifetimeQueries).Receiver(hv33)
+								var hv37 CallerLifetimeQueries = hv1
+								hv11 := (CallerLifetimeQueries).Receiver(hv37)
 								_ = hv11
-								var hv34 LifetimeObservation = hv11
-								hv12 := (LifetimeObservation).Available(hv34)
+								var hv38 LifetimeObservation = hv11
+								hv12 := (LifetimeObservation).Available(hv38)
 								_ = hv12
-								var hv35 struct {
+								var hv39 struct {
 									V0 Proof
 									V1 bool
 								}
 								switch hv12 {
 								case true:
-									var hv36 LifetimeObservation = hv11
-									hv13 := (LifetimeObservation).Matched(hv36)
+									var hv40 LifetimeObservation = hv11
+									hv13 := (LifetimeObservation).Matched(hv40)
 									_ = hv13
-									var hv37 struct {
+									var hv41 struct {
 										V0 Proof
 										V1 bool
 									}
 									switch hv13 {
 									case false:
-										hv37 = struct {
+										var hv42 CallerLifetimeQueries = hv1
+										hv14 := (CallerLifetimeQueries).Group(hv42)
+										_ = hv14
+										var hv43 LifetimeObservation = hv14
+										hv15 := (LifetimeObservation).Available(hv43)
+										_ = hv15
+										var hv44 struct {
 											V0 Proof
 											V1 bool
-										}{V0: emptyProof(), V1: false}
+										}
+										switch hv15 {
+										case true:
+											var hv45 LifetimeObservation = hv14
+											hv16 := (LifetimeObservation).Matched(hv45)
+											_ = hv16
+											var hv46 struct {
+												V0 Proof
+												V1 bool
+											}
+											switch hv16 {
+											case false:
+												hv46 = struct {
+													V0 Proof
+													V1 bool
+												}{V0: emptyProof(), V1: false}
+											case true:
+												var hv47 Proof = Proof{Outcome: Unknown, Reason: WaitGroupBound}
+												hv46 = struct {
+													V0 Proof
+													V1 bool
+												}{V0: hv47, V1: true}
+											}
+											hv44 = hv46
+										case false:
+											var hv48 CallerLifetimeQueries = hv1
+											hv17 := (CallerLifetimeQueries).Cutoff(hv48)
+											_ = hv17
+											if !hyrulehyruleCallerLifetimeRecognizeUnion0Valid(hv17) {
+												var zero struct {
+													V0 Proof
+													V1 bool
+												}
+												return zero, false
+											}
+											hv44 = struct {
+												V0 Proof
+												V1 bool
+											}{V0: hv17, V1: true}
+										}
+										hv41 = hv44
 									case true:
-										var hv38 Proof = Proof{Outcome: Unknown, Reason: ReceiverContext}
-										hv37 = struct {
+										var hv49 Proof = Proof{Outcome: Unknown, Reason: ReceiverContext}
+										hv41 = struct {
 											V0 Proof
 											V1 bool
-										}{V0: hv38, V1: true}
+										}{V0: hv49, V1: true}
 									}
-									hv35 = hv37
+									hv39 = hv41
 								case false:
-									var hv39 CallerLifetimeQueries = hv1
-									hv14 := (CallerLifetimeQueries).Cutoff(hv39)
-									_ = hv14
-									if !hyrulehyruleCallerLifetimeRecognizeUnion0Valid(hv14) {
+									var hv50 CallerLifetimeQueries = hv1
+									hv18 := (CallerLifetimeQueries).Cutoff(hv50)
+									_ = hv18
+									if !hyrulehyruleCallerLifetimeRecognizeUnion0Valid(hv18) {
 										var zero struct {
 											V0 Proof
 											V1 bool
 										}
 										return zero, false
 									}
-									hv35 = struct {
+									hv39 = struct {
 										V0 Proof
 										V1 bool
-									}{V0: hv14, V1: true}
+									}{V0: hv18, V1: true}
 								}
-								hv32 = hv35
+								hv36 = hv39
 							case true:
-								var hv40 Proof = Proof{Outcome: Unknown, Reason: LocallyCanceledContext}
-								hv32 = struct {
+								var hv51 Proof = Proof{Outcome: Unknown, Reason: LocallyCanceledContext}
+								hv36 = struct {
 									V0 Proof
 									V1 bool
-								}{V0: hv40, V1: true}
+								}{V0: hv51, V1: true}
 							}
-							hv30 = hv32
+							hv34 = hv36
 						case false:
-							var hv41 CallerLifetimeQueries = hv1
-							hv15 := (CallerLifetimeQueries).Cutoff(hv41)
-							_ = hv15
-							if !hyrulehyruleCallerLifetimeRecognizeUnion0Valid(hv15) {
+							var hv52 CallerLifetimeQueries = hv1
+							hv19 := (CallerLifetimeQueries).Cutoff(hv52)
+							_ = hv19
+							if !hyrulehyruleCallerLifetimeRecognizeUnion0Valid(hv19) {
 								var zero struct {
 									V0 Proof
 									V1 bool
 								}
 								return zero, false
 							}
-							hv30 = struct {
+							hv34 = struct {
 								V0 Proof
 								V1 bool
-							}{V0: hv15, V1: true}
+							}{V0: hv19, V1: true}
 						}
-						hv27 = hv30
+						hv31 = hv34
 					case true:
-						var hv42 Proof = Proof{Outcome: Unknown, Reason: ContextLifecycle}
-						hv27 = struct {
+						var hv53 Proof = Proof{Outcome: Unknown, Reason: ContextLifecycle}
+						hv31 = struct {
 							V0 Proof
 							V1 bool
-						}{V0: hv42, V1: true}
+						}{V0: hv53, V1: true}
 					}
-					hv25 = hv27
+					hv29 = hv31
 				case false:
-					var hv43 CallerLifetimeQueries = hv1
-					hv16 := (CallerLifetimeQueries).Cutoff(hv43)
-					_ = hv16
-					if !hyrulehyruleCallerLifetimeRecognizeUnion0Valid(hv16) {
+					var hv54 CallerLifetimeQueries = hv1
+					hv20 := (CallerLifetimeQueries).Cutoff(hv54)
+					_ = hv20
+					if !hyrulehyruleCallerLifetimeRecognizeUnion0Valid(hv20) {
 						var zero struct {
 							V0 Proof
 							V1 bool
 						}
 						return zero, false
 					}
-					hv25 = struct {
+					hv29 = struct {
 						V0 Proof
 						V1 bool
-					}{V0: hv16, V1: true}
+					}{V0: hv20, V1: true}
 				}
-				hv22 = hv25
+				hv26 = hv29
 			case true:
-				var hv44 Proof = Proof{Outcome: Unknown, Reason: StopLifecycle}
-				hv22 = struct {
+				var hv55 Proof = Proof{Outcome: Unknown, Reason: StopLifecycle}
+				hv26 = struct {
 					V0 Proof
 					V1 bool
-				}{V0: hv44, V1: true}
+				}{V0: hv55, V1: true}
 			}
-			hv20 = hv22
+			hv24 = hv26
 		case false:
-			var hv45 CallerLifetimeQueries = hv1
-			hv17 := (CallerLifetimeQueries).Cutoff(hv45)
-			_ = hv17
-			if !hyrulehyruleCallerLifetimeRecognizeUnion0Valid(hv17) {
+			var hv56 CallerLifetimeQueries = hv1
+			hv21 := (CallerLifetimeQueries).Cutoff(hv56)
+			_ = hv21
+			if !hyrulehyruleCallerLifetimeRecognizeUnion0Valid(hv21) {
 				var zero struct {
 					V0 Proof
 					V1 bool
 				}
 				return zero, false
 			}
-			hv20 = struct {
+			hv24 = struct {
 				V0 Proof
 				V1 bool
-			}{V0: hv17, V1: true}
+			}{V0: hv21, V1: true}
 		}
-		hresult := hv20
+		hresult := hv24
 		if !hyrulehyruleCallerLifetimeRecognizeUnion1Valid(hresult) {
 			var zero struct {
 				V0 Proof

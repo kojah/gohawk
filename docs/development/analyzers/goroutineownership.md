@@ -225,6 +225,22 @@ pairs both outcomes with real join and missing-join controls. The channel type
 guard still does not select a captured pointer-to-channel cell for the helper
 search; that form retains its uncovered-send diagnostic. Matcher coverage is
 unchanged by this outcome correction.
+The caller-lifetime observation family also covers workers bounded by an
+externally owned `sync.WaitGroup`. A watcher whose every blocking observation
+is `Wait` on a group the spawning function does not own — a parameter, a field
+of a parameter-owned receiver, a package variable, or a group supplied through
+external storage — ends when that group's owner settles it, so an unjoined
+spawn is `unknown` (`waitgroup-bound-lifecycle`), never a violation. The
+census requires the Wait receiver to be proven externally owned for every
+blocking observation; a group allocated in the spawning frame keeps its
+settlement local and retains the unjoined diagnostic, as does any worker that
+blocks on a call, send, or receive besides those Waits. This bound is a
+possible-lifetime observation like the stop/context bounds, not a join: the
+caller waiting on the worker's signal still supplies no settlement evidence.
+`callerbounds/group_bound.go` pins receiver-field, parameter, and package-level
+external groups as unknown, a locally constructed group as the diagnostic
+control, and the `workerBlockingOther` census disqualifies a worker that does
+anything but Wait.
 Fixtures in `goroutineownership/receive_bindings.go` cover a receiver bound
 through the second helper call and an unrelated local receiver that supplies
 no caller-owned bound. Unit tests additionally cover diamonds, nested launches,
