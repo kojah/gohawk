@@ -2,12 +2,14 @@ package lockorder
 
 import (
 	"go/token"
+	"maps"
 	"slices"
 
 	"github.com/kojah/gohawk/internal/engine/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/engine/proof"
 	cfg "github.com/kojah/gohawk/internal/engine/ssaflow/cfg"
 	ssapath "github.com/kojah/gohawk/internal/engine/ssaflow/path"
+	"github.com/kojah/gohawk/internal/reporting/check"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/ssa"
 )
@@ -53,6 +55,8 @@ func (walk *lockStateWalk) run(
 	possibleWriters := walk.setup.possibleWriters
 	callerOwned := walk.setup.callerOwned
 	functionDefers := walk.setup.defers
+	releases := newLockReleaseQueries(evidence, walk.budget)
+	releases.edge, _ = summaryKnowledge.Provider(pass).LifecycleEvidence("lockorder", string(check.LockMissingRelease))
 	flow := lockFlowContext{
 		pass:          pass,
 		fieldEvidence: walk.fieldEvidence,
@@ -60,7 +64,7 @@ func (walk *lockStateWalk) run(
 		setup:         walk.setup,
 		budget:        walk.budget,
 		exclusive:     exclusive,
-		releases:      newLockReleaseQueries(evidence, walk.budget),
+		releases:      releases,
 		relations:     relations,
 		calleeLocks:   calleeLocks,
 		lockValues:    lockValues,
@@ -125,7 +129,7 @@ func (walk *lockStateWalk) expand(state lockFlowState) ([]lockFlowState, bool) {
 			return nil, false
 		}
 	}
-	return lockSuccessorStates(walk.flow.pass, state, walk.budget), true
+	return lockSuccessorStates(walk.flow, state, walk.budget), true
 }
 
 func (walk *lockStateWalk) transfer(instruction ssa.Instruction, state lockFlowState) lockFlowState {
@@ -188,8 +192,8 @@ func (walk *lockStateWalk) incomplete() bool {
 // and stable-guard evidence the state holds. Infeasibility here is always
 // a proof about the branch, never a guess about a mutable field.
 
-func lockSuccessorStates(pass *analysis.Pass, state lockFlowState, budget *proofs.SearchBudget) []lockFlowState {
-	block := state.block
+func lockSuccessorStates(flow lockFlowContext, state lockFlowState, budget *proofs.SearchBudget) []lockFlowState {
+	pass, block := flow.pass, state.block
 	states := make([]lockFlowState, 0, len(block.Succs))
 	// A local release flag can merge true and false after only one branch
 	// unlocked. Preserve the incoming edge for the shared constant-phi query;
@@ -228,9 +232,22 @@ func lockSuccessorStates(pass *analysis.Pass, state lockFlowState, budget *proof
 				continue
 			}
 		}
+		// A conditional helper releases on the arm its result selects. The
+		// successor's held set loses that lock only here; the sibling edge
+		// keeps it and its release obligation. The shared slices and guard
+		// map must stay intact for that sibling, so release into clones.
+		held, readHeld, guards := state.held, state.readHeld, state.guards
+		if released := flow.edgeReleasedLocks(block, successor, held); len(released) != 0 {
+			held, readHeld = slices.Clone(held), slices.Clone(readHeld)
+			guards = maps.Clone(guards)
+			for _, identity := range released {
+				held, readHeld = releaseLock(held, identity), releaseLock(readHeld, identity)
+				delete(guards, identity)
+			}
+		}
 		states = append(states, lockFlowState{
-			block: successor, predecessor: block, held: state.held, readHeld: state.readHeld,
-			deferred: state.deferred, guards: state.guards, origins: state.origins,
+			block: successor, predecessor: block, held: held, readHeld: readHeld,
+			deferred: state.deferred, guards: guards, origins: state.origins,
 			condition: nextCondition, conditionValue: nextValue,
 			constants:   state.constants,
 			constraints: constraints,
@@ -240,4 +257,37 @@ func lockSuccessorStates(pass *analysis.Pass, state lockFlowState, budget *proof
 		return nil
 	}
 	return states
+}
+
+// edgeReleasedLocks reports the held locks a conditional helper released on
+// this exact branch edge. The completion proof is per edge: a helper that
+// unlocks before returning one outcome but returns the other while still
+// holding settles only the arm that reaches its releasing returns, so the
+// sibling edge keeps the lock and its obligation. Only an If whose condition
+// resolves to a call result can carry the condition; other edges answer no.
+// https://github.com/kojah/gohawk/issues/57
+func (flow lockFlowContext) edgeReleasedLocks(from, to *ssa.BasicBlock, held []string) []string {
+	if len(held) == 0 || flow.releases == nil || len(from.Succs) != 2 || len(from.Instrs) == 0 {
+		return nil
+	}
+	if _, branch := from.Instrs[len(from.Instrs)-1].(*ssa.If); !branch {
+		return nil
+	}
+	var released []string
+	for _, identity := range held {
+		for _, value := range flow.lockValues[identity] {
+			if !flow.releases.budget.Spend() {
+				return released
+			}
+			if flow.releases.queryEdge(from, to, value).Proven() {
+				flow.released[identity] = true
+				released = append(released, identity)
+				break
+			}
+			if flow.releases.cutoff.Reason == proofs.EvidenceBudgetExhausted {
+				return released
+			}
+		}
+	}
+	return released
 }

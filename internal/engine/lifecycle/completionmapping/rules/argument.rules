@@ -5,7 +5,19 @@ total fn rewrite
     inputs (Request { exact: true } as context) local argument target _ ->
       case same context argument target of
         true -> outputs (Exact { local, supplied: argument, path: nil }) true
-        false -> outputs (Exact { local, supplied: argument, path: nil }) (identical argument target)
+        false -> decline
+      <|> case identical argument target of
+        true -> outputs (Exact { local, supplied: argument, path: nil }) true
+        false -> decline
+      <|> do
+        PathFound { path } <- projection context target argument
+          else
+            PathMissing() -> decline
+            PathCutoff() -> do
+              answer <- cutoff context.Queries
+              answer
+        outputs (Exact { local, supplied: argument, path }) true
+      <|> outputs emptyLocal() false
     // A possible alias cannot fall through to aggregate containment and become an
     // exact mapping. Mark uncertainty without invalidating unrelated memo entries.
     // Same-storage owner evidence mirrors the captured receiver's exact field:

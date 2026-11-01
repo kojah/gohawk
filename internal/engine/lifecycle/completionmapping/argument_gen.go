@@ -36,31 +36,106 @@ func hyruleArgumentRecognize(harg0 struct {
 			_ = hv7
 			if hv6 == true {
 				// Rule Exact (internal/engine/lifecycle/completionmapping/rules/argument.rules:4).
-				var hv24 Context = hv7
-				var hv25 hyruleImport2.Value = hv3
-				var hv26 hyruleImport2.Value = hv4
-				hv8 := same(hv24, hv25, hv26)
-				_ = hv8
-				var hv27 struct {
+				var hv28 struct {
 					V0 Local
 					V1 bool
 				}
-				switch hv8 {
-				case true:
-					var hv28 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: nil}
-					hv27 = struct {
+				hv28answered := false
+				if !hv28answered {
+					var hv29 Context = hv7
+					var hv30 hyruleImport2.Value = hv3
+					var hv31 hyruleImport2.Value = hv4
+					hv8 := same(hv29, hv30, hv31)
+					_ = hv8
+					var hv32 struct {
 						V0 Local
 						V1 bool
-					}{V0: hv28, V1: true}
-				case false:
-					var hv29 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: nil}
-					var hv30 bool = identical(hv3, hv4)
-					hv27 = struct {
-						V0 Local
-						V1 bool
-					}{V0: hv29, V1: hv30}
+					}
+					switch hv8 {
+					case true:
+						var hv33 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: nil}
+						hv28answered = true
+						hv32 = struct {
+							V0 Local
+							V1 bool
+						}{V0: hv33, V1: true}
+					}
+					if hv28answered {
+						hv28 = hv32
+					}
 				}
-				hresult := hv27
+				if !hv28answered {
+					hv9 := identical(hv3, hv4)
+					_ = hv9
+					var hv34 struct {
+						V0 Local
+						V1 bool
+					}
+					switch hv9 {
+					case true:
+						var hv35 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: nil}
+						hv28answered = true
+						hv34 = struct {
+							V0 Local
+							V1 bool
+						}{V0: hv35, V1: true}
+					}
+					if hv28answered {
+						hv28 = hv34
+					}
+				}
+				if !hv28answered {
+					var hv36 Context = hv7
+					var hv37 hyruleImport2.Value = hv4
+					var hv38 hyruleImport2.Value = hv3
+					hv10 := projection(hv36, hv37, hv38)
+					_ = hv10
+					if !hyrulehyruleArgumentRecognizeUnion3Valid(hv10) {
+						var zero struct {
+							V0 Local
+							V1 bool
+						}
+						return zero, false
+					}
+					var hv39 struct {
+						V0 Local
+						V1 bool
+					}
+					switch hv10.State {
+					case pathFound:
+						hv11 := hv10.Path
+						_ = hv11
+						var hv40 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: hv11}
+						hv28answered = true
+						hv39 = struct {
+							V0 Local
+							V1 bool
+						}{V0: hv40, V1: true}
+					case pathCutoff:
+						var hv41 Queries = hv7.Queries
+						hv12part0, hv12part1 := (Queries).Cutoff(hv41)
+						hv12 := struct {
+							V0 Local
+							V1 bool
+						}{V0: hv12part0, V1: hv12part1}
+						_ = hv12
+						hv28answered = true
+						hv39 = hv12
+					}
+					if hv28answered {
+						hv28 = hv39
+					}
+				}
+				if !hv28answered {
+					hv28answered = true
+					if hv28answered {
+						hv28 = struct {
+							V0 Local
+							V1 bool
+						}{V0: emptyLocal(), V1: false}
+					}
+				}
+				hresult := hv28
 				if !hyrulehyruleArgumentRecognizeRecord3Valid(hresult) {
 					var zero struct {
 						V0 Local
@@ -71,251 +146,189 @@ func hyruleArgumentRecognize(harg0 struct {
 				return hresult, true
 			}
 		}
-		// Rule Argument (internal/engine/lifecycle/completionmapping/rules/argument.rules:13).
-		var hv31 struct {
+		// Rule Argument (internal/engine/lifecycle/completionmapping/rules/argument.rules:25).
+		var hv42 struct {
 			V0 Local
 			V1 bool
 		}
-		hv31answered := false
-		if !hv31answered {
-			var hv32 Context = hv1
-			var hv33 hyruleImport2.Value = hv3
-			var hv34 hyruleImport2.Value = hv4
-			hv9 := same(hv32, hv33, hv34)
-			_ = hv9
-			var hv35 struct {
-				V0 Local
-				V1 bool
-			}
-			switch hv9 {
-			case true:
-				var hv36 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: nil}
-				hv31answered = true
-				hv35 = struct {
-					V0 Local
-					V1 bool
-				}{V0: hv36, V1: true}
-			}
-			if hv31answered {
-				hv31 = hv35
-			}
-		}
-		if !hv31answered {
-			var hv37 hyruleImport2.Value = hv3
-			var hv38 hyruleImport2.Value = hv4
-			hv10 := ambiguous(hv37, hv38)
-			_ = hv10
-			var hv39 struct {
-				V0 Local
-				V1 bool
-			}
-			switch hv10 {
-			case true:
-				var hv40 Queries = hv1.Queries
-				hv11part0, hv11part1 := (Queries).Uncertain(hv40)
-				hv11 := struct {
-					V0 Local
-					V1 bool
-				}{V0: hv11part0, V1: hv11part1}
-				_ = hv11
-				hv31answered = true
-				hv39 = hv11
-			}
-			if hv31answered {
-				hv31 = hv39
-			}
-		}
-		if !hv31answered {
-			var hv41 Context = hv1
-			var hv42 hyruleImport2.Value = hv3
-			var hv43 hyruleImport2.Value = hv4
-			hv12 := identity(hv41, hv42, hv43)
-			_ = hv12
-			var hv44 struct {
-				V0 Local
-				V1 bool
-			}
-			switch hv12 {
-			case true:
-				var hv45 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: nil}
-				hv31answered = true
-				hv44 = struct {
-					V0 Local
-					V1 bool
-				}{V0: hv45, V1: true}
-			}
-			if hv31answered {
-				hv31 = hv44
-			}
-		}
-		if !hv31answered {
-			var hv46 Queries = hv1.Queries
-			var hv47 hyruleImport2.Value = hv3
-			var hv48 hyruleImport2.Value = hv4
-			hv13 := (Queries).Callback(hv46, hv47, hv48)
+		hv42answered := false
+		if !hv42answered {
+			var hv43 Context = hv1
+			var hv44 hyruleImport2.Value = hv3
+			var hv45 hyruleImport2.Value = hv4
+			hv13 := same(hv43, hv44, hv45)
 			_ = hv13
-			var hv49 struct {
+			var hv46 struct {
 				V0 Local
 				V1 bool
 			}
 			switch hv13 {
 			case true:
-				var hv50 Local = Local{Kind: Callback, Local: hv2, Supplied: hv3}
-				hv31answered = true
-				hv49 = struct {
+				var hv47 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: nil}
+				hv42answered = true
+				hv46 = struct {
 					V0 Local
 					V1 bool
-				}{V0: hv50, V1: true}
+				}{V0: hv47, V1: true}
 			}
-			if hv31answered {
-				hv31 = hv49
+			if hv42answered {
+				hv42 = hv46
 			}
 		}
-		if !hv31answered {
-			var hv51 Context = hv1
-			var hv52 hyruleImport2.Value = hv3
-			var hv53 hyruleImport2.Value = hv4
-			hv14 := projection(hv51, hv52, hv53)
+		if !hv42answered {
+			var hv48 hyruleImport2.Value = hv3
+			var hv49 hyruleImport2.Value = hv4
+			hv14 := ambiguous(hv48, hv49)
 			_ = hv14
-			if !hyrulehyruleArgumentRecognizeUnion3Valid(hv14) {
-				var zero struct {
-					V0 Local
-					V1 bool
-				}
-				return zero, false
-			}
-			var hv54 struct {
+			var hv50 struct {
 				V0 Local
 				V1 bool
 			}
-			switch hv14.State {
-			case pathFound:
-				hv15 := hv14.Path
+			switch hv14 {
+			case true:
+				var hv51 Queries = hv1.Queries
+				hv15part0, hv15part1 := (Queries).Uncertain(hv51)
+				hv15 := struct {
+					V0 Local
+					V1 bool
+				}{V0: hv15part0, V1: hv15part1}
 				_ = hv15
-				var hv55 Local = Local{Kind: Projection, Local: hv2, Supplied: hv3, Path: hv15}
-				hv31answered = true
-				hv54 = struct {
-					V0 Local
-					V1 bool
-				}{V0: hv55, V1: true}
-			case pathCutoff:
-				var hv56 Queries = hv1.Queries
-				hv16part0, hv16part1 := (Queries).Cutoff(hv56)
-				hv16 := struct {
-					V0 Local
-					V1 bool
-				}{V0: hv16part0, V1: hv16part1}
-				_ = hv16
-				hv31answered = true
-				hv54 = hv16
+				hv42answered = true
+				hv50 = hv15
 			}
-			if hv31answered {
-				hv31 = hv54
+			if hv42answered {
+				hv42 = hv50
 			}
 		}
-		if !hv31answered {
-			var hv57 Context = hv1
-			var hv58 hyruleImport2.Value = hv3
-			var hv59 hyruleImport2.Value = hv4
-			hv17part0, hv17part1 := owner(hv57, hv58, hv59)
-			hv17 := struct {
-				V0 hyruleImport2.Value
+		if !hv42answered {
+			var hv52 Context = hv1
+			var hv53 hyruleImport2.Value = hv3
+			var hv54 hyruleImport2.Value = hv4
+			hv16 := identity(hv52, hv53, hv54)
+			_ = hv16
+			var hv55 struct {
+				V0 Local
 				V1 bool
-			}{V0: hv17part0, V1: hv17part1}
-			_ = hv17
-			if !hyrulehyruleArgumentRecognizeUnion1Valid(hv17) {
-				var zero struct {
+			}
+			switch hv16 {
+			case true:
+				var hv56 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: nil}
+				hv42answered = true
+				hv55 = struct {
 					V0 Local
 					V1 bool
-				}
-				return zero, false
+				}{V0: hv56, V1: true}
 			}
+			if hv42answered {
+				hv42 = hv55
+			}
+		}
+		if !hv42answered {
+			var hv57 Queries = hv1.Queries
+			var hv58 hyruleImport2.Value = hv3
+			var hv59 hyruleImport2.Value = hv4
+			hv17 := (Queries).Callback(hv57, hv58, hv59)
+			_ = hv17
 			var hv60 struct {
 				V0 Local
 				V1 bool
 			}
-			switch hv17.V1 {
+			switch hv17 {
 			case true:
-				hv18 := hv17.V0
-				_ = hv18
-				var hv61 Local = Local{Kind: Owner, Local: hv2, Supplied: hv18}
-				hv31answered = true
+				var hv61 Local = Local{Kind: Callback, Local: hv2, Supplied: hv3}
+				hv42answered = true
 				hv60 = struct {
 					V0 Local
 					V1 bool
 				}{V0: hv61, V1: true}
 			}
-			if hv31answered {
-				hv31 = hv60
+			if hv42answered {
+				hv42 = hv60
 			}
 		}
-		if !hv31answered {
-			var hv62 Queries = hv1.Queries
+		if !hv42answered {
+			var hv62 Context = hv1
 			var hv63 hyruleImport2.Value = hv3
 			var hv64 hyruleImport2.Value = hv4
-			hv19 := (Queries).MayContain(hv62, hv63, hv64)
-			_ = hv19
+			hv18 := projection(hv62, hv63, hv64)
+			_ = hv18
+			if !hyrulehyruleArgumentRecognizeUnion3Valid(hv18) {
+				var zero struct {
+					V0 Local
+					V1 bool
+				}
+				return zero, false
+			}
 			var hv65 struct {
 				V0 Local
 				V1 bool
 			}
-			switch hv19 {
-			case true:
-				var hv66 Context = hv1
-				var hv67 hyruleImport2.Value = hv3
-				var hv68 hyruleImport2.Value = hv4
-				var hv69 hyruleImport2.Instruction = hv5
-				hv20 := storedPath(hv66, hv67, hv68, hv69)
+			switch hv18.State {
+			case pathFound:
+				hv19 := hv18.Path
+				_ = hv19
+				var hv66 Local = Local{Kind: Projection, Local: hv2, Supplied: hv3, Path: hv19}
+				hv42answered = true
+				hv65 = struct {
+					V0 Local
+					V1 bool
+				}{V0: hv66, V1: true}
+			case pathCutoff:
+				var hv67 Queries = hv1.Queries
+				hv20part0, hv20part1 := (Queries).Cutoff(hv67)
+				hv20 := struct {
+					V0 Local
+					V1 bool
+				}{V0: hv20part0, V1: hv20part1}
 				_ = hv20
-				if !hyrulehyruleArgumentRecognizeUnion3Valid(hv20) {
-					var zero struct {
-						V0 Local
-						V1 bool
-					}
-					return zero, false
-				}
-				var hv70 struct {
+				hv42answered = true
+				hv65 = hv20
+			}
+			if hv42answered {
+				hv42 = hv65
+			}
+		}
+		if !hv42answered {
+			var hv68 Context = hv1
+			var hv69 hyruleImport2.Value = hv3
+			var hv70 hyruleImport2.Value = hv4
+			hv21part0, hv21part1 := owner(hv68, hv69, hv70)
+			hv21 := struct {
+				V0 hyruleImport2.Value
+				V1 bool
+			}{V0: hv21part0, V1: hv21part1}
+			_ = hv21
+			if !hyrulehyruleArgumentRecognizeUnion1Valid(hv21) {
+				var zero struct {
 					V0 Local
 					V1 bool
 				}
-				switch hv20.State {
-				case pathFound:
-					hv21 := hv20.Path
-					_ = hv21
-					var hv71 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: hv21}
-					hv31answered = true
-					hv70 = struct {
-						V0 Local
-						V1 bool
-					}{V0: hv71, V1: true}
-				case pathMissing:
-					hv31answered = true
-					hv70 = struct {
-						V0 Local
-						V1 bool
-					}{V0: emptyLocal(), V1: false}
-				case pathCutoff:
-					var hv72 Queries = hv1.Queries
-					hv22part0, hv22part1 := (Queries).Cutoff(hv72)
-					hv22 := struct {
-						V0 Local
-						V1 bool
-					}{V0: hv22part0, V1: hv22part1}
-					_ = hv22
-					hv31answered = true
-					hv70 = hv22
-				}
-				hv65 = hv70
+				return zero, false
 			}
-			if hv31answered {
-				hv31 = hv65
+			var hv71 struct {
+				V0 Local
+				V1 bool
+			}
+			switch hv21.V1 {
+			case true:
+				hv22 := hv21.V0
+				_ = hv22
+				var hv72 Local = Local{Kind: Owner, Local: hv2, Supplied: hv22}
+				hv42answered = true
+				hv71 = struct {
+					V0 Local
+					V1 bool
+				}{V0: hv72, V1: true}
+			}
+			if hv42answered {
+				hv42 = hv71
 			}
 		}
-		if !hv31answered {
-			var hv73 hyruleImport2.Value = hv4
+		if !hv42answered {
+			var hv73 Queries = hv1.Queries
 			var hv74 hyruleImport2.Value = hv3
-			var hv75 *hyruleImport3.SearchBudget = hv1.Budget
-			hv23 := hyruleImport0.ValueIsAccessPathFromWithin(hv73, hv74, hv75)
+			var hv75 hyruleImport2.Value = hv4
+			hv23 := (Queries).MayContain(hv73, hv74, hv75)
 			_ = hv23
 			var hv76 struct {
 				V0 Local
@@ -323,27 +336,89 @@ func hyruleArgumentRecognize(harg0 struct {
 			}
 			switch hv23 {
 			case true:
-				var hv77 Local = Local{Kind: Owner, Local: hv2, Supplied: hv3}
-				hv31answered = true
-				hv76 = struct {
+				var hv77 Context = hv1
+				var hv78 hyruleImport2.Value = hv3
+				var hv79 hyruleImport2.Value = hv4
+				var hv80 hyruleImport2.Instruction = hv5
+				hv24 := storedPath(hv77, hv78, hv79, hv80)
+				_ = hv24
+				if !hyrulehyruleArgumentRecognizeUnion3Valid(hv24) {
+					var zero struct {
+						V0 Local
+						V1 bool
+					}
+					return zero, false
+				}
+				var hv81 struct {
 					V0 Local
 					V1 bool
-				}{V0: hv77, V1: true}
+				}
+				switch hv24.State {
+				case pathFound:
+					hv25 := hv24.Path
+					_ = hv25
+					var hv82 Local = Local{Kind: Exact, Local: hv2, Supplied: hv3, Path: hv25}
+					hv42answered = true
+					hv81 = struct {
+						V0 Local
+						V1 bool
+					}{V0: hv82, V1: true}
+				case pathMissing:
+					hv42answered = true
+					hv81 = struct {
+						V0 Local
+						V1 bool
+					}{V0: emptyLocal(), V1: false}
+				case pathCutoff:
+					var hv83 Queries = hv1.Queries
+					hv26part0, hv26part1 := (Queries).Cutoff(hv83)
+					hv26 := struct {
+						V0 Local
+						V1 bool
+					}{V0: hv26part0, V1: hv26part1}
+					_ = hv26
+					hv42answered = true
+					hv81 = hv26
+				}
+				hv76 = hv81
 			}
-			if hv31answered {
-				hv31 = hv76
+			if hv42answered {
+				hv42 = hv76
 			}
 		}
-		if !hv31answered {
-			hv31answered = true
-			if hv31answered {
-				hv31 = struct {
+		if !hv42answered {
+			var hv84 hyruleImport2.Value = hv4
+			var hv85 hyruleImport2.Value = hv3
+			var hv86 *hyruleImport3.SearchBudget = hv1.Budget
+			hv27 := hyruleImport0.ValueIsAccessPathFromWithin(hv84, hv85, hv86)
+			_ = hv27
+			var hv87 struct {
+				V0 Local
+				V1 bool
+			}
+			switch hv27 {
+			case true:
+				var hv88 Local = Local{Kind: Owner, Local: hv2, Supplied: hv3}
+				hv42answered = true
+				hv87 = struct {
+					V0 Local
+					V1 bool
+				}{V0: hv88, V1: true}
+			}
+			if hv42answered {
+				hv42 = hv87
+			}
+		}
+		if !hv42answered {
+			hv42answered = true
+			if hv42answered {
+				hv42 = struct {
 					V0 Local
 					V1 bool
 				}{V0: emptyLocal(), V1: false}
 			}
 		}
-		hresult := hv31
+		hresult := hv42
 		if !hyrulehyruleArgumentRecognizeRecord3Valid(hresult) {
 			var zero struct {
 				V0 Local

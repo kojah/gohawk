@@ -57,7 +57,7 @@ const (
 	mutexRelease
 )
 
-var summaryKnowledge = summaries.Select(summaries.Requirements{Results: true, Concurrency: true})
+var summaryKnowledge = summaries.Select(summaries.Requirements{Results: true, Lifecycle: true, Concurrency: true})
 
 // Analyzer returns this package's configured Go analysis pass.
 func Analyzer() *analysis.Analyzer {

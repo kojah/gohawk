@@ -278,6 +278,13 @@ func (search *completionSearch) methodCompletes(candidate ssa.Instruction, calle
 
 func (search *completionSearch) receives(local mappedLocal, receiver, target ssa.Value) receiverProof {
 	if search.exactTarget {
+		// A contained local stands for one exact field path beneath the
+		// parameter, so the completing call must name that same path. Releasing
+		// a sibling field or the whole aggregate does not settle the target.
+		if local.Kind == localExact && len(local.Path) != 0 {
+			actual, known := heapmodel.AccessPathFromParameterWithin(receiver, local.Local, search.budget)
+			return receiverMatchProof(known && slices.Equal(actual, local.Path))
+		}
 		return receiverMatchProof(search.invokesTargetLocal(receiver, local.Local))
 	}
 	return local.receives(receiver, target, search.budget)

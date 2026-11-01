@@ -133,7 +133,9 @@ func (search *completionSearch) conditionalReturn(
 		nested := *search
 		nested.condition = ssacall.CallCondition{Result: plan.Result, Outcome: condition.Outcome}
 		for _, local := range locals {
-			if local.Kind == localExact && nested.completes(plan.Call, local.Local).proven {
+			// A contained local's path does not transfer through a forwarded
+			// return: the nested search answers for the local, not the field.
+			if local.Kind == localExact && len(local.Path) == 0 && nested.completes(plan.Call, local.Local).proven {
 				return true, true
 			}
 		}

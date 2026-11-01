@@ -715,6 +715,22 @@ state and the call-only uncertainty boundary against both parent and consolidate
 implementations. Existing query cutoff and late-cut publication tests retain
 fresh recovery and discarded partial reports/orders.
 
+`edgeReleasedLocks` releases a lock on one branch of a two-way `If` when the
+lifecycle evidence proves the tested call completes that exact lock on the
+selected edge: `CompletionOnEdge` over the call's branch edge with the held
+lock's SSA value as target and `Unlock`/`RUnlock` as methods. This credits the
+`Locked`-style contract — a helper that unlocks a caller-held lock only on one
+result outcome — without weakening the sibling branch, where held, read-held,
+and guards are cloned before the release is applied so the shared flow state
+keeps the obligation intact. The edge query reuses the conditional lifecycle
+discharge facts; it never infers the contract from the helper's name.
+`conditional_release.go` pairs accepted outcome-conditional helpers with
+diagnostic controls: a helper that reaches the lock only through a package
+global stays outside the argument-mapping evidence, a helper that never
+releases it, a result that says nothing usable about the releasing arm, and
+a helper whose releasing arm covers only some paths. A lock still held on the
+tested edge's successor keeps its diagnostic.
+
 
 ## Slot mutation query mechanics
 
