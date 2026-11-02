@@ -281,7 +281,7 @@ func (flow lockFlowContext) edgeReleasedLocks(from, to *ssa.BasicBlock, state lo
 	}
 	var released []string
 	for _, identity := range held {
-		if flow.staleEdgeRelease(identity, state.origins[identity], call, branch) {
+		if flow.staleEdgeRelease(identity, call, branch) {
 			continue
 		}
 		for _, value := range flow.lockValues[identity] {
@@ -301,31 +301,33 @@ func (flow lockFlowContext) edgeReleasedLocks(from, to *ssa.BasicBlock, state lo
 	return released
 }
 
-// staleEdgeRelease reports whether the acquisition now held may postdate the
-// call whose result selects the edge. The edge release settles only a lock
-// that call could have seen held. When some path runs from the acquisition to
-// the branch without executing the call again, the tested result can predate
-// the acquisition, so its proven release belongs to an earlier obligation and
-// the newer one stands. When every such path re-executes the call, as in a
-// retry loop that reacquires and calls the helper again, the call saw this
-// acquisition held and the release applies. Dominance is the wrong test: a
-// loop's call dominates the reacquire that precedes its next execution. An
-// acquisition whose instruction cannot be resolved keeps the release:
-// uncertain order is not evidence of a violation.
+// staleEdgeRelease reports whether some acquisition of identity may sit
+// between the call whose result selects the edge and the branch itself. The
+// edge release settles only a lock that call could have seen held: when an
+// acquisition can run after the call and reach the branch without executing
+// the call again, the tested result can predate that acquisition, so its
+// proven release belongs to an earlier obligation and the newer one stands.
+// When every such path re-executes the call, as in a retry loop that
+// reacquires and calls the helper again, the call saw the acquisition held
+// and the release applies.
+//
+// Every acquisition site is checked, not only the held state's origin: a Lock
+// on an identity the walk already holds does not replace its origin, so an
+// origin-only check misses a reacquire on a path where the helper released.
+// Dominance is the wrong test: a loop's call dominates the reacquire that
+// precedes its next execution. A check cut off by the budget keeps the
+// release: uncertain order is not evidence of a violation.
 // https://github.com/kojah/gohawk/pull/58#discussion_r4437363025
-func (flow lockFlowContext) staleEdgeRelease(identity string, origin lockAcquisition, call *ssa.Call, branch *ssa.If) bool {
-	site := origin.site()
-	if site == token.NoPos {
-		return false
-	}
+func (flow lockFlowContext) staleEdgeRelease(identity string, call *ssa.Call, branch *ssa.If) bool {
+	budget := flow.releases.budget
 	for _, acquisition := range flow.acquisitions[identity] {
-		if !flow.releases.budget.Spend() {
+		if !budget.Spend() {
 			return false
 		}
-		if acquisition.Pos() != site {
-			continue
+		if cfg.InstructionMayFollowWithin(call, acquisition, budget) &&
+			cfg.InstructionMayFollowAvoidingWithin(acquisition, branch, call, budget) {
+			return true
 		}
-		return cfg.InstructionMayFollowAvoidingWithin(acquisition, branch, call, flow.releases.budget)
 	}
 	return false
 }

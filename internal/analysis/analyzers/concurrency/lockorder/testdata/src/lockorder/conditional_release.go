@@ -162,3 +162,34 @@ func (c *conditionalGate) runRetry() {
 		c.mu.Lock()
 	}
 }
+
+// A reacquire on only some paths between the tested call and the branch is
+// still one the call could not have seen. The walk holds the lock throughout,
+// so the held state's origin stays the first acquisition; the ordering bound
+// checks every acquisition site instead.
+func (c *conditionalGate) runPartialRetry(flag bool) {
+	c.mu.Lock()
+	released := c.rejectIfInactive()
+	if flag {
+		c.mu.Lock()
+	}
+	if released {
+		return // want "lock `.*` is not released on this return path"
+	}
+	c.mu.Unlock()
+}
+
+// A different lock acquired between the call and the branch does not affect
+// the helper's release of its own lock: on the released arm a.mu is settled
+// by the helper and b.mu by the explicit unlock.
+func runTwoGates(a, b *conditionalGate) {
+	a.mu.Lock()
+	released := a.rejectIfInactive()
+	b.mu.Lock()
+	if released {
+		b.mu.Unlock()
+		return
+	}
+	a.mu.Unlock()
+	b.mu.Unlock()
+}
