@@ -5,8 +5,8 @@ james-6-23/codex2api,lockorder,lockorder/contradictory-order,proxy/handler.go:52
 james-6-23/codex2api,lockorder,lockorder/recursive-acquire,proxy/handler.go:7297:3,false_positive,,
 james-6-23/codex2api,lockorder,lockorder/recursive-acquire,proxy/handler_anthropic.go:1222:3,false_positive,,
 james-6-23/codex2api,lockorder,lockorder/recursive-acquire,proxy/images.go:1892:3,false_positive,,
-okteto/okteto,resourcelifetime,resourcelifetime/missing-release,cmd/deploy/wait.go:70:12,false_positive,,
-okteto/okteto,resourcelifetime,resourcelifetime/missing-release,cmd/deploy/wait.go:71:8,false_positive,,
-james-6-23/codex2api,resourcelifetime,resourcelifetime/missing-release,database/prompt_risk_profile.go:1436:15,true_positive,,
-okteto/okteto,resourcelifetime,resourcelifetime/missing-release,internal/test/utils.go:32:14,true_positive,,
-okteto/okteto,resourcelifetime,resourcelifetime/missing-release,pkg/ssh/config.go:244:15,true_positive,,
+okteto/okteto,resourcelifetime,resourcelifetime/missing-release,cmd/deploy/wait.go:70:12,false_positive,bdd019a1,2026-11-02
+okteto/okteto,resourcelifetime,resourcelifetime/missing-release,cmd/deploy/wait.go:71:8,false_positive,bdd019a1,2026-11-02
+james-6-23/codex2api,resourcelifetime,resourcelifetime/missing-release,database/prompt_risk_profile.go:1436:15,true_positive,bdd019a1,2026-11-02
+okteto/okteto,resourcelifetime,resourcelifetime/missing-release,internal/test/utils.go:32:14,true_positive,bdd019a1,2026-11-02
+okteto/okteto,resourcelifetime,resourcelifetime/missing-release,pkg/ssh/config.go:244:15,true_positive,bdd019a1,2026-11-02

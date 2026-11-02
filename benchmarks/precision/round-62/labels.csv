@@ -1,3 +1,3 @@
-repository,analyzer,check,position,verdict
-criyle/go-sandbox,processownership,processownership/missing-wait,container/environment_linux.go:266:11,false_positive
-openfaas/of-watchdog,processownership,processownership/missing-wait,executor/serializing_fork_runner.go:105:12,true_positive
+repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
+criyle/go-sandbox,processownership,processownership/missing-wait,container/environment_linux.go:266:11,false_positive,bdd019a1,2026-11-02
+openfaas/of-watchdog,processownership,processownership/missing-wait,executor/serializing_fork_runner.go:105:12,true_positive,bdd019a1,2026-11-02

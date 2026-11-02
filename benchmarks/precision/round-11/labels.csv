@@ -1,4 +1,4 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-caddyserver/certmagic,resourcelifetime,resourcelifetime/missing-release,internal/atomicfile/file.go:78:12,true_positive,9613f2d,2026-09-06
+caddyserver/certmagic,resourcelifetime,resourcelifetime/missing-release,internal/atomicfile/file.go:78:12,true_positive,bdd019a1,2026-11-02
 minio/madmin-go,evalorder,evalorder/operand-mutation,user-commands.go:1158:38,true_positive,9613f2d,2026-09-06
-restic/restic,resourcelifetime,resourcelifetime/missing-release,internal/backend/cache/cache.go:166:12,true_positive,9613f2d,2026-09-06
+restic/restic,resourcelifetime,resourcelifetime/missing-release,internal/backend/cache/cache.go:166:12,true_positive,bdd019a1,2026-11-02

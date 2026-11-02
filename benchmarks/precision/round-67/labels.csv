@@ -1,4 +1,4 @@
-repository,analyzer,check,position,verdict
-majestrate/XD,lockorder,lockorder/missing-release,lib/configparser/configparser.go:115:4,true_positive
-majestrate/XD,lockorder,lockorder/missing-release,lib/configparser/configparser.go:121:3,true_positive
-fiorix/go-diameter,lockorder,lockorder/missing-release,examples/s6a_proxy/service/util.go:82:2,false_positive
+repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
+majestrate/XD,lockorder,lockorder/missing-release,lib/configparser/configparser.go:115:4,true_positive,bdd019a1,2026-11-02
+majestrate/XD,lockorder,lockorder/missing-release,lib/configparser/configparser.go:121:3,true_positive,bdd019a1,2026-11-02
+fiorix/go-diameter,lockorder,lockorder/missing-release,examples/s6a_proxy/service/util.go:82:2,false_positive,bdd019a1,2026-11-02
