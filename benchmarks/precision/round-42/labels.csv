@@ -1,5 +1,5 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-block/spirit,resourcelifetime,,pkg/checksum/single.go:493:15,false_positive,,
+block/spirit,resourcelifetime,,pkg/checksum/single.go:493:15,false_positive,bdd019a1,2026-11-02
 kdlbs/kandev,lockorder,,apps/backend/internal/agent/runtime/lifecycle/manager_events.go:264:3,false_positive,9613f2d,2026-09-06
 kdlbs/kandev,resourcelifetime,,apps/backend/internal/agent/kubernetes/portforward.go:464:19,false_positive,9613f2d,2026-09-06
 block/spirit,resourcelifetime,resourcelifetime/missing-release,pkg/dbconn/dbconn.go:454:14,true_positive,9613f2d,2026-09-06

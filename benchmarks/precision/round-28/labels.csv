@@ -1,8 +1,8 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-grafana/alerting,goroutineownership,,testing/alerting-gen/pkg/execute/run.go:146:2,false_positive,9613f2d,2026-09-06
-grafana/alerting,goroutineownership,,testing/alerting-gen/pkg/execute/run.go:264:2,false_positive,9613f2d,2026-09-06
-netboxlabs/orb-agent,goroutineownership,,orb-discovery/snmp-discovery/policy/runner.go:174:2,false_positive,9613f2d,2026-09-06
-traPtitech/traQ,lockorder,lockorder/missing-release,testutils/test_repository.go:649:3,true_positive,9613f2d,2026-09-06
-aserto-dev/topaz,resourcelifetime,resourcelifetime/missing-release,topaz-db/cmd/set.go:36:12,true_positive,9613f2d,2026-09-06
-grafana/alerting,resourcelifetime,resourcelifetime/missing-release,receivers/wecom/v1/wecom.go:138:15,true_positive,9613f2d,2026-09-06
-grafana/alerting,concurrentcapture,concurrentcapture/shared-capture,testing/alerting-gen/pkg/execute/run.go:110:5,true_positive,9613f2d,2026-09-06
+grafana/alerting,goroutineownership,,testing/alerting-gen/pkg/execute/run.go:146:2,false_positive,bdd019a1,2026-11-02
+grafana/alerting,goroutineownership,,testing/alerting-gen/pkg/execute/run.go:264:2,false_positive,bdd019a1,2026-11-02
+netboxlabs/orb-agent,goroutineownership,,orb-discovery/snmp-discovery/policy/runner.go:174:2,false_positive,bdd019a1,2026-11-02
+traPtitech/traQ,lockorder,lockorder/missing-release,testutils/test_repository.go:649:3,true_positive,bdd019a1,2026-11-02
+aserto-dev/topaz,resourcelifetime,resourcelifetime/missing-release,topaz-db/cmd/set.go:36:12,true_positive,bdd019a1,2026-11-02
+grafana/alerting,resourcelifetime,resourcelifetime/missing-release,receivers/wecom/v1/wecom.go:138:15,true_positive,bdd019a1,2026-11-02
+grafana/alerting,concurrentcapture,concurrentcapture/shared-capture,testing/alerting-gen/pkg/execute/run.go:110:5,true_positive,bdd019a1,2026-11-02

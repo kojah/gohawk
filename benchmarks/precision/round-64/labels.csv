@@ -1,5 +1,5 @@
-repository,analyzer,check,position,verdict
-OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,apps/watchman/olapdb/batch.go:96:13,false_positive
-OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,apps/watchman/olapdb/olapdb.go:115:13,false_positive
-OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,apps/forklift/retriever.go:115:15,true_positive
-OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,internal/test/static_assets.go:18:12,true_positive
+repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
+OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,apps/watchman/olapdb/batch.go:96:13,false_positive,bdd019a1,2026-11-02
+OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,apps/watchman/olapdb/olapdb.go:115:13,false_positive,bdd019a1,2026-11-02
+OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,apps/forklift/retriever.go:115:15,true_positive,bdd019a1,2026-11-02
+OdyseeTeam/odysee-api,resourcelifetime,resourcelifetime/missing-release,internal/test/static_assets.go:18:12,true_positive,bdd019a1,2026-11-02
