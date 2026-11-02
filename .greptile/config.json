@@ -1,0 +1,8 @@
+{
+  "strictness": 2,
+  "commentTypes": ["logic", "syntax"],
+  "effort": "base",
+  "autoReview": ["open"],
+  "statusCheck": true,
+  "ignorePatterns": "site/**\ntalks/**\n**/*.generated.*\n**/*_string.go\nbenchmarks/precision/**/findings.tsv"
+}

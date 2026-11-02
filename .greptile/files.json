@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "description": "Repository policy: precision over recall, fixture expectations, and analyzer change rules"
+    },
+    {
+      "path": "docs/development/architecture.md",
+      "description": "Analyzer layers and the invariants they enforce"
+    },
+    {
+      "path": "docs/development/fact-model.md",
+      "description": "Shared evidence and fact model used by every analyzer"
+    }
+  ]
+}
