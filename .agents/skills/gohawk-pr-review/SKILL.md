@@ -119,7 +119,7 @@ dimension:
 | `touches:` | `shared-proof`, `flow-query`, `output-format` | zero or more | section 2 |
 | `risk:` | `low`, `medium`, `high` | exactly one | section 6 |
 | `needs:` | `accepted-fixture`, `negative-control`, `decision-record`, `docs`, `ai-disclosure`, `intent` | zero or more | sections 4 and 9 |
-| `hunt:` | `regression-found`, `slowdown-found` | set by `/hunt` | 5.1, 5.2 |
+| `hunt:` | `regression-found`, `slowdown-found` | set by `/hunt-for-regressions` | 5.1, 5.2 |
 
 A behavior change mixed with a refactor takes the behavior's category.
 `category:improves-recall` is for an existing check; a new check ID is
@@ -136,7 +136,8 @@ Who sets each label:
   above): `category:` when still unset, `scope:`, and `touches:`.
 - **Reviewer**: `risk:` and the remaining `needs:` labels, removing a `needs:`
   label once its evidence arrives.
-- **`/hunt` workflows**: `hunt:` labels, cleared when a rerun finds nothing.
+- **`/hunt-for-regressions` workflows**: `hunt:` labels, cleared when a
+  rerun finds nothing.
 
 Workflows only fill a dimension that has no label yet. A label a maintainer
 set wins: when your reading disagrees with it, say so in the review instead
@@ -322,10 +323,10 @@ make lint
 ```
 
 A maintainer can run the hunts in sections 5.1 and 5.2 on GitHub by
-commenting `/hunt` on the pull request. The `hunt-counterexample` and
-`hunt-slowdown` agentic workflows build the merge base and head, follow those
-sections, and each post one comment; text after `/hunt` is passed to both as
-extra instructions. Edit the workflows' `.md` sources and recompile with
+commenting `/hunt-for-regressions` on the pull request. The
+`hunt-counterexample` and `hunt-slowdown` agentic workflows build the merge
+base and head, follow those sections, and each post one comment; text after
+the command is passed to both as extra instructions. Edit the workflows' `.md` sources and recompile with
 `gh aw compile`; never hand-edit the `.lock.yml` files.
 
 Run `-race` and `-cover` only in CI. Do not pass them locally, including

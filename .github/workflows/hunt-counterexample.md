@@ -1,11 +1,12 @@
 ---
 description: |
-  On a maintainer's /hunt comment, try to break an analyzer pull request with
-  inputs its author did not test, comparing the merge base against the head.
+  On a maintainer's /hunt-for-regressions comment, try to break an analyzer
+  pull request with inputs its author did not test, comparing the merge base
+  against the head.
 
 on:
   slash_command:
-    name: hunt
+    name: hunt-for-regressions
     events: [pull_request_comment]
   workflow_dispatch:
     inputs:

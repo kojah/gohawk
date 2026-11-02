@@ -1,11 +1,12 @@
 ---
 description: |
-  On a maintainer's /hunt comment, profile an analyzer pull request against its
-  merge base and try to construct an input with an unacceptable slowdown.
+  On a maintainer's /hunt-for-regressions comment, profile an analyzer pull
+  request against its merge base and try to construct an input with an
+  unacceptable slowdown.
 
 on:
   slash_command:
-    name: hunt
+    name: hunt-for-regressions
     events: [pull_request_comment]
   workflow_dispatch:
     inputs:

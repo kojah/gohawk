@@ -1,7 +1,7 @@
 ---
-# Shared setup for the /hunt review workflows. It builds gohawk at the pull
-# request's merge base and at its head, so the agent compares two binaries on
-# the same input instead of spending turns on setup.
+# Shared setup for the /hunt-for-regressions review workflows. It builds
+# gohawk at the pull request's merge base and at its head, so the agent
+# compares two binaries on the same input instead of spending turns on setup.
 
 checkout:
   - fetch-depth: 0
