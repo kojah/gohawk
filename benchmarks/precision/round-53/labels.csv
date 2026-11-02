@@ -1,6 +1,4 @@
 repository,analyzer,check,position,verdict,gohawk_revision,confirmed_at
-Autumn-27/ARTEX,resourcelifetime,resourcelifetime/missing-release,traffic/traffic.go:1159:13,false_positive,,
-Autumn-27/ARTEX,resourcelifetime,resourcelifetime/missing-release,db/exploration.go:1024:19,true_positive,,
 alajmo/sake,lockorder,lockorder/missing-release,core/run/exec.go:1081:3,false_positive,,
 alajmo/sake,lockorder,lockorder/missing-release,core/run/exec.go:1099:3,true_positive,,
 alajmo/sake,lockorder,lockorder/missing-release,core/run/ssh.go:328:3,true_positive,,
