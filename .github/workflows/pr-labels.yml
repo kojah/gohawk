@@ -1,0 +1,43 @@
+name: PR labels
+
+# Label pull requests from facts alone: changed paths and the template's
+# Intent and AI assistance sections (scripts/pr-labels.sh). The pr-classify
+# agentic workflow waits for this run, then labels what needs judgment.
+#
+# pull_request_target lets contributor pull requests from forks be labelled.
+# It checks out the base branch only and never runs the pull request's code;
+# the script reads the pull request through the API.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, edited, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Pull request number
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: pr-labels-${{ github.event.pull_request.number || inputs.pull_request }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the base branch
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Apply labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number || inputs.pull_request }}
+        run: scripts/pr-labels.sh "$NUMBER"

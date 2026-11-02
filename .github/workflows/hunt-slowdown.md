@@ -28,6 +28,12 @@ safe-outputs:
   add-comment:
     max: 1
     hide-older-comments: true
+  add-labels:
+    max: 1
+    allowed: [hunt:slowdown-found]
+  remove-labels:
+    max: 1
+    allowed: [hunt:slowdown-found]
 
 timeout-minutes: 60
 ---
@@ -66,6 +72,9 @@ Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }
    - the growth table for each adversarial input, with its generator;
    - whether any shape is unacceptable by section 5.2's rules, and which axes
      you did not try.
+
+Label the pull request `hunt:slowdown-found` when you found an unacceptable slowdown; remove that
+label when a rerun finds none.
 
 If the pull request changes no analyzer or engine code, call `noop` with that
 reason. Report measured numbers only; if a measurement fails, say so instead

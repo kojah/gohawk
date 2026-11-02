@@ -28,6 +28,12 @@ safe-outputs:
   add-comment:
     max: 1
     hide-older-comments: true
+  add-labels:
+    max: 1
+    allowed: [hunt:regression-found]
+  remove-labels:
+    max: 1
+    allowed: [hunt:regression-found]
 
 timeout-minutes: 45
 ---
@@ -61,6 +67,9 @@ Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }
    - gaps (wrong both before and after), listed separately and marked as not
      caused by this pull request;
    - which shapes you tried and which you did not.
+
+Label the pull request `hunt:regression-found` when you found a regression; remove that
+label when a rerun finds none.
 
 If the pull request changes no analyzer or engine code, call `noop` with that
 reason. Finding nothing is still a result: post the shapes you tried, since

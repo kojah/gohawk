@@ -2,6 +2,23 @@
 
 <!-- What changed, and why? -->
 
+## Intent
+
+<!-- Tick the one that best describes the change. -->
+
+- [ ] **Precision**: fewer wrong diagnostics (a false-positive fix or narrowed rule)
+- [ ] **Recall**: an existing check reports a shape it used to miss
+- [ ] **New check**: adds a check ID
+- [ ] **Reliability**: crashes, hangs, nondeterminism or budgets, with no boundary change
+- [ ] **Performance**: speed or memory, with output unchanged
+- [ ] **Refactor**: no behavior change
+- [ ] **Documentation**: docs, site or talks only
+- [ ] **Tooling**: CI, scripts, workflows or dependencies
+
+## AI assistance
+
+<!-- Required by docs/ai-policy.md: which tools you used and for what, or "None". -->
+
 ## Verification
 
 <!-- List the commands you ran and any manual checks you performed. -->

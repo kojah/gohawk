@@ -106,6 +106,42 @@ coverage of a new shape, or removal of existing special cases. Growth without
 one of those is not justified. Say what the added production code buys in one
 sentence; if that sentence needs more than one clause, treat it as unjustified.
 
+### 3.6 Labels
+
+Labels record the shape so pull requests can be filtered. Each prefix is one
+dimension:
+
+| Dimension | Values | Count | Source |
+|---|---|---|---|
+| `category:` | `improves-precision`, `improves-recall`, `new-check`, `reliability`, `performance`, `refactor`, `docs`, `tooling` | exactly one | 3.2 |
+| `scope:` | `general-model`, `pattern-rule`, `special-case` | one, analyzer changes only | 3.3 |
+| `area:` | `concurrency`, `resources`, `engine`, `catalog` | one or more | changed paths |
+| `touches:` | `shared-proof`, `flow-query`, `output-format` | zero or more | section 2 |
+| `risk:` | `low`, `medium`, `high` | exactly one | section 6 |
+| `needs:` | `accepted-fixture`, `negative-control`, `decision-record`, `docs`, `ai-disclosure`, `intent` | zero or more | sections 4 and 9 |
+| `hunt:` | `regression-found`, `slowdown-found` | set by `/hunt` | 5.1, 5.2 |
+
+A behavior change mixed with a refactor takes the behavior's category.
+`category:improves-recall` is for an existing check; a new check ID is
+`category:new-check`.
+
+Who sets each label:
+
+- **`PR labels` workflow** (`scripts/pr-labels.sh`, on every open, edit and
+  push): `area:` from changed paths; `category:` from the template's single
+  ticked Intent box, or `docs`/`tooling` when every changed file is one of
+  those; `needs:intent` and `needs:ai-disclosure` while those template
+  sections are empty, removed once they are filled.
+- **`pr-classify` agentic workflow** (when a pull request opens, after the
+  above): `category:` when still unset, `scope:`, and `touches:`.
+- **Reviewer**: `risk:` and the remaining `needs:` labels, removing a `needs:`
+  label once its evidence arrives.
+- **`/hunt` workflows**: `hunt:` labels, cleared when a rerun finds nothing.
+
+Workflows only fill a dimension that has no label yet. A label a maintainer
+set wins: when your reading disagrees with it, say so in the review instead
+of relabelling.
+
 ## 4. Evidence the PR must show
 
 | Change | Required evidence |
