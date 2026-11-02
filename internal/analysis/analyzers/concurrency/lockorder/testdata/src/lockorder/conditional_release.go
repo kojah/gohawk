@@ -118,3 +118,31 @@ func (c *conditionalGate) runSometimes() {
 	}
 	c.mu.Unlock()
 }
+
+// A saved result keeps the call it came from. The edge proof settles only
+// the acquisition that call could have seen held: a lock reacquired after
+// the helper returned keeps its own obligation on this return.
+// https://github.com/kojah/gohawk/pull/58#discussion_r4437363025
+
+func (c *conditionalGate) runReacquired() {
+	c.mu.Lock()
+	released := c.rejectIfInactive()
+	if released {
+		c.mu.Lock()
+		if released {
+			return // want "lock `.*` is not released on this return path"
+		}
+	}
+	c.mu.Unlock()
+}
+
+// The ordering bound also holds inside one block: an acquisition made after
+// the tested call cannot be the one its edge release discharged.
+func (c *conditionalGate) runAcquiredAfter() {
+	released := c.rejectIfInactive()
+	c.mu.Lock()
+	if released {
+		return // want "lock `.*` is not released on this return path"
+	}
+	c.mu.Unlock()
+}

@@ -43,3 +43,11 @@ func localGroupWatcher() {
 	go func() { group.Wait(); close(done) }() // want "goroutine is not joined on every return path"
 }
 
+// The external-group bound covers only the Wait itself. A worker that can
+// still block after the group settles — here on a local channel receive —
+// keeps the unjoined diagnostic.
+// https://github.com/kojah/gohawk/pull/58#discussion_r4437363032
+func externalGroupThenBlocking() {
+	ch := make(chan int)
+	go func() { sharedGroup.Wait(); <-ch; close(ch) }() // want "goroutine is not joined on every return path"
+}

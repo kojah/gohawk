@@ -729,7 +729,12 @@ diagnostic controls: a helper that reaches the lock only through a package
 global stays outside the argument-mapping evidence, a helper that never
 releases it, a result that says nothing usable about the releasing arm, and
 a helper whose releasing arm covers only some paths. A lock still held on the
-tested edge's successor keeps its diagnostic.
+tested edge's successor keeps its diagnostic. The release settles only an
+acquisition the tested call could have seen held: `staleEdgeRelease` declines
+the edge release when that call executes before the currently held
+acquisition on every path, so a saved result tested after reacquiring cannot
+discharge the newer lock. `runReacquired` and `runAcquiredAfter` pin the
+cross-block and same-block forms.
 
 
 ## Slot mutation query mechanics

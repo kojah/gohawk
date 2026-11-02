@@ -19,6 +19,16 @@ import (
 // The condition is an ssaflow.CallCondition with a result test and no
 // arguments; OutcomeAny is the ordinary, unconditional search.
 
+// EdgeConditionCall returns the synchronous call whose result selects the
+// from/to edge, when the edge carries one. It names the instruction an edge
+// completion proof is about, so a consumer can bound which earlier state
+// that proof still covers; ordering between that call and a later
+// acquisition stays the consumer's policy.
+func EdgeConditionCall(from, to *ssa.BasicBlock) (*ssa.Call, bool) {
+	call, _, ok := completionEdgeCondition(from, to)
+	return call, ok
+}
+
 // ProveCompletionOnEdge asks whether the call result tested by from establishes
 // completion of request.Target on the edge to to. Instruction is derived from
 // the test; only synchronous calls and exact target mappings are eligible.

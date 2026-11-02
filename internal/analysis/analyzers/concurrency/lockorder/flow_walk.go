@@ -237,7 +237,7 @@ func lockSuccessorStates(flow lockFlowContext, state lockFlowState, budget *proo
 		// keeps it and its release obligation. The shared slices and guard
 		// map must stay intact for that sibling, so release into clones.
 		held, readHeld, guards := state.held, state.readHeld, state.guards
-		if released := flow.edgeReleasedLocks(block, successor, held); len(released) != 0 {
+		if released := flow.edgeReleasedLocks(block, successor, state); len(released) != 0 {
 			held, readHeld = slices.Clone(held), slices.Clone(readHeld)
 			guards = maps.Clone(guards)
 			for _, identity := range released {
@@ -266,15 +266,23 @@ func lockSuccessorStates(flow lockFlowContext, state lockFlowState, budget *proo
 // sibling edge keeps the lock and its obligation. Only an If whose condition
 // resolves to a call result can carry the condition; other edges answer no.
 // https://github.com/kojah/gohawk/issues/57
-func (flow lockFlowContext) edgeReleasedLocks(from, to *ssa.BasicBlock, held []string) []string {
+func (flow lockFlowContext) edgeReleasedLocks(from, to *ssa.BasicBlock, state lockFlowState) []string {
+	held := state.held
 	if len(held) == 0 || flow.releases == nil || len(from.Succs) != 2 || len(from.Instrs) == 0 {
 		return nil
 	}
 	if _, branch := from.Instrs[len(from.Instrs)-1].(*ssa.If); !branch {
 		return nil
 	}
+	call, conditional := lifecycle.EdgeConditionCall(from, to)
+	if !conditional {
+		return nil
+	}
 	var released []string
 	for _, identity := range held {
+		if flow.staleEdgeRelease(identity, state.origins[identity], call) {
+			continue
+		}
 		for _, value := range flow.lockValues[identity] {
 			if !flow.releases.budget.Spend() {
 				return released
@@ -290,4 +298,29 @@ func (flow lockFlowContext) edgeReleasedLocks(from, to *ssa.BasicBlock, held []s
 		}
 	}
 	return released
+}
+
+// staleEdgeRelease reports whether the acquisition now held postdates the
+// call whose result selects the edge. The edge release settles only a lock
+// that call could have seen held; when the call executes before the current
+// acquisition on every path, its proven release belongs to an earlier
+// obligation and the newer one stands. An acquisition whose instruction
+// cannot be resolved keeps the release: uncertain order is not evidence of
+// a violation.
+// https://github.com/kojah/gohawk/pull/58#discussion_r4437363025
+func (flow lockFlowContext) staleEdgeRelease(identity string, origin lockAcquisition, call *ssa.Call) bool {
+	site := origin.site()
+	if site == token.NoPos {
+		return false
+	}
+	for _, acquisition := range flow.acquisitions[identity] {
+		if !flow.releases.budget.Spend() {
+			return false
+		}
+		if acquisition.Pos() != site {
+			continue
+		}
+		return cfg.InstructionDominatesWithin(call, acquisition, flow.releases.budget)
+	}
+	return false
 }

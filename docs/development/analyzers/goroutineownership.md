@@ -240,7 +240,8 @@ caller waiting on the worker's signal still supplies no settlement evidence.
 `callerbounds/group_bound.go` pins receiver-field, parameter, and package-level
 external groups as unknown, a locally constructed group as the diagnostic
 control, and the `workerBlockingOther` census disqualifies a worker that does
-anything but Wait.
+anything but Wait: `externalGroupThenBlocking` keeps the diagnostic when a
+local channel receive follows the external Wait.
 Fixtures in `goroutineownership/receive_bindings.go` cover a receiver bound
 through the second helper call and an unrelated local receiver that supplies
 no caller-owned bound. Unit tests additionally cover diamonds, nested launches,
