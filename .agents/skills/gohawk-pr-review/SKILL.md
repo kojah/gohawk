@@ -285,6 +285,13 @@ go test ./internal/analysis/analyzers/<group>/<name>/...    # focused iteration
 make lint
 ```
 
+A maintainer can run the hunts in sections 5.1 and 5.2 on GitHub by
+commenting `/hunt` on the pull request. The `hunt-counterexample` and
+`hunt-slowdown` agentic workflows build the merge base and head, follow those
+sections, and each post one comment; text after `/hunt` is passed to both as
+extra instructions. Edit the workflows' `.md` sources and recompile with
+`gh aw compile`; never hand-edit the `.lock.yml` files.
+
 Run `-race` and `-cover` only in CI. Do not pass them locally, including
 through `GOFLAGS`, and do not spoof CI variables. `make verify` is the local
 entry point; report pending coverage and race results separately.

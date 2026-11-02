@@ -4,3 +4,5 @@
 # Hyrule output: collapsed in GitHub diffs and excluded from language stats.
 *_gen.go linguist-generated=true
 .hyrule-manifest.json linguist-generated=true
+
+.github/workflows/*.lock.yml linguist-generated=true
