@@ -202,6 +202,34 @@ the cost of the change and try to construct an input that makes it blow up.
   up on it, not grow with it ([stress suite](../../../docs/development/stress-suite.md)).
 - **Bound the claim.** Say which axes you grew and which you did not.
 
+#### Profiling report
+
+Every analyzer change includes a before/after profile of the hot paths it
+touches, on the same input and settings for both binaries:
+
+- **CPU.** Run each binary with `GOHAWK_PROFILE_DIR=<dir>` and a fresh build
+  ID or cleared vet cache (a cached unit records nothing). Summarize with
+  `go run ./tools/profilesummary <dir>`, merge the per-unit `.pprof` files,
+  and compare `go tool pprof -top -tagfocus=analyzer=<name>` for each changed
+  analyzer. Report the changed functions' flat and cumulative time and any
+  new entry in the top of the profile.
+- **Allocations.** Run the touched analyzer's tests with `-run '^$' -bench .
+  -benchmem` (or add a benchmark over its fixtures when none exists), or
+  collect `-memprofile` from one, and compare allocs/op and bytes/op. Name
+  each new allocation on a per-instruction, per-state, or per-edge path:
+  slice and map clones, closures, and boxed values.
+- **Un-memoized work.** For every new query on a hot path, state whether its
+  result is cached and its key. A query whose answer depends only on stable
+  inputs (a block, an edge, a value, a function) but runs once per walk state,
+  per path, or per caller multiplies by the number of states that reach it.
+  Count the repeats on the adversarial input when the diff cannot bound them.
+- **Budget spend.** Compare `gohawk dump budget` for the functions the change
+  touches. New work that draws from an existing search budget can exhaust it
+  earlier, turning a slowdown into a silent false negative instead.
+
+Put the report in the review as a small table: function, before, after, and
+the input it was measured on.
+
 A pathological shape that holds becomes a generator case in the stress suite,
 either on the PR or as a follow-up; run `make stress` when the change touches
 shared proof, the flow query, or the points-to model.
@@ -299,7 +327,7 @@ Refactor: none
 Complexity: +112 production lines buy 6 new accepted fixtures and remove one special case
 Tests: 2 regression fixtures (both fail on the parent commit), 3 negative controls
 Probe: reacquire, sibling arm, loop re-entry; one regression found (finding 1)
-Perf: self +3% wall, +0 peak; switch arms 1x/4x/16x grow linearly; call-chain depth not tried
+Perf: self +3% wall, +0 peak; lockorder walk +8% CPU, +2 allocs/state; switch arms 1x/4x/16x grow linearly; call-chain depth not tried
 Risk: medium — shared lifecycle proof, silent-FN failure mode, corpus-detectable, clean revert
 ```
 
