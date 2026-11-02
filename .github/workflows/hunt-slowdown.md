@@ -19,7 +19,9 @@ permissions: read-all
 concurrency:
   job-discriminator: ${{ github.event.issue.number || inputs.pull_request || github.run_id }}
 
-engine: claude
+engine:
+  id: copilot
+  model: claude-sonnet-5
 
 imports:
   - shared/hunt-setup.md
@@ -27,12 +29,15 @@ imports:
 safe-outputs:
   add-comment:
     max: 1
+    target: "*"
     hide-older-comments: true
   add-labels:
     max: 1
+    target: "*"
     allowed: [hunt:slowdown-found]
   remove-labels:
     max: 1
+    target: "*"
     allowed: [hunt:slowdown-found]
 
 timeout-minutes: 60
@@ -65,7 +70,8 @@ Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }
 4. Construct adversarial inputs that grow the axis the new code scales with,
    at three sizes such as 1x, 4x and 16x. Compare how time, memory and budget
    exhaustion (`gohawk dump budget`) grow on both binaries.
-5. Post one comment with `add-comment`:
+5. Post one comment with `add-comment`, targeting this pull
+   request's number:
    - a `Perf:` line in the section 10 format;
    - the profiling report table: function, before, after, input;
    - new allocations and un-memoized work on hot paths, with the evidence;

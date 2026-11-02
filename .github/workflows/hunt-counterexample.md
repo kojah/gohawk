@@ -19,7 +19,9 @@ permissions: read-all
 concurrency:
   job-discriminator: ${{ github.event.issue.number || inputs.pull_request || github.run_id }}
 
-engine: claude
+engine:
+  id: copilot
+  model: claude-sonnet-5
 
 imports:
   - shared/hunt-setup.md
@@ -27,12 +29,15 @@ imports:
 safe-outputs:
   add-comment:
     max: 1
+    target: "*"
     hide-older-comments: true
   add-labels:
     max: 1
+    target: "*"
     allowed: [hunt:regression-found]
   remove-labels:
     max: 1
+    target: "*"
     allowed: [hunt:regression-found]
 
 timeout-minutes: 45
@@ -60,7 +65,8 @@ Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }
 3. Classify every probe by the before/after table in section 5.1. For each
    regression, confirm the mechanism with `-gohawk-trace` so the report says
    why it happens.
-4. Post one comment with `add-comment`:
+4. Post one comment with `add-comment`, targeting this pull
+   request's number:
    - a `Probe:` line in the section 10 format;
    - each regression with its minimal program, both binaries' output, and
      the mechanism;

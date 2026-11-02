@@ -23,10 +23,12 @@ permissions: read-all
 concurrency:
   job-discriminator: ${{ github.event.pull_request.number || inputs.pull_request }}
 
-engine: claude
+engine:
+  id: copilot
+  model: claude-sonnet-5
 
 # Contributor pull requests come from forks, which receive no secrets on
-# pull_request. pull_request_target supplies the engine key; nothing from the
+# pull_request. pull_request_target supplies the engine token; nothing from the
 # pull request is checked out or executed, and the only write is a fixed set
 # of labels.
 checkout: false
@@ -61,6 +63,7 @@ steps:
 safe-outputs:
   add-labels:
     max: 6
+    target: "*"
     allowed:
       - category:improves-precision
       - category:improves-recall
@@ -107,5 +110,5 @@ dimensions, and only when the pull request has no label with that prefix:
    (`touches:flow-query`), or JSON output, diagnostic text or check IDs
    (`touches:output-format`).
 
-Never remove or contradict a label someone set. If every dimension above is
+Target this pull request's number in every label output. Never remove or contradict a label someone set. If every dimension above is
 already labelled, or none applies, call `noop` with the reason.
