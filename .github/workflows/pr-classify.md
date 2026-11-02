@@ -63,7 +63,7 @@ steps:
 safe-outputs:
   add-labels:
     max: 6
-    target: "*"
+    target: ${{ github.event.pull_request.number || inputs.pull_request }}
     allowed:
       - category:improves-precision
       - category:improves-recall

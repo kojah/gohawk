@@ -30,15 +30,15 @@ imports:
 safe-outputs:
   add-comment:
     max: 1
-    target: "*"
+    target: ${{ github.event.issue.number || inputs.pull_request }}
     hide-older-comments: true
   add-labels:
     max: 1
-    target: "*"
+    target: ${{ github.event.issue.number || inputs.pull_request }}
     allowed: [hunt:slowdown-found]
   remove-labels:
     max: 1
-    target: "*"
+    target: ${{ github.event.issue.number || inputs.pull_request }}
     allowed: [hunt:slowdown-found]
 
 timeout-minutes: 25
