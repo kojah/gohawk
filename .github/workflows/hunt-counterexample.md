@@ -63,9 +63,13 @@ Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }
    that decision along the shapes section 5.1 lists, plus any the diff
    suggests. Run each through both binaries with only the changed analyzers
    enabled.
-3. Classify every probe by the before/after table in section 5.1. For each
-   regression, confirm the mechanism with `-gohawk-trace` so the report says
-   why it happens.
+3. Classify every probe by the before/after table in section 5.1. Judge
+   "correct" from what the program actually does on the reported path, not
+   from which binary reports: trace which locks, goroutines or resources are
+   live there. A diagnostic that disappears is a regression only if it was
+   true; a false one disappearing is the intended fix. For each regression,
+   confirm the mechanism with `-gohawk-trace` so the report says why it
+   happens.
 4. Post one comment with `add-comment`, targeting this pull
    request's number:
    - a `Probe:` line in the section 10 format;
@@ -75,7 +79,7 @@ Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }
      caused by this pull request;
    - which shapes you tried and which you did not.
 
-Label the pull request `hunt:regression-found` when you found a regression; remove that
+Label the pull request `hunt:regression-found`, passing its number, when you found a regression; remove that
 label when a rerun finds none.
 
 If the pull request changes no analyzer or engine code, call `noop` with that

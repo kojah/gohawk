@@ -80,7 +80,7 @@ Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }
    - whether any shape is unacceptable by section 5.2's rules, and which axes
      you did not try.
 
-Label the pull request `hunt:slowdown-found` when you found an unacceptable slowdown; remove that
+Label the pull request `hunt:slowdown-found`, passing its number, when you found an unacceptable slowdown; remove that
 label when a rerun finds none.
 
 If the pull request changes no analyzer or engine code, call `noop` with that
