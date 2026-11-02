@@ -139,6 +139,36 @@ Adding a fixture is not the same as pinning behavior. Rate the test evidence:
 Rate `strong`, `partial`, `vacuous`, or `missing`, and name the failure mode
 each fixture pins.
 
+### 5.1 Hunt a counterexample
+
+Passing fixtures show the rule works on the cases the author thought of. Try to
+break it with cases they did not. This is the check that found the reacquire
+regression in #58 while its own fixtures passed.
+
+- **Build both sides.** Use a worktree at the merge base and one at the PR head,
+  and build each binary once. Run the same input through both.
+- **Start from the changed decision.** Reacquire after a stale saved result,
+  sibling branches that share held state, loop re-entry and repeated calls,
+  aliasing through embedded fields or interfaces, deferred release on only some
+  returns, early exits, each result of a multi-value call, closures, and
+  build-tag variants.
+- **Classify each candidate** by what the two binaries say:
+
+  | Before | After | Meaning |
+  |---|---|---|
+  | correct | wrong | regression — report it |
+  | wrong | correct | the intended fix |
+  | wrong | wrong | a gap, not a regression |
+  | correct | correct | no change |
+
+- **Confirm the mechanism** with the evidence trace, so the report explains why
+  it happens rather than only that it does.
+- **Bound the claim.** Say which shapes you tried and which you did not. Finding
+  nothing proves nothing; it only narrows the risk statement in section 6.
+
+Exploratory code stays out of the tree. A counterexample that holds becomes a
+minimal regression fixture, either on the PR or as a follow-up.
+
 ## 6. Risk of accepting
 
 State the risk in one line, before the verdict:
@@ -228,6 +258,7 @@ Scope: general evidence model in the classifier; no name exemptions
 Refactor: none
 Complexity: +112 production lines buy 6 new accepted fixtures and remove one special case
 Tests: 2 regression fixtures (both fail on the parent commit), 3 negative controls
+Probe: reacquire, sibling arm, loop re-entry; one regression found (finding 1)
 Risk: medium — shared lifecycle proof, silent-FN failure mode, corpus-detectable, clean revert
 ```
 
