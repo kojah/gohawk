@@ -41,7 +41,8 @@ safe-outputs:
     target: "*"
     allowed: [hunt:regression-found]
 
-timeout-minutes: 45
+timeout-minutes: 20
+max-ai-credits: 200
 ---
 
 # Counterexample hunt
@@ -54,6 +55,15 @@ Follow section 5.1, "Hunt a counterexample", of
 `.agents/skills/gohawk-pr-review/SKILL.md`, using the binaries built during
 setup. Read sections 1 and 2 first to load the analyzer's accepted boundary,
 and treat the base-branch copy of the skill as authoritative.
+
+## Time and length budget
+
+Run `date` when you start. Stop probing after 15 minutes and post what you
+have; the job is cut off at 20, and a cut-off run posts nothing.
+
+Keep the comment under 40 lines. Write for a reviewer who will reread the
+diff, not for the record: no restated diff, no shape-by-shape list of cases
+that behaved the same, no tables.
 
 Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }}"
 
@@ -70,18 +80,20 @@ Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }
    true; a false one disappearing is the intended fix. For each regression,
    confirm the mechanism with `-gohawk-trace` so the report says why it
    happens.
-4. Post one comment with `add-comment`, targeting this pull
-   request's number:
-   - a `Probe:` line in the section 10 format;
-   - each regression with its minimal program, both binaries' output, and
-     the mechanism;
-   - gaps (wrong both before and after), listed separately and marked as not
-     caused by this pull request;
-   - which shapes you tried and which you did not.
+4. Post one comment with `add-comment`, targeting this pull request's
+   number, in this shape:
+   - a one-line `Probe:` summary in the section 10 format;
+   - per regression, at most 15 lines: the smallest program that shows it,
+     one line per binary with its output, and the mechanism in at most two
+     sentences;
+   - gaps (wrong before and after) as one line each, marked as not caused by
+     this pull request;
+   - one line naming the shapes that showed no change, and one naming those
+     not tried.
 
 Label the pull request `hunt:regression-found`, passing its number, when you found a regression; remove that
 label when a rerun finds none.
 
 If the pull request changes no analyzer or engine code, call `noop` with that
-reason. Finding nothing is still a result: post the shapes you tried, since
-that bounds the risk statement.
+reason. Finding nothing is still a result: post the `Probe:` line and the two
+shape lines, since they bound the risk statement.

@@ -41,7 +41,8 @@ safe-outputs:
     target: "*"
     allowed: [hunt:slowdown-found]
 
-timeout-minutes: 60
+timeout-minutes: 25
+max-ai-credits: 200
 ---
 
 # Slowdown hunt
@@ -53,6 +54,16 @@ some input makes that cost unacceptable.
 Follow section 5.2, "Hunt a slowdown", and its profiling report in
 `.agents/skills/gohawk-pr-review/SKILL.md`, using the binaries built during
 setup. Treat the base-branch copy of the skill as authoritative.
+
+## Time and length budget
+
+Run `date` when you start. Stop measuring after 20 minutes and post what you
+have; the job is cut off at 25, and a cut-off run posts nothing. Prefer the
+gohawk repository and one changed-analyzer run per binary over broad sweeps.
+
+Keep the comment under 30 lines. Write for a reviewer deciding whether to
+merge: no restated diff, and no cost table for code that does not run on a
+hot path.
 
 Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }}"
 
@@ -71,14 +82,15 @@ Extra instructions from the comment, if any: "${{ steps.sanitized.outputs.text }
 4. Construct adversarial inputs that grow the axis the new code scales with,
    at three sizes such as 1x, 4x and 16x. Compare how time, memory and budget
    exhaustion (`gohawk dump budget`) grow on both binaries.
-5. Post one comment with `add-comment`, targeting this pull
-   request's number:
-   - a `Perf:` line in the section 10 format;
-   - the profiling report table: function, before, after, input;
-   - new allocations and un-memoized work on hot paths, with the evidence;
-   - the growth table for each adversarial input, with its generator;
-   - whether any shape is unacceptable by section 5.2's rules, and which axes
-     you did not try.
+5. Post one comment with `add-comment`, targeting this pull request's
+   number, in this shape:
+   - a one-line `Perf:` summary in the section 10 format;
+   - one profiling table of at most 6 rows: function, before, after, input;
+   - new allocations or un-memoized work on hot paths, one line each;
+   - one line per adversarial generator: what it grows and how time and
+     memory scaled on each binary;
+   - a one-line verdict by section 5.2's rules, and one line naming the axes
+     not tried.
 
 Label the pull request `hunt:slowdown-found`, passing its number, when you found an unacceptable slowdown; remove that
 label when a rerun finds none.
