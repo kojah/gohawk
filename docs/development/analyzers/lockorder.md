@@ -731,10 +731,13 @@ releases it, a result that says nothing usable about the releasing arm, and
 a helper whose releasing arm covers only some paths. A lock still held on the
 tested edge's successor keeps its diagnostic. The release settles only an
 acquisition the tested call could have seen held: `staleEdgeRelease` declines
-the edge release when that call executes before the currently held
-acquisition on every path, so a saved result tested after reacquiring cannot
-discharge the newer lock. `runReacquired` and `runAcquiredAfter` pin the
-cross-block and same-block forms.
+the edge release when some path reaches the branch from the currently held
+acquisition without executing that call again, so a saved result tested after
+reacquiring cannot discharge the newer lock. `runReacquired` and
+`runAcquiredAfter` pin the cross-block and same-block forms. A retry loop that
+reacquires and calls the helper again before testing it keeps the release
+(`runRetry`): the call dominates the reacquire there, which is why the bound
+is not a dominance test.
 
 
 ## Slot mutation query mechanics

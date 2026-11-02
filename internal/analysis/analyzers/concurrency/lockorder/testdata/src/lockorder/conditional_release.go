@@ -146,3 +146,19 @@ func (c *conditionalGate) runAcquiredAfter() {
 	}
 	c.mu.Unlock()
 }
+
+// A retry loop reacquires and calls the helper again before testing its
+// result, so the tested call always sees the current acquisition held and
+// its release applies. The call dominates the reacquire, which is why the
+// ordering bound asks whether the branch is reachable from the acquisition
+// without re-executing the call, not whether the call comes first.
+func (c *conditionalGate) runRetry() {
+	c.mu.Lock()
+	for {
+		if c.rejectIfInactive() {
+			return
+		}
+		c.mu.Unlock()
+		c.mu.Lock()
+	}
+}

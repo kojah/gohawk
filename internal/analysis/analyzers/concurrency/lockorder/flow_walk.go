@@ -271,7 +271,8 @@ func (flow lockFlowContext) edgeReleasedLocks(from, to *ssa.BasicBlock, state lo
 	if len(held) == 0 || flow.releases == nil || len(from.Succs) != 2 || len(from.Instrs) == 0 {
 		return nil
 	}
-	if _, branch := from.Instrs[len(from.Instrs)-1].(*ssa.If); !branch {
+	branch, isIf := from.Instrs[len(from.Instrs)-1].(*ssa.If)
+	if !isIf {
 		return nil
 	}
 	call, conditional := lifecycle.EdgeConditionCall(from, to)
@@ -280,7 +281,7 @@ func (flow lockFlowContext) edgeReleasedLocks(from, to *ssa.BasicBlock, state lo
 	}
 	var released []string
 	for _, identity := range held {
-		if flow.staleEdgeRelease(identity, state.origins[identity], call) {
+		if flow.staleEdgeRelease(identity, state.origins[identity], call, branch) {
 			continue
 		}
 		for _, value := range flow.lockValues[identity] {
@@ -300,15 +301,19 @@ func (flow lockFlowContext) edgeReleasedLocks(from, to *ssa.BasicBlock, state lo
 	return released
 }
 
-// staleEdgeRelease reports whether the acquisition now held postdates the
+// staleEdgeRelease reports whether the acquisition now held may postdate the
 // call whose result selects the edge. The edge release settles only a lock
-// that call could have seen held; when the call executes before the current
-// acquisition on every path, its proven release belongs to an earlier
-// obligation and the newer one stands. An acquisition whose instruction
-// cannot be resolved keeps the release: uncertain order is not evidence of
-// a violation.
+// that call could have seen held. When some path runs from the acquisition to
+// the branch without executing the call again, the tested result can predate
+// the acquisition, so its proven release belongs to an earlier obligation and
+// the newer one stands. When every such path re-executes the call, as in a
+// retry loop that reacquires and calls the helper again, the call saw this
+// acquisition held and the release applies. Dominance is the wrong test: a
+// loop's call dominates the reacquire that precedes its next execution. An
+// acquisition whose instruction cannot be resolved keeps the release:
+// uncertain order is not evidence of a violation.
 // https://github.com/kojah/gohawk/pull/58#discussion_r4437363025
-func (flow lockFlowContext) staleEdgeRelease(identity string, origin lockAcquisition, call *ssa.Call) bool {
+func (flow lockFlowContext) staleEdgeRelease(identity string, origin lockAcquisition, call *ssa.Call, branch *ssa.If) bool {
 	site := origin.site()
 	if site == token.NoPos {
 		return false
@@ -320,7 +325,7 @@ func (flow lockFlowContext) staleEdgeRelease(identity string, origin lockAcquisi
 		if acquisition.Pos() != site {
 			continue
 		}
-		return cfg.InstructionDominatesWithin(call, acquisition, flow.releases.budget)
+		return cfg.InstructionMayFollowAvoidingWithin(acquisition, branch, call, flow.releases.budget)
 	}
 	return false
 }
