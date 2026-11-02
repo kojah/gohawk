@@ -120,7 +120,48 @@ The PR description must disclose AI assistance, per
 [`docs/ai-policy.md`](../../../docs/ai-policy.md), and should state the intent
 from 3.2.
 
-## 5. Adjudicating automated review comments
+## 5. Tests: added, and falsifiable
+
+Adding a fixture is not the same as pinning behavior. Rate the test evidence:
+
+- **Fails without the change.** Revert only the production change, or check out
+  the parent commit, and confirm the new fixture fails. A fixture that passes
+  either way is vacuous.
+- **Asserts the intended claim.** Exact position and expected diagnostic, not
+  "some output changed".
+- **Has a negative control.** A widened rule needs an accepted case that must
+  stay silent. A new silent shape needs a diagnostic sibling.
+- **Fails for the intended reason.** The fixture must trip the check under
+  review, not a neighbouring one.
+- **Is minimal.** One behaviour per case, with no incidental setup the analyzer
+  could trip over instead.
+
+Rate `strong`, `partial`, `vacuous`, or `missing`, and name the failure mode
+each fixture pins.
+
+## 6. Risk of accepting
+
+State the risk in one line, before the verdict:
+
+- **Worst case if wrong.** Silent false negative, new false positive, crash, or
+  a fix that changes semantics elsewhere. gohawk treats a silent miss as the
+  expensive one.
+- **Blast radius.** Which other analyzers or packages consume the changed
+  proof, helper, or engine rule.
+- **Detection path.** How the regression would surface after merge: a labelled
+  corpus position, dogfooding, a user report, or nothing. No signal means
+  higher risk.
+- **Reversibility.** Clean revert, or persisted state, catalog IDs, or output
+  changes that outlive it.
+- **Performance.** New work on large inputs, budget spend, allocations.
+- **Determinism.** Map iteration order, concurrency, timing.
+- **Compatibility.** Supported Go versions, JSON output, diagnostic text.
+
+Template: `Risk: medium — shared lifecycle proof consumed by three analyzers;
+failure mode is a silent FN; detected by the next precision round; clean
+revert.`
+
+## 7. Adjudicating automated review comments
 
 Greptile, Copilot, and similar tools review the diff; they do not know the
 accepted-boundary list. Treat every comment as a hypothesis.
@@ -139,7 +180,7 @@ accepted-boundary list. Treat every comment as a hypothesis.
   and resolve the thread. Do not silently widen the analyzer to satisfy it.
 - **Never** let a review comment change shared proof for one analyzer.
 
-## 6. What to run
+## 8. What to run
 
 ```sh
 make verify                                                 # local completion
@@ -152,7 +193,7 @@ Run `-race` and `-cover` only in CI. Do not pass them locally, including
 through `GOFLAGS`, and do not spoof CI variables. `make verify` is the local
 entry point; report pending coverage and race results separately.
 
-## 7. Reject reasons
+## 9. Reject reasons
 
 Request changes when the PR:
 
@@ -161,6 +202,9 @@ Request changes when the PR:
   contract;
 - grows production code with no new accepted fixture and no removed special
   case;
+- adds a fixture that also passes without the production change;
+- widens a rule without a negative control that must stay silent;
+- changes an existing fixture's expected output and does not say so;
 - mixes a behavior change with a refactor that could stand alone;
 - suggests a suppression comment as the fix;
 - hand-edits generated files instead of running `make generate`;
@@ -168,9 +212,11 @@ Request changes when the PR:
 - has more than one implementation owner on one proof;
 - changes a check without updating the catalog or its docs page;
 - leaves the flow query or proof policy changed with no decision record;
+- introduces nondeterministic output or an unjustified performance regression;
+- documents behavior the code does not implement;
 - omits the AI-usage disclosure or the precision/recall intent.
 
-## 8. Verdict
+## 10. Verdict
 
 Start every review with the shape block, then approve or request changes naming
 the missing evidence and the section above it violates.
@@ -181,6 +227,8 @@ Intent: precision (false-positive fix)
 Scope: general evidence model in the classifier; no name exemptions
 Refactor: none
 Complexity: +112 production lines buy 6 new accepted fixtures and remove one special case
+Tests: 2 regression fixtures (both fail on the parent commit), 3 negative controls
+Risk: medium — shared lifecycle proof, silent-FN failure mode, corpus-detectable, clean revert
 ```
 
 "Needs more tests" is not a review. Say which fixture, which boundary, or which
