@@ -43,6 +43,25 @@ def read_manifest(path: Path) -> list[tuple[str, str]]:
 
 
 
+def read_skip_file(path: Path) -> dict[str, set[str]]:
+    """Return cohort name -> repositories deliberately left out of a replay.
+
+    A skip entry is runner debt, not a retired label: the labels stay in the
+    cohort so they are replayed again once the repository scans. Use the
+    retired-label decision record when a label is actually withdrawn.
+    """
+    skipped: dict[str, set[str]] = {}
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != 2:
+            fail(f"{path}: expected a cohort and repository per line")
+        skipped.setdefault(fields[0], set()).add(fields[1])
+    return skipped
+
+
 def check_label_count(cohort: Path, actual: int) -> None:
     """Fail when a cohort carries fewer labels than the count recorded beside it.
 
@@ -421,13 +440,24 @@ def main() -> None:
         default=[],
         help="replay only labels for this analyzer, skipping repositories that have none (repeatable)",
     )
+    parser.add_argument(
+        "--skip-file",
+        type=Path,
+        help="cohort/repository pairs to leave out; defaults to benchmarks/precision/skip.tsv when present",
+    )
     args = parser.parse_args()
 
     repository_root = Path(__file__).resolve().parents[1]
     cohort = args.cohort.resolve()
+    skip_file = args.skip_file
+    if skip_file is None:
+        default_skip = repository_root / "benchmarks/precision/skip.tsv"
+        skip_file = default_skip if default_skip.exists() else None
+    skipped = read_skip_file(skip_file).get(cohort.name, set()) if skip_file else set()
     manifest = read_manifest(cohort / "repositories.tsv")
     selected = set(args.only)
     manifest = [row for row in manifest if not selected or row[0] in selected]
+    manifest = [row for row in manifest if row[0] not in skipped]
 
     with (cohort / "labels.csv").open(newline="") as source:
         labels = list(csv.DictReader(source))
@@ -435,6 +465,12 @@ def main() -> None:
     # still notices that reviewed labels have gone missing from the file.
     check_label_count(cohort, len(labels))
     labels = [row for row in labels if not selected or row["repository"] in selected]
+    labels = [row for row in labels if row["repository"] not in skipped]
+    if skipped:
+        print(f"skipped {len(skipped)} repository(ies) from the skip list", flush=True)
+    if not labels and skipped:
+        print(f"{cohort.name}: every label is in the skip list; nothing to replay")
+        return
     analyzers = set(args.analyzer)
     if analyzers:
         # Scoping to an analyzer only has to scan the repositories that carry a
@@ -447,6 +483,9 @@ def main() -> None:
             print(f"{cohort.name}: no labels for {', '.join(sorted(analyzers))}")
             return
     if not manifest:
+        if skipped:
+            print(f"{cohort.name}: every repository is in the skip list; nothing to replay")
+            return
         fail("no repositories selected")
 
     temporary = Path(tempfile.mkdtemp(prefix="gohawk-precision."))

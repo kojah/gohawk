@@ -471,3 +471,17 @@ and consumed resource wrappers. The [follow-up assessment](audits/batch-50-follo
 records the deliberate uncertainty boundaries and the 36 unresolved original
 false-positive locations. Its findings baseline retains the original audit
 results, not just the locations selected as passing regression labels.
+
+## Skip list
+
+`skip.tsv` lists reviewed repositories that no longer analyse on the replay
+runner — missing system libraries, module resolution failures, generated assets,
+or timeouts. A skip is runner debt, not a withdrawn verdict: the labels stay in
+their cohort and are replayed again once the repository scans.
+
+The runner reads `benchmarks/precision/skip.tsv` automatically when present;
+`--skip-file PATH` selects another file. Each line is `cohort<TAB>repository`.
+Skipped repositories are excluded from the scan and from the pass/fail
+denominator, and a cohort whose labels are all skipped reports that and exits
+successfully. Remove an entry when the repository scans again; withdraw a label
+only through the retired-label decision record when the verdict itself is gone.
