@@ -169,6 +169,43 @@ regression in #58 while its own fixtures passed.
 Exploratory code stays out of the tree. A counterexample that holds becomes a
 minimal regression fixture, either on the PR or as a follow-up.
 
+### 5.2 Hunt a slowdown
+
+Correct output is not enough: gohawk runs on every package in a build, so a
+change that is fast on fixtures can still be unacceptable on real code. Assess
+the cost of the change and try to construct an input that makes it blow up.
+
+- **Read the cost from the diff first.** For every new loop, traversal, cache,
+  or fixed point, name the input size it scales with and its bound: per
+  instruction, per function, per call edge, per points-to set, or whole
+  program. Flag nested traversals, repeated walks of the same function or
+  call graph, recursion without a visited set or memo, caches keyed so they
+  never hit or never release, and new work outside an existing proof budget.
+- **Measure both sides.** With the merge-base and PR-head worktrees from 5.1,
+  run `make benchmark BENCHMARK_ARGS='--only self --runs 3'` in each, under the
+  same `scripts/with-ram-go.sh` workspace settings
+  ([performance workflow](../../../docs/development/performance-workflow.md)).
+  Compare runtime, CPU, and peak memory; add `--profile` when a delta needs
+  explaining. Add a manifest entry that exercises the changed analyzer when
+  `self` does not.
+- **Construct an adversarial input.** Grow the axis the new code scales with
+  and nothing else: a huge switch or package initializer, deep nesting, a long
+  call chain, wide structs, many closures or defers, large method sets,
+  recursive types, or many aliases of one value. Use the generators in
+  `internal/testsupport/stress` as the starting point. Run both binaries at
+  two or three sizes (for example 1x, 4x, 16x) and compare how time and memory
+  grow, not just their values at one size.
+- **Judge the growth.** A constant-factor slowdown on ordinary code needs a
+  stated reason. Growth worse than linear along an axis that was linear
+  before, unbounded memory, or a shape that only stops at a timeout is a
+  regression. A shape that exceeds a proof budget must make the analysis give
+  up on it, not grow with it ([stress suite](../../../docs/development/stress-suite.md)).
+- **Bound the claim.** Say which axes you grew and which you did not.
+
+A pathological shape that holds becomes a generator case in the stress suite,
+either on the PR or as a follow-up; run `make stress` when the change touches
+shared proof, the flow query, or the points-to model.
+
 ## 6. Risk of accepting
 
 State the risk in one line, before the verdict:
@@ -183,7 +220,8 @@ State the risk in one line, before the verdict:
   higher risk.
 - **Reversibility.** Clean revert, or persisted state, catalog IDs, or output
   changes that outlive it.
-- **Performance.** New work on large inputs, budget spend, allocations.
+- **Performance.** New work on large inputs, budget spend, allocations, and
+  the worst growth found in 5.2.
 - **Determinism.** Map iteration order, concurrency, timing.
 - **Compatibility.** Supported Go versions, JSON output, diagnostic text.
 
@@ -243,6 +281,8 @@ Request changes when the PR:
 - changes a check without updating the catalog or its docs page;
 - leaves the flow query or proof policy changed with no decision record;
 - introduces nondeterministic output or an unjustified performance regression;
+- adds work whose cost grows worse than linearly, or without bound, on an
+  input shape that 5.2 can construct;
 - documents behavior the code does not implement;
 - omits the AI-usage disclosure or the precision/recall intent.
 
@@ -259,6 +299,7 @@ Refactor: none
 Complexity: +112 production lines buy 6 new accepted fixtures and remove one special case
 Tests: 2 regression fixtures (both fail on the parent commit), 3 negative controls
 Probe: reacquire, sibling arm, loop re-entry; one regression found (finding 1)
+Perf: self +3% wall, +0 peak; switch arms 1x/4x/16x grow linearly; call-chain depth not tried
 Risk: medium — shared lifecycle proof, silent-FN failure mode, corpus-detectable, clean revert
 ```
 
