@@ -268,15 +268,20 @@ func projectHeapOnDemand(function *ssa.Function) (HeapSummary, bool) {
 	registry.entries[function] = heapEntry{state: heapEntryProjecting}
 	registry.Unlock()
 	summary, ok := ProjectHeap(function)
+	registry.Lock()
+	defer registry.Unlock()
+	// The function may have been registered while this projection ran. The
+	// registration stands: overwriting it with the weaker on-demand summary
+	// made what later graphs saw depend on which write landed last.
+	// https://github.com/kojah/gohawk/issues/69
+	if current := registry.entries[function]; current.state != heapEntryProjecting {
+		return current.summary, current.state == heapEntryReady
+	}
 	if ok {
-		registry.Lock()
 		registry.entries[function] = heapEntry{summary: summary, onDemand: true}
-		registry.Unlock()
 		return summary, true
 	}
-	registry.Lock()
 	registry.entries[function] = heapEntry{state: heapEntryMissing}
-	registry.Unlock()
 	return summary, false
 }
 
