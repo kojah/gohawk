@@ -13,9 +13,12 @@ import (
 // each possible callee independently. Missing or recursive bodies cannot prove
 // completion; the summary driver owns cache invalidation after truncated work.
 
-// completionKey identifies one completion question. The method and coverage
-// are fixed for a search, but a callback search shares the parent's guards
-// while answering a different question, so invokeTarget belongs in the key.
+// completionKey identifies one completion question. Coverage is fixed for a
+// search, but a callback search shares the parent's guards while answering a
+// different question, so invokeTarget belongs in the key. The method and the
+// exactTarget and exactInvocation modes are not in the key: a copy that
+// changes them enters a callee through calleeCoverage, whose fresh bindings
+// keep its answers apart from the parent's.
 // Result conditions also belong in the key: true-edge completion must never
 // answer a false-edge or unconditional question about the same invocation.
 // So do the constants fixing the enclosing body's parameters: the same call
