@@ -120,6 +120,31 @@ func sortCompatible[T comparable](t *testing.T, values []T, less func(T, T) bool
 	}
 }
 
+// sortRefines checks that a published order keeps the legacy relation and
+// breaks every tie it left: the result is sorted under the legacy order and
+// is the same for every input permutation, so map-walk input order cannot
+// reach the encoded fact. https://github.com/kojah/gohawk/issues/69
+func sortRefines[T comparable](t *testing.T, values []T, less func(T, T) bool, compare func(T, T) int) {
+	t.Helper()
+	random := rand.New(rand.NewPCG(17, 29))
+	var first []T
+	for iteration := range 100 {
+		got := slices.Clone(values)
+		random.Shuffle(len(got), func(i, j int) { got[i], got[j] = got[j], got[i] })
+		slices.SortFunc(got, compare)
+		for index := 1; index < len(got); index++ {
+			if less(got[index], got[index-1]) {
+				t.Fatalf("published order contradicts the legacy order on shuffle %d", iteration)
+			}
+		}
+		if first == nil {
+			first = got
+		} else if !slices.Equal(got, first) {
+			t.Fatalf("published order depends on input order on shuffle %d", iteration)
+		}
+	}
+}
+
 func summarySortInputs(size int) ([]HeapHold, []HeapEdge, []HeapEffect, []requirementCandidate) {
 	holds := make([]HeapHold, size)
 	edges := make([]HeapEdge, size)
@@ -148,9 +173,9 @@ func TestSummarySortCompatibility(t *testing.T) {
 	for _, size := range []int{0, 1, 8, 32, 128} {
 		t.Run(strconv.Itoa(size), func(t *testing.T) {
 			holds, edges, effects, requirements := summarySortInputs(size)
-			sortCompatible(t, holds, legacyHoldLess, compareHolds)
-			sortCompatible(t, edges, legacyEdgeLess, compareEdges)
-			sortCompatible(t, effects, legacyEffectLess, compareEffects)
+			sortRefines(t, holds, legacyHoldLess, compareHolds)
+			sortRefines(t, edges, legacyEdgeLess, compareEdges)
+			sortRefines(t, effects, legacyEffectLess, compareEffects)
 			sortCompatible(t, requirements, legacyRequirementLess, compareRequirementCandidates)
 			want := slices.Clone(requirements)
 			sort.Slice(want, func(i, j int) bool { return legacyRequirementLess(want[i], want[j]) })

@@ -184,6 +184,10 @@ type regionGraph struct {
 	function  *ssa.Function
 	available bool
 	regions   map[regionKey]*region
+	// summary is the heap projection taken when the build finished, before
+	// any query interned a region; projected reports whether there was one.
+	summary   HeapSummary
+	projected bool
 	// values maps each pointer-valued expression to its pointees. SSA
 	// values are immutable, so the map only grows during the fixpoint.
 	values map[ssa.Value]pointees
@@ -355,7 +359,9 @@ func buildRegionGraph(function *ssa.Function) *regionGraph {
 	if !graph.available {
 		graph.entry = nil
 		graph.exit = nil
+		return graph
 	}
+	graph.summary, graph.projected = graph.project()
 	return graph
 }
 

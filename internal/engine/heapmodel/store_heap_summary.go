@@ -19,29 +19,32 @@ import (
 // and where the projection had to stop. Nothing here is applied; the
 // substitution at call sites lives beside the registry.
 
-// ProjectHeap computes the heap summary of a function from its points-to
-// graph. It reports false when the graph is unavailable, or when the
-// function has no normal return to project.
+// ProjectHeap returns the heap summary of a function, projected from its
+// points-to graph. It reports false when the graph is unavailable, or when
+// the function has no normal return to project.
+//
+// The summary is projected once, when the graph is built and before any
+// query can reach it. Queries intern regions into the shared graph in
+// whatever order analyzers happen to ask, and a projection that walked the
+// graph afterwards named roots, reads and fresh objects that depended on
+// which analyzer asked first, so the same package exported different facts
+// from run to run. https://github.com/kojah/gohawk/issues/69
 func ProjectHeap(function *ssa.Function) (HeapSummary, bool) {
 	graph := regionsOfFunction(function)
-	// A graph that is being built, or is locked, is in use by another
-	// analyzer: a projection never reaches its own function again on one
-	// stack, because a graph applies no summary from its own call cycle.
-	// Treating that contention as unavailable published a summary cut at
-	// every parameter whenever another analyzer happened to be querying
-	// the graph, and callers inherited the difference from run to run. The
-	// projection is taken from a private build instead, which is the same
-	// graph the shared one is.
-	if graph.building || graph.available && !graph.mu.TryLock() {
+	// A graph still being built by another analyzer is not available yet.
+	// A projection never reaches its own function again on one stack,
+	// because a graph applies no summary from its own call cycle, so the
+	// summary is taken from a private build, which is the same graph.
+	if graph.building {
 		graph = buildRegionGraph(function)
-		if graph.available {
-			graph.mu.Lock()
-		}
 	}
-	if !graph.available {
-		return HeapSummary{}, false
-	}
-	defer graph.mu.Unlock()
+	return graph.summary, graph.projected
+}
+
+// project computes the graph's heap summary. buildRegionGraph calls it before
+// the graph is shared, so nothing but the fixpoint has interned a region.
+func (graph *regionGraph) project() (HeapSummary, bool) {
+	function := graph.function
 	projection := &heapProjection{graph: graph, roots: map[*region]HeapRoot{}}
 	projection.nameRoots()
 	returns := ssaflow.InstructionsOf[*ssa.Return](function)
@@ -101,7 +104,10 @@ func compareHolds(left, right HeapHold) int {
 	if left.Result != right.Result {
 		return cmp.Compare(left.Result, right.Result)
 	}
-	return cmp.Compare(left.Parameter, right.Parameter)
+	if left.Parameter != right.Parameter {
+		return cmp.Compare(left.Parameter, right.Parameter)
+	}
+	return compareBools(left.Must, right.Must)
 }
 
 // resultHolds reports whether, in the state, every object the result refers

@@ -58,7 +58,10 @@ func compareSlots(left, right HeapSlot) int {
 	return strings.Compare(left.Path, right.Path)
 }
 
-// Preserve the published less relation: Object and Must do not break ties.
+// Published orders are total: every field breaks ties. The sort is not
+// stable and its input comes from map walks, so two entries that compared
+// equal would land in either order and the encoded fact would differ run to
+// run. https://github.com/kojah/gohawk/issues/69
 func compareEdges(left, right HeapEdge) int {
 	if left.From != right.From {
 		return compareSlots(left.From, right.From)
@@ -69,10 +72,15 @@ func compareEdges(left, right HeapEdge) int {
 	if left.To.Slot != right.To.Slot {
 		return compareSlots(left.To.Slot, right.To.Slot)
 	}
-	return strings.Compare(left.To.Origin, right.To.Origin)
+	if left.To.Origin != right.To.Origin {
+		return strings.Compare(left.To.Origin, right.To.Origin)
+	}
+	if left.To.Object != right.To.Object {
+		return cmp.Compare(left.To.Object, right.To.Object)
+	}
+	return compareBools(left.Must, right.Must)
 }
 
-// Every is proof metadata, not part of the published effect ordering.
 func compareEffects(left, right HeapEffect) int {
 	if left.Slot != right.Slot {
 		return compareSlots(left.Slot, right.Slot)
@@ -80,7 +88,22 @@ func compareEffects(left, right HeapEffect) int {
 	if left.Escape != right.Escape {
 		return cmp.Compare(left.Escape, right.Escape)
 	}
-	return strings.Compare(left.Release, right.Release)
+	if left.Release != right.Release {
+		return strings.Compare(left.Release, right.Release)
+	}
+	return compareBools(left.Every, right.Every)
+}
+
+// compareBools orders false before true.
+func compareBools(left, right bool) int {
+	switch {
+	case left == right:
+		return 0
+	case !left:
+		return -1
+	default:
+		return 1
+	}
 }
 
 // A heap summary is the projection of a function's points-to graph onto
