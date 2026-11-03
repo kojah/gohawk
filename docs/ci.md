@@ -3,18 +3,19 @@ title: Continuous integration
 description: Run gohawk as a step in your build pipeline.
 ---
 
-gohawk runs as a `go vet` tool and exits with status 3 when it reports a
-finding, so a pipeline step that runs it fails on findings. For GitHub
-Actions:
+gohawk exits with status 3 when it reports findings and status 1 when the
+build or analysis fails, so a CI step that runs it fails the job in either
+case. In GitHub Actions:
 
 ```yaml
-- uses: actions/setup-go@v5
+- uses: actions/setup-go@v7
   with:
-    go-version-file: go.mod
+    go-version: stable
 
-- run: go install github.com/kojah/gohawk@v0.7.0
+- run: go install github.com/kojah/gohawk@latest # or @vX.Y.Z for reproducible builds
 - run: gohawk ./...
 ```
 
-In a `go.work` workspace, point `go-version-file` at `go.work` and run
-`gohawk work`, which analyzes every module.
+gohawk needs Go 1.26 or newer to build, so install a recent toolchain even if
+your `go.mod` targets an older Go version. See
+[Installation](/installation/) for the supported Go versions.
