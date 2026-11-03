@@ -2,6 +2,7 @@ package heapmodel
 
 import (
 	"bytes"
+	"go/types"
 	"runtime"
 	"strconv"
 	"strings"
@@ -580,4 +581,48 @@ func programCached(program *ssa.Program) bool {
 	defer programs.Unlock()
 	_, cached := programs.caches[program]
 	return cached
+}
+
+// A graph built before a callee's summary is registered must not keep
+// answering from the older lookup. A mutex call is modeled by the graph
+// itself and never applies the callee's summary, but the projection still
+// maps the callee's requirements onto the call: that lookup must count as
+// consulting the summary, or a registration that lands after a sibling
+// pass built the graph leaves the summary short of the callee's
+// requirements, depending on scheduling.
+// https://github.com/kojah/gohawk/issues/69
+func TestRequirementLookupConsultsCalleeSummary(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "consulted", `package consulted
+
+import "sync"
+
+type Bucket struct{ mu sync.Mutex }
+
+func (b *Bucket) Get() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+}
+`)
+	get := pkg.Prog.FuncValue(pkg.Type("Bucket").Type().(*types.Named).Method(0))
+	var lock *ssa.Function
+	for _, block := range get.Blocks {
+		for _, instruction := range block.Instrs {
+			if call, ok := instruction.(*ssa.Call); ok && call.Common().StaticCallee() != nil && call.Common().StaticCallee().Name() == "Lock" {
+				lock = call.Common().StaticCallee()
+			}
+		}
+	}
+	if lock == nil {
+		t.Fatal("no Lock call in Get")
+	}
+	const want = "requires P0/field:0/field:1 non-nil every"
+	if before, _ := ProjectHeap(get); strings.Contains(before.String(), want) {
+		t.Fatalf("summary already carries the callee requirement before registration:\n%s", before.String())
+	}
+	RegisterHeapSummary(lock, HeapSummary{Version: SummaryVersion, Requires: []HeapRequirement{{
+		Slot: HeapSlot{Root: HeapRoot{Kind: HeapParameter, Index: 0}, Path: "field:1"}, Kind: HeapRequiresNonNil,
+	}}})
+	if after, _ := ProjectHeap(get); !strings.Contains(after.String(), want) {
+		t.Fatalf("summary ignores the callee summary registered after the graph was built:\n%s", after.String())
+	}
 }

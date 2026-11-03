@@ -16,6 +16,22 @@ import (
 // allocate. A truncated root is forgotten beneath, exactly as an
 // unresolved call would forget it.
 
+// consultedSummaryOf looks up the callee's summary and records that the
+// graph consulted it, so registering a different summary later evicts the
+// graph. Every lookup the build and its projection make goes through here:
+// a mutex call is modeled by the graph and never applies its summary, yet
+// the projection maps the callee's requirements onto the call, and an
+// unrecorded lookup let a graph built before the registration keep the
+// older answer. https://github.com/kojah/gohawk/issues/69
+func (graph *regionGraph) consultedSummaryOf(callee *ssa.Function) (HeapSummary, bool) {
+	for _, key := range summaryKeys(callee) {
+		if _, seen := graph.consulted[key]; !seen {
+			graph.consulted[key] = heapSummaryGeneration(key)
+		}
+	}
+	return heapSummaryOf(callee)
+}
+
 // applyHeapSummary applies the callee's summary to the state and reports
 // whether it did; unresolved dispatch and capture identities are not applied.
 func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallCommon, instruction ssa.Instruction) bool {
@@ -29,12 +45,7 @@ func (graph *regionGraph) applyHeapSummary(state *regionState, common *ssa.CallC
 		graph.recordCall(appliedSummary{instruction: instruction, callee: callee, reason: CallRecursive})
 		return false
 	}
-	for _, key := range summaryKeys(callee) {
-		if _, seen := graph.consulted[key]; !seen {
-			graph.consulted[key] = heapSummaryGeneration(key)
-		}
-	}
-	summary, ok := heapSummaryOf(callee)
+	summary, ok := graph.consultedSummaryOf(callee)
 	if !ok {
 		graph.recordCall(appliedSummary{instruction: instruction, callee: callee, reason: CallNoSummary})
 		return false
