@@ -41,8 +41,8 @@ safe-outputs:
     target: ${{ github.event.issue.number || inputs.pull_request }}
     allowed: [hunt:regression-found]
 
-timeout-minutes: 20
-max-ai-credits: 200
+timeout-minutes: 25
+max-ai-credits: 300
 ---
 
 # Counterexample hunt
@@ -59,7 +59,8 @@ and treat the base-branch copy of the skill as authoritative.
 ## Time and length budget
 
 Run `date` when you start. Stop probing after 15 minutes and post what you
-have; the job is cut off at 20, and a cut-off run posts nothing.
+have; the job is cut off at 25, and a cut-off run posts nothing. When you receive an AI
+credit budget warning, stop at once and post the report with what you have.
 
 Keep the comment under 40 lines. Write for a reviewer who will reread the
 diff, not for the record: no restated diff, no shape-by-shape list of cases
