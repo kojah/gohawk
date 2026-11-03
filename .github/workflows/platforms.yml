@@ -1,7 +1,7 @@
 name: Platforms
 
-# Native macOS and Windows runners are slow and costly, so these jobs do not
-# run on every push. The release workflow calls this one before publishing,
+# Native macOS, Windows and arm64 runners are slow, so these jobs do not run
+# on every push. The release workflow calls this one before publishing,
 # and it can be started by hand from the Actions tab or with
 # `gh workflow run platforms.yml --ref <branch>`.
 on:
@@ -12,9 +12,17 @@ permissions:
   contents: read
 
 jobs:
-  macos:
-    name: macOS tests
-    runs-on: macos-latest
+  unix:
+    name: ${{ matrix.name }} tests
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            runner: macos-latest
+          - name: Linux arm64
+            runner: ubuntu-24.04-arm
     timeout-minutes: 30
     env:
       GOWORK: 'off'
@@ -35,10 +43,10 @@ jobs:
       - name: Generate Markdown references
         run: go run ./tools/gendocs -generated-markdown
 
-      - name: Run native macOS tests
+      - name: Run native tests
         run: go test -p=2 -parallel=4 ./...
 
-      - name: Build macOS CLI
+      - name: Build CLI
         run: go build -o "$RUNNER_TEMP/gohawk" .
 
       - name: Smoke-test analysis in a path with spaces
@@ -46,7 +54,7 @@ jobs:
           fixture="$RUNNER_TEMP/gohawk smoke"
           mkdir -p "$fixture"
           cat > "$fixture/go.mod" <<'EOF'
-          module example.com/macos-smoke
+          module example.com/smoke
 
           go 1.26.0
           EOF
@@ -81,16 +89,24 @@ jobs:
             echo "Expected diagnostic exit 3, got $status: $output" >&2
             exit 1
           fi
-          count="$(jq -r '[."example.com/macos-smoke".resourcelifetime[] | select(.category == "resourcelifetime/missing-release")] | length' <<< "$output")"
-          total="$(jq -r '."example.com/macos-smoke".resourcelifetime | length' <<< "$output")"
+          count="$(jq -r '[."example.com/smoke".resourcelifetime[] | select(.category == "resourcelifetime/missing-release")] | length' <<< "$output")"
+          total="$(jq -r '."example.com/smoke".resourcelifetime | length' <<< "$output")"
           if [[ "$count" -ne 1 || "$total" -ne 1 ]]; then
             echo "Expected exactly one resource leak and no finding for safe: $output" >&2
             exit 1
           fi
 
   windows:
-    name: Windows tests
-    runs-on: windows-latest
+    name: ${{ matrix.name }} tests
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            runner: windows-latest
+          - name: Windows arm64
+            runner: windows-11-arm
     timeout-minutes: 30
     env:
       GOWORK: 'off'
@@ -111,10 +127,10 @@ jobs:
       - name: Generate Markdown references
         run: go run ./tools/gendocs -generated-markdown
 
-      - name: Run native Windows tests
+      - name: Run native tests
         run: go test -p=2 -parallel=4 ./...
 
-      - name: Build Windows CLI
+      - name: Build CLI
         run: go build -o "$env:RUNNER_TEMP/gohawk.exe" .
 
       - name: Smoke-test analysis in a path with spaces
