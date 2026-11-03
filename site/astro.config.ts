@@ -94,6 +94,7 @@ export default defineConfig({
 					items: [
 						{ slug: 'installation' },
 						{ slug: 'configuration' },
+						{ slug: 'ci' },
 						{ slug: 'golangci-lint' },
 						{ slug: 'faq' },
 					],
