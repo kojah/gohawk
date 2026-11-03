@@ -114,6 +114,11 @@ func TestCallerBoundStrength(t *testing.T) {
 		"exactJoin":           GoroutineLifecycleHonored,
 		"ignoredContext":      GoroutineLifecycleViolated,
 		"localStop":           GoroutineLifecycleViolated,
+
+		"externalGroupWatcher": GoroutineUnknown,
+		"paramGroupWatcher":    GoroutineTransferred,
+		"globalGroupWatcher":   GoroutineUnknown,
+		"localGroupWatcher":    GoroutineLifecycleViolated,
 	}
 	assertSpawnProofs(t, want, "callerbounds")
 }
@@ -126,14 +131,17 @@ func TestCallerBoundTrace(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string][2]string{
-		"callerbounds.callerStop":          {"stop-lifecycle", "unknown"},
-		"callerbounds.callerContext":       {"context-lifecycle", "unknown"},
-		"callerbounds.callerStopHelper":    {"stop-lifecycle", "unknown"},
-		"callerbounds.callerContextHelper": {"context-lifecycle", "unknown"},
-		"callerbounds.callerCompletion":    {"caller-or-external-owner", "accepted"},
-		"callerbounds.callerGroup":         {"caller-or-external-owner", "accepted"},
-		"callerbounds.exactJoin":           {"join-proven", "accepted"},
-		"callerbounds.capturedStopHelper":  {"unowned-return", "rejected"},
+		"callerbounds.callerStop":           {"stop-lifecycle", "unknown"},
+		"callerbounds.callerContext":        {"context-lifecycle", "unknown"},
+		"callerbounds.callerStopHelper":     {"stop-lifecycle", "unknown"},
+		"callerbounds.callerContextHelper":  {"context-lifecycle", "unknown"},
+		"callerbounds.callerCompletion":     {"caller-or-external-owner", "accepted"},
+		"callerbounds.callerGroup":          {"caller-or-external-owner", "accepted"},
+		"callerbounds.externalGroupWatcher": {"waitgroup-bound-lifecycle", "unknown"},
+		"callerbounds.paramGroupWatcher":    {"caller-or-external-owner", "accepted"},
+		"callerbounds.globalGroupWatcher":   {"waitgroup-bound-lifecycle", "unknown"},
+		"callerbounds.exactJoin":            {"join-proven", "accepted"},
+		"callerbounds.capturedStopHelper":   {"unowned-return", "rejected"},
 	}
 	counts := map[string]int{}
 	for line := range bytes.SplitSeq(bytes.TrimSpace(data), []byte("\n")) {

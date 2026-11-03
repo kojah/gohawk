@@ -77,6 +77,70 @@ func InstructionMayFollowWithin(before, after ssa.Instruction, budget *proofs.Se
 	return blockReachableFromWithin(before.Block().Succs, after.Block(), budget)
 }
 
+// InstructionMayFollowAvoidingWithin reports whether some path executes after
+// following before without executing avoid in between. Loops count: a path
+// may leave before's block and re-enter it. False at exhaustion is
+// unavailable, not proof that every path passes avoid.
+func InstructionMayFollowAvoidingWithin(before, after, avoid ssa.Instruction, budget *proofs.SearchBudget) bool {
+	start, end, stop, ok := sameFunctionIndicesWithin(budget, before, after, avoid)
+	if !ok {
+		return false
+	}
+	origin, target, blocker := before.Block(), after.Block(), avoid.Block()
+	if origin == target && start < end {
+		return blocker != origin || stop < start || stop > end
+	}
+	if blocker == origin && stop > start {
+		return false
+	}
+	// Entering target's block reaches after unless avoid precedes it there.
+	targetOpen := blocker != target || stop > end
+	return blockReachableAvoidingWithin(origin.Succs, target, blocker, targetOpen, budget)
+}
+
+// sameFunctionIndicesWithin indexes three instructions of one function.
+// Missing, foreign or unindexed instructions, or exhaustion, report !ok.
+func sameFunctionIndicesWithin(budget *proofs.SearchBudget, before, after, avoid ssa.Instruction) (int, int, int, bool) {
+	if before == nil || after == nil || avoid == nil {
+		return 0, 0, 0, false
+	}
+	if after.Parent() != before.Parent() || avoid.Parent() != before.Parent() {
+		return 0, 0, 0, false
+	}
+	start := InstructionIndexWithin(before, budget)
+	end := InstructionIndexWithin(after, budget)
+	stop := InstructionIndexWithin(avoid, budget)
+	ok := start >= 0 && end >= 0 && stop >= 0 && !budget.Exhausted()
+	return start, end, stop, ok
+}
+
+// blockReachableAvoidingWithin searches from seeds for target without
+// passing through blocker. A path entering blocker stops there; targetOpen
+// says whether entering target counts as reaching it.
+func blockReachableAvoidingWithin(seeds []*ssa.BasicBlock, target, blocker *ssa.BasicBlock, targetOpen bool, budget *proofs.SearchBudget) bool {
+	seen := map[*ssa.BasicBlock]bool{}
+	queue := slices.Clone(seeds)
+	for len(queue) != 0 {
+		block := queue[0]
+		queue = queue[1:]
+		if !budget.Spend() {
+			return false
+		}
+		if seen[block] {
+			continue
+		}
+		seen[block] = true
+		if block == target && targetOpen {
+			return true
+		}
+		if block == target || block == blocker {
+			continue
+		}
+		queue = append(queue, block.Succs...)
+	}
+	return false
+}
+
 // BlockReachable reports whether target is reachable from within their
 // shared function. A block is reachable from itself without traversing an edge.
 func BlockReachable(from, target *ssa.BasicBlock) bool {

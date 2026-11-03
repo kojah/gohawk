@@ -130,6 +130,11 @@ func (queries callerLifetimeQueries) Receiver() proofpolicy.LifetimeObservation 
 	return proofpolicy.LifetimeObservation{Found: found, Interrupted: queries.budget.Exhausted()}
 }
 
+func (queries callerLifetimeQueries) Group() proofpolicy.LifetimeObservation {
+	found := goroutineBoundedByExternalWaitGroup(queries.analysis.pass, queries.analysis.spawn, queries.budget)
+	return proofpolicy.LifetimeObservation{Found: found, Interrupted: queries.budget.Exhausted()}
+}
+
 func (queries callerLifetimeQueries) Cutoff() GoroutineProof {
 	return queries.analysis.lifetimeCutoff(queries.budget, queryCallerLifetime, reasonReceiveBudgetExhausted)
 }

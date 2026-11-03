@@ -3,6 +3,7 @@ package lockorder
 import (
 	"slices"
 
+	"github.com/kojah/gohawk/internal/analysis/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/engine/lifecycle"
 	proofs "github.com/kojah/gohawk/internal/engine/proof"
 	cfg "github.com/kojah/gohawk/internal/engine/ssaflow/cfg"
@@ -32,6 +33,7 @@ func releaseSettled(proof proofs.CompletionProof, reason proofs.EvidenceReason) 
 
 type lockReleaseQueries struct {
 	evidence *lifecycle.LocalEvidence
+	edge     *lifecyclefacts.LifecycleEvidence
 	budget   *proofs.SearchBudget
 	limit    int
 	cutoff   proofs.Proof
@@ -63,6 +65,30 @@ func (queries *lockReleaseQueries) query(
 func (queries *lockReleaseQueries) interrupted() proofs.CompletionProof {
 	queries.cutoff = proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceBudgetExhausted}
 	return proofs.CompletionProof{Proof: queries.cutoff}
+}
+
+// queryEdge asks whether the call whose result decides the from/to branch
+// releases target on that edge alone. A helper that unlocks conditionally on
+// its result — released when it returns true, held when it returns false —
+// completes on exactly one arm, so the edge query succeeds where the
+// unconditional every-return proof in transferCompletedUnlocks fails. The
+// opposite arm stays held and keeps its own obligation.
+// https://github.com/kojah/gohawk/issues/57
+func (queries *lockReleaseQueries) queryEdge(from, to *ssa.BasicBlock, target ssa.Value) proofs.CompletionProof {
+	if queries.edge == nil {
+		return proofs.CompletionProof{Proof: proofs.Proof{State: proofs.EvidenceUnknown, Reason: proofs.EvidenceUnavailable}}
+	}
+	if queries.cutoff.Reason == proofs.EvidenceBudgetExhausted || !queries.budget.Spend() {
+		return queries.interrupted()
+	}
+	child := queries.budget.Within(queries.limit)
+	proof := queries.edge.CompletionOnEdge(from, to, lifecycle.CompletionRequest{
+		Target: target, Methods: []string{"Unlock", "RUnlock"}, Budget: child,
+	})
+	if child.Exhausted() || child.PoolExhausted() || proof.Reason == proofs.EvidenceBudgetExhausted {
+		return queries.interrupted()
+	}
+	return proof.CompletionProof
 }
 
 func (queries *lockReleaseQueries) identities(held []string) []string {

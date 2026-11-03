@@ -15,6 +15,8 @@ the corresponding release policy.
 Writes to private memory are left alone, as are assignments to fields also
 written by methods that take no lock and call no other code. The first lock of
 a newly published map entry under its owner’s writer lock is also left alone.
+So is a helper that unlocks a caller-held lock and reports that in its
+result, on the result path where the unlock happens.
 
 The full list of precision boundaries, with the fixtures that pin each one, is
 in the [lockorder design notes](https://github.com/kojah/gohawk/blob/main/docs/development/analyzers/lockorder.md).

@@ -869,6 +869,16 @@ exhaustion; an interrupted proof never becomes a guarantee.
 `LifecycleEvidence.CompletionOnEdge` binds local and imported evidence to the
 caller's tested branch with exact identity.
 
+The exact-target argument mapping also accepts a contained target: when the
+caller's value is a proven strict projection of the argument, such as `&c.mu`
+beneath `c`, the callee's parameter still maps as an `Exact` local carrying
+that path. A receiver that is a proper projection of the local must sit at the
+mapped path, the same rule the unconditional containment mapping uses, so a
+helper that unlocks `param.mu` proves completion for the caller's `&c.mu`
+without weakening the identity contract. Anything the strict projection proof
+cannot name — a recomputed address, a stored handle, an opaque wrapper —
+declines the mapping and stays unproven.
+
 This is not a general conditional effect language: comparisons with integer,
 string, or other constants, relations between arguments, and independently
 returned worker handles remain outside it.

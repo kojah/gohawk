@@ -128,7 +128,7 @@ func TestLockSuccessorResultInferenceSharesAllowance(t *testing.T) {
 	setup := 0
 	for ; setup < proofs.QueryBudget; setup++ {
 		budget := proofs.NewSearchBudget(setup)
-		got := lockSuccessorStates(pass, state, budget)
+		got := lockSuccessorStates(lockFlowContext{pass: pass}, state, budget)
 		if !budget.Exhausted() && len(got) == 2 {
 			break
 		}
@@ -139,11 +139,11 @@ func TestLockSuccessorResultInferenceSharesAllowance(t *testing.T) {
 	pass.ResultOf = map[*analysis.Analyzer]any{resultfacts.Analyzer: resultfacts.NewEngine()}
 	pool := proofs.NewSearchBudget(10 * proofs.SummaryBudget)
 	child := pool.Within(setup + 10)
-	if got := lockSuccessorStates(pass, state, child); len(got) != 0 || !child.Exhausted() || pool.Exhausted() {
+	if got := lockSuccessorStates(lockFlowContext{pass: pass}, state, child); len(got) != 0 || !child.Exhausted() || pool.Exhausted() {
 		t.Fatalf("nested result cutoff kept %d successors; exhausted=%v/%v", len(got), child.Exhausted(), pool.Exhausted())
 	}
 	fresh := pool.Within(proofs.SummaryBudget)
-	got := lockSuccessorStates(pass, state, fresh)
+	got := lockSuccessorStates(lockFlowContext{pass: pass}, state, fresh)
 	if fresh.Exhausted() || len(got) != 1 || got[0].block != state.block.Succs[0] {
 		t.Fatalf("fresh result branch: %+v", got)
 	}

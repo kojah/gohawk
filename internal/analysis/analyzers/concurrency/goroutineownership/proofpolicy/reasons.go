@@ -12,6 +12,7 @@ const (
 	ContextLifecycle
 	LocallyCanceledContext
 	ReceiverContext
+	WaitGroupBound
 	RelayDependency
 	SynctestBubbleOwner
 	CallerOrExternalOwner
@@ -88,6 +89,7 @@ var ownershipReasonCodes = [...]string{
 	ContextLifecycle:               "context-lifecycle",
 	LocallyCanceledContext:         "locally-canceled-context",
 	ReceiverContext:                "receiver-context-lifecycle",
+	WaitGroupBound:                 "waitgroup-bound-lifecycle",
 	RelayDependency:                "relay-dependency-lifecycle",
 	SynctestBubbleOwner:            "synctest-bubble-owner",
 	CallerOrExternalOwner:          "caller-or-external-owner",

@@ -219,7 +219,7 @@
     },
     "lifecycle_argument_mapping": {
       "path": "internal/engine/lifecycle/completionmapping/argument_gen.go",
-      "sha256": "56de22c0ceaa88e680530eb921c32ed3952358c9937c13a3ad6d8076ae560839"
+      "sha256": "203209c7ae7513639f5972c0fb90205fbd221e761642d455c974a85f80a2dd31"
     },
     "lifecycle_callback_aggregate": {
       "path": "internal/engine/lifecycle/completionpolicy/aggregate_gen.go",
@@ -543,7 +543,7 @@
     },
     "worker_caller_lifetime": {
       "path": "internal/analysis/analyzers/concurrency/goroutineownership/proofpolicy/caller_lifetime_gen.go",
-      "sha256": "b239356219024dbe8e4036099b9234e00e849394ffb858228cb22a525d2a00e3"
+      "sha256": "92218a64a5734622ed54d2222f7fbdde33937e1cf05f890202492699c8a2538c"
     },
     "worker_completion_notification": {
       "path": "internal/analysis/analyzers/concurrency/goroutineownership/completionsteps/notification_gen.go",
