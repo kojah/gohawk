@@ -1,15 +1,24 @@
 name: Platforms
 
-# Native macOS, Windows and arm64 runners are slow, so these jobs do not run
-# on every push. The release workflow calls this one before publishing,
-# and it can be started by hand from the Actions tab or with
+# Native tests on every release target GitHub hosts. They run alongside CI on
+# pushes and pull requests, the release workflow calls this one before
+# publishing, and it can be started by hand from the Actions tab or with
 # `gh workflow run platforms.yml --ref <branch>`.
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# In a called workflow github.workflow names the caller, so a push to main
+# never cancels the platform run gating a release.
+concurrency:
+  group: ${{ github.workflow }}-platforms-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unix:
