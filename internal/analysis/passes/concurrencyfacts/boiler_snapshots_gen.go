@@ -13,8 +13,18 @@ func cloneEffects(in Summary) Summary {
 	out.Returned = slices.Clone(out.Returned)
 	out.Operations = slices.Clone(out.Operations)
 	out.deferred = slices.Clone(out.deferred)
-	out.Workers = cloneWorkers(out.Workers)
-	out.Choices = cloneChoices(out.Choices)
+	if out.Workers != nil {
+		out.Workers = slices.Clone(out.Workers)
+		for i0 := range out.Workers {
+			out.Workers[i0] = cloneWorker(out.Workers[i0])
+		}
+	}
+	if out.Choices != nil {
+		out.Choices = slices.Clone(out.Choices)
+		for i0 := range out.Choices {
+			out.Choices[i0] = cloneChoice(out.Choices[i0])
+		}
+	}
 	out.CancellationInputs = slices.Clone(out.CancellationInputs)
 	return out
 }
@@ -23,7 +33,12 @@ func cloneEffects(in Summary) Summary {
 func cloneWorker(in WorkerSummary) WorkerSummary {
 	out := in
 	out.Operations = slices.Clone(out.Operations)
-	out.Alternatives = cloneOperationAlternatives(out.Alternatives)
+	if out.Alternatives != nil {
+		out.Alternatives = slices.Clone(out.Alternatives)
+		for i0 := range out.Alternatives {
+			out.Alternatives[i0] = slices.Clone(out.Alternatives[i0])
+		}
+	}
 	out.AlternativeConditions = slices.Clone(out.AlternativeConditions)
 	return out
 }
@@ -31,7 +46,12 @@ func cloneWorker(in WorkerSummary) WorkerSummary {
 // cloneChoice returns a snapshot of SelectChoice. Every field has an explicit boiler rule.
 func cloneChoice(in SelectChoice) SelectChoice {
 	out := in
-	out.Arms = cloneArms(out.Arms)
+	if out.Arms != nil {
+		out.Arms = slices.Clone(out.Arms)
+		for i0 := range out.Arms {
+			out.Arms[i0] = cloneArm(out.Arms[i0])
+		}
+	}
 	return out
 }
 

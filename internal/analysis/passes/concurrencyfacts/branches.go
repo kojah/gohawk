@@ -143,58 +143,6 @@ func detachedRecovery(function *ssa.Function) bool {
 	return function.Recover == nil || len(function.Recover.Preds) == 0
 }
 
-func sameEffects(first, second Summary) bool {
-	// An Invoke hole's method decides which implementation binding substitutes,
-	// so the same resource invoked through different methods is not one effect.
-	sameOperation := func(a, b Operation) bool { return a.Kind == b.Kind && a.Resource == b.Resource && a.Method == b.Method }
-	sameWorker := func(a, b WorkerSummary) bool {
-		return a.Spawn == b.Spawn && a.Site == b.Site && a.Prefix == b.Prefix && a.Branches == b.Branches && a.Replicated == b.Replicated &&
-			slices.EqualFunc(a.Operations, b.Operations, sameOperation) &&
-			slices.EqualFunc(a.Alternatives, b.Alternatives, func(x, y []Operation) bool {
-				return slices.EqualFunc(x, y, sameOperation)
-			})
-	}
-	return slices.EqualFunc(first.Operations, second.Operations, sameOperation) &&
-		slices.Equal(first.CancellationInputs, second.CancellationInputs) &&
-		slices.EqualFunc(first.Workers, second.Workers, sameWorker) &&
-		slices.EqualFunc(first.deferred, second.deferred, sameOperation)
-}
-
-// Nested summary lists detach the collections a branch may extend. Leaf SSA
-// references, path summaries and condition evidence remain immutable borrowed
-// values, as declared by the complete representation schemas.
-func cloneWorkers(workers []WorkerSummary) []WorkerSummary {
-	workers = slices.Clone(workers)
-	for index := range workers {
-		workers[index] = cloneWorker(workers[index])
-	}
-	return workers
-}
-
-func cloneOperationAlternatives(alternatives [][]Operation) [][]Operation {
-	alternatives = slices.Clone(alternatives)
-	for index := range alternatives {
-		alternatives[index] = slices.Clone(alternatives[index])
-	}
-	return alternatives
-}
-
-func cloneChoices(choices []SelectChoice) []SelectChoice {
-	choices = slices.Clone(choices)
-	for index := range choices {
-		choices[index] = cloneChoice(choices[index])
-	}
-	return choices
-}
-
-func cloneArms(arms []SelectArm) []SelectArm {
-	arms = slices.Clone(arms)
-	for index := range arms {
-		arms[index] = cloneArm(arms[index])
-	}
-	return arms
-}
-
 // foldSources keeps the positions of an equal branch that is being merged
 // away, so consumers can still attribute each branch's operation. It assumes
 // sameEffects already matched the two operation sequences.

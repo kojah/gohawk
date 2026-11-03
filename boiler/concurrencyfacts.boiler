@@ -1,26 +1,59 @@
 package "internal/analysis/passes/concurrencyfacts" {
     output "boiler_snapshots_gen.go" {
+        // Nested summary lists detach the collections a branch may extend.
+        // Leaf SSA references, path summaries and condition evidence remain
+        // immutable borrowed values.
         snapshot cloneEffects(Summary) {
             cutoff, Paths, AlternativesComplete, Reason = keep
             Conditions, Returned, Operations, deferred, CancellationInputs = clone
-            Workers = call cloneWorkers
-            Choices = call cloneChoices
+            Workers = each(snapshot)
+            Choices = each(snapshot)
         }
 
         snapshot cloneWorker(WorkerSummary) {
             Operations, AlternativeConditions = clone
-            Alternatives = call cloneOperationAlternatives
+            Alternatives = each(clone)
             Spawn, Site, Prefix, Branches, Replicated = keep
         }
 
         snapshot cloneChoice(SelectChoice) {
-            Arms = call cloneArms
+            Arms = each(snapshot)
             Prefix, Site, Worker = keep
         }
 
         snapshot cloneArm(SelectArm) {
             Operation, Default, StateIndex, Complete = keep
             Sequence = clone
+        }
+    }
+
+    output "boiler_equal_gen.go" {
+        // A branch join merges two states only when their ordered effects
+        // match. Positions are attribution, kept by foldSources, not effects.
+        // An Invoke hole's method decides which implementation binding
+        // substitutes, so it is part of the effect.
+        equal sameOperation(Operation) {
+            Kind, Resource, Method = eq
+            Source, Site, Alternates = omit
+        }
+
+        // Alternative conditions qualify alternatives the join already
+        // compares; they are not effects of their own.
+        equal sameWorker(WorkerSummary) {
+            Spawn, Site, Prefix, Branches, Replicated = eq
+            Operations = each(equal)
+            Alternatives = each(each(equal))
+            AlternativeConditions = omit
+        }
+
+        // Only effect sequences decide a join; paths, conditions, returned
+        // values and the outcome are not compared. A select in the body ends
+        // the walk before any join, and one in a spawned worker is mirrored
+        // by a worker whose Spawn is compared, so choices need no rule here.
+        equal sameEffects(Summary) {
+            Operations, deferred, Workers = each(equal)
+            CancellationInputs = slices
+            cutoff, Paths, Conditions, Returned, Choices, AlternativesComplete, Reason = omit
         }
     }
 }

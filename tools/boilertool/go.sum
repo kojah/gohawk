@@ -1,4 +1,4 @@
-github.com/kojah/boiler v0.0.0-20261023210738-6941090cbd03 h1:W2njkrmQql8M3E5fPOEKy0YpW5TAMHfbfdzzoLt5dhA=
-github.com/kojah/boiler v0.0.0-20261023210738-6941090cbd03/go.mod h1:Z1NqvM59Vr0MBs0KLEq0ttdwShWIZwK6f0fffqc3090=
+github.com/kojah/boiler v0.0.0-20261030213500-bc0c57faf79a h1:IyZXSKY02nzA8ftqx9ULJXebiaIil/UEkczvAKnlzf0=
+github.com/kojah/boiler v0.0.0-20261030213500-bc0c57faf79a/go.mod h1:Z1NqvM59Vr0MBs0KLEq0ttdwShWIZwK6f0fffqc3090=
 go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
 go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=

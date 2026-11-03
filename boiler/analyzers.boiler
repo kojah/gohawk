@@ -1,0 +1,15 @@
+package "analyzers" {
+    output "boiler_public_gen.go" {
+        // The public API's view of a catalog check. A catalog field added
+        // here must be published or deliberately kept internal.
+        key publicCheckInfo(catalog.CheckInfo) result(AnalyzerCheckInfo) params(id AnalyzerCheck) {
+            ID = to ID from id
+            Doc = to Doc
+            Help = to Help
+            Kind = to Kind
+            Tier = to Tier
+            // A delisted check never reaches the public catalog.
+            Delisted = omit
+        }
+    }
+}

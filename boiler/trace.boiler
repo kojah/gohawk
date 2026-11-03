@@ -1,0 +1,18 @@
+package "internal/reporting/trace" {
+    output "boiler_record_gen.go" {
+        // Record is the JSONL trace schema; an event field missed here would
+        // silently disappear from traces. Positions are rendered against the
+        // pass, so they arrive as parameters.
+        key recordOf(event) result(Record) params(phase string, position string, candidate string) {
+            Analyzer = to Analyzer
+            Check = to Check
+            Phase = to Phase from phase
+            Reason = to Reason
+            Outcome = to Outcome
+            Pos = to Position from position
+            Candidate = to Candidate from candidate
+            Function = to Function
+            Details = to Details
+        }
+    }
+}

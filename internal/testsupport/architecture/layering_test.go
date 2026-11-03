@@ -273,7 +273,9 @@ func lifecycleFamily(t *testing.T, name string) int {
 	if name == "doc.go" {
 		return 0
 	}
-	prefix, _, _ := strings.Cut(name, "_")
+	// Boiler requires its outputs to be named boiler_*_gen.go; the family
+	// follows that fixed prefix, as in boiler_evidence_keys_gen.go.
+	prefix, _, _ := strings.Cut(strings.TrimPrefix(name, "boiler_"), "_")
 	index := slices.Index(lifecycleFamilies, prefix)
 	if index < 0 {
 		t.Fatalf("internal/engine/lifecycle/%s does not start with a family prefix (%s)", name, strings.Join(lifecycleFamilies, ", "))
