@@ -2,7 +2,6 @@ package heapmodel
 
 import (
 	"container/list"
-	"slices"
 	"sync"
 
 	ssacall "github.com/kojah/gohawk/internal/engine/ssaflow/calls"
@@ -220,11 +219,4 @@ func (regionGraphs *regionGraphCacheState) removeIndexedEntryLocked(entry *regio
 		delete(regionGraphs.entries, entry.function)
 		regionGraphs.order.Remove(element)
 	}
-}
-
-// heapSummariesEqual reports whether two summaries say the same thing.
-func heapSummariesEqual(left, right HeapSummary) bool {
-	return slices.Equal(left.Edges, right.Edges) && slices.Equal(left.Effects, right.Effects) &&
-		slices.Equal(left.Holds, right.Holds) && slices.Equal(left.Reads, right.Reads) &&
-		slices.Equal(left.Requires, right.Requires) && slices.Equal(left.Truncated, right.Truncated)
 }

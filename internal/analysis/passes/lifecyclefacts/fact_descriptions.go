@@ -211,6 +211,12 @@ func (fact *Fact) String() string {
 			parts = append(parts, fmt.Sprintf("%s:%#x", mask.name, uint64(value)))
 		}
 	}
+	if results := fact.Must.OwnedResults; results != 0 {
+		parts = append(parts, fmt.Sprintf("OwnedResults:%#x", uint64(results)))
+	}
+	if results := fact.Must.RetainingResults; results != 0 {
+		parts = append(parts, fmt.Sprintf("RetainingResults:%#x", uint64(results)))
+	}
 	parts = append(parts, fact.conditionalDescriptions()...)
 	parts = append(parts, fact.returnedCleanupDescriptions()...)
 	if len(parts) == 0 {

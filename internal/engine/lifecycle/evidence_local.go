@@ -50,15 +50,7 @@ func (evidence *LocalEvidence) Completion(request CompletionRequest) proofs.Comp
 		}
 		return ProveCompletion(request)
 	}
-	key := completionEvidenceKey{
-		instruction:  request.Instruction,
-		target:       request.Target,
-		methods:      strings.Join(request.Methods, "\x00"),
-		coverage:     request.Coverage,
-		invokeTarget: request.InvokeTarget,
-		exactTarget:  request.ExactTarget,
-		condition:    request.condition,
-	}
+	key := completionEvidenceKeyOf(request, strings.Join(request.Methods, "\x00"))
 	if proof, ok := evidence.completions[key]; ok {
 		return proof
 	}

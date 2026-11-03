@@ -1,6 +1,8 @@
 package concurrencyfacts
 
 import (
+	"slices"
+
 	"github.com/kojah/gohawk/internal/engine/ssaflow"
 	ssacall "github.com/kojah/gohawk/internal/engine/ssaflow/calls"
 	"golang.org/x/tools/go/ssa"
@@ -213,6 +215,8 @@ func (summary Summary) Representatives() Summary {
 	for index := range summary.Workers {
 		summary.Workers[index].Replicated = false
 	}
+	// The snapshot borrows Paths; replacing its entries needs a slice of our own.
+	summary.Paths = slices.Clone(summary.Paths)
 	for index := range summary.Paths {
 		summary.Paths[index] = summary.Paths[index].Representatives()
 	}

@@ -286,18 +286,7 @@ func (catalog *Catalog) CheckOwner(check check.ID) (AnalyzerID, bool) {
 func cloneGroups(groups []GroupSpec) []GroupSpec {
 	cloned := make([]GroupSpec, len(groups))
 	for index, group := range groups {
-		cloned[index] = GroupSpec{ID: group.ID, Doc: group.Doc, DocPath: group.DocPath, Analyzers: make([]AnalyzerSpec, len(group.Analyzers))}
-		for analyzerIndex, analyzer := range group.Analyzers {
-			cloned[index].Analyzers[analyzerIndex] = cloneAnalyzerSpec(analyzer)
-		}
+		cloned[index] = cloneGroupSpec(group)
 	}
 	return cloned
-}
-
-func cloneAnalyzerSpec(spec AnalyzerSpec) AnalyzerSpec {
-	checks := make([]CheckInfo, len(spec.Checks))
-	copy(checks, spec.Checks)
-	spec.Checks = checks
-	spec.Withdrawn = slices.Clone(spec.Withdrawn)
-	return spec
 }

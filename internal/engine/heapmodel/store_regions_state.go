@@ -93,24 +93,8 @@ func stepKey(path string) string {
 }
 
 func (state *regionState) clone() *regionState {
-	result := &regionState{
-		contents:   make(map[slot]pointees, len(state.contents)),
-		backing:    cloneRegionMap(state.backing),
-		epoch:      state.epoch,
-		reachEpoch: state.reachEpoch,
-		stepEpochs: cloneRegionMap(state.stepEpochs),
-		clobbered:  cloneRegionMap(state.clobbered),
-		escaped:    cloneRegionMap(state.escaped),
-		ran:        maps.Clone(state.ran),
-		escapes:    cloneRegionMap(state.escapes),
-		opaque:     state.opaque,
-		deferred:   cloneRegionMap(state.deferred),
-		calls:      slices.Clone(state.calls),
-	}
-	for target, set := range state.contents {
-		result.contents[target] = cloneRegionMap(set)
-	}
-	return result
+	result := snapshotRegionState(*state)
+	return &result
 }
 
 // size counts the entries a clone of the state copies: every slot and each
@@ -124,6 +108,16 @@ func (state *regionState) size() int {
 		entries += 1 + len(set)
 	}
 	return entries
+}
+
+// cloneSlotContents copies each slot's pointee set as well as the map holding
+// them, since transfers extend a slot's set in place.
+func cloneSlotContents(source map[slot]pointees) map[slot]pointees {
+	result := make(map[slot]pointees, len(source))
+	for target, set := range source {
+		result[target] = cloneRegionMap(set)
+	}
+	return result
 }
 
 // cloneRegionMap copies flat state maps through the runtime's map clone rather
@@ -255,17 +249,7 @@ func createdInsideLoop(object *region, header *ssa.BasicBlock) bool {
 }
 
 func (state *regionState) equal(other *regionState) bool {
-	return state.epoch == other.epoch && state.reachEpoch == other.reachEpoch &&
-		pointeesMapsEqual(state.contents, other.contents) &&
-		maps.Equal(state.backing, other.backing) &&
-		maps.Equal(state.stepEpochs, other.stepEpochs) &&
-		maps.Equal(state.clobbered, other.clobbered) &&
-		maps.Equal(state.escaped, other.escaped) &&
-		maps.Equal(state.ran, other.ran) &&
-		maps.Equal(state.escapes, other.escapes) &&
-		state.opaque == other.opaque &&
-		maps.Equal(state.deferred, other.deferred) &&
-		slices.Equal(state.calls, other.calls)
+	return regionStatesEqual(*state, *other)
 }
 
 func pointeesMapsEqual(left, right map[slot]pointees) bool {

@@ -2,3 +2,5 @@ version: 1
 sources: [boiler/*.boiler]
 recipes:
   snapshot: boiler:snapshot
+  equal: boiler:equal
+  key: boiler:key

@@ -1,0 +1,15 @@
+package "internal/analysis/catalog" {
+    output "boiler_snapshots_gen.go" {
+        // The catalog hands out copies so callers cannot change its specs;
+        // a slice field kept rather than cloned would be shared with them.
+        snapshot cloneGroupSpec(GroupSpec) {
+            ID, Doc, DocPath = keep
+            Analyzers = each(snapshot)
+        }
+
+        snapshot cloneAnalyzerSpec(AnalyzerSpec) {
+            Analyzer, Group, DocPath = keep
+            Checks, Withdrawn = clone
+        }
+    }
+}

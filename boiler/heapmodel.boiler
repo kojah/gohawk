@@ -1,0 +1,28 @@
+package "internal/engine/heapmodel" {
+    output "boiler_state_gen.go" {
+        // Block states fork at every successor and settle when equal, so a
+        // field missed by either side would alias branches or stop the
+        // fixpoint early. size, merge and difference stay handwritten.
+        snapshot snapshotRegionState(regionState) {
+            epoch, reachEpoch, opaque = keep
+            backing, stepEpochs, clobbered, escaped, ran, escapes, deferred = func cloneRegionMap
+            contents = func cloneSlotContents
+            calls = clone
+        }
+
+        equal regionStatesEqual(regionState) {
+            epoch, reachEpoch, opaque = eq
+            backing, stepEpochs, clobbered, escaped, ran, escapes, deferred = maps
+            contents = call pointeesMapsEqual
+            calls = slices
+        }
+
+        // Registration bumps the generation only when a summary changes; a
+        // field left out would keep serving graphs built from the old one.
+        // Version is the generation itself, not what the summary says.
+        equal heapSummariesEqual(HeapSummary) {
+            Version = omit
+            Edges, Effects, Holds, Reads, Requires, Truncated = slices
+        }
+    }
+}

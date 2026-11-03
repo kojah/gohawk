@@ -224,3 +224,23 @@ func worker(a, b chan int, flag bool) { go branch(a, b, flag) }
 		}
 	}
 }
+
+// Branches that invoke different methods of one interface value are different
+// protocols: binding substitutes the method's implementation, so joining them
+// would credit one branch with the other's effects.
+func TestBranchInvokeMethodsDiffer(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "invokes", `package invokes
+type pair interface{ Open(); Shut() }
+func differ(p pair, flag bool) { if flag { p.Open() } else { p.Shut() } }
+func agree(p pair, flag bool) { if flag { p.Open() } else { p.Open() } }
+`)
+	engine := NewEngine()
+	differ := engine.linear.Function(pkg.Func("differ"), proofs.NewSearchBudget(proofs.SummaryBudget))
+	if differ.Reason != ReasonBranchEffectsDiffer {
+		t.Errorf("differ = %+v, want branch effects to differ", differ)
+	}
+	agree := engine.linear.Function(pkg.Func("agree"), proofs.NewSearchBudget(proofs.SummaryBudget))
+	if agree.Reason != ReasonCallbackBindingRequired || !kinds(agree, Invoke) {
+		t.Errorf("agree = %+v, want one joined invoke hole", agree)
+	}
+}

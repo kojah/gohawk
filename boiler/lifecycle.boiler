@@ -1,0 +1,19 @@
+package "internal/engine/lifecycle" {
+    output "boiler_evidence_keys_gen.go" {
+        // The evidence cache answers a request from an earlier one with the
+        // same key, so every request field must either be keyed or be shown
+        // not to change the answer. Lookup policies and constants bypass the
+        // cache in Completion; the budget only bounds the search, and a
+        // cutoff answer is not retained.
+        key completionEvidenceKeyOf(CompletionRequest) result(completionEvidenceKey) params(methods string) {
+            Instruction = to instruction
+            Target = to target
+            Methods = to methods from methods
+            InvokeTarget = to invokeTarget
+            ExactTarget = to exactTarget
+            Coverage = to coverage
+            condition = to condition
+            Budget, Summarized, CallContract, ReturnedSummaries, Constants = omit
+        }
+    }
+}

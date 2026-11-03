@@ -122,17 +122,7 @@ func write(pass *analysis.Pass, entry event) {
 	if !selected(global.config, entry, candidate) {
 		return
 	}
-	captured := Record{
-		Analyzer:  entry.Analyzer,
-		Check:     entry.Check,
-		Phase:     entry.Phase.String(),
-		Reason:    entry.Reason,
-		Outcome:   entry.Outcome,
-		Position:  position,
-		Candidate: candidate,
-		Function:  entry.Function,
-		Details:   entry.Details,
-	}
+	captured := recordOf(entry, entry.Phase.String(), position, candidate)
 	if global.config.sink != nil {
 		global.config.sink(captured)
 		return
