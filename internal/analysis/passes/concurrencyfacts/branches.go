@@ -144,7 +144,9 @@ func detachedRecovery(function *ssa.Function) bool {
 }
 
 func sameEffects(first, second Summary) bool {
-	sameOperation := func(a, b Operation) bool { return a.Kind == b.Kind && a.Resource == b.Resource }
+	// An Invoke hole's method decides which implementation binding substitutes,
+	// so the same resource invoked through different methods is not one effect.
+	sameOperation := func(a, b Operation) bool { return a.Kind == b.Kind && a.Resource == b.Resource && a.Method == b.Method }
 	sameWorker := func(a, b WorkerSummary) bool {
 		return a.Spawn == b.Spawn && a.Site == b.Site && a.Prefix == b.Prefix && a.Branches == b.Branches && a.Replicated == b.Replicated &&
 			slices.EqualFunc(a.Operations, b.Operations, sameOperation) &&

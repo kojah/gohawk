@@ -98,3 +98,32 @@ func Carried(chans []chan int) {
 		}
 	}
 }
+
+// Reading representatives is a view for one consumer: the summary it reads
+// from, which a cache may share, keeps its replicated paths.
+func TestRepresentativesLeavesPathsShared(t *testing.T) {
+	pkg := ssaflowtest.BuildPackage(t, "representatives", `package representatives
+func signal(c chan int) { close(c) }
+func branchy(c chan int, n int, flag bool) { if flag { for i := 0; i < n; i++ { go signal(c) } } else { close(c) } }
+`)
+	got := NewEngine().Function(pkg.Func("branchy"), proofs.NewSearchBudget(proofs.SummaryBudget))
+	replicated := func(summary Summary) int {
+		count := 0
+		for _, path := range summary.Paths {
+			if path.Reason == ReasonReplicatedWorkers {
+				count++
+			}
+		}
+		return count
+	}
+	before := replicated(got)
+	if before == 0 {
+		t.Fatalf("branchy = %+v, want a replicated path", got)
+	}
+	if read := got.Representatives(); replicated(read) != 0 {
+		t.Errorf("representatives = %+v, want no replicated path", read)
+	}
+	if after := replicated(got); after != before {
+		t.Errorf("Representatives changed the summary it read: %d replicated paths, want %d", after, before)
+	}
+}
