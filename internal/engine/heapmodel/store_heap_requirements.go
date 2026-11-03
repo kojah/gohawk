@@ -193,7 +193,7 @@ func (projection *heapProjection) callRequirements(call *ssa.Call) []requirement
 	if callee == nil || common.IsInvoke() || sameCallCycle(projection.graph.function, callee) {
 		return keys
 	}
-	summary, ok := heapSummaryOf(callee)
+	summary, ok := projection.graph.consultedSummaryOf(callee)
 	if !ok {
 		return keys
 	}
