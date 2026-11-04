@@ -197,6 +197,50 @@ func invalidateDependents(function *ssa.Function) {
 	}
 }
 
+// staleRebuildLimit bounds the rebuilds currentRegionGraph makes while
+// registrations keep changing what a build consulted. Registrations are
+// finite, so a build soon finds the registry settled.
+const staleRebuildLimit = 4
+
+// currentRegionGraph returns the function's graph built against the
+// summaries the registry holds now. A build that consulted a summary
+// registered while it ran is stale: the cache declines to keep it, but its
+// caller still has it, and a summary projected from it is the older answer
+// for good, because nothing changes the generation that projection's
+// callers consulted. Such a graph is rebuilt instead of projected.
+// https://github.com/kojah/gohawk/issues/69
+func currentRegionGraph(function *ssa.Function) *regionGraph {
+	for attempt := 0; ; attempt++ {
+		graph := regionsOfFunction(function)
+		// A graph still being built by another analyzer is not available
+		// yet. A projection never reaches its own function again on one
+		// stack, because a graph applies no summary from its own call
+		// cycle, so the summary is taken from a private build instead,
+		// which is the same graph.
+		if graph.building {
+			graph = buildRegionGraph(function)
+		}
+		if !graph.available || attempt == staleRebuildLimit || consultedStillCurrent(graph) {
+			return graph
+		}
+		evictRegionGraph(function, graph)
+	}
+}
+
+// evictRegionGraph evicts the function's cached graph if it is the given
+// one, so the next request builds afresh. A graph the cache declined to
+// keep is not cached, and the next request builds afresh anyway.
+func evictRegionGraph(function *ssa.Function, graph *regionGraph) {
+	regionGraphs := &cachesOf(function).graphs
+	regionGraphs.Lock()
+	defer regionGraphs.Unlock()
+	if element, ok := regionGraphs.entries[function]; ok {
+		if entry := element.Value.(*regionGraphEntry); entry.graph == graph { //nolint:forcetypeassert // The list holds only entries.
+			regionGraphs.evictLocked(entry)
+		}
+	}
+}
+
 // evictLocked removes an entry from the cache and its index. The caller
 // holds the cache lock.
 func (regionGraphs *regionGraphCacheState) evictLocked(entry *regionGraphEntry) {
