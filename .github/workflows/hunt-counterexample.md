@@ -29,7 +29,7 @@ imports:
 
 safe-outputs:
   add-comment:
-    max: 1
+    max: 2
     target: ${{ github.event.issue.number || inputs.pull_request }}
     hide-older-comments: true
   add-labels:
@@ -58,8 +58,11 @@ and treat the base-branch copy of the skill as authoritative.
 
 ## Time and length budget
 
-Run `date` when you start. Stop probing after 15 minutes and post what you
-have; the job is cut off at 25, and a cut-off run posts nothing. When you receive an AI
+Run `date` when you start, and check it between probes. At 12 minutes, post
+the full report with what you have, even if probing is unfinished: a run
+cut off at 25 minutes, or by the credit cap, posts only what was already
+queued. You may keep probing afterwards; if you then find a regression,
+post one more comment with only that regression. Never post more than two. When you receive an AI
 credit budget warning, stop at once and post the report with what you have.
 
 Keep the comment under 40 lines. Write for a reviewer who will reread the
