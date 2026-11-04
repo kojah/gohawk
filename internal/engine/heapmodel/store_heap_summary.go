@@ -30,14 +30,7 @@ import (
 // which analyzer asked first, so the same package exported different facts
 // from run to run. https://github.com/kojah/gohawk/issues/69
 func ProjectHeap(function *ssa.Function) (HeapSummary, bool) {
-	graph := regionsOfFunction(function)
-	// A graph still being built by another analyzer is not available yet.
-	// A projection never reaches its own function again on one stack,
-	// because a graph applies no summary from its own call cycle, so the
-	// summary is taken from a private build, which is the same graph.
-	if graph.building {
-		graph = buildRegionGraph(function)
-	}
+	graph := currentRegionGraph(function)
 	return graph.summary, graph.projected
 }
 

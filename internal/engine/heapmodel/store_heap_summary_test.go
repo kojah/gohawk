@@ -626,3 +626,118 @@ func (b *Bucket) Get() {
 		t.Fatalf("summary ignores the callee summary registered after the graph was built:\n%s", after.String())
 	}
 }
+
+const genericChainSource = `package chain
+
+import "bytes"
+
+type Map[K comparable, V any] struct{ buf *bytes.Buffer }
+
+func (m *Map[K, V]) Set(k K, v V) { m.buf.Reset() }
+
+func (m *Map[K, V]) Store(k K, v V) { m.Set(k, v) }
+`
+
+// genericChain returns Store, the Set instantiation wrapper it calls, and
+// the imported Reset that the wrapped Set calls.
+func genericChain(t *testing.T) (store, set, reset *ssa.Function) {
+	t.Helper()
+	pkg := ssaflowtest.BuildPackage(t, "chain", genericChainSource)
+	named := pkg.Type("Map").Type().(*types.Named)
+	for method := range named.Methods() {
+		if function := pkg.Prog.FuncValue(method); function.Name() == "Store" {
+			store = function
+		}
+	}
+	callee := func(function *ssa.Function, name string) *ssa.Function {
+		for _, block := range function.Blocks {
+			for _, instruction := range block.Instrs {
+				if call, ok := instruction.(*ssa.Call); ok && call.Common().StaticCallee() != nil && call.Common().StaticCallee().Name() == name {
+					return call.Common().StaticCallee()
+				}
+			}
+		}
+		t.Fatalf("%s calls no %s", function, name)
+		return nil
+	}
+	set = callee(store, "Set")
+	reset = callee(callee(set, "Set"), "Reset")
+	return store, set, reset
+}
+
+// A callee projected on demand from a graph that consulted a summary
+// registered while the build ran must not hand the older answer to its
+// callers. The cache declines to keep such a build, but its projection was
+// stored as the callee's summary and nothing changed the generation the
+// caller consulted, so the caller kept it. Under a large parallel go vet a
+// generic method calling a same-package generic method, through the
+// instantiation wrapper SSA builds for it, exported either answer. The test
+// leaves the wrapper's pre-registration graph in the cache, the state that
+// window produced, and requires the caller's projection to match one built
+// after the registration.
+// https://github.com/kojah/gohawk/issues/69
+func TestProjectionRebuildsGraphBuiltBeforeRegistration(t *testing.T) {
+	resetSummary := HeapSummary{Version: SummaryVersion, Requires: []HeapRequirement{{
+		Slot: HeapSlot{Root: HeapRoot{Kind: HeapParameter, Index: 0}}, Kind: HeapRequiresMethod, Method: "Grow",
+	}}}
+	store, _, reset := genericChain(t)
+	RegisterHeapSummary(reset, resetSummary)
+	want, _ := ProjectHeap(store)
+
+	store, set, reset := genericChain(t)
+	stale := buildRegionGraph(set)
+	RegisterHeapSummary(reset, resetSummary)
+	graphs := &cachesOf(set).graphs
+	entry := &regionGraphEntry{function: set, graph: stale}
+	graphs.Lock()
+	graphs.entries[set] = graphs.order.PushFront(entry)
+	graphs.Unlock()
+	if got, _ := ProjectHeap(store); got.String() != want.String() {
+		t.Fatalf("caller projected from the callee's pre-registration graph:\n%s\nwant\n%s", got.String(), want.String())
+	}
+}
+
+// A registration bumps the callee's generation before it invalidates the
+// graphs that consulted it. A projection that finds such a graph stale in
+// between evicts it, which unindexes it, so the registration's own
+// invalidation no longer reaches it. The eviction must then drop the
+// on-demand summary projected from that graph and invalidate its callers
+// itself, or they keep the older answer with no generation change.
+// https://github.com/kojah/gohawk/pull/75#discussion_r4468247505
+func TestStaleEvictionInvalidatesOnDemandCallers(t *testing.T) {
+	resetSummary := HeapSummary{Version: SummaryVersion, Requires: []HeapRequirement{{
+		Slot: HeapSlot{Root: HeapRoot{Kind: HeapParameter, Index: 0}}, Kind: HeapRequiresMethod, Method: "Grow",
+	}}}
+	store, _, reset := genericChain(t)
+	RegisterHeapSummary(reset, resetSummary)
+	want, _ := ProjectHeap(store)
+
+	store, wrapper, reset := genericChain(t)
+	var origin *ssa.Function
+	for _, block := range wrapper.Blocks {
+		for _, instruction := range block.Instrs {
+			if call, ok := instruction.(*ssa.Call); ok && call.Common().StaticCallee() != nil {
+				origin = call.Common().StaticCallee()
+			}
+		}
+	}
+	ProjectHeap(store)
+	// The first half of RegisterHeapSummary: the entry and generation change.
+	registry := &cachesOf(reset).summaries
+	registry.Lock()
+	registry.entries[reset] = heapEntry{summary: resetSummary}
+	registry.generations[reset]++
+	registry.Unlock()
+	// The eviction currentRegionGraph makes on finding the origin's graph
+	// stale, with its rebuild taken privately, so nothing is indexed again.
+	graphs := &cachesOf(origin).graphs
+	graphs.Lock()
+	cached := graphs.entries[origin].Value.(*regionGraphEntry).graph //nolint:forcetypeassert // The list holds only entries.
+	graphs.Unlock()
+	evictRegionGraph(origin, cached)
+	// The second half of the registration, after that eviction.
+	invalidateDependents(reset)
+	if got, _ := ProjectHeap(store); got.String() != want.String() {
+		t.Fatalf("caller kept the on-demand summary of an evicted graph:\n%s\nwant\n%s", got.String(), want.String())
+	}
+}
