@@ -264,6 +264,7 @@ func printGeneralHelp(output io.Writer) {
 	writeLine(output, "  -enable-all                  run every analyzer and check")
 	writeLine(output, "\nCommon analysis flags: -json, -c=N, -V")
 	writeLine(output, "Test files: _test.go files are not analyzed")
+	writeLine(output, "Workspaces: gohawk work analyzes every module of a go.work workspace")
 	writeLine(output, "Evidence tracing: -gohawk-trace=ANALYZER[,CHECK...] [-gohawk-trace-file=PATH]")
 	writeLine(output, "Run 'gohawk doc ANALYZER|CHECK' for metadata and documentation.")
 	writeLine(output, "Run 'gohawk dump VIEW [-func NAME] PACKAGE' to print what the analyzers derived; views:")
