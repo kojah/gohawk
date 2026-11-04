@@ -230,14 +230,23 @@ func currentRegionGraph(function *ssa.Function) *regionGraph {
 // evictRegionGraph evicts the function's cached graph if it is the given
 // one, so the next request builds afresh. A graph the cache declined to
 // keep is not cached, and the next request builds afresh anyway.
+//
+// Eviction also does what invalidateDependents would have done for it.
+// A registration bumps the generation before it invalidates dependents, so
+// this eviction can run in between and unindex the graph; the registration
+// would then never drop the summary projected on demand from it, and its
+// callers would keep that older answer with no generation change.
 func evictRegionGraph(function *ssa.Function, graph *regionGraph) {
 	regionGraphs := &cachesOf(function).graphs
 	regionGraphs.Lock()
-	defer regionGraphs.Unlock()
 	if element, ok := regionGraphs.entries[function]; ok {
 		if entry := element.Value.(*regionGraphEntry); entry.graph == graph { //nolint:forcetypeassert // The list holds only entries.
 			regionGraphs.evictLocked(entry)
 		}
+	}
+	regionGraphs.Unlock()
+	if forgetOnDemandSummary(function) {
+		invalidateDependents(function)
 	}
 }
 

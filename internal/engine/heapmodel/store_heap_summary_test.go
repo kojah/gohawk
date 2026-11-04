@@ -696,3 +696,48 @@ func TestProjectionRebuildsGraphBuiltBeforeRegistration(t *testing.T) {
 		t.Fatalf("caller projected from the callee's pre-registration graph:\n%s\nwant\n%s", got.String(), want.String())
 	}
 }
+
+// A registration bumps the callee's generation before it invalidates the
+// graphs that consulted it. A projection that finds such a graph stale in
+// between evicts it, which unindexes it, so the registration's own
+// invalidation no longer reaches it. The eviction must then drop the
+// on-demand summary projected from that graph and invalidate its callers
+// itself, or they keep the older answer with no generation change.
+// https://github.com/kojah/gohawk/pull/75#discussion_r4468247505
+func TestStaleEvictionInvalidatesOnDemandCallers(t *testing.T) {
+	resetSummary := HeapSummary{Version: SummaryVersion, Requires: []HeapRequirement{{
+		Slot: HeapSlot{Root: HeapRoot{Kind: HeapParameter, Index: 0}}, Kind: HeapRequiresMethod, Method: "Grow",
+	}}}
+	store, _, reset := genericChain(t)
+	RegisterHeapSummary(reset, resetSummary)
+	want, _ := ProjectHeap(store)
+
+	store, wrapper, reset := genericChain(t)
+	var origin *ssa.Function
+	for _, block := range wrapper.Blocks {
+		for _, instruction := range block.Instrs {
+			if call, ok := instruction.(*ssa.Call); ok && call.Common().StaticCallee() != nil {
+				origin = call.Common().StaticCallee()
+			}
+		}
+	}
+	ProjectHeap(store)
+	// The first half of RegisterHeapSummary: the entry and generation change.
+	registry := &cachesOf(reset).summaries
+	registry.Lock()
+	registry.entries[reset] = heapEntry{summary: resetSummary}
+	registry.generations[reset]++
+	registry.Unlock()
+	// The eviction currentRegionGraph makes on finding the origin's graph
+	// stale, with its rebuild taken privately, so nothing is indexed again.
+	graphs := &cachesOf(origin).graphs
+	graphs.Lock()
+	cached := graphs.entries[origin].Value.(*regionGraphEntry).graph //nolint:forcetypeassert // The list holds only entries.
+	graphs.Unlock()
+	evictRegionGraph(origin, cached)
+	// The second half of the registration, after that eviction.
+	invalidateDependents(reset)
+	if got, _ := ProjectHeap(store); got.String() != want.String() {
+		t.Fatalf("caller kept the on-demand summary of an evicted graph:\n%s\nwant\n%s", got.String(), want.String())
+	}
+}

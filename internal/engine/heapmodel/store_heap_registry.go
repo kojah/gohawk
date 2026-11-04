@@ -274,7 +274,9 @@ func projectHeapOnDemand(function *ssa.Function) (HeapSummary, bool) {
 	// registration stands: overwriting it with the weaker on-demand summary
 	// made what later graphs saw depend on which write landed last.
 	// https://github.com/kojah/gohawk/issues/69
-	if current := registry.entries[function]; current.state != heapEntryProjecting {
+	// An entry dropped meanwhile, by an eviction that forgot an older
+	// on-demand summary, leaves this projection to store its own.
+	if current, exists := registry.entries[function]; exists && current.state != heapEntryProjecting {
 		return current.summary, current.state == heapEntryReady
 	}
 	if ok {
