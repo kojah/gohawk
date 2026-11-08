@@ -1,5 +1,9 @@
 # Resource ownership in Go
 
+For the two-minute opening demo in the revised thirty-minute talk, see
+[the live-demo instructions](demo/README.md), with separate leaking and fixed
+examples. The existing slide deck below retains its original sixty-minute plan.
+
 A Slidev talk for Go developers: 50 minutes of presentation and 10 minutes of
 questions. There are 24 main slides and three backup slides. Every slide has
 speaker notes. The opening file leak connects the examples, analysis model,
