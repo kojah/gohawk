@@ -204,3 +204,14 @@ func use(value, other *box, pick bool) (*box, *box) { return Same(value), Chosen
 		t.Errorf("Chosen: resolved %v, want no identity", argument)
 	}
 }
+
+func TestHeapConsumersWaitForPublication(t *testing.T) {
+	for _, analyzer := range []*analysis.Analyzer{resultfacts.Analyzer, concurrencyfacts.Analyzer} {
+		if err := analysis.Validate([]*analysis.Analyzer{analyzer}); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Contains(analyzer.Requires, lifecyclefacts.Analyzer) {
+			t.Errorf("%s can export facts before imported heap summaries are registered", analyzer.Name)
+		}
+	}
+}

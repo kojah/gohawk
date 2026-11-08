@@ -52,3 +52,44 @@ func TestCrossPackageResults(t *testing.T) {
 	}
 	analysistest.Run(t, analysistest.TestData(), consumer, "resultconsumer")
 }
+
+// The pointer wrapper needs the imported heap summary; the slice wrapper
+// shares storage with its argument but does not return the original slice.
+func TestImportedReturnedIdentity(t *testing.T) {
+	consumer := &analysis.Analyzer{
+		Name: "identityconsumer", Doc: "assert identity after imported heap publication",
+		Requires: []*analysis.Analyzer{Analyzer, buildssa.Analyzer},
+		Run: func(pass *analysis.Pass) (any, error) {
+			engine := pass.ResultOf[Analyzer].(*Engine)
+			functions, err := ssaflow.SourceSSAFunctions(pass)
+			if err != nil {
+				return nil, err
+			}
+			checked := 0
+			for _, function := range functions {
+				want := function.Name() == "Pointer"
+				if !want && function.Name() != "SliceView" && function.Name() != "TupleView" {
+					continue
+				}
+				call := ssaflow.InstructionsOf[*ssa.Call](function)[0]
+				for _, target := range []*ssa.Function{function, call.Common().StaticCallee()} {
+					summary := engine.Function(target, proofs.NewSearchBudget(proofs.SummaryBudget))
+					result := 0
+					if function.Name() == "TupleView" {
+						result = 1
+					}
+					parameter, proven := summary.ReturnedParameter(result)
+					if !summary.Available || proven != want || proven && parameter != 0 {
+						t.Errorf("%s: returned parameter %d, proven %t, available %t; want proven %t", target, parameter, proven, summary.Available, want)
+					}
+				}
+				checked++
+			}
+			if checked != 3 {
+				t.Fatalf("checked %d wrappers, want 3", checked)
+			}
+			return nil, nil
+		},
+	}
+	analysistest.Run(t, analysistest.TestData(), consumer, "resultconsumer")
+}

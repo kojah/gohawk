@@ -355,7 +355,7 @@ func ProveReturnedParameterWithin(function *ssa.Function, parameter ssa.Value, i
 				return ssapath.ObligationUnknown
 			}
 			result := returned.Results[index]
-			if types.Identical(result.Type(), parameter.Type()) && storage.Same(result, parameter).Proven() {
+			if types.Identical(result.Type(), parameter.Type()) && unchangedParameterValue(storage, result, parameter) {
 				return ssapath.ObligationExact
 			}
 			return ssapath.ObligationUnknown
@@ -369,4 +369,22 @@ func ProveReturnedParameterWithin(function *ssa.Function, parameter ssa.Value, i
 		return unknown
 	}
 	return proofs.Proof{State: proofs.EvidenceProven, Reason: proofs.EvidenceStructuralWalk, Provenance: proofs.EvidenceFromLocalSSA}
+}
+
+// A slice's backing storage does not establish its length, capacity, or offset.
+// Heap summaries deliberately preserve that storage through reslicing, so only
+// structural identity can prove a slice unchanged. Type parameters may denote
+// slices too. Opaque forwarding stays unknown even when it retains the input.
+// A representative imported parser returns packet[off:]:
+// https://github.com/thesyncim/govpx/blob/159dce5b931a/internal/vp8/rtp/rtp.go#L204
+func unchangedParameterValue(storage *heapmodel.Storage, result, parameter ssa.Value) bool {
+	_, slice := parameter.Type().Underlying().(*types.Slice)
+	_, generic := parameter.Type().(*types.TypeParam)
+	if slice || generic {
+		// Named-type changes preserve the value; representation conversions such
+		// as []byte(string(p)) can copy it and must remain opaque.
+		walk := ssaflow.NewReachingWalk(ssaflow.TransparentChangeType).Within(storage.Budget())
+		return walk.Every(result, func(_ ssaflow.ReachingWalk, value ssa.Value) bool { return value == parameter })
+	}
+	return storage.Same(result, parameter).Proven()
 }

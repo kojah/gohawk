@@ -108,12 +108,34 @@ func mixed(p *int, flag bool) *int { q := p; if flag { q = new(int) }; return q 
 func boxed(p *int) any { return p }
 func wrapped(p *int) wrapper { return wrapper{p} }
 func forever(p *int) *int { for {} }
+func genericIdentity[T ~[]byte](p T) T { return p }
+func genericReslice[T ~[]byte](p T) T { return p[1:] }
+func sliceIdentity(p []byte) []byte { return p }
+func copiedSlice(p []byte) []byte { return []byte(string(p)) }
+func reslice(p []byte) []byte { return p[1:] }
+func limited(p []byte) []byte { return p[:len(p):len(p)] }
+func helper(p []byte) []byte { return reslice(p) }
 func recovered(p *int) *int { defer func() { recover() }(); return p }
 `)
 	for _, test := range []struct {
 		name string
 		want bool
-	}{{"direct", true}, {"branches", true}, {"mixed", false}, {"boxed", false}, {"wrapped", false}, {"forever", false}, {"recovered", true}} {
+	}{
+		{"direct", true},
+		{"branches", true},
+		{"mixed", false},
+		{"boxed", false},
+		{"wrapped", false},
+		{"forever", false},
+		{"recovered", true},
+		{"sliceIdentity", true},
+		{"reslice", false},
+		{"limited", false},
+		{"helper", false},
+		{"genericIdentity", true},
+		{"genericReslice", false},
+		{"copiedSlice", false},
+	} {
 		t.Run(test.name, func(t *testing.T) {
 			function := pkg.Func(test.name)
 			t.Log(function.String())

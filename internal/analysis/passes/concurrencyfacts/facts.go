@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	"github.com/kojah/gohawk/internal/analysis/factcodec"
+	"github.com/kojah/gohawk/internal/analysis/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/engine/heapmodel"
 	"github.com/kojah/gohawk/internal/engine/ssaflow"
 
@@ -65,9 +66,12 @@ type publishedFact struct{ publication }
 type publication = factcodec.Envelope[Fact]
 
 // Analyzer exports complete effects and provides a shared engine to consumers.
+// Storage queries can consume imported heap summaries. Cache invalidation after
+// publication cannot repair a fact this pass has already exported, so wait for
+// lifecyclefacts to finish registering summaries before taking any answers.
 var Analyzer = &analysis.Analyzer{
 	Name: "concurrencyfacts", Doc: "exports bounded ordered synchronization effects",
-	Requires: []*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
+	Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
 	ResultType: reflect.TypeFor[*Engine](), Run: run,
 }
 

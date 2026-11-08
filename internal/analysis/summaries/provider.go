@@ -28,7 +28,8 @@ type Selection struct{ requirements Requirements }
 func Select(requirements Requirements) Selection { return Selection{requirements: requirements} }
 
 // Requires returns ordinary analysis prerequisites, including the shared SSA
-// input. Unselected domain passes are not scheduled by this selection.
+// input. Selected passes may require other domains to publish shared heap
+// evidence first; Provider still exposes only the selected components.
 func (selection Selection) Requires() []*analysis.Analyzer {
 	result := []*analysis.Analyzer{buildssa.Analyzer}
 	if selection.requirements.Results {

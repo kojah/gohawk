@@ -179,7 +179,15 @@ cleanup receiver through such a call, so `wrap(file).Close()` settles `file`
 and a later close of `file` is not required; `lifecyclefacts` uses the
 same mechanic to keep an unchanged return from becoming a view. It is exact
 storage identity: a wrapper, an interface conversion, or a value chosen
-between the parameter and something else is not the parameter.
+between the parameter and something else is not the parameter. Slices require
+structural value identity: sharing a backing array does not prove unchanged
+length, capacity, or offset. A reslice and an opaque forwarding call remain
+unknown, including when an imported heap summary proves shared storage.
+Type parameters use the same conservative rule because they may denote slices.
+Result fact version 5 rejects older facts that could overclaim slice identity.
+The direct, resliced, and helper forms are covered in
+`internal/engine/lifecycle/store_returns_test.go`; imported wrappers are covered
+in `internal/analysis/passes/resultfacts/facts_test.go`.
 
 Returned-parameter inference uses `lifecycle.ProveReturnedParameterWithin`:
 a positive normal-return witness precedes the shared obligation coverage walk,
@@ -188,6 +196,14 @@ Reachability, coverage and storage queries spend the result query's allowance.
 Cutoff remains unknown; the summary memo discards interrupted answers and the
 writer cannot publish their identity relations. A fresh query can retry.
 Graph construction and type-system internals retain independent costs.
+
+Both result and concurrency fact publication wait for `lifecyclefacts` through
+`Analyzer.Requires`. Their storage queries can consume its registered heap
+summaries, so invalidating a graph after registration is insufficient: a sibling
+pass could already have exported an answer based on missing evidence. The
+ordering makes that evidence available before either pass starts, even when
+only result or concurrency knowledge was requested. See the
+[remaining vetx race in #69](https://github.com/kojah/gohawk/issues/69#issuecomment-6663221259).
 
 Every analyzer that walks an obligation to its returns consumes these through
 `summaries.Provider.FeasibleSuccessors`, either directly or through the

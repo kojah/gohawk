@@ -138,7 +138,7 @@ ci-policy-check:
 test-race:
 	# Sibling analyzers share tracing, ordered effects, and immutable fact
 	# encoding caches. Exercise those concurrency contracts in CI.
-	$(GO) test -race ./internal/reporting/trace ./internal/analysis/passes/concurrencyfacts ./internal/analysis/factcodec
+	$(GO) test -race ./internal/reporting/trace ./internal/analysis/passes/concurrencyfacts ./internal/analysis/passes/resultfacts ./internal/analysis/factcodec
 
 vet:
 	$(GO) vet ./...

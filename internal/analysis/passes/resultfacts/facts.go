@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/kojah/gohawk/internal/analysis/factcodec"
+	"github.com/kojah/gohawk/internal/analysis/passes/lifecyclefacts"
 	"github.com/kojah/gohawk/internal/engine/ssaflow"
 
 	proofs "github.com/kojah/gohawk/internal/engine/proof"
@@ -14,7 +15,7 @@ import (
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 )
 
-const factVersion = 4
+const factVersion = 5
 
 // Fact publishes independent result guarantees, the result cases that hold
 // under a condition, and the results proven to be a parameter. A case is an
@@ -35,10 +36,13 @@ type publishedFact struct{ publication }
 type publication = factcodec.Envelope[Fact]
 
 // Analyzer computes result knowledge only when required before dependency
-// analysis. It does not require lifecycle or concurrency inference.
+// analysis. Heap evidence must be published before inference starts.
+// Storage queries can consume imported heap summaries. Cache invalidation after
+// publication cannot repair a fact this pass has already exported, so wait for
+// lifecyclefacts to finish registering summaries before taking any answers.
 var Analyzer = &analysis.Analyzer{
 	Name: "resultfacts", Doc: "exports bounded unconditional result guarantees",
-	Requires: []*analysis.Analyzer{buildssa.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
+	Requires: []*analysis.Analyzer{buildssa.Analyzer, lifecyclefacts.Analyzer}, FactTypes: []analysis.Fact{new(publishedFact)},
 	ResultType: reflect.TypeFor[*Engine](), Run: run,
 }
 
