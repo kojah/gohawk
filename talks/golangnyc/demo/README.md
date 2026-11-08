@@ -1,4 +1,4 @@
-# Live demos: files, HTTP responses, and database results
+# Live demos: resource leaks and concurrency
 
 Allow about two minutes: show the code, run Gohawk, explain the diagnostic,
 then fix the leak and run it again. Both versions fit on one screen.
@@ -97,6 +97,33 @@ result cleanup; it does not claim detection of every database connection leak.
 Each before package should report one `resourcelifetime/missing-release`
 finding (exit 3). Each after package should report none (exit 0).
 
+## Concurrency: conflicting lock order
+
+After the resource examples, briefly introduce concurrency bugs, then open
+`concurrency/before/locks.go`. Allow about two minutes for this demo.
+
+- Show `Transfer` and `Snapshot`: both need the accounts and ledger locks,
+  but they take them in opposite orders. If called concurrently, each can
+  hold the lock the other needs and neither can proceed.
+- Run the check and pause on the acquisition-order diagnostic.
+- In `Snapshot`, move the accounts lock and its deferred unlock before the
+  ledger lock and its deferred unlock. Both functions now take accounts first.
+- Rerun the same command: the warning disappears. The prepared fixed version
+  is in `concurrency/after/locks.go`.
+
+```sh
+agent-test ../../../.build/golangnyc-gohawk -enable=lockorder ./concurrency/before
+# Expected: one lockorder/contradictory-order finding, exit 3.
+agent-test ../../../.build/golangnyc-gohawk -enable=lockorder ./concurrency/after
+# Expected: no findings, exit 0.
+```
+
+The functions are deliberately small teaching examples, with comments standing
+in for the protected work. Analyze them rather than trying to reproduce a live
+hang. The warning identifies a potential deadlock if these functions run
+concurrently; it does not mean every execution deadlocks. To reset a live edit,
+restore the ledger-first order in the before version's `Snapshot` function.
+
 ## Reset and check before presenting
 
 To reset after a live edit, move `defer f.Close()` back down to just before
@@ -111,6 +138,6 @@ GOWORK=off agent-test ../../../.build/golangnyc-gohawk -enable=resourcelifetime 
 # Expected: no findings, exit 0.
 ```
 
-After the demo: “I’ve also run this on projects like Docker, Caddy, and
-Kubernetes and found real bugs. I’ll show you some of those in a moment—but
-first, let me tell you what made me want to build this.”
+After both demos, briefly show the Docker, Caddy, and Kubernetes PRs, then
+continue with the origin story. The real-world section does not need another
+detailed explanation of concurrency.
