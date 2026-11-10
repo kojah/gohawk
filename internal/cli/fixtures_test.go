@@ -280,9 +280,17 @@ func moduleFileContents(t *testing.T, module, relativePath string) string {
 
 func runCommand(t *testing.T, directory, name string, arguments ...string) (string, int) {
 	t.Helper()
+	return runCommandWithEnvironment(t, directory, []string{"GOWORK=off"}, name, arguments...)
+}
+
+// runCommandWithEnvironment runs name with environment appended to the
+// process environment, so a test can select workspace mode instead of the
+// GOWORK=off that runCommand pins for module fixtures.
+func runCommandWithEnvironment(t *testing.T, directory string, environment []string, name string, arguments ...string) (string, int) {
+	t.Helper()
 	command := exec.CommandContext(t.Context(), name, arguments...)
 	command.Dir = directory
-	command.Env = append(os.Environ(), "GOWORK=off")
+	command.Env = append(os.Environ(), environment...)
 	output, err := command.CombinedOutput()
 	if err == nil {
 		return string(output), 0
