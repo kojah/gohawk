@@ -1,13 +1,10 @@
 # Live demos: resource leaks and concurrency
 
-Allow about two minutes: show the code, run Gohawk, explain the diagnostic,
-then fix the leak and run it again. Both versions fit on one screen.
-This is a separate Go module so the other intentional talk defects do not
-appear in the opening demo.
-
-Then spend another 30–45 seconds each on HTTP and database cleanup to show
-that the same check covers more than files. Keep the full sequence to about
-three or four minutes by showing the prepared fixes for these two examples.
+Use the file example as a one-minute warm-up, then the Docker and Caddy
+examples below as the main demos. Reveal each original PR immediately after
+its fix. Allow about eight minutes for these demos and PR reveals together.
+Keep HTTP, database, and the original accounts/ledger example as backups.
+This separate Go module isolates the intentional defects from the slide examples.
 
 ## Prepare
 
@@ -57,7 +54,71 @@ The read-only example ignores the secondary Close error to focus on cleanup.
 Writing or finalizing data may require handling that error too. A clean
 Gohawk run means this check found no issue, not that the entire program is correct.
 
-## Show the same problem with other resources
+## Docker: cleanup exists, but error paths skip it
+
+Open `docker/before/firewall.go`. The function starts a helper, sends firewall
+rules, reads output, and waits. A pipe write, close, or read error can return
+after `Start` without reaching `Wait`. Closing a pipe is not the same as
+collecting the child process's exit status.
+
+```sh
+agent-test ../../../.build/golangnyc-gohawk -enable-checks=processownership/missing-wait ./docker/before
+agent-test ../../../.build/golangnyc-gohawk -enable-checks=processownership/missing-wait ./docker/after
+```
+
+Expect one `processownership/missing-wait` finding (exit 3), then none (exit 0).
+This check is experimental and is explicitly enabled here.
+
+Show the diagnostic, then `docker/after/firewall.go`: the fix attaches buffers
+and uses `Run` to manage copying and waiting. Reveal
+[Docker PR #53517](https://github.com/moby/moby/pull/53517) immediately afterward.
+The reduction preserves the pipe operations, early returns, and final wait,
+but omits namespace selection, logging, and detailed error messages.
+
+Sources: [before](https://github.com/moby/moby/blob/007054c0ca4ac76866686e4473cfa196731d19d2/daemon/libnetwork/internal/nftables/nft_exec_linux.go),
+[submitted fix](https://github.com/moby/moby/blob/4070d0ac379e4b5adde89e41f6d94d202630d960/daemon/libnetwork/internal/nftables/nft_exec_linux.go).
+
+The PR also fixes a pipe deadlock when stderr fills while the parent reads
+stdout. That was found during investigation, not diagnosed by this check.
+Simply deferring `Wait` would not fix that deadlock; show the `Run` fix.
+Analyze these functions without executing them: they name the real `nft`
+executable and must not be called against a live firewall.
+
+## Caddy: failure cleanup takes locks in the wrong order
+
+Introduce concurrency, then open `caddy/before/pool.go`.
+
+- Construction publishes a locked entry, releases the pool lock, and runs
+  the constructor. A reader needs the pool lock and then the entry lock.
+- On failure, cleanup takes the pool lock while still holding the entry lock.
+  A reader can hold the pool lock while waiting for the entry. Both can stall.
+- Gohawk connects pool-to-entry acquisition during setup with entry-to-pool
+  acquisition during cleanup. Use `Range` to explain the concurrent reader.
+- Show `caddy/after/pool.go`: release the entry before waiting for the pool.
+  A deferred entry unlock at function exit would still happen too late.
+- Reveal [Caddy PR #7968](https://github.com/caddyserver/caddy/pull/7968), then
+  briefly mention Kubernetes as an additional finding.
+
+```sh
+agent-test ../../../.build/golangnyc-gohawk -enable=lockorder ./caddy/before
+agent-test ../../../.build/golangnyc-gohawk -enable=lockorder ./caddy/after
+```
+
+Expect one `lockorder/contradictory-order` finding (exit 3), then none (exit 0).
+This check is core.
+
+This is a single-entry teaching reduction of
+[UsagePool.LoadOrNew and Range](https://github.com/caddyserver/caddy/blob/62a72977e58c87fad7e7726c18b58f10c653f2d3/usagepool.go).
+Call `Construct` once per Pool; `Range` may run concurrently. The original map,
+reference counts, and replacement entries are omitted. The real fix also checks
+entry identity before deletion; the single-use slot has no replacement to check.
+A closer map-based reduction did not warn with this checkout. This demonstrates
+the failure pattern, not a revalidation of the complete current Caddy code.
+The reported Caddy combination was available to external modules; built-in
+pools did not combine these operations. Analyze the example rather than trying
+to reproduce a live hang.
+
+## Backups: other resource types and basic lock ordering
 
 Each example has its own package so you can show one warning at a time.
 These functions are compiled and analyzed, not executed: no network access,
@@ -99,8 +160,7 @@ finding (exit 3). Each after package should report none (exit 0).
 
 ## Concurrency: conflicting lock order
 
-After the resource examples, briefly introduce concurrency bugs, then open
-`concurrency/before/locks.go`. Allow about two minutes for this demo.
+For a simpler backup to Caddy, open `concurrency/before/locks.go`.
 
 - Show `Transfer` and `Snapshot`: both need the accounts and ledger locks,
   but they take them in opposite orders. If called concurrently, each can
@@ -138,6 +198,6 @@ GOWORK=off agent-test ../../../.build/golangnyc-gohawk -enable=resourcelifetime 
 # Expected: no findings, exit 0.
 ```
 
-After both demos, briefly show the Docker, Caddy, and Kubernetes PRs, then
-continue with the origin story. The real-world section does not need another
-detailed explanation of concurrency.
+Run the Docker and Caddy before/after commands above before presenting too.
+After their PR reveals, briefly show Kubernetes and continue with the origin
+story. Do not repeat Docker and Caddy in a separate findings section.
