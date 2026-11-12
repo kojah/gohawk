@@ -1,4 +1,0 @@
-# Install the browser explicitly with `pnpm exec playwright install chromium --only-shell`.
-# Keep dependency installation free of an implicit browser download.
-allowBuilds:
-  playwright-chromium: false
