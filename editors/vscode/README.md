@@ -61,3 +61,18 @@ per check, and anything that looks like a crash or a leftover process. It
 needs a Chromium that Playwright can drive; set `ACCEPTANCE_CHROMIUM` to its
 path if it is not in Playwright's cache. The process exits nonzero when a
 check fails.
+
+On Linux the run fetches Inter and JetBrains Mono once into `.vscode-test/`
+and points the browser at them, so screenshots do not use a server's
+fallback fonts. Nothing is installed on the machine.
+
+### Stress run
+
+```sh
+node acceptance/stress.mjs --gohawk /path/to/gohawk --workspace /path/to/repo --file pkg/big/file.go
+```
+
+This drives `gohawk lsp` directly on a real package: it opens the file, makes
+a few unsaved edits, and prints for each one how long the check took, its
+peak memory, and what the importer run cost. The repository is never
+modified.

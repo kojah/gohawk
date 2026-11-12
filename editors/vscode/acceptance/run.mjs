@@ -15,6 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, promisify } from 'node:util';
 import { chromium } from 'playwright-core';
+import { editorFont, screenshotFontEnvironment } from './fonts.mjs';
 import { scenarios } from './scenarios.mjs';
 
 const run = promisify(execFile);
@@ -263,6 +264,10 @@ async function main() {
 			executablePath: await chromiumPath(),
 			viewport: { width: 1440, height: 900 },
 			deviceScaleFactor: Number(options.scale),
+			env: {
+				...process.env,
+				...(await screenshotFontEnvironment(join(packageRoot, '.vscode-test', 'fonts'))),
+			},
 		});
 		const page = browser.pages()[0] ?? (await browser.newPage());
 		const url = `http://127.0.0.1:${port}/?folder=${encodeURIComponent(workspace)}`;
@@ -285,7 +290,7 @@ async function main() {
 		const editor = await import('./editor.mjs').then((module) =>
 			module.createEditor({ page, out, workspace, url }),
 		);
-		await editor.prepare(options.theme, options['first-file']);
+		await editor.prepare(options.theme, options['first-file'], editorFont);
 
 		for (const name of options.scenarios.split(',').filter(Boolean)) {
 			const scenario = scenarios[name];

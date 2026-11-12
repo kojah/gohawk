@@ -74,7 +74,7 @@ export function createEditor({ page, out, workspace, url }) {
 	 * folder, turns auto-save off so "unsaved" means unsaved, and hides the
 	 * panels that are not under test.
 	 */
-	async function prepare(theme, firstGoFile) {
+	async function prepare(theme, firstGoFile, editorFont) {
 		const settings = {
 			'security.workspace.trust.enabled': false,
 			'workbench.colorTheme': theme,
@@ -82,6 +82,13 @@ export function createEditor({ page, out, workspace, url }) {
 			'workbench.startupEditor': 'none',
 			'editor.minimap.enabled': false,
 			'editor.fontSize': 14,
+			'editor.lineHeight': 1.6,
+			...(editorFont
+				? {
+						'editor.fontFamily': `'${editorFont}', monospace`,
+						'terminal.integrated.fontFamily': editorFont,
+					}
+				: {}),
 		};
 		await pause(3000);
 		await palette('Preferences: Open User Settings (JSON)');
