@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"io"
@@ -106,4 +107,26 @@ func EditorServerGone() <-chan struct{} {
 		close(gone)
 	}()
 	return gone
+}
+
+// announceAnalysis tells an editor server which package this vet-tool
+// invocation is about to analyze. go vet hands the tool one .cfg file per
+// package; the other handshakes carry none and announce nothing.
+func announceAnalysis(arguments []string) {
+	if os.Getenv(lsp.ProgressFileVariable) == "" {
+		return
+	}
+	for _, argument := range arguments[1:] {
+		if !strings.HasSuffix(argument, ".cfg") {
+			continue
+		}
+		var unit struct {
+			ImportPath string `json:"ImportPath"`
+		}
+		data, err := os.ReadFile(argument) //nolint:gosec // the .cfg file go vet hands its tool, which the analysis reads next anyway
+		if err == nil && json.Unmarshal(data, &unit) == nil {
+			lsp.AnnounceAnalysis(unit.ImportPath)
+		}
+		return
+	}
 }

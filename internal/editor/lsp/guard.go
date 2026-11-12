@@ -17,17 +17,50 @@ import (
 // long without progress, or when it outlasts the longest run allowed. Each
 // stop is reported as a stop, never as a clean result.
 //
-// Progress is the go command naming a package. That makes the time limit a
-// bound on one package's analysis rather than on the whole run, so a first
-// check on a large repository, which must build facts for every dependency
-// once, is not cut off while it is visibly getting somewhere.
+// Progress has two sources. The go command names each package it compiles
+// (-v), and the analysis tool appends a line to the run's progress file for
+// each package it starts analyzing. Either one resets the idle clock. That
+// makes the time limit a bound on one package's work rather than on the whole
+// run, so a first check on a large repository, which must compile and analyze
+// every dependency once, is not cut off while it is getting somewhere.
 
 // runProgress is what a run has done so far, read by the status line while
 // the run is still going.
 type runProgress struct {
-	packages atomic.Int64
+	packages atomic.Int64 // packages the analysis tool has started on
 	last     atomic.Int64 // UnixNano of the last sign of progress
 	started  time.Time
+	// file is where the analysis tool reports; read is how much of it has
+	// been counted. Only the watch goroutine of the running command reads.
+	file string
+	read int64
+}
+
+// collect counts the packages reported since the last call.
+func (p *runProgress) collect() {
+	if p.file == "" {
+		return
+	}
+	info, err := os.Stat(p.file)
+	if err != nil || info.Size() <= p.read {
+		return
+	}
+	file, err := os.Open(p.file)
+	if err != nil {
+		return
+	}
+	defer func() { _ = file.Close() }()
+	fresh := make([]byte, info.Size()-p.read)
+	count, _ := file.ReadAt(fresh, p.read)
+	started := bytes.Count(fresh[:count], []byte("\n"))
+	if started == 0 {
+		return
+	}
+	// Advance past whole lines only, so a line caught mid-write is counted
+	// on the next pass.
+	p.read += int64(bytes.LastIndexByte(fresh[:count], '\n') + 1)
+	p.packages.Add(int64(started))
+	p.touch()
 }
 
 func newRunProgress() *runProgress {
@@ -85,7 +118,11 @@ func (g *guard) runProgram(ctx context.Context, directory, program string, argum
 	g.progress.touch()
 	command := exec.CommandContext(ctx, program, arguments...)
 	command.Dir = directory
-	command.Env = append(os.Environ(), "GOMEMLIMIT="+g.limits.memoryLimit, ServerProcessVariable+"="+strconv.Itoa(os.Getpid()))
+	command.Env = append(os.Environ(),
+		"GOMEMLIMIT="+g.limits.memoryLimit,
+		ServerProcessVariable+"="+strconv.Itoa(os.Getpid()),
+		ProgressFileVariable+"="+g.progress.file,
+	)
 	stdout := &cappedBuffer{limit: maxCommandOutput}
 	stderr := &progressWriter{progress: g.progress, rest: cappedBuffer{limit: 1 << 20}}
 	command.Stdout, command.Stderr = stdout, stderr
@@ -118,6 +155,7 @@ func (g *guard) watch(ctx context.Context, pid int, done chan<- struct{}) {
 			return
 		case <-ticker.C:
 		}
+		g.progress.collect()
 		if g.limits.idle > 0 && g.progress.idleFor() > g.limits.idle {
 			g.stalled.Store(true)
 			g.stop()
@@ -157,8 +195,8 @@ func interrupted(caller, run context.Context, guarded *guard, otherwise runOutco
 }
 
 // progressWriter reads a command's standard error. With -v the go command
-// prints the import path of each package it works on, one per line; those
-// lines are counted as progress and dropped. Everything else, which is what
+// prints the import path of each package it compiles, one per line; those
+// lines reset the idle clock and are dropped. Everything else, which is what
 // a build failure prints, is kept for the log.
 type progressWriter struct {
 	progress *runProgress
@@ -176,7 +214,8 @@ func (w *progressWriter) Write(data []byte) (int, error) {
 		line := string(w.partial[:end])
 		w.partial = w.partial[end+1:]
 		if isPackageLine(line) {
-			w.progress.packages.Add(1)
+			// A compiled package is progress, but it is not counted: the
+			// count shown to the user is packages analyzed.
 			w.progress.touch()
 			continue
 		}

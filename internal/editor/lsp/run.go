@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -123,6 +124,11 @@ func (r *runner) execute(ctx context.Context, request *runRequest, limits runLim
 	runContext, cancel := context.WithTimeout(ctx, longestRun)
 	defer cancel()
 	guarded := newGuard(limits, cancel, request.progress)
+	if file, err := os.CreateTemp(r.temporary, "progress-"); err == nil {
+		guarded.progress.file = file.Name()
+		_ = file.Close()
+		defer func() { _ = os.Remove(guarded.progress.file) }()
+	}
 
 	var err error
 	result.overlay, err = writeOverlay(runContext, r.temporary, request.texts)

@@ -20,6 +20,33 @@ import (
 // owning server's process ID to the processes a check starts.
 const ServerProcessVariable = "GOHAWK_LSP_SERVER_PID"
 
+// ProgressFileVariable names the environment variable that carries the path
+// of a run's progress file. The analysis tool appends one line to it for
+// each package it starts on. The go command only names a package when it
+// compiles it, so without this a run that is analyzing dependencies looks
+// idle to the server.
+const ProgressFileVariable = "GOHAWK_LSP_PROGRESS"
+
+// AnnounceAnalysis records, for the server that started this process, that
+// the analysis of one package has begun. It does nothing when the process
+// was not started by an editor server. A failure to record is ignored: the
+// analysis matters more than its progress line.
+func AnnounceAnalysis(packagePath string) {
+	path := os.Getenv(ProgressFileVariable)
+	if path == "" {
+		return
+	}
+	//nolint:gosec // the progress file the owning server created and named for this run
+	file, err := os.OpenFile(filepath.Clean(path), os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		return
+	}
+	// One short append is written whole, so lines from tools running in
+	// parallel do not mix.
+	_, _ = file.WriteString(strings.ReplaceAll(packagePath, "\n", " ") + "\n")
+	_ = file.Close()
+}
+
 const temporaryPrefix = "gohawk-lsp-"
 
 // ProcessAlive reports whether a process with this ID exists. When the

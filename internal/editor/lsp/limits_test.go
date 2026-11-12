@@ -27,8 +27,11 @@ func TestGoCommandOutputIsSplitIntoProgressAndMessages(t *testing.T) {
 			t.Fatalf("Write = %d, %v", written, err)
 		}
 	}
-	if got := progress.packages.Load(); got != 3 {
-		t.Errorf("packages counted = %d, want 3", got)
+	if idle := progress.idleFor(); idle > time.Second {
+		t.Errorf("compiled packages did not reset the idle time: %s", idle)
+	}
+	if got := progress.packages.Load(); got != 0 {
+		t.Errorf("compiled packages were counted as analyzed: %d", got)
 	}
 	kept := writer.rest.buffer.String()
 	for _, want := range []string{"# example.com/m/bad", "bad/bad.go:5:19: undefined: undefined", "go: downloading"} {
@@ -84,6 +87,45 @@ func TestProgressKeepsARunAlivePastTheIdleLimit(t *testing.T) {
 	}
 	if idle := progress.idleFor(); idle > time.Second {
 		t.Errorf("a package line did not reset the idle time: %s", idle)
+	}
+}
+
+// The analysis tool reports each package it starts on, which is what keeps a
+// run alive while it analyzes dependencies and what the status counts.
+func TestAnalysisToolProgressIsCountedFromItsFile(t *testing.T) {
+	progress := newRunProgress()
+	progress.file = filepath.Join(t.TempDir(), "progress")
+	if err := os.WriteFile(progress.file, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(ProgressFileVariable, progress.file)
+	progress.last.Store(time.Now().Add(-time.Hour).UnixNano())
+
+	AnnounceAnalysis("example.com/m/a")
+	AnnounceAnalysis("example.com/m/b")
+	progress.collect()
+	if got := progress.packages.Load(); got != 2 {
+		t.Errorf("packages analyzed = %d, want 2", got)
+	}
+	if idle := progress.idleFor(); idle > time.Second {
+		t.Errorf("a reported package did not reset the idle time: %s", idle)
+	}
+	// A line still being written is left for the next pass.
+	file, err := os.OpenFile(progress.file, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.WriteString("example.com/m/c\nexample.com/m/par"); err != nil {
+		t.Fatal(err)
+	}
+	progress.collect()
+	if _, err := file.WriteString("tial\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = file.Close()
+	progress.collect()
+	if got := progress.packages.Load(); got != 4 {
+		t.Errorf("packages analyzed = %d, want 4", got)
 	}
 }
 

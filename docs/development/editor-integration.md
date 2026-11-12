@@ -71,15 +71,21 @@ An unresolved package stays named in the status until a check of it
 completes, however many other packages are checked in between. The status is
 derived from what is stored, not from the last run.
 
-The time limit is an idle limit. The go command is run with `-v`, which
-makes it name each package as it works on it, and each name counts as
-progress. A run is stopped when it goes `timeout` seconds without one, so the
-limit bounds one package's analysis and not the run. This matters on a large
-repository: the first check must build facts for every dependency once
-(several minutes on Kubernetes), and a limit on the whole run reported that
-as "stopped" again and again. While a run is active the status shows the
-packages named so far and the elapsed time. A run is also stopped after 30
-minutes however steadily it progresses.
+The time limit is an idle limit, and progress has two sources. The go command
+is run with `-v`, which makes it name each package it compiles. And gohawk,
+running as go vet's tool, appends a line to the run's progress file for each
+package it starts analyzing (the server passes the file's path in the
+environment). Either one resets the clock, and a run is stopped when it goes
+`timeout` seconds without any. The limit therefore bounds one package's work
+and not the run.
+
+This matters on a large repository: the first check must compile and analyze
+every dependency once. A limit on the whole run reported that as "stopped"
+again and again. The compile names alone were not enough either: once
+compiling finished, a run that was busy analyzing dependencies looked idle.
+While a run is active the status shows the packages analyzed so far and the
+elapsed time. A run is also stopped after 30 minutes however steadily it
+progresses.
 
 Memory is sampled from `/proc` by process group on Linux. The peak reported
 for a run is the larger of that sample and the kernel's figure for the

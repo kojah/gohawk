@@ -94,6 +94,7 @@ func Main() int {
 		writeLine(runtime.errorsOutput, "gohawk:", err)
 		return 1
 	}
+	announceAnalysis(os.Args)
 	unitchecker.Main(analyzers...)
 	return 0
 }
