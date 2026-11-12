@@ -343,6 +343,14 @@ async function main() {
 				.filter((event) => event.kind === 'package' && event.outcome === 'completed')
 				.map((event) => event.elapsedMs ?? 0),
 		),
+		serverMemoryMiB: summarize(
+			finished
+				.filter((event) => event.serverBytes > 0)
+				.map((event) => Math.round(event.serverBytes / 2 ** 20)),
+		),
+		serverGoroutines: summarize(
+			finished.filter((event) => event.goroutines > 0).map((event) => event.goroutines),
+		),
 		peakMemoryMiB: summarize(
 			finished
 				.filter((event) => event.peakBytes > 0)
@@ -393,6 +401,8 @@ function renderReport(report) {
 	lines.push(`- Edit to published findings, ms: ${number(report.server.editToFindingsMs)}`);
 	lines.push(`- Package check, ms: ${number(report.server.packageRunMs)}`);
 	lines.push(`- Peak memory per check, MiB: ${number(report.server.peakMemoryMiB)}`);
+	lines.push(`- Server process memory, MiB: ${number(report.server.serverMemoryMiB)}`);
+	lines.push(`- Server goroutines: ${number(report.server.serverGoroutines)}`);
 	lines.push(
 		'',
 		'## Problems',

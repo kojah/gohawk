@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 )
 
@@ -51,39 +52,56 @@ func (s *Server) status() StatusParams {
 	return status
 }
 
-// settledStatus describes the state when nothing is running in front.
+// settledStatus describes the state when nothing is running in front. It is
+// derived from what is stored, not from the last run alone: a package whose
+// findings are unknown stays named until a check of it completes, however
+// many other packages are checked in between.
 func (s *Server) settledStatus(findings int) StatusParams {
 	last := s.scheduler.last
 	status := StatusParams{Findings: findings, State: stateIdle, Text: "gohawk: no findings"}
 	if findings > 0 {
 		status.State, status.Text = stateFindings, "gohawk: "+countFindings(findings)
 	}
-	if !last.valid {
-		status.Text = "gohawk"
-		return status
-	}
-	switch last.outcome {
-	case outcomeTimedOut:
+	stopped, _ := s.results.unresolvedBy(outcomeTimedOut, outcomeMemoryExceeded)
+	broken, staleFindings := s.results.unresolvedBy(outcomeBuildFailed)
+	switch {
+	case len(stopped) > 0:
 		status.State = stateStopped
-		status.Text = fmt.Sprintf("gohawk: %s stopped after %s", last.label, formatElapsed(last.elapsed))
-		status.Tooltip = "The check passed its time limit and was stopped. Its findings are unknown."
-	case outcomeMemoryExceeded:
-		status.State = stateStopped
-		status.Text = fmt.Sprintf("gohawk: %s stopped at %s", last.label, s.settings.MemoryLimit)
-		status.Tooltip = "The check passed its memory limit and was stopped. Its findings are unknown."
-	case outcomeBuildFailed:
-		status.State, status.Text = stateStale, "gohawk: build failed"
-		if s.results.anyStale() {
-			status.Text += ", " + countFindings(findings) + " may be stale"
+		status.Text = unresolvedText(findings, "stopped at a limit: "+packageNames(stopped))
+		status.Tooltip = "A check passed its time or memory limit and was stopped. The findings of that package are unknown."
+	case len(broken) > 0:
+		status.State = stateStale
+		status.Text = unresolvedText(findings, "build failed in "+packageNames(broken))
+		status.Tooltip = "The package does not compile, so it cannot be checked."
+		if staleFindings > 0 {
+			status.Tooltip += " Its " + countFindings(staleFindings) + " from before may be stale."
 		}
-		status.Tooltip = "The package does not compile. Earlier findings are kept until it does."
-	case outcomeFailed:
+	case last.valid && last.outcome == outcomeFailed:
 		status.State, status.Text = stateError, "gohawk: check failed, see Output"
-	case outcomeCompleted:
+	case !last.valid:
+		if findings == 0 {
+			status.Text = "gohawk"
+		}
+	case last.outcome == outcomeCompleted:
 		status.Text += " · " + last.label + " " + formatElapsed(last.elapsed)
-	case outcomeCanceled:
 	}
 	return status
+}
+
+// unresolvedText leads with the findings that are known and then names what
+// is not, so the count is never read as the whole truth.
+func unresolvedText(findings int, problem string) string {
+	if findings > 0 {
+		return "gohawk: " + countFindings(findings) + " · " + problem
+	}
+	return "gohawk: " + problem
+}
+
+func packageNames(directories []string) string {
+	if len(directories) == 1 {
+		return filepath.Base(directories[0])
+	}
+	return fmt.Sprintf("%d packages", len(directories))
 }
 
 func unsavedNote(request *runRequest) string {

@@ -34,19 +34,30 @@ type fileDiagnostic struct {
 }
 
 type converter struct {
-	catalog Catalog
-	overlay *overlay
-	lines   map[string][]string
+	catalog  Catalog
+	overlay  *overlay
+	spelling *pathSpelling
+	lines    map[string][]string
 }
 
-func newConverter(catalog Catalog, overlay *overlay) *converter {
-	return &converter{catalog: catalog, overlay: overlay, lines: make(map[string][]string)}
+func newConverter(catalog Catalog, overlay *overlay, spelling *pathSpelling) *converter {
+	return &converter{catalog: catalog, overlay: overlay, spelling: spelling, lines: make(map[string][]string)}
+}
+
+// realPath maps a reported filename to the file the user sees: an overlay
+// replacement back to the buffer's file, and a resolved path back to the
+// editor's spelling.
+func (c *converter) realPath(reported string) string {
+	if decoded, ok := decodeOverlayPath(reported); ok {
+		reported = decoded
+	}
+	return c.spelling.editorPath(reported)
 }
 
 func (c *converter) convert(findings []vetjson.Diagnostic) []fileDiagnostic {
 	converted := make([]fileDiagnostic, 0, len(findings))
 	for _, finding := range findings {
-		path := c.overlay.realPath(finding.Start.Filename)
+		path := c.realPath(finding.Start.Filename)
 		info := c.catalog(finding.Check)
 		severity := severityWarning
 		if info.Experimental {
@@ -83,7 +94,7 @@ func (c *converter) related(related vetjson.Related) (relatedInformation, bool) 
 		end = start
 	}
 	return relatedInformation{
-		Location: location{URI: uriFromPath(c.overlay.realPath(start.Filename)), Range: c.textRange(start, end)},
+		Location: location{URI: uriFromPath(c.realPath(start.Filename)), Range: c.textRange(start, end)},
 		Message:  related.Message,
 	}, true
 }
@@ -96,7 +107,7 @@ func (c *converter) textRange(start, end vetjson.Position) textRange {
 // UTF-16 column, using the text the analyzer saw.
 func (c *converter) position(source vetjson.Position) position {
 	line := max(source.Line-1, 0)
-	lines := c.fileLines(c.overlay.realPath(source.Filename))
+	lines := c.fileLines(c.realPath(source.Filename))
 	if line >= len(lines) {
 		return position{Line: line, Character: max(source.Column-1, 0)}
 	}

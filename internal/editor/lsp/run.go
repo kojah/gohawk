@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -46,6 +47,9 @@ type runRequest struct {
 	directories []string
 	texts       map[string]string // unsaved buffers at the time of the request
 	label       string
+	// startsRipple says a completed package run should be followed by a
+	// check of the packages that import it.
+	startsRipple bool
 }
 
 type runResult struct {
@@ -124,6 +128,20 @@ func (r *runner) target(ctx context.Context, request *runRequest, overlayFile st
 		result.covered = request.directories
 		return request.directories[0], []string{"."}, nil
 	case runWorkspace:
+		// The run answers for every package the module lists, and for the
+		// directories it already had findings for, which may be gone now.
+		listed, err := listPackages(ctx, request.root, overlayFile, []string{"./..."})
+		if err != nil {
+			return "", nil, err
+		}
+		covered := make(map[string]bool, len(listed)+len(request.directories))
+		for _, listedPackage := range listed {
+			covered[filepath.Clean(listedPackage.Dir)] = true
+		}
+		for _, directory := range request.directories {
+			covered[directory] = true
+		}
+		result.covered = sortedKeys(covered)
 		return request.root, []string{"./..."}, nil
 	default:
 		directories, err := importers(ctx, request.root, overlayFile, request.directories)

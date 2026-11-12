@@ -36,6 +36,16 @@ It offers no source edits and no action that hides a finding.
   run. Cancelled background work is owed again after the next check.
 - A result is applied only if its run is still the active one. A cancelled
   run's result describes old text and is dropped.
+- With `run` set to `onSave` or `manual`, findings describe the files as last
+  saved: no overlay is used and typing does not cancel a run. A buffer opened
+  with text that differs from its file counts as unsaved, and closing an
+  unsaved buffer re-checks the package from disk.
+- The editor reports files created, changed, or deleted on disk. A deleted
+  file or directory loses its findings at once, and a package whose files
+  changed outside an open buffer is checked again.
+- With a `go.work` file, importers are searched in every module of the
+  workspace. A whole-module run covers the module's own packages only, so a
+  nested module keeps its findings.
 - Only files inside the editor's workspace folders are checked. Editors open
   dependency and standard library files to show a definition; those are not
   the user's code. `_test.go` files and files outside a module are skipped
@@ -45,11 +55,16 @@ It offers no source edits and no action that hides a finding.
 
 | Situation | Behavior |
 |---|---|
-| The package does not compile | Earlier findings stay, marked stale. Compile errors are left to gopls. |
-| Some packages of a multi-package run fail to build | Nothing is replaced: which packages failed cannot be recovered from the output. |
-| A run passes its time limit | Stopped and reported as stopped. |
-| A run passes its memory limit | The process tree is killed and the run is reported as stopped. |
+| The package does not compile | Earlier findings stay and the package is recorded as unresolved. Compile errors are left to gopls. |
+| Some packages of a multi-package run fail to build | Nothing is replaced, because the output does not say which packages were analyzed. Each covered package is then checked on its own. |
+| A run passes its time limit | Stopped; its packages are unresolved. |
+| A run passes its memory limit | The process tree is killed; its packages are unresolved. |
+| A finding names a file outside the packages the run checked | Not filed, and logged. It is never dropped silently. |
 | Memory cannot be measured (not Linux) | The soft `GOMEMLIMIT` and the timeout remain. |
+
+An unresolved package stays named in the status until a check of it
+completes, however many other packages are checked in between. The status is
+derived from what is stored, not from the last run.
 
 Memory is sampled from `/proc` by process group on Linux. The peak reported
 for a run is the larger of that sample and the kernel's figure for the
@@ -66,8 +81,16 @@ largest single process, so short runs still report a number.
 | `related` | `relatedInformation`, same order |
 | tier | `severity`: core is warning, experimental is information |
 
-Positions from an overlay run name the temporary file and are mapped back to
-the real one. `internal/reporting/vetjson` is the one decoder; the terminal
+Positions from an overlay run name the temporary file. The real path is
+encoded into the temporary path itself, because go vet caches output by
+content: returning to earlier text replays output that names the temporary
+file of an earlier run, or of an earlier server, which no per-run table could
+map. A cache hit means the same file names and contents, so the replayed
+positions are right.
+
+The go command may report a path with symbolic links resolved. Findings are
+stored and published under the editor's spelling of the workspace folder, so
+a workspace opened through a link still shows them. `internal/reporting/vetjson` is the one decoder; the terminal
 renderer and the server both use it.
 
 The hover adds the catalog's help sentence. Code actions are commands:
@@ -105,7 +128,9 @@ tab. Everything the server sends is parsed before use.
   a real VS Code served to a headless browser, plays scripted sessions, and
   writes a report: screenshots, edit-to-findings latency, memory per check,
   crash recovery, and leftover processes.
-- `gohawk lsp -event-log FILE` appends one JSON line per scheduling event.
+- `gohawk lsp -event-log FILE` appends one JSON line per scheduling event,
+  including each run's peak memory and the server's own memory and goroutine
+  count.
   The acceptance run reads it to compute latency; it is also the first thing
   to look at when a finding seems late or missing.
 

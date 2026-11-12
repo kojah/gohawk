@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"net/url"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -26,8 +27,13 @@ func newDocumentStore() *documentStore {
 	return &documentStore{byPath: make(map[string]*document)}
 }
 
+// open records a buffer the editor opened. An editor can open a file with
+// text that differs from the file, as when it restores unsaved work, so the
+// buffer is compared with the disk instead of assumed equal to it.
 func (s *documentStore) open(path, text string, version int) {
-	s.byPath[path] = &document{path: path, text: text, version: version}
+	onDisk, err := os.ReadFile(filepath.Clean(path))
+	unsaved := err != nil || string(onDisk) != text
+	s.byPath[path] = &document{path: path, text: text, version: version, unsaved: unsaved}
 }
 
 func (s *documentStore) change(path, text string, version int) bool {
@@ -45,8 +51,17 @@ func (s *documentStore) saved(path string) {
 	}
 }
 
-func (s *documentStore) close(path string) {
+// close forgets a buffer and reports whether it held unsaved text, in which
+// case the findings on screen described text that no longer exists.
+func (s *documentStore) close(path string) (hadUnsavedText bool) {
+	current, ok := s.byPath[path]
 	delete(s.byPath, path)
+	return ok && current.unsaved
+}
+
+func (s *documentStore) isOpen(path string) bool {
+	_, ok := s.byPath[path]
+	return ok
 }
 
 // unsavedTexts returns the text of every unsaved buffer by file path.

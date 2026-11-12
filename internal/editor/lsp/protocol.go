@@ -19,6 +19,7 @@ const (
 	methodCodeAction             = "textDocument/codeAction"
 	methodExecuteCommand         = "workspace/executeCommand"
 	methodDidChangeConfiguration = "workspace/didChangeConfiguration"
+	methodDidChangeWatchedFiles  = "workspace/didChangeWatchedFiles"
 	methodPublishDiagnostics     = "textDocument/publishDiagnostics"
 	methodLogMessage             = "window/logMessage"
 	methodShowDocument           = "window/showDocument"
@@ -130,6 +131,19 @@ type didChangeParams struct {
 	} `json:"textDocument"`
 	ContentChanges []contentChange `json:"contentChanges"`
 }
+
+// fileEvent is one change the editor saw on disk. Change is 1 for created,
+// 2 for changed, and 3 for deleted.
+type fileEvent struct {
+	URI    string `json:"uri"`
+	Change int    `json:"type"`
+}
+
+type watchedFilesParams struct {
+	Changes []fileEvent `json:"changes"`
+}
+
+const fileDeleted = 3
 
 type documentParams struct {
 	TextDocument textDocumentIdentifier `json:"textDocument"`

@@ -30,6 +30,10 @@ type scheduler struct {
 	pending    map[string]bool // package directories waiting for the pause delay
 	generation int             // invalidates timers superseded by a newer edit
 	queue      []string
+	// isolated marks queued directories that are re-checked on their own after
+	// a multi-package run failed. Their imports did not change, so they do not
+	// start another importer run.
+	isolated   map[string]bool
 	ripple     map[string]bool // checked directories whose importers are due
 	workspaces map[string]bool // module roots due a whole-module run
 	foreground *activeRun
@@ -40,7 +44,10 @@ type scheduler struct {
 }
 
 func newScheduler() scheduler {
-	return scheduler{pending: make(map[string]bool), ripple: make(map[string]bool), workspaces: make(map[string]bool)}
+	return scheduler{
+		pending: make(map[string]bool), isolated: make(map[string]bool),
+		ripple: make(map[string]bool), workspaces: make(map[string]bool),
+	}
 }
 
 // requestCheck asks for the package holding path to be checked after delay.
@@ -55,8 +62,13 @@ func (s *Server) requestCheck(ctx context.Context, path string, delay time.Durat
 		return
 	}
 	s.scheduler.skipped = ""
-	directory := filepath.Dir(path)
+	s.requestDirectory(ctx, filepath.Dir(path), delay)
+}
+
+// requestDirectory asks for one package directory to be checked after delay.
+func (s *Server) requestDirectory(ctx context.Context, directory string, delay time.Duration) {
 	s.cancelRunsFor(directory)
+	delete(s.scheduler.isolated, directory)
 	s.scheduler.pending[directory] = true
 	s.scheduler.generation++
 	if delay <= 0 {
@@ -78,11 +90,15 @@ func (s *Server) flush(ctx context.Context) {
 	directories := sortedKeys(s.scheduler.pending)
 	s.scheduler.pending = make(map[string]bool)
 	for _, directory := range directories {
-		if !slices.Contains(s.scheduler.queue, directory) {
-			s.scheduler.queue = append(s.scheduler.queue, directory)
-		}
+		s.enqueue(directory)
 	}
 	s.pump(ctx)
+}
+
+func (s *Server) enqueue(directory string) {
+	if !slices.Contains(s.scheduler.queue, directory) {
+		s.scheduler.queue = append(s.scheduler.queue, directory)
+	}
 }
 
 // pump starts the next run the policy allows and refreshes the status.
@@ -99,19 +115,26 @@ func (s *Server) pump(ctx context.Context) {
 		directory := schedule.queue[0]
 		schedule.queue = schedule.queue[1:]
 		root, _ := moduleRoot(directory)
-		schedule.foreground = s.start(ctx, runPackage, root, []string{directory}, filepath.Base(directory))
+		request := &runRequest{kind: runPackage, root: root, directories: []string{directory}, label: filepath.Base(directory)}
+		request.startsRipple = !schedule.isolated[directory]
+		delete(schedule.isolated, directory)
+		schedule.foreground = s.start(ctx, request)
 		return
 	}
 	if schedule.background != nil {
 		return
 	}
 	if root, directories, ok := s.nextRipple(); ok {
-		schedule.background = s.start(ctx, runImporters, root, directories, "importers")
+		schedule.background = s.start(ctx, &runRequest{kind: runImporters, root: root, directories: directories, label: "importers"})
 		return
 	}
 	if roots := sortedKeys(schedule.workspaces); len(roots) > 0 {
-		delete(schedule.workspaces, roots[0])
-		schedule.background = s.start(ctx, runWorkspace, roots[0], nil, "workspace")
+		root := roots[0]
+		delete(schedule.workspaces, root)
+		// A whole-module run also answers for packages that no longer exist,
+		// so the directories already stored for the module are covered too.
+		request := &runRequest{kind: runWorkspace, root: root, directories: s.results.directoriesOfModule(root), label: "workspace"}
+		schedule.background = s.start(ctx, request)
 	}
 }
 
@@ -136,11 +159,13 @@ func (s *Server) nextRipple() (string, []string, bool) {
 	return root, directories, true
 }
 
-func (s *Server) start(ctx context.Context, kind runKind, root string, directories []string, label string) *activeRun {
+func (s *Server) start(ctx context.Context, request *runRequest) *activeRun {
 	s.scheduler.nextRunID++
-	request := &runRequest{
-		id: s.scheduler.nextRunID, kind: kind, root: root, directories: directories,
-		texts: s.documents.unsavedTexts(), label: label,
+	request.id = s.scheduler.nextRunID
+	// Unsaved buffers are analyzed only when checks follow typing. In the
+	// other modes findings describe the files as last saved.
+	if s.settings.Run == runOnPause {
+		request.texts = s.documents.unsavedTexts()
 	}
 	limits := runLimits{
 		timeout:      s.settings.timeout(),
@@ -149,8 +174,10 @@ func (s *Server) start(ctx context.Context, kind runKind, root string, directori
 		parallel:     s.settings.MaxParallel,
 		experimental: s.settings.Experimental,
 	}
-	s.logf("check     %s%s", label, strings.TrimSuffix(unsavedNote(request), "…"))
-	s.eventLog.record(event{Event: "run-started", Run: request.id, Detail: kind.String(), Label: label, Unsaved: len(request.texts) > 0})
+	s.logf("check     %s%s", request.label, strings.TrimSuffix(unsavedNote(request), "…"))
+	s.eventLog.record(event{
+		Event: "run-started", Run: request.id, Detail: request.kind.String(), Label: request.label, Unsaved: len(request.texts) > 0,
+	})
 	runContext, cancel := context.WithCancel(ctx)
 	go func() {
 		result := s.runner.execute(runContext, request, limits)
@@ -208,11 +235,7 @@ func (s *Server) finish(ctx context.Context, result runResult) {
 	default:
 		return
 	}
-	findings := len(result.diagnostics)
-	s.eventLog.record(event{
-		Event: "run-finished", Run: result.request.id, Detail: result.request.kind.String(), Label: result.request.label,
-		Outcome: result.outcome.String(), ElapsedMS: result.elapsed.Milliseconds(), PeakBytes: result.peakBytes, Findings: &findings,
-	})
+	s.recordFinished(result)
 	s.apply(result)
 	// The status names the last package the user edited. A clean background
 	// run is not news; a background run that failed or was stopped is.
@@ -222,6 +245,19 @@ func (s *Server) finish(ctx context.Context, result runResult) {
 	s.pump(ctx)
 }
 
+func (s *Server) recordFinished(result runResult) {
+	if !s.eventLog.enabled() {
+		return
+	}
+	findings := len(result.diagnostics)
+	serverBytes, goroutines := serverFootprint()
+	s.eventLog.record(event{
+		Event: "run-finished", Run: result.request.id, Detail: result.request.kind.String(), Label: result.request.label,
+		Outcome: result.outcome.String(), ElapsedMS: result.elapsed.Milliseconds(), PeakBytes: result.peakBytes, Findings: &findings,
+		ServerBytes: serverBytes, Goroutines: goroutines,
+	})
+}
+
 func (s *Server) apply(result runResult) {
 	request := result.request
 	if result.commandLine != "" {
@@ -229,31 +265,57 @@ func (s *Server) apply(result runResult) {
 	}
 	switch result.outcome {
 	case outcomeCompleted:
-		fresh := newConverter(s.options.Catalog, result.overlay).convert(result.diagnostics)
-		covered := result.covered
-		if request.kind == runWorkspace {
-			covered = s.results.directoriesUnder(request.root, fresh)
-		}
-		s.publish(s.results.replace(covered, fresh))
-		for _, analysisError := range result.analysisErrors {
-			s.logf("error     %s", analysisError)
-		}
-		if request.kind == runPackage {
-			s.scheduler.ripple[request.directories[0]] = true
-		}
-		s.logf("done      %s  %s%s  %s", request.label, formatElapsed(result.elapsed), formatPeak(result.peakBytes), countFindings(len(fresh)))
+		s.applyCompleted(result)
 	case outcomeBuildFailed:
-		if request.kind == runPackage {
-			s.results.markStale(request.directories)
-		}
-		s.logf("failed    %s: %s", request.label, firstLines(result.stderr, 3))
+		s.applyBuildFailure(result)
 	case outcomeTimedOut:
+		s.results.markUnresolved(result.covered, result.outcome)
 		s.logf("stopped   %s after %s (time limit)", request.label, formatElapsed(result.elapsed))
 	case outcomeMemoryExceeded:
+		s.results.markUnresolved(result.covered, result.outcome)
 		s.logf("stopped   %s at %s (memory limit %s)", request.label, formatBytes(result.peakBytes), s.settings.MemoryLimit)
 	case outcomeFailed:
 		s.logf("error     %s: %v", request.label, result.err)
 	case outcomeCanceled:
+	}
+}
+
+func (s *Server) applyCompleted(result runResult) {
+	request := result.request
+	fresh := newConverter(s.options.Catalog, result.overlay, s.spelling).convert(result.diagnostics)
+	touched, refused := s.results.replace(result.covered, fresh)
+	s.publish(touched)
+	for _, finding := range refused {
+		// Never silent: a finding that cannot be filed is a finding the user
+		// does not see.
+		s.logf("dropped   finding at %s, outside the packages this run checked: %s", finding.path, finding.diagnostic.Message)
+	}
+	for _, analysisError := range result.analysisErrors {
+		s.logf("error     %s", analysisError)
+	}
+	if request.startsRipple {
+		s.scheduler.ripple[request.directories[0]] = true
+	}
+	s.logf("done      %s  %s%s  %s", request.label, formatElapsed(result.elapsed), formatPeak(result.peakBytes), countFindings(len(fresh)))
+}
+
+// applyBuildFailure records what a failed build leaves unknown. One package
+// that does not compile is simply unresolved. When a run over several
+// packages fails, the output does not say which ones were analyzed, so each
+// is checked again on its own: the ones that build get fresh findings and the
+// ones that do not are marked unresolved individually.
+func (s *Server) applyBuildFailure(result runResult) {
+	request := result.request
+	s.logf("failed    %s: %s", request.label, firstLines(result.stderr, 3))
+	if request.kind == runPackage {
+		s.results.markUnresolved(result.covered, outcomeBuildFailed)
+		return
+	}
+	for _, directory := range result.covered {
+		if !slices.Contains(s.scheduler.queue, directory) {
+			s.scheduler.isolated[directory] = true
+			s.enqueue(directory)
+		}
 	}
 }
 
@@ -270,6 +332,5 @@ func (s *Server) publish(paths []string) {
 
 func firstLines(text string, limit int) string {
 	lines := strings.Split(strings.TrimSpace(text), "\n")
-	kept := lines[:min(limit, len(lines))]
-	return strings.Join(kept, " | ")
+	return strings.Join(lines[:min(limit, len(lines))], " | ")
 }

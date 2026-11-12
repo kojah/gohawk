@@ -2,9 +2,11 @@ package lsp
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/kojah/gohawk/internal/reporting/vetjson"
@@ -72,8 +74,8 @@ func TestPositionsCountUTF16UnitsOfTheAnalyzedText(t *testing.T) {
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "a.go")
 	// "é" is two bytes and one UTF-16 unit; "😀" is four bytes and two units.
-	buffer := &overlay{texts: map[string]string{path: "x\ns := \"é😀\"; call()\n"}, original: map[string]string{}}
-	convert := newConverter(func(string) CheckInfo { return CheckInfo{Experimental: true} }, buffer)
+	buffer := &overlay{texts: map[string]string{path: "x\ns := \"é😀\"; call()\n"}}
+	convert := newConverter(func(string) CheckInfo { return CheckInfo{Experimental: true} }, buffer, nil)
 	byteColumn := len(`s := "é😀"; `) + 1
 	findings := convert.convert([]vetjson.Diagnostic{{
 		Check: "a/b", Message: "m",
@@ -93,26 +95,65 @@ func TestPositionsCountUTF16UnitsOfTheAnalyzedText(t *testing.T) {
 	}
 }
 
-func TestOverlayMapsReportedPathsBack(t *testing.T) {
+// go vet replays cached output that names a replacement file from an earlier
+// run or an earlier server, so the path alone must lead back to the real file.
+func TestOverlayPathsDecodeWithoutTheRunThatWroteThem(t *testing.T) {
 	t.Parallel()
-	real := filepath.Join(t.TempDir(), "pkg", "a.go")
-	written, err := writeOverlay(t.TempDir(), map[string]string{real: "package pkg\n"})
-	if err != nil {
-		t.Fatal(err)
+	long := filepath.Join(t.TempDir(), strings.Repeat("deep/", 60), "name with space é.go")
+	for _, real := range []string{filepath.Join(t.TempDir(), "pkg", "a.go"), filepath.FromSlash(long)} {
+		written, err := writeOverlay(t.TempDir(), map[string]string{real: "package pkg\n"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		temporary := encodeOverlayPath(written.directory, real)
+		if _, err := os.Stat(temporary); err != nil {
+			t.Errorf("replacement for %q was not written: %v", real, err)
+		}
+		written.remove()
+		// Decoding needs neither the overlay value nor the file.
+		if got, ok := decodeOverlayPath(temporary); !ok || got != real {
+			t.Errorf("decodeOverlayPath(%q) = %q, %t; want %q", temporary, got, ok, real)
+		}
+		if filepath.Base(temporary) != filepath.Base(real) {
+			t.Errorf("replacement %q does not keep the base name", temporary)
+		}
 	}
-	defer written.remove()
-	var temporary string
-	for path := range written.original {
-		temporary = path
-	}
-	if got := written.realPath(temporary); got != real {
-		t.Errorf("realPath(%q) = %q, want %q", temporary, got, real)
-	}
-	if got := written.realPath("/elsewhere/b.go"); got != "/elsewhere/b.go" {
-		t.Errorf("an unrelated path was rewritten to %q", got)
+	for _, ordinary := range []string{"/elsewhere/b.go", filepath.Join("/x", overlayMarker, "b.go"), filepath.Join("/x", overlayMarker, "!!!", "b.go")} {
+		if got, ok := decodeOverlayPath(ordinary); ok {
+			t.Errorf("an ordinary path %q decoded to %q", ordinary, got)
+		}
 	}
 	if none, err := writeOverlay(t.TempDir(), nil); none != nil || err != nil {
 		t.Errorf("no unsaved buffers produced an overlay: %v, %v", none, err)
+	}
+}
+
+func TestResolvedPathsAreSpelledAsTheEditorSpellsThem(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("creating symbolic links needs a privilege on Windows")
+	}
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, link := filepath.Join(base, "real"), filepath.Join(base, "link")
+	if err := os.MkdirAll(filepath.Join(target, "pkg"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	spelling := newPathSpelling([]string{link})
+	want := filepath.Join(link, "pkg", "a.go")
+	for _, reported := range []string{filepath.Join(target, "pkg", "a.go"), want} {
+		if got := spelling.editorPath(reported); got != want {
+			t.Errorf("editorPath(%q) = %q, want %q", reported, got, want)
+		}
+	}
+	outside := filepath.Join(base, "other", "b.go")
+	if got := spelling.editorPath(outside); got != outside {
+		t.Errorf("a path outside the workspace was rewritten to %q", got)
 	}
 }
 
@@ -126,21 +167,44 @@ func TestStoreReplacesOnlyCoveredPackages(t *testing.T) {
 	store.replace([]string{filepath.Dir(a), filepath.Dir(b)}, []fileDiagnostic{finding(a), finding(b)})
 
 	// Re-checking a alone finds nothing: a is cleared and republished, b stays.
-	touched := store.replace([]string{filepath.Dir(a)}, nil)
+	touched, _ := store.replace([]string{filepath.Dir(a)}, nil)
 	if !reflect.DeepEqual(touched, []string{a}) {
 		t.Errorf("touched = %v, want only %s", touched, a)
 	}
 	if len(store.forFile(a)) != 0 || len(store.forFile(b)) != 1 || store.total() != 1 {
 		t.Errorf("after replace: a=%d b=%d total=%d", len(store.forFile(a)), len(store.forFile(b)), store.total())
 	}
-	// A finding outside the covered packages is not installed.
-	store.replace([]string{filepath.Dir(a)}, []fileDiagnostic{finding(filepath.FromSlash("/m/c/c.go"))})
-	if store.total() != 1 {
-		t.Errorf("an uncovered finding was stored; total = %d", store.total())
+	// A finding outside the covered packages is refused, and reported back.
+	_, refused := store.replace([]string{filepath.Dir(a)}, []fileDiagnostic{finding(filepath.FromSlash("/m/c/c.go"))})
+	if store.total() != 1 || len(refused) != 1 {
+		t.Errorf("uncovered finding: total = %d, refused = %d", store.total(), len(refused))
 	}
-	store.markStale([]string{filepath.Dir(a), filepath.Dir(b)})
-	if !store.stale[filepath.Dir(b)] || store.stale[filepath.Dir(a)] {
-		t.Errorf("stale = %v, want only the package that has findings", store.stale)
+}
+
+func TestStoreKeepsAPackageUnresolvedUntilItIsCheckedAgain(t *testing.T) {
+	t.Parallel()
+	store := newResultStore()
+	a, b := filepath.FromSlash("/m/a"), filepath.FromSlash("/m/b")
+	store.replace([]string{a}, []fileDiagnostic{{path: filepath.Join(a, "a.go")}})
+	// b has no findings; it must still be remembered as not compiling.
+	store.markUnresolved([]string{a, b}, outcomeBuildFailed)
+	if broken, stale := store.unresolvedBy(outcomeBuildFailed); len(broken) != 2 || stale != 1 {
+		t.Errorf("unresolved = %v with %d stale findings, want both packages and one finding", broken, stale)
+	}
+	// Checking an unrelated package changes nothing about a and b.
+	store.replace([]string{filepath.FromSlash("/m/c")}, nil)
+	if broken, _ := store.unresolvedBy(outcomeBuildFailed); len(broken) != 2 {
+		t.Errorf("unresolved after an unrelated check = %v", broken)
+	}
+	store.replace([]string{b}, nil)
+	if broken, _ := store.unresolvedBy(outcomeBuildFailed); !reflect.DeepEqual(broken, []string{a}) {
+		t.Errorf("unresolved after b compiled again = %v, want only a", broken)
+	}
+	if touched := store.dropUnder(a); len(touched) != 1 || store.total() != 0 {
+		t.Errorf("dropUnder: touched %v, total %d", touched, store.total())
+	}
+	if broken, _ := store.unresolvedBy(outcomeBuildFailed); len(broken) != 0 {
+		t.Errorf("a deleted package is still unresolved: %v", broken)
 	}
 }
 

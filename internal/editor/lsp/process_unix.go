@@ -29,9 +29,10 @@ func largestProcessMemory(state *os.ProcessState) (int64, bool) {
 	if !ok || usage.Maxrss <= 0 {
 		return 0, false
 	}
+	peak := int64(usage.Maxrss) //nolint:unconvert // Maxrss is 32 bits wide on 32-bit platforms
 	// Linux counts kilobytes; macOS counts bytes.
 	if runtime.GOOS == "darwin" {
-		return int64(usage.Maxrss), true
+		return peak, true
 	}
-	return int64(usage.Maxrss) * 1024, true
+	return peak * 1024, true
 }

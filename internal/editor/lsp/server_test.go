@@ -164,7 +164,10 @@ func startEditor(t *testing.T, options editorOptions) *editor {
 			Executable: binary,
 			EventLog:   options.eventLog,
 			Catalog: func(check string) CheckInfo {
-				return CheckInfo{Help: "help for " + check, DocumentationURL: "https://example.com/" + check}
+				return CheckInfo{
+					Help: "help for " + check, DocumentationURL: "https://example.com/" + check,
+					Experimental: strings.HasPrefix(check, "processownership/"),
+				}
 			},
 		})
 		// Closing the pipe ends the editor's read loop; it cannot fail.
@@ -272,6 +275,51 @@ func (e *editor) change(path, text string, version int) {
 		"textDocument":   map[string]any{"uri": uriFromPath(path), "version": version},
 		"contentChanges": []contentChange{{Text: text}},
 	})
+}
+
+func (e *editor) close(path string) {
+	e.notify(methodDidClose, documentParams{TextDocument: textDocumentIdentifier{URI: uriFromPath(path)}})
+}
+
+func (e *editor) save(path string) {
+	e.notify(methodDidSave, documentParams{TextDocument: textDocumentIdentifier{URI: uriFromPath(path)}})
+}
+
+func (e *editor) command(name string, arguments ...any) {
+	e.t.Helper()
+	e.call(methodExecuteCommand, map[string]any{"command": name, "arguments": arguments})
+}
+
+// awaitFindings waits until a list of exactly want findings is published for
+// path, skipping lists published on the way there.
+func (e *editor) awaitFindings(path string, want int) []diagnostic {
+	e.t.Helper()
+	deadline := time.After(scenarioTimeout)
+	last := -1
+	for {
+		select {
+		case published := <-e.diagnostics:
+			if published.URI != uriFromPath(path) {
+				continue
+			}
+			if last = len(published.Diagnostics); last == want {
+				return published.Diagnostics
+			}
+		case <-deadline:
+			e.t.Fatalf("%s never had %d findings published; last list had %d", path, want, last)
+			return nil
+		}
+	}
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // awaitDiagnostics returns the next published list for path.
@@ -382,8 +430,8 @@ func TestUnsavedFixClearsFindingAndBrokenBuildKeepsIt(t *testing.T) {
 	}
 	client.change(path, strings.Replace(leakSource, `"io"`, `"ioo"`, 1), 4)
 	status := client.awaitStatus(stateStale)
-	if status.Findings != 1 || !strings.Contains(status.Text, "stale") {
-		t.Errorf("status = %+v, want one finding marked stale", status)
+	if status.Findings != 1 || !strings.Contains(status.Text, "build failed in leak") || !strings.Contains(status.Tooltip, "stale") {
+		t.Errorf("status = %+v, want one finding kept and the build failure named", status)
 	}
 	client.expectQuiet(path, 300*time.Millisecond)
 }
@@ -505,6 +553,9 @@ func TestEventLogOrdersAnEditBeforeTheFindingsThatAnswerIt(t *testing.T) {
 		}
 		if logged.Event == "run-finished" && (logged.Outcome != "completed" || logged.Findings == nil || *logged.Findings != 1) {
 			t.Errorf("run-finished = %+v, want a completed run with one finding", logged)
+		}
+		if logged.Event == "run-finished" && (logged.ServerBytes == 0 || logged.Goroutines == 0) {
+			t.Errorf("run-finished = %+v, want the server's own footprint", logged)
 		}
 	}
 	if want := "document,run-started,run-finished,published"; strings.Join(order, ",") != want {

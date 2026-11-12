@@ -41,27 +41,57 @@ type listedPackage struct {
 	Imports    []string `json:"Imports"`
 }
 
-// importers returns the directories of every package in the module that
-// imports one of the changed directories, directly or through other packages.
-// Facts flow along imports, so a changed package can change findings in all
-// of them.
+// importers returns the directories of every package that imports one of the
+// changed directories, directly or through other packages. Facts flow along
+// imports, so a changed package can change findings in all of them. With a
+// go.work file the search covers every module of the workspace, because an
+// importer may live in a sibling module.
 func importers(ctx context.Context, root, overlayFile string, changed []string) ([]string, error) {
+	patterns := []string{"./..."}
+	for _, module := range workspaceModules(ctx, root) {
+		if module != root {
+			patterns = append(patterns, filepath.ToSlash(module)+"/...")
+		}
+	}
+	packages, err := listPackages(ctx, root, overlayFile, patterns)
+	if err != nil {
+		return nil, err
+	}
+	return reverseClosure(packages, changed), nil
+}
+
+// workspaceModules lists the main modules the go command sees from root:
+// one module, or every module a go.work file names. It returns nil when the
+// go command cannot say, and the caller then searches root alone.
+func workspaceModules(ctx context.Context, root string) []string {
+	command := exec.CommandContext(ctx, "go", "list", "-m", "-f", "{{.Dir}}")
+	command.Dir = root
+	output, err := command.Output()
+	if err != nil {
+		return nil
+	}
+	var modules []string
+	for line := range strings.Lines(string(output)) {
+		if directory := strings.TrimSpace(line); directory != "" {
+			modules = append(modules, filepath.Clean(directory))
+		}
+	}
+	return modules
+}
+
+func listPackages(ctx context.Context, root, overlayFile string, patterns []string) ([]listedPackage, error) {
 	arguments := []string{"list", "-e", "-json=Dir,ImportPath,Imports"}
 	if overlayFile != "" {
 		arguments = append(arguments, "-overlay="+overlayFile)
 	}
-	command := exec.CommandContext(ctx, "go", append(arguments, "./...")...)
+	command := exec.CommandContext(ctx, "go", append(arguments, patterns...)...)
 	command.Dir = root
 	var stdout bytes.Buffer
 	command.Stdout = &stdout
 	if err := command.Run(); err != nil {
 		return nil, err
 	}
-	packages, err := decodeListedPackages(&stdout)
-	if err != nil {
-		return nil, err
-	}
-	return reverseClosure(packages, changed), nil
+	return decodeListedPackages(&stdout)
 }
 
 func decodeListedPackages(input io.Reader) ([]listedPackage, error) {

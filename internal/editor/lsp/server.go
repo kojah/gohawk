@@ -43,6 +43,7 @@ type Server struct {
 	// them are checked: editors also open dependency and standard library
 	// files to show a definition, and those are not the user's code.
 	workspaceRoots []string
+	spelling       *pathSpelling
 	documents      *documentStore
 	results        *resultStore
 	events         chan func()
@@ -161,14 +162,17 @@ func (s *Server) handleNotification(ctx context.Context, incoming *message) (exi
 	case methodDidClose:
 		var params documentParams
 		if decode(incoming.Params, &params) {
-			if path, ok := pathFromURI(params.TextDocument.URI); ok {
-				s.documents.close(path)
-			}
+			s.didClose(ctx, params)
 		}
 	case methodDidChangeConfiguration:
 		var params configurationParams
 		if decode(incoming.Params, &params) && params.Settings.Gohawk != nil {
-			s.settings = params.Settings.Gohawk.normalized()
+			s.applySettings(ctx, params.Settings.Gohawk.normalized())
+		}
+	case methodDidChangeWatchedFiles:
+		var params watchedFilesParams
+		if decode(incoming.Params, &params) {
+			s.didChangeWatchedFiles(ctx, params)
 		}
 	}
 	return false
@@ -202,6 +206,7 @@ func (s *Server) initialize(raw json.RawMessage) initializeResult {
 	if decode(raw, &params) {
 		s.workspaceRoots = workspaceRoots(params)
 	}
+	s.spelling = newPathSpelling(s.workspaceRoots)
 	if len(params.InitializationOptions) > 0 {
 		var options initializationOptions
 		options.Settings = s.settings
@@ -245,12 +250,85 @@ func (s *Server) didChange(ctx context.Context, params didChangeParams) {
 		return
 	}
 	s.eventLog.record(event{Event: "document", Detail: "change", Path: path, Version: params.TextDocument.Version})
-	// The findings on screen describe older text. Stop work that would
-	// report against it, whether or not a new check follows.
-	s.cancelRunsFor(filepath.Dir(path))
+	// Only when checks follow typing do findings describe the buffer. In the
+	// other modes they describe the saved file, which an edit does not change,
+	// so a run in flight stays valid.
 	if s.settings.Run == runOnPause {
 		s.requestCheck(ctx, path, s.settings.debounce())
 	}
+}
+
+// didClose handles a buffer the editor dropped. If it held unsaved text the
+// findings shown were computed from text that is gone, so the package is
+// checked again from disk.
+func (s *Server) didClose(ctx context.Context, params documentParams) {
+	path, ok := pathFromURI(params.TextDocument.URI)
+	if !ok {
+		return
+	}
+	if s.documents.close(path) && s.settings.Run == runOnPause && s.skipReason(path) == "" {
+		s.requestDirectory(ctx, filepath.Dir(path), 0)
+	}
+}
+
+// applySettings installs new settings. Turning experimental checks off
+// removes their findings at once; turning them on or off re-checks the open
+// packages, because the stored findings were computed under the old choice.
+func (s *Server) applySettings(ctx context.Context, next settings) {
+	experimentalChanged := next.Experimental != s.settings.Experimental
+	s.settings = next
+	if !experimentalChanged {
+		return
+	}
+	if !next.Experimental {
+		s.publish(s.results.dropWhere(func(finding diagnostic) bool { return finding.Severity == severityInformation }))
+	}
+	if next.Run == runManual {
+		s.publishStatus()
+		return
+	}
+	directories := make(map[string]bool)
+	for path := range s.documents.byPath {
+		if s.skipReason(path) == "" {
+			directories[filepath.Dir(path)] = true
+		}
+	}
+	for _, directory := range sortedKeys(directories) {
+		s.requestDirectory(ctx, directory, 0)
+	}
+	s.publishStatus()
+}
+
+// didChangeWatchedFiles handles changes the editor saw on disk: a deleted
+// file or directory loses its findings at once, and a package whose files
+// changed outside an open buffer is checked again.
+func (s *Server) didChangeWatchedFiles(ctx context.Context, params watchedFilesParams) {
+	directories := make(map[string]bool)
+	for _, change := range params.Changes {
+		path, ok := pathFromURI(change.URI)
+		if !ok || !s.insideWorkspace(path) {
+			continue
+		}
+		if change.Change == fileDeleted {
+			s.publish(s.results.dropUnder(path))
+		}
+		// A save of an open buffer arrives as didSave; checking again here
+		// would only repeat it.
+		if s.documents.isOpen(path) || filepath.Ext(path) != ".go" || strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		if info, err := os.Stat(filepath.Dir(path)); err == nil && info.IsDir() {
+			directories[filepath.Dir(path)] = true
+		}
+	}
+	if s.settings.Run != runManual {
+		for _, directory := range sortedKeys(directories) {
+			if _, ok := moduleRoot(directory); ok {
+				s.requestDirectory(ctx, directory, s.settings.debounce())
+			}
+		}
+	}
+	s.publishStatus()
 }
 
 func (s *Server) didSave(ctx context.Context, params documentParams) {

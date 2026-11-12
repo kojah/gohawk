@@ -3,6 +3,7 @@ package lsp
 import (
 	"encoding/json"
 	"io"
+	"runtime"
 	"time"
 )
 
@@ -31,8 +32,13 @@ type event struct {
 	ElapsedMS int64  `json:"elapsedMs,omitempty"`
 	PeakBytes int64  `json:"peakBytes,omitempty"`
 	Findings  *int   `json:"findings,omitempty"`
-	State     string `json:"state,omitempty"`
-	Text      string `json:"text,omitempty"`
+	// ServerBytes and Goroutines describe the server process itself when a
+	// run finishes. They should stay flat over a session: the server holds
+	// bookkeeping, not analysis state.
+	ServerBytes uint64 `json:"serverBytes,omitempty"`
+	Goroutines  int    `json:"goroutines,omitempty"`
+	State       string `json:"state,omitempty"`
+	Text        string `json:"text,omitempty"`
 }
 
 func (l *eventLog) record(next event) {
@@ -46,6 +52,19 @@ func (l *eventLog) record(next event) {
 	}
 	// The log is best-effort: a full disk must not stop checks.
 	_, _ = l.writer.Write(append(encoded, '\n'))
+}
+
+// enabled lets a caller skip work that only feeds the log.
+func (l *eventLog) enabled() bool {
+	return l != nil && l.writer != nil
+}
+
+// serverFootprint returns the memory the Go runtime has obtained from the
+// operating system for this process, and its goroutine count.
+func serverFootprint() (uint64, int) {
+	var stats runtime.MemStats
+	runtime.ReadMemStats(&stats)
+	return stats.Sys, runtime.NumGoroutine()
 }
 
 func (k runKind) String() string {

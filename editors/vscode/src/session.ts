@@ -2,7 +2,7 @@
 // sending it commands. Everything the server says is validated before it
 // reaches the rest of the extension.
 
-import type * as vscode from 'vscode';
+import * as vscode from 'vscode';
 import {
 	LanguageClient,
 	type LanguageClientOptions,
@@ -33,6 +33,7 @@ export type SessionOptions = {
 export class Session implements vscode.Disposable {
 	private client: LanguageClient | undefined;
 	private readonly options: SessionOptions;
+	private readonly watcher = vscode.workspace.createFileSystemWatcher('**/*.go');
 
 	constructor(options: SessionOptions) {
 		this.options = options;
@@ -54,7 +55,9 @@ export class Session implements vscode.Disposable {
 		const clientOptions: LanguageClientOptions = {
 			documentSelector: [{ scheme: 'file', language: 'go' }],
 			outputChannel: this.options.output,
-			synchronize: { configurationSection: 'gohawk' },
+			// Files change on disk without passing through an open buffer: a
+			// branch switch, a generator, a delete. The server needs to hear.
+			synchronize: { configurationSection: 'gohawk', fileEvents: this.watcher },
 			initializationOptions: { settings, clientCommands: this.options.clientCommands },
 		};
 		const client = new LanguageClient('gohawk', 'gohawk', serverOptions, clientOptions);
@@ -109,6 +112,7 @@ export class Session implements vscode.Disposable {
 	}
 
 	dispose(): void {
+		this.watcher.dispose();
 		void this.stop();
 	}
 }
