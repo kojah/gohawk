@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+  # The packaging tool can read credentials from the system keychain through
+  # these; publishing is done by hand with a token, so neither is built.
+  "@vscode/vsce-sign": false
+  keytar: false

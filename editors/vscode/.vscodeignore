@@ -1,0 +1,14 @@
+.vscode-test/
+node_modules/
+src/
+test/
+out/
+esbuild.mjs
+tsconfig.json
+biome.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+.gitignore
+**/*.map
+.vscode/
+acceptance/

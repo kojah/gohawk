@@ -1,0 +1,210 @@
+{
+	"name": "gohawk",
+	"displayName": "gohawk",
+	"description": "Precise resource-leak and concurrency findings for Go, with the evidence path.",
+	"version": "0.1.0",
+	"publisher": "kojah",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/kojah/gohawk.git",
+		"directory": "editors/vscode"
+	},
+	"homepage": "https://gohawk.dev",
+	"engines": {
+		"vscode": "^1.90.0"
+	},
+	"categories": [
+		"Linters",
+		"Programming Languages"
+	],
+	"keywords": [
+		"go",
+		"golang",
+		"static analysis",
+		"concurrency",
+		"resource leak"
+	],
+	"activationEvents": [
+		"onLanguage:go"
+	],
+	"main": "./dist/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "gohawk.checkPackage",
+				"title": "gohawk: Check Current Package"
+			},
+			{
+				"command": "gohawk.checkWorkspace",
+				"title": "gohawk: Check Workspace"
+			},
+			{
+				"command": "gohawk.stepPathAtCursor",
+				"title": "gohawk: Step Through Path"
+			},
+			{
+				"command": "gohawk.explainAtCursor",
+				"title": "gohawk: Explain Finding"
+			},
+			{
+				"command": "gohawk.stepNext",
+				"title": "gohawk: Next Path Step"
+			},
+			{
+				"command": "gohawk.stepPrevious",
+				"title": "gohawk: Previous Path Step"
+			},
+			{
+				"command": "gohawk.stepExit",
+				"title": "gohawk: Exit Path Stepping"
+			},
+			{
+				"command": "gohawk.showOutput",
+				"title": "gohawk: Show Output"
+			},
+			{
+				"command": "gohawk.restart",
+				"title": "gohawk: Restart Server"
+			},
+			{
+				"command": "gohawk.clearResults",
+				"title": "gohawk: Clear Results"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "gohawk.stepNext",
+					"when": "gohawk.steppingPath"
+				},
+				{
+					"command": "gohawk.stepPrevious",
+					"when": "gohawk.steppingPath"
+				},
+				{
+					"command": "gohawk.stepExit",
+					"when": "gohawk.steppingPath"
+				}
+			]
+		},
+		"keybindings": [
+			{
+				"command": "gohawk.stepExit",
+				"key": "escape",
+				"when": "gohawk.steppingPath && editorTextFocus && !suggestWidgetVisible && !findWidgetVisible"
+			},
+			{
+				"command": "gohawk.stepNext",
+				"key": "alt+]",
+				"when": "gohawk.steppingPath && editorTextFocus"
+			},
+			{
+				"command": "gohawk.stepPrevious",
+				"key": "alt+[",
+				"when": "gohawk.steppingPath && editorTextFocus"
+			}
+		],
+		"configuration": {
+			"title": "gohawk",
+			"properties": {
+				"gohawk.run": {
+					"type": "string",
+					"enum": [
+						"onPause",
+						"onSave",
+						"manual"
+					],
+					"enumDescriptions": [
+						"Check shortly after you stop typing, including unsaved changes.",
+						"Check when a file is saved.",
+						"Check only when you run a gohawk command."
+					],
+					"default": "onPause",
+					"description": "When to check. Nothing stays in memory between checks."
+				},
+				"gohawk.debounce": {
+					"type": "number",
+					"default": 750,
+					"minimum": 0,
+					"description": "Milliseconds after the last keystroke before a check starts."
+				},
+				"gohawk.scope": {
+					"type": "string",
+					"enum": [
+						"packageThenImporters",
+						"package",
+						"workspaceOnSave"
+					],
+					"enumDescriptions": [
+						"Check the edited package first, then the packages that import it at low priority.",
+						"Check only the edited package.",
+						"Check the edited package on pause, and the whole module on save."
+					],
+					"default": "packageThenImporters",
+					"description": "What to check after an edit. A change to a package can change findings in the packages that import it."
+				},
+				"gohawk.experimental": {
+					"type": "boolean",
+					"default": false,
+					"description": "Include experimental checks. They are lower-confidence and show as information."
+				},
+				"gohawk.memoryLimit": {
+					"type": "string",
+					"default": "2GiB",
+					"pattern": "^[0-9]+(B|KiB|MiB|GiB|TiB)?$",
+					"description": "Memory limit for one check. A check that passes it is stopped and reported as stopped."
+				},
+				"gohawk.maxParallel": {
+					"type": "number",
+					"default": 2,
+					"minimum": 1,
+					"description": "How many packages a background check analyzes at once."
+				},
+				"gohawk.timeout": {
+					"type": "number",
+					"default": 60,
+					"minimum": 1,
+					"description": "Seconds one check may run before it is stopped."
+				},
+				"gohawk.path": {
+					"type": "string",
+					"default": "",
+					"scope": "machine-overridable",
+					"description": "Path to a gohawk binary. Empty uses the version this extension downloads, or gohawk on PATH."
+				},
+				"gohawk.eventLog": {
+					"type": "string",
+					"default": "",
+					"scope": "machine-overridable",
+					"description": "File to append scheduling events to, one JSON object per line. For measuring latency; leave empty in normal use."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"check": "biome check . && tsc --noEmit",
+		"lint:fix": "biome check --write .",
+		"build": "node esbuild.mjs",
+		"test": "node --test \"test/unit/*.test.ts\"",
+		"test:editor": "node esbuild.mjs --tests && node out/test/runTest.js",
+		"package": "node esbuild.mjs && cp ../../LICENSE LICENSE && vsce package --no-dependencies",
+		"acceptance": "node acceptance/run.mjs"
+	},
+	"dependencies": {
+		"vscode-languageclient": "^9.0.1"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.10",
+		"@types/mocha": "^10.0.10",
+		"@types/node": "^24.0.0",
+		"@types/vscode": "~1.90.0",
+		"@vscode/test-electron": "^2.5.2",
+		"@vscode/vsce": "^3.6.0",
+		"esbuild": "^0.25.0",
+		"mocha": "^11.7.0",
+		"playwright-core": "^1.65.0",
+		"typescript": "^7.0.2"
+	},
+	"packageManager": "pnpm@11.24.0"
+}
