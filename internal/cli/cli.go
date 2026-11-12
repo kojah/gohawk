@@ -150,6 +150,8 @@ func runInformationalCommand(arguments []string, runtime cliRuntime) (cliResult,
 		err = printDocumentation(arguments[2:], runtime.output, runtime.errorsOutput)
 	case "dump":
 		err = runDump(arguments[2:], runtime.output, runtime.errorsOutput)
+	case "lsp":
+		err = runLanguageServer(arguments[2:], runtime)
 	default:
 		return cliResult{}, false
 	}
