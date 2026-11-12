@@ -29,3 +29,6 @@ go.work.sum
 /docs/analyzers/index.md
 /.agents/skills/gohawk-codebase/references/*.md
 !/.agents/skills/gohawk-codebase/references/shared-helpers.md
+
+# Private talk materials
+talks/
