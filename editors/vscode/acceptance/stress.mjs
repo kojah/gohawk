@@ -92,6 +92,9 @@ const uri = pathToFileURL(file).toString();
 const original = await readFile(file, 'utf8');
 const waitSeconds = Number(options.wait);
 const rounds = [];
+// go vet caches results by content, so each run's edits must be text no
+// earlier run produced; otherwise an edit measures a cache hit.
+const runStamp = Date.now();
 
 send({
 	id: 1,
@@ -143,7 +146,7 @@ for (let edit = 1; edit <= Number(options.edits); edit++) {
 			method: 'textDocument/didChange',
 			params: {
 				textDocument: { uri, version: edit + 1 },
-				contentChanges: [{ text: `${original}\n// stress edit ${edit}\n` }],
+				contentChanges: [{ text: `${original}\n// stress edit ${edit} of run ${runStamp}\n` }],
 			},
 		}),
 	);
