@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kojah/gohawk/internal/reporting/vetjson"
+
 	gohawk "github.com/kojah/gohawk/analyzers"
 )
 
@@ -19,7 +21,7 @@ import (
 // never decides which analyzer findings are valid.
 
 func renderDelegatedDiagnostics(data []byte, contextLines int, output io.Writer) int {
-	diagnostics, analysisErrors, err := decodeDiagnostics(data)
+	diagnostics, analysisErrors, err := vetjson.Decode(data)
 	if err != nil {
 		writeFormattedf(output, "gohawk: decode analyzer output: %v\n", err)
 		_, _ = output.Write(data)
@@ -42,7 +44,7 @@ func renderDelegatedDiagnostics(data []byte, contextLines int, output io.Writer)
 // renderDocumentationFooter links each analyzer that reported, once, after
 // every diagnostic. A link under each warning would repeat the same page for
 // every finding of a run.
-func renderDocumentationFooter(output io.Writer, diagnostics []positionedDiagnostic) {
+func renderDocumentationFooter(output io.Writer, diagnostics []vetjson.Diagnostic) {
 	pages := make(map[string]string)
 	for _, group := range gohawk.AnalyzerGroups() {
 		for _, analyzer := range group.Analyzers {
@@ -114,7 +116,7 @@ func terminalColors(output io.Writer) colorPalette {
 // end of the line, then the primary span. Evidence in the same file joins the
 // primary span in one snippet, in line order with "..." over the gaps, the way
 // rustc shows secondary spans; evidence elsewhere gets its own snippet.
-func renderDiagnostic(output io.Writer, diagnostic positionedDiagnostic, contextLines int, colors colorPalette) {
+func renderDiagnostic(output io.Writer, diagnostic vetjson.Diagnostic, contextLines int, colors colorPalette) {
 	check := diagnostic.Check
 	if check == "" {
 		check = diagnostic.Analyzer
@@ -126,14 +128,14 @@ func renderDiagnostic(output io.Writer, diagnostic positionedDiagnostic, context
 	writeFormattedf(output, "  %s-->%s %s:%d:%d\n", colors.cyan, colors.reset,
 		diagnostic.Start.Filename, diagnostic.Start.Line, diagnostic.Start.Column)
 	spans := []labeledSpan{{start: diagnostic.Start, end: diagnostic.End}}
-	var elsewhere []jsonRelated
+	var elsewhere []vetjson.Related
 	for _, related := range diagnostic.Related {
-		start, err := parsePosition(related.Posn)
+		start, err := vetjson.ParsePosition(related.Posn)
 		if err != nil || start.Filename != diagnostic.Start.Filename {
 			elsewhere = append(elsewhere, related)
 			continue
 		}
-		end, err := parsePosition(related.End)
+		end, err := vetjson.ParsePosition(related.End)
 		if err != nil {
 			end = start
 		}
@@ -171,7 +173,7 @@ var checkHelp = sync.OnceValue(func() map[string]string {
 
 // labeledSpan is a source range with an optional label drawn after its marker.
 type labeledSpan struct {
-	start, end sourcePosition
+	start, end vetjson.Position
 	label      string
 }
 
@@ -196,7 +198,7 @@ func renderSnippet(output io.Writer, spans []labeledSpan, contextLines int, colo
 		// on its first line only; underlining every line of a block buries
 		// the evidence around it.
 		if span.end.Line > span.start.Line {
-			span.end = sourcePosition{Filename: span.start.Filename, Line: span.start.Line, Column: len(lines[span.start.Line-1]) + 1}
+			span.end = vetjson.Position{Filename: span.start.Filename, Line: span.start.Line, Column: len(lines[span.start.Line-1]) + 1}
 		}
 		valid = append(valid, span)
 	}
@@ -239,13 +241,13 @@ func renderSnippet(output io.Writer, spans []labeledSpan, contextLines int, colo
 
 // renderRelated draws evidence from another file as its own snippet, falling
 // back to a note when the source cannot be read.
-func renderRelated(output io.Writer, related jsonRelated, contextLines int, colors colorPalette) {
-	start, err := parsePosition(related.Posn)
+func renderRelated(output io.Writer, related vetjson.Related, contextLines int, colors colorPalette) {
+	start, err := vetjson.ParsePosition(related.Posn)
 	if err != nil || contextLines < 0 {
 		writeFormattedf(output, "  = note: %s: %s\n", related.Posn, related.Message)
 		return
 	}
-	end, err := parsePosition(related.End)
+	end, err := vetjson.ParsePosition(related.End)
 	if err != nil {
 		end = start
 	}
@@ -255,7 +257,7 @@ func renderRelated(output io.Writer, related jsonRelated, contextLines int, colo
 	}
 }
 
-func markerRange(line string, lineNumber int, start, end sourcePosition) (int, int) {
+func markerRange(line string, lineNumber int, start, end vetjson.Position) (int, int) {
 	column := 1
 	if lineNumber == start.Line {
 		column = max(1, start.Column)

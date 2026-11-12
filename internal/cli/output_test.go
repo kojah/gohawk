@@ -7,10 +7,12 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/kojah/gohawk/internal/reporting/vetjson"
 )
 
 func TestParsePosition(t *testing.T) {
-	position, err := parsePosition(`C:\work\sample.go:12:7`)
+	position, err := vetjson.ParsePosition(`C:\work\sample.go:12:7`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,10 +29,10 @@ func TestRenderDiagnosticUsesFullRange(t *testing.T) {
 	}
 
 	var output bytes.Buffer
-	renderDiagnostic(&output, positionedDiagnostic{
+	renderDiagnostic(&output, vetjson.Diagnostic{
 		Analyzer: "example",
-		Start:    sourcePosition{Filename: filename, Line: 4, Column: 2},
-		End:      sourcePosition{Filename: filename, Line: 4, Column: 11},
+		Start:    vetjson.Position{Filename: filename, Line: 4, Column: 2},
+		End:      vetjson.Position{Filename: filename, Line: 4, Column: 11},
 		Message:  "problem found",
 	}, 0, colorPalette{})
 
@@ -51,7 +53,7 @@ func TestDecodeDiagnosticsDeduplicatesTestVariants(t *testing.T) {
 		"example.com/sample": {"rule": [{"posn":"sample.go:3:2","end":"sample.go:3:6","message":"problem"}]},
 		"example.com/sample [example.com/sample.test]": {"rule": [{"posn":"sample.go:3:2","end":"sample.go:3:6","message":"problem"}]}
 	}`)
-	diagnostics, analysisErrors, err := decodeDiagnostics(data)
+	diagnostics, analysisErrors, err := vetjson.Decode(data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +64,7 @@ func TestDecodeDiagnosticsDeduplicatesTestVariants(t *testing.T) {
 
 func TestDocumentationFooterLinksEachAnalyzerOnce(t *testing.T) {
 	var output strings.Builder
-	renderDocumentationFooter(&output, []positionedDiagnostic{
+	renderDocumentationFooter(&output, []vetjson.Diagnostic{
 		{Analyzer: "lockorder"}, {Analyzer: "resourcelifetime"}, {Analyzer: "lockorder"}, {Analyzer: "unknown"},
 	})
 	want := "\nLearn more about these findings:\n" +
@@ -81,14 +83,14 @@ func TestDocumentationFooterLinksEachAnalyzerOnce(t *testing.T) {
 }
 
 func TestRenderDiagnosticDrawsLabeledEvidence(t *testing.T) {
-	text := renderSample(t, "package sample\n\nfunc f() {\n\topen()\n\treturn\n}\n", func(filename string) positionedDiagnostic {
-		return positionedDiagnostic{
+	text := renderSample(t, "package sample\n\nfunc f() {\n\topen()\n\treturn\n}\n", func(filename string) vetjson.Diagnostic {
+		return vetjson.Diagnostic{
 			Analyzer: "example",
 			Check:    "example/leak",
-			Start:    sourcePosition{Filename: filename, Line: 4, Column: 2},
-			End:      sourcePosition{Filename: filename, Line: 4, Column: 8},
+			Start:    vetjson.Position{Filename: filename, Line: 4, Column: 2},
+			End:      vetjson.Position{Filename: filename, Line: 4, Column: 8},
 			Message:  "leaked",
-			Related: []jsonRelated{
+			Related: []vetjson.Related{
 				{Posn: filename + ":5:2", End: filename + ":5:8", Message: "returns here without releasing it"},
 				{Posn: "elsewhere.go:9:1", Message: "a location with no readable source"},
 			},
@@ -109,10 +111,10 @@ func TestRenderDiagnosticDrawsLabeledEvidence(t *testing.T) {
 
 func TestRenderDiagnosticPrintsCheckHelp(t *testing.T) {
 	var output bytes.Buffer
-	renderDiagnostic(&output, positionedDiagnostic{
+	renderDiagnostic(&output, vetjson.Diagnostic{
 		Analyzer: "resourcelifetime",
 		Check:    "resourcelifetime/missing-release",
-		Start:    sourcePosition{Filename: "missing.go", Line: 1, Column: 1},
+		Start:    vetjson.Position{Filename: "missing.go", Line: 1, Column: 1},
 		Message:  "leaked",
 	}, 0, colorPalette{})
 	if !strings.Contains(output.String(), "= help: release it on every return path") {
@@ -126,7 +128,7 @@ func TestRenderDiagnosticSpanLayout(t *testing.T) {
 		name    string
 		source  string
 		primary span
-		related []jsonRelated
+		related []vetjson.Related
 		want    []string
 		reject  []string
 		markers int
@@ -135,7 +137,7 @@ func TestRenderDiagnosticSpanLayout(t *testing.T) {
 			name:    "an overlapping span keeps both markers",
 			source:  "package sample\n\nfunc f() {\n\tfor {\n\t\tdefer g()\n\t}\n}\n",
 			primary: span{5, 3, 5, 12},
-			related: []jsonRelated{{Posn: ":4:2", End: ":6:3", Message: "the whole loop"}},
+			related: []vetjson.Related{{Posn: ":4:2", End: ":6:3", Message: "the whole loop"}},
 			want:    []string{"| \t\t^~~~~~~~~\n", "the whole loop"},
 			markers: 2,
 		},
@@ -143,7 +145,7 @@ func TestRenderDiagnosticSpanLayout(t *testing.T) {
 			name:    "a block is marked on its first line",
 			source:  "package sample\n\nfunc f() {\n\tgo func() {\n\t\twork()\n\t}()\n\treturn\n}\n",
 			primary: span{4, 2, 6, 5},
-			related: []jsonRelated{{Posn: ":7:2", End: ":7:8", Message: "returns here"}},
+			related: []vetjson.Related{{Posn: ":7:2", End: ":7:8", Message: "returns here"}},
 			want:    []string{"4 | \tgo func() {\n  | \t^~~~~~~~~~~\n"},
 			reject:  []string{"work()"},
 			markers: 2,
@@ -152,21 +154,21 @@ func TestRenderDiagnosticSpanLayout(t *testing.T) {
 			name:    "evidence at the reported span labels its marker",
 			source:  "package sample\n\nfunc f() {\n\tb.Lock()\n}\n",
 			primary: span{4, 2, 4, 10},
-			related: []jsonRelated{{Posn: ":4:2", End: ":4:10", Message: "then `b` is locked"}},
+			related: []vetjson.Related{{Posn: ":4:2", End: ":4:10", Message: "then `b` is locked"}},
 			want:    []string{"^~~~~~~~ then `b` is locked"},
 			markers: 1,
 		},
 	} {
-		text := renderSample(t, test.source, func(filename string) positionedDiagnostic {
+		text := renderSample(t, test.source, func(filename string) vetjson.Diagnostic {
 			related := slices.Clone(test.related)
 			for index := range related {
 				related[index].Posn = filename + related[index].Posn
 				related[index].End = filename + related[index].End
 			}
-			return positionedDiagnostic{
+			return vetjson.Diagnostic{
 				Analyzer: "example",
-				Start:    sourcePosition{Filename: filename, Line: test.primary.line, Column: test.primary.column},
-				End:      sourcePosition{Filename: filename, Line: test.primary.endLine, Column: test.primary.endColumn},
+				Start:    vetjson.Position{Filename: filename, Line: test.primary.line, Column: test.primary.column},
+				End:      vetjson.Position{Filename: filename, Line: test.primary.endLine, Column: test.primary.endColumn},
 				Message:  test.name,
 				Related:  related,
 			}
@@ -189,7 +191,7 @@ func TestRenderDiagnosticSpanLayout(t *testing.T) {
 
 // renderSample writes source to a file and renders the diagnostic that
 // diagnostic builds for it, without colors or context lines.
-func renderSample(t *testing.T, source string, diagnostic func(filename string) positionedDiagnostic) string {
+func renderSample(t *testing.T, source string, diagnostic func(filename string) vetjson.Diagnostic) string {
 	t.Helper()
 	filename := filepath.Join(t.TempDir(), "sample.go")
 	if err := os.WriteFile(filename, []byte(source), 0o644); err != nil {

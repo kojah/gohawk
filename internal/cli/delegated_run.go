@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+
+	"github.com/kojah/gohawk/internal/reporting/vetjson"
 )
 
 // Delegated execution runs go vet with this binary as its analysis tool.
@@ -51,7 +53,7 @@ func runViaGoVet(invocation *analysisInvocation, runtime cliRuntime) int {
 	}
 	arguments := append([]string{"vet", "-vettool=" + self, "-json"}, invocation.arguments...)
 	result, execErr := runtime.execute("go", arguments, nil)
-	merged, mergeErr := mergeVetOutput(result.stdout)
+	merged, mergeErr := vetjson.Merge(result.stdout)
 	// go vet prints nothing to stdout when the packages fail to build, so a
 	// failing exit with no analysis output means stderr holds the real error.
 	if mergeErr != nil || execErr != nil && len(bytes.TrimSpace(result.stdout)) == 0 {
