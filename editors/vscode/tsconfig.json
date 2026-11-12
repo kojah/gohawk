@@ -4,7 +4,7 @@
 		"moduleResolution": "bundler",
 		"target": "ES2023",
 		"lib": ["ES2023"],
-		"types": ["node", "vscode", "mocha"],
+		"types": ["node", "vscode"],
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
 		"noUnusedLocals": true,

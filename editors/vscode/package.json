@@ -187,7 +187,6 @@
 		"lint:fix": "biome check --write .",
 		"build": "node esbuild.mjs",
 		"test": "node --test \"test/unit/*.test.ts\"",
-		"test:editor": "node esbuild.mjs --tests && node out/test/runTest.js",
 		"package": "node esbuild.mjs && cp ../../LICENSE LICENSE && vsce package --no-dependencies",
 		"acceptance": "node acceptance/run.mjs"
 	},
@@ -196,13 +195,10 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.10",
-		"@types/mocha": "^10.0.10",
 		"@types/node": "^24.0.0",
 		"@types/vscode": "~1.90.0",
-		"@vscode/test-electron": "^2.5.2",
 		"@vscode/vsce": "^3.6.0",
 		"esbuild": "^0.25.0",
-		"mocha": "^11.7.0",
 		"playwright-core": "^1.65.0",
 		"typescript": "^7.0.2"
 	},

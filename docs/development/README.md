@@ -14,6 +14,12 @@ Start with [Understanding SSA](../understanding-ssa.md) and the public
 - [analyzers/](analyzers/) — one note per analyzer: every accepted and
   reported boundary, why it holds, the fixtures that pin it, and known gaps.
 
+## Editors
+
+- [Editor integration](editor-integration.md) — the `gohawk lsp` server and
+  the VS Code extension: scheduling, what is never shown as clean, and how
+  the acceptance run measures latency and memory.
+
 ## Models
 
 - [Techniques and related work](techniques.md) — the analysis techniques

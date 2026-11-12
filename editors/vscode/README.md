@@ -36,8 +36,26 @@ Test files (`_test.go`) are not analyzed.
 
 ```sh
 pnpm install
-pnpm check      # Biome and the TypeScript compiler
-pnpm test       # unit tests
-pnpm build      # bundle to dist/
-pnpm package    # build a .vsix
+pnpm check        # Biome and the TypeScript compiler
+pnpm test         # unit tests for the pure modules
+pnpm build        # bundle to dist/
+pnpm package      # build a .vsix
 ```
+
+Press F5 in this folder to try a change in an Extension Development Host. Set
+`gohawk.path` there to a binary built from this repository (`go build -o
+gohawk .` at the repository root).
+
+### Acceptance run
+
+```sh
+pnpm acceptance --gohawk /path/to/gohawk --with-go-extension
+```
+
+This installs the packaged `.vsix` into a real VS Code served to a headless
+browser, plays the scenarios in `acceptance/scenarios.mjs`, and writes
+`out/acceptance/report.md` with screenshots, edit-to-findings latency, memory
+per check, and anything that looks like a crash or a leftover process. It
+needs a Chromium that Playwright can drive; set `ACCEPTANCE_CHROMIUM` to its
+path if it is not in Playwright's cache. The process exits nonzero when a
+check fails.
