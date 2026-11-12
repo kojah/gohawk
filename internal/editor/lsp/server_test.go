@@ -56,9 +56,9 @@ var (
 	errBinary       error
 )
 
-// TestMain owns the directory the shared gohawk binary is built into, so it
+// runTests owns the directory the shared gohawk binary is built into, so it
 // outlives any single test and is removed when the package finishes.
-func TestMain(m *testing.M) {
+func runTests(m *testing.M) {
 	directory, err := os.MkdirTemp("", "gohawk-lsp-test-")
 	if err == nil {
 		binaryDirectory = directory
@@ -98,6 +98,16 @@ type editor struct {
 	statuses    chan StatusParams
 	replies     chan *message
 	nextID      int
+	logMutex    sync.Mutex
+	logLines    []string
+}
+
+// logs returns what the server has written to its output log, for a failing
+// scenario to show.
+func (e *editor) logs() string {
+	e.logMutex.Lock()
+	defer e.logMutex.Unlock()
+	return strings.Join(e.logLines, "\n")
 }
 
 // lockedBuffer lets the test read the event log while the server writes it.
@@ -220,6 +230,13 @@ func (e *editor) receive() {
 			var params StatusParams
 			if decode(incoming.Params, &params) {
 				e.statuses <- params
+			}
+		case methodLogMessage:
+			var params logMessageParams
+			if decode(incoming.Params, &params) {
+				e.logMutex.Lock()
+				e.logLines = append(e.logLines, params.Message)
+				e.logMutex.Unlock()
 			}
 		case "":
 			e.replies <- incoming

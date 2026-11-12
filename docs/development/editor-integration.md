@@ -32,6 +32,11 @@ It offers no source edits and no action that hides a finding.
   command through `-overlay`.
 - Packages that import it are then checked in one background run, because
   facts flow along imports. The import graph comes from `go list`.
+- A package with more importers than `importerLimit` (50 by default) is
+  followed only into the importers that have a file open. The status says
+  how many were not re-checked until a whole-module check covers them. On
+  Kubernetes, the importers of `pkg/apis/core` take about four minutes to
+  re-check; without the limit that would start after every pause.
 - Any edit cancels the foreground run for that package and the background
   run. Cancelled background work is owed again after the next check.
 - A result is applied only if its run is still the active one. A cancelled
@@ -57,7 +62,7 @@ It offers no source edits and no action that hides a finding.
 |---|---|
 | The package does not compile | Earlier findings stay and the package is recorded as unresolved. Compile errors are left to gopls. |
 | Some packages of a multi-package run fail to build | Nothing is replaced, because the output does not say which packages were analyzed. Each covered package is then checked on its own. |
-| A run passes its time limit | Stopped; its packages are unresolved. |
+| A run goes longer than the time limit without finishing a package | Stopped; its packages are unresolved. |
 | A run passes its memory limit | The process tree is killed; its packages are unresolved. |
 | A finding names a file outside the packages the run checked | Not filed, and logged. It is never dropped silently. |
 | Memory cannot be measured (not Linux) | The soft `GOMEMLIMIT` and the timeout remain. |
@@ -65,6 +70,16 @@ It offers no source edits and no action that hides a finding.
 An unresolved package stays named in the status until a check of it
 completes, however many other packages are checked in between. The status is
 derived from what is stored, not from the last run.
+
+The time limit is an idle limit. The go command is run with `-v`, which
+makes it name each package as it works on it, and each name counts as
+progress. A run is stopped when it goes `timeout` seconds without one, so the
+limit bounds one package's analysis and not the run. This matters on a large
+repository: the first check must build facts for every dependency once
+(several minutes on Kubernetes), and a limit on the whole run reported that
+as "stopped" again and again. While a run is active the status shows the
+packages named so far and the elapsed time. A run is also stopped after 30
+minutes however steadily it progresses.
 
 Memory is sampled from `/proc` by process group on Linux. The peak reported
 for a run is the larger of that sample and the kernel's figure for the
@@ -128,8 +143,8 @@ so every client shows the same wording.
 
 ## Settings
 
-`run`, `debounce`, `scope`, `experimental`, `memoryLimit`, `maxParallel`,
-`timeout`. They choose when and what to run. None changes what a check
+`run`, `debounce`, `scope`, `importerLimit`, `experimental`, `memoryLimit`,
+`maxParallel`, `timeout`. They choose when and what to run. None changes what a check
 reports; see [analyzers have no options](decisions/2026-09-25-no-analyzer-options.md).
 Experimental checks are off by default, as on the command line.
 
@@ -195,8 +210,10 @@ transport: the oracle is that what the editor shows must equal what
 
 ## Known gaps
 
-- No large-repository measurement yet. A low-level edit with thousands of
-  importers may never finish its background run between edits.
+- Large packages are not live: re-checking Kubernetes' `pkg/kubelet` (38k
+  lines) takes 9 to 16 seconds at about 1.1 GiB, and even an answer from the
+  cache costs 6 to 7 seconds there, which is the go command loading the
+  dependency graph.
 - The hard memory limit exists only on Linux.
 - Explain shows raw tracer output and ignores unsaved buffers.
 - A package with thousands of findings produces one large publish message;

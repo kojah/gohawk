@@ -27,6 +27,7 @@ const { values: options } = parseArgs({
 		memory: { type: 'string', default: '2GiB' },
 		parallel: { type: 'string', default: '2' },
 		wait: { type: 'string', default: '180' },
+		'importer-limit': { type: 'string', default: '50' },
 		json: { type: 'boolean', default: false },
 	},
 });
@@ -108,6 +109,7 @@ send({
 				timeout: Number(options.timeout),
 				memoryLimit: options.memory,
 				maxParallel: Number(options.parallel),
+				importerLimit: Number(options['importer-limit']),
 			},
 		},
 	},

@@ -20,6 +20,7 @@ const settingKeys = [
 	'memoryLimit',
 	'maxParallel',
 	'timeout',
+	'importerLimit',
 ] as const;
 
 export type SessionOptions = {

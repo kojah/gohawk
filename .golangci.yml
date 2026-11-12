@@ -114,7 +114,7 @@ linters:
       # These command boundaries intentionally execute the current gohawk
       # process or a command supplied by the measurement caller.
       # The editor server starts the go command and this binary for each check.
-      - path: ^(internal/cli/delegated_run|tools/measure/main|internal/editor/lsp/(run|packages|actions))\.go$
+      - path: ^(internal/cli/delegated_run|tools/measure/main|internal/editor/lsp/(guard|actions))\.go$
         text: "G(204|702):"
         linters:
           - gosec

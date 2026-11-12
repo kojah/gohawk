@@ -39,7 +39,9 @@ func (s *Server) status() StatusParams {
 	switch {
 	case schedule.foreground != nil:
 		status.State = stateChecking
-		status.Text = "gohawk: checking " + schedule.foreground.request.label + unsavedNote(schedule.foreground.request)
+		status.Text = "gohawk: checking " + schedule.foreground.request.label + unsavedNote(schedule.foreground.request) +
+			progressNote(schedule.foreground.request.progress)
+		status.Tooltip = "The first check of a package also analyzes its dependencies once. Later checks reuse that work."
 	case len(schedule.queue) > 0 || len(schedule.pending) > 0:
 		status.State, status.Text = stateChecking, "gohawk: waiting for a pause"
 	case schedule.skipped != "":
@@ -48,7 +50,12 @@ func (s *Server) status() StatusParams {
 		status = s.settledStatus(findings)
 	}
 	if schedule.background != nil && schedule.foreground == nil {
-		status.Text += " · checking " + schedule.background.request.label
+		status.Text += " · checking " + schedule.background.request.label + progressNote(schedule.background.request.progress)
+	}
+	if unchecked := s.uncheckedImporters(); unchecked > 0 && schedule.foreground == nil {
+		status.Text += fmt.Sprintf(" · %d importers not re-checked", unchecked)
+		status.Tooltip = strings.TrimSpace(status.Tooltip + " The edited package has more importers than gohawk.importerLimit, so only" +
+			" the ones with an open file were checked. Run “gohawk: Check Workspace” to check them all.")
 	}
 	return status
 }
@@ -103,6 +110,41 @@ func packageNames(directories []string) string {
 		return filepath.Base(directories[0])
 	}
 	return fmt.Sprintf("%d packages", len(directories))
+}
+
+func (s *Server) uncheckedImporters() int {
+	total := 0
+	for _, count := range s.scheduler.unchecked {
+		total += count
+	}
+	return total
+}
+
+// progressNote says how far a run has got, once it has run long enough that
+// the user may wonder. A quick check shows no note at all.
+func progressNote(progress *runProgress) string {
+	if progress == nil {
+		return ""
+	}
+	elapsed := time.Since(progress.started)
+	if elapsed < progressNoteAfter {
+		return ""
+	}
+	note := " " + formatDuration(elapsed)
+	if packages := progress.packages.Load(); packages > 1 {
+		note = fmt.Sprintf(" %d packages,%s", packages, note)
+	}
+	return note
+}
+
+const progressNoteAfter = 3 * time.Second
+
+func formatDuration(elapsed time.Duration) string {
+	seconds := int(elapsed.Seconds())
+	if seconds < 60 {
+		return fmt.Sprintf("%ds", seconds)
+	}
+	return fmt.Sprintf("%dm%02ds", seconds/60, seconds%60)
 }
 
 func unsavedNote(request *runRequest) string {

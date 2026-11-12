@@ -36,6 +36,11 @@ type scheduler struct {
 	isolated   map[string]bool
 	ripple     map[string]bool // checked directories whose importers are due
 	workspaces map[string]bool // module roots due a whole-module run
+	// unchecked counts, per module, the importers the last importer run
+	// left out because there were more than the limit. Their findings may be
+	// out of date until a whole-module run.
+	unchecked  map[string]int
+	beating    bool // a status heartbeat is scheduled
 	foreground *activeRun
 	background *activeRun
 	last       runSummary
@@ -46,7 +51,7 @@ type scheduler struct {
 func newScheduler() scheduler {
 	return scheduler{
 		pending: make(map[string]bool), isolated: make(map[string]bool),
-		ripple: make(map[string]bool), workspaces: make(map[string]bool),
+		ripple: make(map[string]bool), workspaces: make(map[string]bool), unchecked: make(map[string]int),
 	}
 }
 
@@ -181,13 +186,19 @@ func (s *Server) start(ctx context.Context, request *runRequest) *activeRun {
 	if s.settings.Run == runOnPause {
 		request.texts = s.documents.unsavedTexts(s.insideWorkspace)
 	}
-	limits := runLimits{
-		timeout:      s.settings.timeout(),
-		memoryBytes:  s.settings.memoryBytes(),
-		memoryLimit:  s.settings.MemoryLimit,
-		parallel:     s.settings.MaxParallel,
-		experimental: s.settings.Experimental,
+	request.progress = newRunProgress()
+	if request.kind == runImporters {
+		request.openDirectories = s.openDirectories()
 	}
+	limits := runLimits{
+		idle:          s.settings.timeout(),
+		memoryBytes:   s.settings.memoryBytes(),
+		memoryLimit:   s.settings.MemoryLimit,
+		parallel:      s.settings.MaxParallel,
+		experimental:  s.settings.Experimental,
+		importerLimit: s.settings.importerLimit(),
+	}
+	s.heartbeat()
 	s.logf("check     %s%s", request.label, strings.TrimSuffix(unsavedNote(request), "…"))
 	s.eventLog.record(event{
 		Event: "run-started", Run: request.id, Detail: request.kind.String(), Label: request.label, Unsaved: len(request.texts) > 0,
@@ -201,6 +212,37 @@ func (s *Server) start(ctx context.Context, request *runRequest) *activeRun {
 	})
 	return &activeRun{request: request, cancel: cancel}
 }
+
+// openDirectories lists the packages that have a checkable file open.
+func (s *Server) openDirectories() []string {
+	directories := make(map[string]bool)
+	for path := range s.documents.byPath {
+		if s.skipReason(path) == "" {
+			directories[filepath.Dir(path)] = true
+		}
+	}
+	return sortedKeys(directories)
+}
+
+// heartbeat refreshes the status every few seconds while a run is active, so
+// a long check shows how far it has got instead of looking stuck.
+func (s *Server) heartbeat() {
+	if s.scheduler.beating {
+		return
+	}
+	s.scheduler.beating = true
+	time.AfterFunc(heartbeatInterval, func() {
+		s.post(func() {
+			s.scheduler.beating = false
+			if s.scheduler.foreground != nil || s.scheduler.background != nil {
+				s.publishStatus()
+				s.heartbeat()
+			}
+		})
+	})
+}
+
+const heartbeatInterval = 2 * time.Second
 
 // cancelRunsFor stops work an edit in directory has made pointless: a
 // foreground check of that package, and any background run, whose inputs
@@ -314,6 +356,19 @@ func (s *Server) applyCompleted(result runResult) {
 	}
 	if request.startsRipple {
 		s.scheduler.ripple[request.directories[0]] = true
+	}
+	switch request.kind {
+	case runImporters:
+		if result.skippedImporters > 0 {
+			s.scheduler.unchecked[request.root] = result.skippedImporters
+			s.logf("skipped   %d importers of %s: more than the limit of %d, and not open", result.skippedImporters,
+				strings.Join(relativePatterns(request.root, request.directories), " "), s.settings.importerLimit())
+		} else {
+			delete(s.scheduler.unchecked, request.root)
+		}
+	case runWorkspace:
+		delete(s.scheduler.unchecked, request.root)
+	case runPackage:
 	}
 	s.logf("done      %s  %s%s  %s", request.label, formatElapsed(result.elapsed), formatPeak(result.peakBytes), countFindings(len(fresh)))
 }

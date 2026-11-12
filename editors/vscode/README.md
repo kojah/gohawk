@@ -19,16 +19,17 @@ so analysis memory is released between checks.
 
 ## Settings
 
-| Setting               | Default                | Meaning                                                                           |
-| --------------------- | ---------------------- | --------------------------------------------------------------------------------- |
-| `gohawk.run`          | `onPause`              | When to check: `onPause`, `onSave`, or `manual`.                                  |
-| `gohawk.debounce`     | `750`                  | Milliseconds after the last keystroke.                                            |
-| `gohawk.scope`        | `packageThenImporters` | What to check after an edit.                                                      |
-| `gohawk.experimental` | `false`                | Include experimental checks.                                                      |
-| `gohawk.memoryLimit`  | `2GiB`                 | Memory limit for one check.                                                       |
-| `gohawk.maxParallel`  | `2`                    | Packages a background check analyzes at once.                                     |
-| `gohawk.timeout`      | `60`                   | Seconds one check may run.                                                        |
-| `gohawk.path`         | empty                  | Path to your own gohawk binary. Empty uses the one that ships with the extension. |
+| Setting                | Default                | Meaning                                                                           |
+| ---------------------- | ---------------------- | --------------------------------------------------------------------------------- |
+| `gohawk.run`           | `onPause`              | When to check: `onPause`, `onSave`, or `manual`.                                  |
+| `gohawk.debounce`      | `750`                  | Milliseconds after the last keystroke.                                            |
+| `gohawk.scope`         | `packageThenImporters` | What to check after an edit.                                                      |
+| `gohawk.experimental`  | `false`                | Include experimental checks.                                                      |
+| `gohawk.memoryLimit`   | `2GiB`                 | Memory limit for one check.                                                       |
+| `gohawk.maxParallel`   | `2`                    | Packages a background check analyzes at once.                                     |
+| `gohawk.timeout`       | `60`                   | Seconds a check may go without finishing a package.                               |
+| `gohawk.importerLimit` | `50`                   | Most importers re-checked after an edit; beyond it, only open ones.               |
+| `gohawk.path`          | empty                  | Path to your own gohawk binary. Empty uses the one that ships with the extension. |
 
 Test files (`_test.go`) are not analyzed.
 

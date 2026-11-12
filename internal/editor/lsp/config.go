@@ -25,6 +25,7 @@ const (
 	maxTimeoutSecs        = 3600
 	defaultMemoryLimit    = "2GiB"
 	defaultMaxParallel    = 2
+	defaultImporterLimit  = 50
 	stepPathClientCommand = "gohawk.stepPath"
 	explainClientCommand  = "gohawk.explainFinding"
 )
@@ -37,6 +38,9 @@ type settings struct {
 	MemoryLimit  string `json:"memoryLimit"`
 	MaxParallel  int    `json:"maxParallel"`
 	TimeoutSecs  int    `json:"timeout"`
+	// ImporterLimit is a pointer because zero is a meaningful value: no
+	// limit.
+	ImporterLimit *int `json:"importerLimit"`
 }
 
 // initializationOptions carries the settings and the commands the client
@@ -86,6 +90,15 @@ func (s settings) debounce() time.Duration {
 		return defaultDebounce
 	}
 	return min(time.Duration(*s.DebounceMS)*time.Millisecond, maxDebounce)
+}
+
+// importerLimit is the most importers a background run follows, or zero for
+// no limit.
+func (s settings) importerLimit() int {
+	if s.ImporterLimit == nil || *s.ImporterLimit < 0 {
+		return defaultImporterLimit
+	}
+	return *s.ImporterLimit
 }
 
 func (s settings) timeout() time.Duration {

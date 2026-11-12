@@ -4,12 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
-	"sync/atomic"
 	"time"
 
 	"github.com/kojah/gohawk/internal/reporting/vetjson"
@@ -51,6 +48,10 @@ type runRequest struct {
 	// startsRipple says a completed package run should be followed by a
 	// check of the packages that import it.
 	startsRipple bool
+	// openDirectories are the packages with a file open in the editor. A
+	// widely imported package is followed only into these.
+	openDirectories []string
+	progress        *runProgress
 }
 
 type runResult struct {
@@ -60,13 +61,16 @@ type runResult struct {
 	analysisErrors []string
 	// covered lists the package directories whose findings this result
 	// replaces. A workspace run replaces everything under its root.
-	covered     []string
-	overlay     *overlay
-	stderr      string
-	err         error
-	elapsed     time.Duration
-	peakBytes   int64 // zero when the platform cannot measure it
-	commandLine string
+	covered []string
+	// skippedImporters counts importers left unchecked because the changed
+	// package has more of them than the limit.
+	skippedImporters int
+	overlay          *overlay
+	stderr           string
+	err              error
+	elapsed          time.Duration
+	peakBytes        int64 // zero when the platform cannot measure it
+	commandLine      string
 }
 
 type runner struct {
@@ -75,11 +79,38 @@ type runner struct {
 }
 
 type runLimits struct {
-	timeout      time.Duration
+	// idle is how long a run may go without the go command starting or
+	// finishing a package. It bounds one package's analysis, not the run: a
+	// first check that builds facts for thousands of dependencies keeps
+	// making progress and is allowed to finish.
+	idle         time.Duration
 	memoryBytes  int64
 	memoryLimit  string
 	parallel     int
 	experimental bool
+	// importerLimit is the most importers a background run follows; beyond
+	// it only importers with an open file are checked. Zero means no limit.
+	importerLimit int
+}
+
+// longestRun bounds a whole run however steadily it progresses.
+const longestRun = 30 * time.Minute
+
+// withinImporterLimit returns the importers to check. A widely imported
+// package can have thousands, and re-checking them all after every pause
+// would keep the machine busy for minutes each time. Past the limit only the
+// importers the user has open are followed; the rest are counted, so the
+// status can say they were not re-checked.
+func withinImporterLimit(importers, open []string, limit int) (kept []string, skipped int) {
+	if limit <= 0 || len(importers) <= limit {
+		return importers, 0
+	}
+	for _, directory := range importers {
+		if slices.Contains(open, directory) {
+			kept = append(kept, directory)
+		}
+	}
+	return kept, len(importers) - len(kept)
 }
 
 func (r *runner) execute(ctx context.Context, request *runRequest, limits runLimits) (result runResult) {
@@ -87,11 +118,11 @@ func (r *runner) execute(ctx context.Context, request *runRequest, limits runLim
 	started := time.Now()
 	defer func() { result.elapsed = time.Since(started) }()
 
-	// One deadline and one memory watch cover everything the run starts: the
-	// package listing as well as the analysis.
-	runContext, cancel := context.WithTimeout(ctx, limits.timeout)
+	// One set of limits covers everything the run starts: the package
+	// listing as well as the analysis.
+	runContext, cancel := context.WithTimeout(ctx, longestRun)
 	defer cancel()
-	guarded := &guard{limits: limits, stop: cancel}
+	guarded := newGuard(limits, cancel, request.progress)
 
 	var err error
 	result.overlay, err = writeOverlay(runContext, r.temporary, request.texts)
@@ -109,7 +140,9 @@ func (r *runner) execute(ctx context.Context, request *runRequest, limits runLim
 		result.outcome, result.err = interrupted(ctx, runContext, guarded, outcomeFailed), err
 		return result
 	}
-	arguments := []string{"vet", "-vettool=" + r.executable, "-json", "-p=" + strconv.Itoa(limits.parallel)}
+	// -v makes the go command name each package as it works on it, which is
+	// the run's progress signal.
+	arguments := []string{"vet", "-v", "-vettool=" + r.executable, "-json", "-p=" + strconv.Itoa(limits.parallel)}
 	if overlayFile != "" {
 		arguments = append(arguments, "-overlay="+overlayFile)
 	}
@@ -147,22 +180,6 @@ const patternsPerCommand = 256
 
 var errOutputTooLarge = errors.New("go vet printed more output than the server accepts")
 
-// interrupted names why a run stopped early, or returns otherwise when it was
-// not stopped. A memory stop also cancels the run context, so it is asked
-// first; a cancellation by the caller outranks the run's own deadline.
-func interrupted(caller, run context.Context, guarded *guard, otherwise runOutcome) runOutcome {
-	switch {
-	case guarded.exceeded.Load():
-		return outcomeMemoryExceeded
-	case caller.Err() != nil:
-		return outcomeCanceled
-	case errors.Is(run.Err(), context.DeadlineExceeded):
-		return outcomeTimedOut
-	default:
-		return otherwise
-	}
-}
-
 // target resolves what a request checks: the working directory, the package
 // patterns, and the directories whose findings the result will replace.
 func (r *runner) target(ctx context.Context, guarded *guard, request *runRequest, overlayFile string, result *runResult) (string, []string, error) {
@@ -194,77 +211,10 @@ func (r *runner) target(ctx context.Context, guarded *guard, request *runRequest
 		if err != nil {
 			return "", nil, err
 		}
+		directories, result.skippedImporters = withinImporterLimit(directories, request.openDirectories, guarded.limits.importerLimit)
 		result.covered = directories
 		return request.root, relativePatterns(request.root, directories), nil
 	}
-}
-
-// guard runs go commands under one run's limits. Every command joins the
-// same memory accounting, and passing the limit stops the whole run.
-type guard struct {
-	limits   runLimits
-	stop     context.CancelFunc
-	exceeded atomic.Bool
-	peak     atomic.Int64
-}
-
-type commandOutput struct {
-	stdout    []byte
-	stderr    []byte
-	truncated bool
-}
-
-// maxCommandOutput bounds what one command may print. Findings are held in
-// memory until they are published, so the output is part of the server's
-// own footprint.
-const maxCommandOutput = 64 << 20
-
-func (g *guard) run(ctx context.Context, directory string, arguments []string) (commandOutput, error) {
-	return g.runProgram(ctx, directory, "go", arguments)
-}
-
-// runProgram runs any program under the limits; the go command is the usual
-// one, and the explanation runs gohawk itself.
-func (g *guard) runProgram(ctx context.Context, directory, program string, arguments []string) (commandOutput, error) {
-	command := exec.CommandContext(ctx, program, arguments...)
-	command.Dir = directory
-	command.Env = append(os.Environ(), "GOMEMLIMIT="+g.limits.memoryLimit, ServerProcessVariable+"="+strconv.Itoa(os.Getpid()))
-	stdout := &cappedBuffer{limit: maxCommandOutput}
-	stderr := &cappedBuffer{limit: 1 << 20}
-	command.Stdout, command.Stderr = stdout, stderr
-	configureProcessTree(command)
-	if err := command.Start(); err != nil {
-		return commandOutput{}, err
-	}
-	watchContext, stopWatch := context.WithCancel(ctx)
-	watchDone := make(chan struct{})
-	go watchMemory(watchContext, command.Process.Pid, g.limits.memoryBytes, &g.peak, func() {
-		g.exceeded.Store(true)
-		g.stop()
-	}, watchDone)
-	waitErr := command.Wait()
-	stopWatch()
-	<-watchDone
-	if largest, ok := largestProcessMemory(command.ProcessState); ok && largest > g.peak.Load() {
-		g.peak.Store(largest)
-	}
-	return commandOutput{stdout: stdout.buffer.Bytes(), stderr: stderr.buffer.Bytes(), truncated: stdout.truncated}, waitErr
-}
-
-// cappedBuffer keeps the first limit bytes and remembers that more arrived.
-type cappedBuffer struct {
-	buffer    bytes.Buffer
-	limit     int
-	truncated bool
-}
-
-func (b *cappedBuffer) Write(data []byte) (int, error) {
-	if room := b.limit - b.buffer.Len(); room < len(data) {
-		b.truncated = true
-		b.buffer.Write(data[:max(room, 0)])
-		return len(data), nil
-	}
-	return b.buffer.Write(data)
 }
 
 // decodeVetOutput classifies a finished go vet. go vet prints analysis results
@@ -288,32 +238,5 @@ func decodeVetOutput(stdout []byte, waitErr error, result *runResult) {
 		// Some packages were analyzed and others failed to build. Which ones
 		// failed is not recoverable from the output, so nothing is replaced.
 		result.outcome, result.err = outcomeBuildFailed, waitErr
-	}
-}
-
-// watchMemory samples the child process tree until the run ends and calls
-// stop when it passes the limit. Where the platform offers no measurement the
-// watch does nothing: the soft GOMEMLIMIT and the timeout remain.
-func watchMemory(ctx context.Context, pid int, limit int64, peak *atomic.Int64, stop func(), done chan<- struct{}) {
-	defer close(done)
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-		used, measured := processTreeMemory(pid)
-		if !measured {
-			continue
-		}
-		if used > peak.Load() {
-			peak.Store(used)
-		}
-		if limit > 0 && used > limit {
-			stop()
-			return
-		}
 	}
 }

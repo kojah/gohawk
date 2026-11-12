@@ -217,11 +217,13 @@ func (s *Server) explain(ctx context.Context, id *json.RawMessage, arguments []j
 		return
 	}
 	candidate := fmt.Sprintf("%s:%d", filepath.Base(path), target.Line)
-	limits := runLimits{timeout: s.settings.timeout(), memoryBytes: s.settings.memoryBytes(), memoryLimit: s.settings.MemoryLimit}
-	explainContext, cancel := context.WithTimeout(ctx, limits.timeout)
+	// The tracer names no packages as it goes, so its idle limit is in
+	// effect a limit on the whole explanation.
+	limits := runLimits{idle: s.settings.timeout(), memoryBytes: s.settings.memoryBytes(), memoryLimit: s.settings.MemoryLimit}
+	explainContext, cancel := context.WithTimeout(ctx, longestRun)
 	s.stopExplain = cancel
 	s.runs.Go(func() {
-		guarded := &guard{limits: limits, stop: cancel}
+		guarded := newGuard(limits, cancel, nil)
 		arguments := []string{"dump", "trace", "-analyzer", target.Analyzer, "-candidate", candidate, "."}
 		output, runErr := guarded.runProgram(explainContext, filepath.Dir(path), s.options.Executable, arguments)
 		stopped := interrupted(ctx, explainContext, guarded, outcomeCompleted)

@@ -144,6 +144,12 @@
 					"default": "packageThenImporters",
 					"description": "What to check after an edit. A change to a package can change findings in the packages that import it."
 				},
+				"gohawk.importerLimit": {
+					"type": "number",
+					"default": 50,
+					"minimum": 0,
+					"description": "After an edit, gohawk also re-checks the packages that import the edited one. When there are more than this many, only the ones with an open file are re-checked. 0 means no limit."
+				},
 				"gohawk.experimental": {
 					"type": "boolean",
 					"default": false,
@@ -165,7 +171,7 @@
 					"type": "number",
 					"default": 60,
 					"minimum": 1,
-					"description": "Seconds one check may run before it is stopped."
+					"description": "Seconds a check may go without finishing a package before it is stopped. A check that keeps making progress, such as the first one on a large repository, is not cut off."
 				},
 				"gohawk.path": {
 					"type": "string",
