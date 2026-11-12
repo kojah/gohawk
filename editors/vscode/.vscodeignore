@@ -1,8 +1,11 @@
 .vscode-test/
+.vscode/
 node_modules/
 src/
 test/
 out/
+scripts/
+acceptance/
 esbuild.mjs
 tsconfig.json
 biome.json
@@ -10,5 +13,4 @@ pnpm-lock.yaml
 pnpm-workspace.yaml
 .gitignore
 **/*.map
-.vscode/
-acceptance/
+*.vsix

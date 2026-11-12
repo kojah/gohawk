@@ -135,10 +135,19 @@ Experimental checks are off by default, as on the command line.
 
 ## The extension
 
-The extension resolves the binary in this order: `gohawk.path`, the release
-it downloaded into its own storage, then `gohawk` on `PATH`. A download is
-the release archive for the platform, checked against `checksums.txt` before
-it is unpacked. Each extension version pins one gohawk version.
+Each extension package carries the gohawk binary for its platform in `bin/`.
+The Marketplace serves the package that matches the user's platform, so
+nothing is downloaded at run time and the binary always matches the
+extension. The extension resolves the binary in this order: `gohawk.path`,
+the bundled binary, then `gohawk` on `PATH`. A configured path that does not
+work is reported, not silently replaced.
+
+`node scripts/package.mjs` builds a package: for the host platform by
+default, for one target with `--target`, or for all six with `--all`. Without
+`--binary` it cross-compiles gohawk from the repository. The release workflow
+packages each platform from the release binaries with the release version,
+and attaches the `.vsix` files to the GitHub release. Publishing them to the
+Marketplace is a manual step: `vsce publish --packagePath <file>` for each.
 
 It adds what the protocol does not provide: the status bar item, path
 stepping (decorations built from related locations), and the explanation
@@ -194,5 +203,5 @@ transport: the oracle is that what the editor shows must equal what
   nothing caps findings per file.
 - A generated file of a few thousand lines can take longer than the default
   time limit. It is then reported as stopped, not analyzed faster.
-- The pinned release must contain the `lsp` command before the extension's
-  download path works; until then set `gohawk.path`.
+- Every gohawk release needs a matching extension release, because the
+  binary ships inside the extension.

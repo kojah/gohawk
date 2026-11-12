@@ -103,7 +103,9 @@ export function createEditor({ page, out, workspace, url }) {
 		await palette('View: Close Secondary Side Bar');
 	}
 
+	const eventLog = join(out, 'events.jsonl');
 	const base = {
+		eventLog,
 		page,
 		pause,
 		palette,

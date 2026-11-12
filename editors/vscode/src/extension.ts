@@ -3,11 +3,11 @@
 // for free: the status bar item, path stepping, and the explanation tab.
 
 import * as vscode from 'vscode';
+import { findBinary, openPathSetting } from './binary.ts';
 import { ExplainView } from './explain.ts';
-import { findBinary, offerDownload } from './install.ts';
 import { PathStepper, stepsOf } from './pathMode.ts';
+import { errorMessage } from './platform.ts';
 import { type FindingTarget, parseFindingTarget } from './protocol.ts';
-import { errorMessage } from './release.ts';
 import { Session } from './session.ts';
 import { StatusItem } from './status.ts';
 
@@ -101,15 +101,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	const launch = guarded(async () => {
 		await session.stop();
-		const notInstalled = (tooltip: string) =>
-			status.show({ state: 'skipped', text: 'gohawk: not installed', tooltip, findings: 0 });
-		let binary = await findBinary(context);
+		const binary = await findBinary(context);
 		if (binary === undefined) {
-			notInstalled('The gohawk binary was not found.');
-			binary = await offerDownload(context);
-		}
-		if (binary === undefined) {
-			notInstalled('Set gohawk.path, or run “gohawk: Restart Server” to try again.');
+			status.show({
+				state: 'skipped',
+				text: 'gohawk: not installed',
+				tooltip: 'No usable gohawk binary. Reinstall the extension, or set gohawk.path.',
+				findings: 0,
+			});
+			const choice = await vscode.window.showErrorMessage(
+				'gohawk has no analyzer binary for this platform. Reinstall the extension, or set gohawk.path to a gohawk 0.8 or newer.',
+				'Open Settings',
+			);
+			if (choice === 'Open Settings') {
+				await openPathSetting();
+			}
 			return;
 		}
 		try {

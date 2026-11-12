@@ -171,7 +171,7 @@
 					"type": "string",
 					"default": "",
 					"scope": "machine-overridable",
-					"description": "Path to a gohawk binary. Empty uses the version this extension downloads, or gohawk on PATH."
+					"description": "Path to your own gohawk binary. Empty uses the one that ships with the extension."
 				},
 				"gohawk.eventLog": {
 					"type": "string",
@@ -187,7 +187,7 @@
 		"lint:fix": "biome check --write .",
 		"build": "node esbuild.mjs",
 		"test": "node --test \"test/unit/*.test.ts\"",
-		"package": "node esbuild.mjs && cp ../../LICENSE LICENSE && vsce package --no-dependencies",
+		"package": "node scripts/package.mjs",
 		"acceptance": "node acceptance/run.mjs"
 	},
 	"dependencies": {

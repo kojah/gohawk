@@ -3,7 +3,7 @@
 // a report: screenshots, the latency a user would feel, memory per check,
 // and any sign that the server crashed or left processes behind.
 //
-// Usage: node acceptance/run.mjs --gohawk <binary> [--vsix <file>] [--out <dir>]
+// Usage: node acceptance/run.mjs [--gohawk <binary>] [--vsix <file>] [--out <dir>]
 //        [--scenarios open,edit] [--workspace <dir>] [--with-go-extension]
 //        [--theme "Default Dark Modern"] [--keep]
 
@@ -35,11 +35,6 @@ const { values: options } = parseArgs({
 		keep: { type: 'boolean', default: false },
 	},
 });
-
-if (!options.gohawk) {
-	console.error('acceptance: --gohawk <path to a gohawk binary with the lsp command> is required');
-	process.exit(2);
-}
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -194,7 +189,9 @@ function summarize(numbers) {
 }
 
 async function main() {
-	const gohawk = resolve(options.gohawk);
+	// Without --gohawk the run exercises what a user installs: the binary
+	// bundled in the package. With it, gohawk.path points at that binary.
+	const gohawk = options.gohawk ? resolve(options.gohawk) : undefined;
 	const out = resolve(options.out);
 	await rm(out, { recursive: true, force: true });
 	await mkdir(out, { recursive: true });
@@ -207,19 +204,17 @@ async function main() {
 
 	let vsix = options.vsix && resolve(options.vsix);
 	if (!vsix) {
-		await run('pnpm', ['run', 'package'], { cwd: packageRoot });
-		const built = (await readdir(packageRoot))
-			.filter((name) => name.endsWith('.vsix'))
-			.sort()
-			.at(-1);
-		vsix = join(packageRoot, built);
+		const { stdout } = await run('node', ['scripts/package.mjs', '--out', sandbox], {
+			cwd: packageRoot,
+		});
+		vsix = stdout.trim().split('\n').at(-1);
 	}
 
 	await mkdir(join(serverData, 'data', 'Machine'), { recursive: true });
 	await writeFile(
 		join(serverData, 'data', 'Machine', 'settings.json'),
 		JSON.stringify({
-			'gohawk.path': gohawk,
+			...(gohawk ? { 'gohawk.path': gohawk } : {}),
 			'gohawk.eventLog': eventLog,
 			'go.toolsManagement.autoUpdate': false,
 		}),
@@ -389,7 +384,7 @@ function renderReport(report) {
 	const lines = [
 		'# gohawk extension acceptance report',
 		'',
-		`Run at ${report.startedAt} with \`${report.gohawk}\`.`,
+		`Run at ${report.startedAt} with ${report.gohawk ? `\`${report.gohawk}\`` : 'the binary bundled in the package'}.`,
 		'',
 	];
 	const number = (stats) =>

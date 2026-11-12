@@ -166,16 +166,12 @@ export const scenarios = {
 		await editor.openFile('leak/header.go', 10);
 		await editor.waitForStatus(anyFindings);
 		const { stdout } = await run('ps', ['-eo', 'pid=,args=']);
-		const servers = stdout
+		// The event log path is unique to this run, so it identifies this
+		// run's server among any others on the machine.
+		const mine = stdout
 			.split('\n')
 			.map((line) => line.trim())
-			.filter(
-				(line) =>
-					/gohawk(\.exe)? lsp/.test(line) &&
-					line.includes(editor.workspace.replace(/workspace$/, '')) === false,
-			)
-			.filter((line) => line.includes('-event-log'));
-		const mine = servers.find((line) => line.includes('events.jsonl'));
+			.find((line) => /gohawk(\.exe)? lsp/.test(line) && line.includes(editor.eventLog));
 		editor.check('the server process is running', mine !== undefined);
 		if (mine === undefined) {
 			return;

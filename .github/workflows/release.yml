@@ -160,8 +160,90 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # One editor extension package per platform, each carrying that platform's
+  # gohawk binary, so an installed extension needs no download and its binary
+  # always matches its version.
+  extension:
+    needs: binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # pnpm/action-setup owns the CI version; avoid re-entering it through Corepack.
+      PNPM: pnpm
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: editors/vscode/pnpm-lock.yaml
+
+      - name: Download release archives
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Check and test the extension
+        working-directory: editors/vscode
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm check
+          pnpm test
+
+      - name: Package the extension for each platform
+        working-directory: editors/vscode
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          version="${VERSION#v}"
+          # The Marketplace accepts only major.minor.patch, so a prerelease
+          # tag is dropped from the package version.
+          extension_version="${version%%-*}"
+          unpacked="$RUNNER_TEMP/unpacked"
+          mkdir -p "$unpacked" "$GITHUB_WORKSPACE/extension-dist"
+
+          while read -r target goos goarch; do
+            archive="gohawk_${version}_${goos}_${goarch}"
+            if [[ "$goos" == "windows" ]]; then
+              unzip -q "$GITHUB_WORKSPACE/dist/$archive.zip" -d "$unpacked"
+              binary="$unpacked/$archive/gohawk.exe"
+            else
+              tar -xzf "$GITHUB_WORKSPACE/dist/$archive.tar.gz" -C "$unpacked"
+              binary="$unpacked/$archive/gohawk"
+            fi
+            node scripts/package.mjs \
+              --target "$target" \
+              --binary "$binary" \
+              --version "$extension_version" \
+              --out "$GITHUB_WORKSPACE/extension-dist"
+          done <<'TARGETS'
+          linux-x64 linux amd64
+          linux-arm64 linux arm64
+          darwin-x64 darwin amd64
+          darwin-arm64 darwin arm64
+          win32-x64 windows amd64
+          win32-arm64 windows arm64
+          TARGETS
+
+      - name: Upload extension packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: extension
+          path: extension-dist/*.vsix
+          if-no-files-found: error
+          retention-days: 1
+
   release:
-    needs: [binaries, platforms, stress]
+    needs: [binaries, extension, platforms, stress]
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -178,9 +260,15 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Download extension packages
+        uses: actions/download-artifact@v8
+        with:
+          name: extension
+          path: dist
+
       - name: Generate checksums
         working-directory: dist
-        run: sha256sum gohawk_* > checksums.txt
+        run: sha256sum gohawk_* gohawk-*.vsix > checksums.txt
 
       - name: Publish GitHub release
         env:

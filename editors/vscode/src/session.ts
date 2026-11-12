@@ -9,7 +9,7 @@ import {
 	type ServerOptions,
 	State,
 } from 'vscode-languageclient/node';
-import type { Binary } from './install.ts';
+import type { Binary } from './binary.ts';
 import { parseStatus, type Status } from './protocol.ts';
 
 const settingKeys = [
