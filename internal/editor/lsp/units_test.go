@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -101,7 +102,7 @@ func TestOverlayPathsDecodeWithoutTheRunThatWroteThem(t *testing.T) {
 	t.Parallel()
 	long := filepath.Join(t.TempDir(), strings.Repeat("deep/", 60), "name with space é.go")
 	for _, real := range []string{filepath.Join(t.TempDir(), "pkg", "a.go"), filepath.FromSlash(long)} {
-		written, err := writeOverlay(t.TempDir(), map[string]string{real: "package pkg\n"})
+		written, err := writeOverlay(t.Context(), t.TempDir(), map[string]string{real: "package pkg\n"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -123,7 +124,7 @@ func TestOverlayPathsDecodeWithoutTheRunThatWroteThem(t *testing.T) {
 			t.Errorf("an ordinary path %q decoded to %q", ordinary, got)
 		}
 	}
-	if none, err := writeOverlay(t.TempDir(), nil); none != nil || err != nil {
+	if none, err := writeOverlay(t.Context(), t.TempDir(), nil); none != nil || err != nil {
 		t.Errorf("no unsaved buffers produced an overlay: %v, %v", none, err)
 	}
 }
@@ -218,6 +219,7 @@ func TestTransportRoundTrip(t *testing.T) {
 	if err := writer.notify(methodLogMessage, logMessageParams{Type: messageInfo, Message: "héllo"}); err != nil {
 		t.Fatal(err)
 	}
+	writer.close() // lets the queued messages reach the stream
 	reader := newConnection(&stream, &bytes.Buffer{})
 	first, err := reader.read()
 	if err != nil || first.Method != methodStatus {
@@ -256,5 +258,71 @@ func TestRelativePatterns(t *testing.T) {
 	got := relativePatterns(root, []string{filepath.FromSlash("/m/b/c"), filepath.FromSlash("/m/a")})
 	if !reflect.DeepEqual(got, []string{"./a", "./b/c"}) {
 		t.Errorf("patterns = %v", got)
+	}
+}
+
+func TestOnlyUnsavedGoBuffersInsideTheWorkspaceReachARun(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	documents := newDocumentStore()
+	inside := func(path string) bool { return insideDirectory(root, path) }
+	edited, notes, saved := filepath.Join(root, "a.go"), filepath.Join(root, "notes.txt"), filepath.Join(root, "b.go")
+	library := filepath.Join(t.TempDir(), "lib.go")
+	if err := os.WriteFile(saved, []byte("package a\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{edited, notes, library} {
+		documents.open(path, "unsaved text", 1) // the files do not exist, so the buffers count as unsaved
+	}
+	documents.open(saved, "package a\n", 1)
+	got := documents.unsavedTexts(inside)
+	if len(got) != 1 || got[edited] != "unsaved text" {
+		t.Errorf("texts for a run = %v, want only %s", got, edited)
+	}
+}
+
+func TestCappedBufferKeepsTheStartAndReportsTheRest(t *testing.T) {
+	t.Parallel()
+	buffer := &cappedBuffer{limit: 5}
+	for _, chunk := range []string{"abc", "defg", "hij"} {
+		if written, err := buffer.Write([]byte(chunk)); written != len(chunk) || err != nil {
+			t.Fatalf("Write(%q) = %d, %v", chunk, written, err)
+		}
+	}
+	if buffer.buffer.String() != "abcde" || !buffer.truncated {
+		t.Errorf("buffer = %q truncated=%t, want the first five bytes and truncated", buffer.buffer.String(), buffer.truncated)
+	}
+}
+
+func TestAStartingServerRemovesDirectoriesOfServersThatAreGone(t *testing.T) {
+	// Not parallel: it changes where temporary directories are created.
+	t.Setenv("TMPDIR", t.TempDir())
+	t.Setenv("TMP", os.Getenv("TMPDIR"))
+	const noSuchProcess = 1<<22 + 12345
+	if ProcessAlive(noSuchProcess) {
+		t.Skip("the process ID chosen as absent exists on this machine")
+	}
+	abandoned := filepath.Join(os.TempDir(), temporaryPrefix+strconv.Itoa(noSuchProcess)+"-x")
+	unreadable := filepath.Join(os.TempDir(), temporaryPrefix+"mystery")
+	for _, directory := range []string{abandoned, unreadable} {
+		if err := os.Mkdir(directory, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	own, err := newTemporaryDirectory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	removeAbandonedDirectories()
+	if _, err := os.Stat(abandoned); !os.IsNotExist(err) {
+		t.Errorf("the directory of a dead server was kept: %v", err)
+	}
+	for _, kept := range []string{own, unreadable} {
+		if _, err := os.Stat(kept); err != nil {
+			t.Errorf("%s was removed: %v", kept, err)
+		}
+	}
+	if !ProcessAlive(os.Getpid()) {
+		t.Error("this process was reported as gone")
 	}
 }

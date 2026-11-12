@@ -70,6 +70,31 @@ Memory is sampled from `/proc` by process group on Linux. The peak reported
 for a run is the larger of that sample and the kernel's figure for the
 largest single process, so short runs still report a number.
 
+## Limits on the server itself
+
+The limits above bound a check. These bound the server and what it leaves
+behind:
+
+- Only unsaved Go buffers inside the workspace are written to an overlay,
+  and a cancelled run stops writing at once.
+- The package listing runs under the same deadline and memory watch as the
+  analysis. Output from a command is capped, and so is a header line.
+- One explanation runs at a time, under a check's limits.
+- On exit, end of input, interrupt, or terminate, the server stops every
+  check and waits for the processes to be gone before it returns.
+- A server that is killed outright cannot do that. Each process a check
+  starts carries the server's process ID, and the analysis tool stops itself
+  when that server no longer exists. A starting server removes the
+  temporary directories of servers that are gone.
+- A message that is not valid costs one error reply; the server reads on. A
+  header with no usable length loses the stream and ends the server.
+- Messages to the client are queued for one writer. A client that stops
+  reading is declared stalled after a bounded wait and the server ends,
+  instead of hanging where no exit request can reach it.
+- Nothing is checked before `initialize`, because the workspace is unknown.
+- Setting values far outside what a machine can do are bounded or replaced
+  by defaults.
+
 ## Presentation
 
 | go vet JSON | Protocol diagnostic |
@@ -149,11 +174,25 @@ On gohawk itself (61 packages, 2026-11-12, GOMAXPROCS=4):
 A comment-only edit still re-checks importers: the go cache does not cut off
 when a package's facts are unchanged.
 
+## Adversarial testing
+
+Three agents attacked the first version (2026-11-12): one for memory and
+latency, one for wrong or stale results against the command-line result, and
+one for crashes and protocol abuse. They found 25 defects and no panics; the
+regression scenarios in `truthfulness_test.go` and `protocol_test.go` come
+from them. Worth repeating after any change to scheduling, the store, or the
+transport: the oracle is that what the editor shows must equal what
+`gohawk -json` reports for the same content.
+
 ## Known gaps
 
 - No large-repository measurement yet. A low-level edit with thousands of
   importers may never finish its background run between edits.
 - The hard memory limit exists only on Linux.
 - Explain shows raw tracer output and ignores unsaved buffers.
+- A package with thousands of findings produces one large publish message;
+  nothing caps findings per file.
+- A generated file of a few thousand lines can take longer than the default
+  time limit. It is then reported as stopped, not analyzed faster.
 - The pinned release must contain the `lsp` command before the extension's
   download path works; until then set `gohawk.path`.

@@ -8,7 +8,10 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	gohawk "github.com/kojah/gohawk/analyzers"
 	"github.com/kojah/gohawk/internal/editor/lsp"
@@ -48,7 +51,9 @@ func runLanguageServer(arguments []string, runtime cliRuntime) error {
 		defer func() { _ = file.Close() }()
 		eventLog = file
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	// Editors stop a server with either signal. Both must end it cleanly,
+	// because only a clean end stops the checks it started.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	info, ok := debug.ReadBuildInfo()
 	return lsp.Serve(ctx, io.Reader(os.Stdin), runtime.output, lsp.Options{
@@ -81,4 +86,24 @@ func editorCatalog() lsp.Catalog {
 		}
 	}
 	return func(check string) lsp.CheckInfo { return checks[check] }
+}
+
+// EditorServerGone returns a channel that is closed when the editor server
+// that started this process no longer exists, or nil when this process was
+// not started by one. A server that is killed outright cannot stop its
+// checks; this lets an analysis in flight stop itself instead of running to
+// the end with nobody to read the result. The caller decides what to do.
+func EditorServerGone() <-chan struct{} {
+	pid, err := strconv.Atoi(os.Getenv(lsp.ServerProcessVariable))
+	if err != nil || pid <= 0 {
+		return nil
+	}
+	gone := make(chan struct{})
+	go func() {
+		for lsp.ProcessAlive(pid) {
+			time.Sleep(2 * time.Second)
+		}
+		close(gone)
+	}()
+	return gone
 }

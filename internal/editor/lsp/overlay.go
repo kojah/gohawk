@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"context"
 	"encoding/base32"
 	"encoding/json"
 	"os"
@@ -36,7 +37,7 @@ type overlay struct {
 }
 
 // writeOverlay returns nil when there is nothing unsaved to describe.
-func writeOverlay(parent string, texts map[string]string) (*overlay, error) {
+func writeOverlay(ctx context.Context, parent string, texts map[string]string) (*overlay, error) {
 	if len(texts) == 0 {
 		return nil, nil //nolint:nilnil // no overlay is a normal outcome, not an error
 	}
@@ -47,6 +48,12 @@ func writeOverlay(parent string, texts map[string]string) (*overlay, error) {
 	result := &overlay{directory: directory, texts: texts}
 	replace := make(map[string]string, len(texts))
 	for path, text := range texts {
+		// A run cancelled by a newer edit must stop writing at once: under
+		// an edit storm many runs are started and abandoned.
+		if err := ctx.Err(); err != nil {
+			result.remove()
+			return nil, err
+		}
 		temporary := encodeOverlayPath(directory, path)
 		if err := os.MkdirAll(filepath.Dir(temporary), 0o700); err != nil {
 			result.remove()

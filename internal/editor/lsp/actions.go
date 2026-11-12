@@ -1,12 +1,12 @@
 package lsp
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
+	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -110,7 +110,7 @@ func (s *Server) actionsFor(uri string, finding diagnostic) []codeAction {
 			add("gohawk: Explain this finding", explainClientCommand, target)
 		}
 	}
-	if finding.CodeDescription != nil {
+	if finding.CodeDescription != nil && isWebAddress(finding.CodeDescription.Href) {
 		add("gohawk: Open documentation for "+finding.Code, commandOpenDocumentation, finding.CodeDescription.Href)
 	}
 	return actions
@@ -135,10 +135,12 @@ func (s *Server) executeCommand(ctx context.Context, incoming *message) {
 		s.publishStatus()
 	case commandOpenDocumentation:
 		var target string
-		if len(params.Arguments) > 0 && decode(params.Arguments[0], &target) {
-			s.nextRequestID++
-			_ = s.connection.request(s.nextRequestID, methodShowDocument, showDocumentParams{URI: target, External: true})
+		if len(params.Arguments) == 0 || !decode(params.Arguments[0], &target) || !isWebAddress(target) {
+			_ = s.connection.replyError(incoming.ID, errorInvalidParams, "documentation is opened only from an http or https address")
+			return
 		}
+		s.nextRequestID++
+		_ = s.connection.request(s.nextRequestID, methodShowDocument, showDocumentParams{URI: target, External: true})
 	case commandExplain:
 		s.explain(ctx, incoming.ID, params.Arguments)
 		return
@@ -176,36 +178,67 @@ func firstPathArgument(arguments []json.RawMessage) (string, bool) {
 	return pathFromURI(uri)
 }
 
+// isWebAddress accepts only what a documentation link can be. The client is
+// asked to open the address outside the editor, so nothing else is passed on.
+func isWebAddress(target string) bool {
+	parsed, err := url.Parse(target)
+	return err == nil && (parsed.Scheme == "https" || parsed.Scheme == "http") && parsed.Host != ""
+}
+
+// analyzerName matches a catalog analyzer name. The name is passed to the
+// tracer as an argument and echoed into the explanation.
+var analyzerName = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
+
 // explain runs the evidence tracer for one finding and replies with its
 // text. It reads saved files: the tracer has no overlay, so the explanation
 // of an unsaved buffer may describe the file as last saved.
+//
+// One explanation runs at a time, under the same time and memory limits as a
+// check. Each one is a full analysis of the package, so answering many at
+// once would multiply the memory a single check is allowed.
 func (s *Server) explain(ctx context.Context, id *json.RawMessage, arguments []json.RawMessage) {
 	var target findingTarget
 	path, ok := "", false
 	if len(arguments) > 0 && decode(arguments[0], &target) {
 		path, ok = pathFromURI(target.URI)
 	}
-	if !ok || target.Analyzer == "" {
+	switch {
+	case !ok || !analyzerName.MatchString(target.Analyzer) || target.Line < 1:
 		_ = s.connection.replyError(id, errorInvalidParams, "explain needs a file, a line, and an analyzer")
+		return
+	case s.skipReason(path) != "":
+		_ = s.connection.replyError(id, errorInvalidParams, "explain: "+s.skipReason(path))
+		return
+	case s.shutdown:
+		_ = s.connection.replyError(id, errorRequestFailed, "explain: the server is shutting down")
+		return
+	case s.stopExplain != nil:
+		_ = s.connection.replyError(id, errorRequestFailed, "explain: another explanation is still running")
 		return
 	}
 	candidate := fmt.Sprintf("%s:%d", filepath.Base(path), target.Line)
-	go func() {
-		explainContext, cancel := context.WithTimeout(ctx, s.settings.timeout())
-		defer cancel()
-		command := exec.CommandContext(explainContext, s.options.Executable, "dump", "trace", "-analyzer", target.Analyzer, "-candidate", candidate, ".")
-		command.Dir = filepath.Dir(path)
-		var output bytes.Buffer
-		command.Stdout, command.Stderr = &output, &output
-		configureProcessTree(command)
-		runErr := command.Run()
-		header := fmt.Sprintf("# %s at %s\n# gohawk dump trace -analyzer %s -candidate %s .\n\n", target.Check, candidate, target.Analyzer, candidate)
-		s.post(func() {
-			if runErr != nil && output.Len() == 0 {
+	limits := runLimits{timeout: s.settings.timeout(), memoryBytes: s.settings.memoryBytes(), memoryLimit: s.settings.MemoryLimit}
+	explainContext, cancel := context.WithTimeout(ctx, limits.timeout)
+	s.stopExplain = cancel
+	s.runs.Go(func() {
+		guarded := &guard{limits: limits, stop: cancel}
+		arguments := []string{"dump", "trace", "-analyzer", target.Analyzer, "-candidate", candidate, "."}
+		output, runErr := guarded.runProgram(explainContext, filepath.Dir(path), s.options.Executable, arguments)
+		stopped := interrupted(ctx, explainContext, guarded, outcomeCompleted)
+		go s.post(func() {
+			cancel()
+			s.stopExplain = nil
+			text := string(output.stdout) + string(output.stderr)
+			switch {
+			case stopped != outcomeCompleted:
+				_ = s.connection.replyError(id, errorRequestFailed, "explain was stopped: "+stopped.String())
+			case runErr != nil && text == "":
 				_ = s.connection.replyError(id, errorRequestFailed, "explain: "+runErr.Error())
-				return
+			default:
+				check := strings.Join(strings.Fields(target.Check), " ")
+				header := fmt.Sprintf("# %s at %s\n# gohawk dump trace -analyzer %s -candidate %s .\n\n", check, candidate, target.Analyzer, candidate)
+				_ = s.connection.reply(id, header+text)
 			}
-			_ = s.connection.reply(id, header+output.String())
 		})
-	}()
+	})
 }

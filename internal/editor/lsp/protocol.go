@@ -27,6 +27,9 @@ const (
 )
 
 const (
+	errorParse          = -32700
+	errorInvalidRequest = -32600
+	errorNotInitialized = -32002
 	errorMethodNotFound = -32601
 	errorInvalidParams  = -32602
 	errorRequestFailed  = -32803

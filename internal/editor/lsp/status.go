@@ -3,6 +3,7 @@ package lsp
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -135,4 +136,17 @@ func formatBytes(bytes int64) string {
 		return fmt.Sprintf("%.1f GiB", float64(bytes)/(1<<30))
 	}
 	return fmt.Sprintf("%d MiB", bytes/mebibyte)
+}
+
+// shellJoin renders arguments for the log. It is for reading, not for
+// execution: the command itself never passes through a shell.
+func shellJoin(arguments []string) string {
+	quoted := make([]string, len(arguments))
+	for index, argument := range arguments {
+		if strings.ContainsAny(argument, " \t\"'") {
+			argument = "'" + strings.ReplaceAll(argument, "'", `'\''`) + "'"
+		}
+		quoted[index] = argument
+	}
+	return strings.Join(quoted, " ")
 }

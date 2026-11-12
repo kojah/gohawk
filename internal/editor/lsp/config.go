@@ -1,6 +1,8 @@
 package lsp
 
 import (
+	"math"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +21,8 @@ const (
 	scopeWorkspaceOnSave  = "workspaceOnSave"
 	defaultDebounce       = 750 * time.Millisecond
 	defaultTimeout        = 60 * time.Second
+	maxDebounce           = time.Minute
+	maxTimeoutSecs        = 3600
 	defaultMemoryLimit    = "2GiB"
 	defaultMaxParallel    = 2
 	stepPathClientCommand = "gohawk.stepPath"
@@ -71,6 +75,9 @@ func (s settings) normalized() settings {
 	if s.MaxParallel < 1 {
 		s.MaxParallel = defaultMaxParallel
 	}
+	// A value far beyond the machine is a mistake, and the go command takes
+	// it literally.
+	s.MaxParallel = min(s.MaxParallel, max(runtime.NumCPU(), defaultMaxParallel))
 	return s
 }
 
@@ -78,14 +85,14 @@ func (s settings) debounce() time.Duration {
 	if s.DebounceMS == nil || *s.DebounceMS < 0 {
 		return defaultDebounce
 	}
-	return time.Duration(*s.DebounceMS) * time.Millisecond
+	return min(time.Duration(*s.DebounceMS)*time.Millisecond, maxDebounce)
 }
 
 func (s settings) timeout() time.Duration {
 	if s.TimeoutSecs < 1 {
 		return defaultTimeout
 	}
-	return time.Duration(s.TimeoutSecs) * time.Second
+	return time.Duration(min(s.TimeoutSecs, maxTimeoutSecs)) * time.Second
 }
 
 func (s settings) memoryBytes() int64 {
@@ -107,7 +114,7 @@ func parseByteSize(value string) (int64, bool) {
 			continue
 		}
 		number, err := strconv.ParseInt(digits, 10, 64)
-		if err != nil || number <= 0 {
+		if err != nil || number <= 0 || number > math.MaxInt64/unit.factor {
 			return 0, false
 		}
 		return number * unit.factor, true

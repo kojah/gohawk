@@ -64,11 +64,13 @@ func (s *documentStore) isOpen(path string) bool {
 	return ok
 }
 
-// unsavedTexts returns the text of every unsaved buffer by file path.
-func (s *documentStore) unsavedTexts() map[string]string {
+// unsavedTexts returns the text of every unsaved Go buffer accepted by wanted,
+// by file path. Only Go source can change what the analysis sees; copying
+// other unsaved buffers into every run would cost disk and memory for nothing.
+func (s *documentStore) unsavedTexts(wanted func(path string) bool) map[string]string {
 	texts := make(map[string]string)
 	for path, current := range s.byPath {
-		if current.unsaved {
+		if current.unsaved && filepath.Ext(path) == ".go" && wanted(path) {
 			texts[path] = current.text
 		}
 	}

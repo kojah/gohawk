@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -86,43 +87,88 @@ func (r *runner) execute(ctx context.Context, request *runRequest, limits runLim
 	started := time.Now()
 	defer func() { result.elapsed = time.Since(started) }()
 
+	// One deadline and one memory watch cover everything the run starts: the
+	// package listing as well as the analysis.
+	runContext, cancel := context.WithTimeout(ctx, limits.timeout)
+	defer cancel()
+	guarded := &guard{limits: limits, stop: cancel}
+
 	var err error
-	result.overlay, err = writeOverlay(r.temporary, request.texts)
+	result.overlay, err = writeOverlay(runContext, r.temporary, request.texts)
 	if err != nil {
-		result.outcome, result.err = outcomeFailed, err
+		result.outcome, result.err = interrupted(ctx, runContext, guarded, outcomeFailed), err
 		return result
 	}
 	overlayFile := ""
 	if result.overlay != nil {
 		overlayFile = result.overlay.file
 	}
-	directory, patterns, err := r.target(ctx, request, overlayFile, &result)
+	directory, patterns, err := r.target(runContext, guarded, request, overlayFile, &result)
+	result.peakBytes = guarded.peak.Load()
 	if err != nil {
-		result.outcome, result.err = failureOutcome(ctx), err
+		result.outcome, result.err = interrupted(ctx, runContext, guarded, outcomeFailed), err
 		return result
 	}
-	if len(patterns) == 0 {
-		return result // nothing imports the changed packages
-	}
-	arguments := []string{"vet", "-vettool=" + r.executable, "-json"}
+	arguments := []string{"vet", "-vettool=" + r.executable, "-json", "-p=" + strconv.Itoa(limits.parallel)}
 	if overlayFile != "" {
 		arguments = append(arguments, "-overlay="+overlayFile)
-	}
-	if request.kind != runPackage {
-		arguments = append(arguments, "-p="+strconv.Itoa(limits.parallel))
 	}
 	if limits.experimental {
 		arguments = append(arguments, "-tier=experimental")
 	}
-	arguments = append(arguments, patterns...)
-	result.commandLine = "go " + shellJoin(arguments)
-	r.vet(ctx, directory, arguments, limits, &result)
+	// A wide module can import a package from more directories than one
+	// command line holds, so the patterns are checked in batches.
+	for batch := range slices.Chunk(patterns, patternsPerCommand) {
+		command := append(slices.Clone(arguments), batch...)
+		if result.commandLine == "" {
+			result.commandLine = "go " + shellJoin(command)
+		}
+		output, waitErr := guarded.run(runContext, directory, command)
+		result.peakBytes = guarded.peak.Load()
+		result.stderr += string(output.stderr)
+		if stopped := interrupted(ctx, runContext, guarded, outcomeCompleted); stopped != outcomeCompleted {
+			result.outcome = stopped
+			return result
+		}
+		if output.truncated {
+			result.outcome, result.err = outcomeFailed, errOutputTooLarge
+			return result
+		}
+		decodeVetOutput(output.stdout, waitErr, &result)
+		if result.outcome != outcomeCompleted {
+			return result
+		}
+	}
 	return result
+}
+
+// patternsPerCommand bounds one go vet command line.
+const patternsPerCommand = 256
+
+var errOutputTooLarge = errors.New("go vet printed more output than the server accepts")
+
+// interrupted names why a run stopped early, or returns otherwise when it was
+// not stopped. A memory stop also cancels the run context, so it is asked
+// first; a cancellation by the caller outranks the run's own deadline.
+func interrupted(caller, run context.Context, guarded *guard, otherwise runOutcome) runOutcome {
+	switch {
+	case guarded.exceeded.Load():
+		return outcomeMemoryExceeded
+	case caller.Err() != nil:
+		return outcomeCanceled
+	case errors.Is(run.Err(), context.DeadlineExceeded):
+		return outcomeTimedOut
+	default:
+		return otherwise
+	}
 }
 
 // target resolves what a request checks: the working directory, the package
 // patterns, and the directories whose findings the result will replace.
-func (r *runner) target(ctx context.Context, request *runRequest, overlayFile string, result *runResult) (string, []string, error) {
+func (r *runner) target(ctx context.Context, guarded *guard, request *runRequest, overlayFile string, result *runResult) (string, []string, error) {
+	list := func(patterns []string) ([]listedPackage, error) {
+		return listPackages(ctx, guarded, request.root, overlayFile, patterns)
+	}
 	switch request.kind {
 	case runPackage:
 		result.covered = request.directories
@@ -130,7 +176,7 @@ func (r *runner) target(ctx context.Context, request *runRequest, overlayFile st
 	case runWorkspace:
 		// The run answers for every package the module lists, and for the
 		// directories it already had findings for, which may be gone now.
-		listed, err := listPackages(ctx, request.root, overlayFile, []string{"./..."})
+		listed, err := list([]string{"./..."})
 		if err != nil {
 			return "", nil, err
 		}
@@ -144,7 +190,7 @@ func (r *runner) target(ctx context.Context, request *runRequest, overlayFile st
 		result.covered = sortedKeys(covered)
 		return request.root, []string{"./..."}, nil
 	default:
-		directories, err := importers(ctx, request.root, overlayFile, request.directories)
+		directories, err := importers(ctx, guarded, request.root, overlayFile, request.directories)
 		if err != nil {
 			return "", nil, err
 		}
@@ -153,44 +199,72 @@ func (r *runner) target(ctx context.Context, request *runRequest, overlayFile st
 	}
 }
 
-func (r *runner) vet(ctx context.Context, directory string, arguments []string, limits runLimits, result *runResult) {
-	runContext, cancel := context.WithTimeout(ctx, limits.timeout)
-	defer cancel()
-	command := exec.CommandContext(runContext, "go", arguments...)
+// guard runs go commands under one run's limits. Every command joins the
+// same memory accounting, and passing the limit stops the whole run.
+type guard struct {
+	limits   runLimits
+	stop     context.CancelFunc
+	exceeded atomic.Bool
+	peak     atomic.Int64
+}
+
+type commandOutput struct {
+	stdout    []byte
+	stderr    []byte
+	truncated bool
+}
+
+// maxCommandOutput bounds what one command may print. Findings are held in
+// memory until they are published, so the output is part of the server's
+// own footprint.
+const maxCommandOutput = 64 << 20
+
+func (g *guard) run(ctx context.Context, directory string, arguments []string) (commandOutput, error) {
+	return g.runProgram(ctx, directory, "go", arguments)
+}
+
+// runProgram runs any program under the limits; the go command is the usual
+// one, and the explanation runs gohawk itself.
+func (g *guard) runProgram(ctx context.Context, directory, program string, arguments []string) (commandOutput, error) {
+	command := exec.CommandContext(ctx, program, arguments...)
 	command.Dir = directory
-	command.Env = append(os.Environ(), "GOMEMLIMIT="+limits.memoryLimit)
-	var stdout, stderr bytes.Buffer
-	command.Stdout, command.Stderr = &stdout, &stderr
+	command.Env = append(os.Environ(), "GOMEMLIMIT="+g.limits.memoryLimit, ServerProcessVariable+"="+strconv.Itoa(os.Getpid()))
+	stdout := &cappedBuffer{limit: maxCommandOutput}
+	stderr := &cappedBuffer{limit: 1 << 20}
+	command.Stdout, command.Stderr = stdout, stderr
 	configureProcessTree(command)
 	if err := command.Start(); err != nil {
-		result.outcome, result.err = outcomeFailed, err
-		return
+		return commandOutput{}, err
 	}
-	var exceeded atomic.Bool
-	var peak atomic.Int64
+	watchContext, stopWatch := context.WithCancel(ctx)
 	watchDone := make(chan struct{})
-	go watchMemory(runContext, command.Process.Pid, limits.memoryBytes, &peak, func() {
-		exceeded.Store(true)
-		cancel()
+	go watchMemory(watchContext, command.Process.Pid, g.limits.memoryBytes, &g.peak, func() {
+		g.exceeded.Store(true)
+		g.stop()
 	}, watchDone)
 	waitErr := command.Wait()
-	cancel()
+	stopWatch()
 	<-watchDone
-	result.peakBytes = peak.Load()
-	if largest, ok := largestProcessMemory(command.ProcessState); ok && largest > result.peakBytes {
-		result.peakBytes = largest
+	if largest, ok := largestProcessMemory(command.ProcessState); ok && largest > g.peak.Load() {
+		g.peak.Store(largest)
 	}
-	result.stderr = stderr.String()
-	switch {
-	case exceeded.Load():
-		result.outcome = outcomeMemoryExceeded
-	case ctx.Err() != nil:
-		result.outcome = outcomeCanceled
-	case errors.Is(runContext.Err(), context.DeadlineExceeded):
-		result.outcome = outcomeTimedOut
-	default:
-		decodeVetOutput(stdout.Bytes(), waitErr, result)
+	return commandOutput{stdout: stdout.buffer.Bytes(), stderr: stderr.buffer.Bytes(), truncated: stdout.truncated}, waitErr
+}
+
+// cappedBuffer keeps the first limit bytes and remembers that more arrived.
+type cappedBuffer struct {
+	buffer    bytes.Buffer
+	limit     int
+	truncated bool
+}
+
+func (b *cappedBuffer) Write(data []byte) (int, error) {
+	if room := b.limit - b.buffer.Len(); room < len(data) {
+		b.truncated = true
+		b.buffer.Write(data[:max(room, 0)])
+		return len(data), nil
 	}
+	return b.buffer.Write(data)
 }
 
 // decodeVetOutput classifies a finished go vet. go vet prints analysis results
@@ -208,19 +282,13 @@ func decodeVetOutput(stdout []byte, waitErr error, result *runResult) {
 		result.outcome, result.err = outcomeFailed, err
 		return
 	}
-	result.diagnostics, result.analysisErrors = diagnostics, analysisErrors
+	result.diagnostics = append(result.diagnostics, diagnostics...)
+	result.analysisErrors = append(result.analysisErrors, analysisErrors...)
 	if waitErr != nil {
 		// Some packages were analyzed and others failed to build. Which ones
 		// failed is not recoverable from the output, so nothing is replaced.
 		result.outcome, result.err = outcomeBuildFailed, waitErr
 	}
-}
-
-func failureOutcome(ctx context.Context) runOutcome {
-	if ctx.Err() != nil {
-		return outcomeCanceled
-	}
-	return outcomeFailed
 }
 
 // watchMemory samples the child process tree until the run ends and calls

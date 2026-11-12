@@ -114,7 +114,13 @@ func (s *Server) pump(ctx context.Context) {
 	if len(schedule.queue) > 0 {
 		directory := schedule.queue[0]
 		schedule.queue = schedule.queue[1:]
-		root, _ := moduleRoot(directory)
+		root, ok := moduleRoot(directory)
+		if !ok {
+			delete(schedule.isolated, directory)
+			s.logf("skipped   %s: no go.mod above it", directory)
+			s.pump(ctx)
+			return
+		}
 		request := &runRequest{kind: runPackage, root: root, directories: []string{directory}, label: filepath.Base(directory)}
 		request.startsRipple = !schedule.isolated[directory]
 		delete(schedule.isolated, directory)
@@ -144,6 +150,14 @@ func (s *Server) nextRipple() (string, []string, bool) {
 		s.scheduler.ripple = make(map[string]bool)
 		return "", nil, false
 	}
+	// A directory whose module is gone, as when go.mod was deleted during
+	// its check, has no importers to find. Leaving it in the set would start
+	// an empty run again and again.
+	for directory := range s.scheduler.ripple {
+		if _, ok := moduleRoot(directory); !ok {
+			delete(s.scheduler.ripple, directory)
+		}
+	}
 	changed := sortedKeys(s.scheduler.ripple)
 	if len(changed) == 0 {
 		return "", nil, false
@@ -165,7 +179,7 @@ func (s *Server) start(ctx context.Context, request *runRequest) *activeRun {
 	// Unsaved buffers are analyzed only when checks follow typing. In the
 	// other modes findings describe the files as last saved.
 	if s.settings.Run == runOnPause {
-		request.texts = s.documents.unsavedTexts()
+		request.texts = s.documents.unsavedTexts(s.insideWorkspace)
 	}
 	limits := runLimits{
 		timeout:      s.settings.timeout(),
@@ -179,10 +193,12 @@ func (s *Server) start(ctx context.Context, request *runRequest) *activeRun {
 		Event: "run-started", Run: request.id, Detail: request.kind.String(), Label: request.label, Unsaved: len(request.texts) > 0,
 	})
 	runContext, cancel := context.WithCancel(ctx)
-	go func() {
+	s.runs.Go(func() {
 		result := s.runner.execute(runContext, request, limits)
-		s.post(func() { s.finish(ctx, result) })
-	}()
+		// Posting must not hold the run open: a stopping server waits for
+		// runs to end and no longer reads what they post.
+		go s.post(func() { s.finish(ctx, result) })
+	})
 	return &activeRun{request: request, cancel: cancel}
 }
 
@@ -218,6 +234,9 @@ func (s *Server) cancelAllRuns() {
 		}
 	}
 	s.scheduler.foreground, s.scheduler.background = nil, nil
+	if s.stopExplain != nil {
+		s.stopExplain()
+	}
 }
 
 // finish applies a completed run. A run that is no longer the active one was

@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -48,15 +49,26 @@ type Server struct {
 	results        *resultStore
 	events         chan func()
 	done           chan struct{}
-	scheduler      scheduler
-	lastStatus     StatusParams
-	nextRequestID  int
-	shutdown       bool
+	// runs counts check goroutines, so the server can wait for their child
+	// processes to be stopped before it returns.
+	runs          sync.WaitGroup
+	scheduler     scheduler
+	lastStatus    StatusParams
+	nextRequestID int
+	shutdown      bool
+	initialized   bool
+	// stopExplain cancels the one explanation in flight, or is nil.
+	stopExplain context.CancelFunc
 }
 
 // Serve runs the server until the client sends exit or closes the stream.
 func Serve(ctx context.Context, input io.Reader, output io.Writer, options Options) error {
-	temporary, err := os.MkdirTemp("", "gohawk-lsp-")
+	return serve(ctx, newConnection(input, output), options)
+}
+
+func serve(ctx context.Context, client *connection, options Options) error {
+	removeAbandonedDirectories()
+	temporary, err := newTemporaryDirectory()
 	if err != nil {
 		return err
 	}
@@ -67,7 +79,7 @@ func Serve(ctx context.Context, input io.Reader, output io.Writer, options Optio
 	server := &Server{
 		options:        options,
 		eventLog:       &eventLog{writer: options.EventLog},
-		connection:     newConnection(input, output),
+		connection:     client,
 		runner:         &runner{executable: options.Executable, temporary: temporary},
 		settings:       defaultSettings(),
 		clientCommands: make(map[string]bool),
@@ -83,28 +95,18 @@ func Serve(ctx context.Context, input io.Reader, output io.Writer, options Optio
 func (s *Server) loop(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	defer s.connection.close()
 	defer close(s.done)
-	defer s.cancelAllRuns()
+	defer s.stopRuns()
 	incoming := make(chan *message)
 	readErr := make(chan error, 1)
-	go func() {
-		for {
-			next, err := s.connection.read()
-			if err != nil {
-				readErr <- err
-				return
-			}
-			select {
-			case incoming <- next:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	go s.readMessages(ctx, incoming, readErr)
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-s.connection.stalled:
+			return errStalled
 		case err := <-readErr:
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -120,6 +122,43 @@ func (s *Server) loop(ctx context.Context) error {
 	}
 }
 
+// readMessages feeds the event loop. A body that is not a valid message is
+// refused and reading continues; an error that loses the stream ends it.
+func (s *Server) readMessages(ctx context.Context, incoming chan<- *message, failed chan<- error) {
+	for {
+		next, err := s.connection.read()
+		if errors.Is(err, errMalformedMessage) {
+			_ = s.connection.replyError(nil, errorParse, err.Error())
+			continue
+		}
+		if err != nil {
+			failed <- err
+			return
+		}
+		select {
+		case incoming <- next:
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// stopRuns cancels every check and waits for their processes to be stopped.
+// Returning earlier would let the server exit while a child still runs. The
+// wait is bounded: a child that ignores the kill must not hold the editor.
+func (s *Server) stopRuns() {
+	s.cancelAllRuns()
+	stopped := make(chan struct{})
+	go func() {
+		s.runs.Wait()
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+	}
+}
+
 // post hands work back to the serving goroutine. It gives up when the server
 // has stopped, so a late run completion cannot block forever.
 func (s *Server) post(event func()) {
@@ -130,10 +169,14 @@ func (s *Server) post(event func()) {
 }
 
 func (s *Server) handle(ctx context.Context, incoming *message) (exit bool) {
-	if incoming.Method == "" {
-		return false // a reply to one of our show requests; nothing to do
-	}
-	if incoming.ID == nil {
+	isReply := incoming.Method == "" && (incoming.Result != nil || incoming.Error != nil)
+	switch {
+	case isReply:
+		return false // the answer to our request to show a document
+	case incoming.Method == "":
+		_ = s.connection.replyError(incoming.ID, errorInvalidRequest, "the message names no method")
+		return false
+	case incoming.ID == nil:
 		return s.handleNotification(ctx, incoming)
 	}
 	s.handleRequest(ctx, incoming)
@@ -141,9 +184,15 @@ func (s *Server) handle(ctx context.Context, incoming *message) (exit bool) {
 }
 
 func (s *Server) handleNotification(ctx context.Context, incoming *message) (exit bool) {
-	switch incoming.Method {
-	case methodExit:
+	if incoming.Method == methodExit {
 		return true
+	}
+	// Before initialize the server does not know the workspace, so it cannot
+	// tell the user's files from any other file on disk.
+	if !s.initialized {
+		return false
+	}
+	switch incoming.Method {
 	case methodDidOpen:
 		var params didOpenParams
 		if decode(incoming.Params, &params) {
@@ -180,6 +229,10 @@ func (s *Server) handleNotification(ctx context.Context, incoming *message) (exi
 
 func (s *Server) handleRequest(ctx context.Context, incoming *message) {
 	var err error
+	if !s.initialized && incoming.Method != methodInitialize && incoming.Method != methodShutdown {
+		_ = s.connection.replyError(incoming.ID, errorNotInitialized, "initialize has not been sent")
+		return
+	}
 	switch incoming.Method {
 	case methodInitialize:
 		err = s.connection.reply(incoming.ID, s.initialize(incoming.Params))
@@ -207,6 +260,7 @@ func (s *Server) initialize(raw json.RawMessage) initializeResult {
 		s.workspaceRoots = workspaceRoots(params)
 	}
 	s.spelling = newPathSpelling(s.workspaceRoots)
+	s.initialized = true
 	if len(params.InitializationOptions) > 0 {
 		var options initializationOptions
 		options.Settings = s.settings
