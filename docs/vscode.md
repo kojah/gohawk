@@ -1,19 +1,25 @@
 ---
 title: VSCode extension
-description: See gohawk findings in VS Code while you edit.
+description: See gohawk findings in VS Code or Cursor while you edit.
 ---
 
 The gohawk extension shows findings in the editor a moment after you stop
 typing, with the steps that lead to each one. It runs beside the official Go
 extension and does not replace it.
 
+It works in VS Code and in Cursor.
+
 ![A gohawk finding in VS Code, with its steps and the usual fix](/editor/finding.png)
 
 ## Install
 
-Search for **gohawk** in the Extensions view and install it. Cursor and other
-editors that use Open VSX can install it the same way. The extension includes
-the gohawk binary for your platform, so there is nothing else to download. It needs a supported Go command on your `PATH`, the same as the CLI.
+Search for **gohawk** in the Extensions view and install it. This is the same
+in VS Code and in Cursor. Other editors that use Open VSX, such as VSCodium,
+can install it the same way.
+
+The extension includes the gohawk binary for your platform, so there is
+nothing else to download. It needs a supported Go command on your `PATH`, the
+same as the CLI.
 
 Open a Go file in a module. The status bar shows `gohawk` and the result of
 the last check.

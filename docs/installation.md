@@ -9,7 +9,7 @@ with Go 1.27 so the same binary supports both versions. Projects may target
 older language versions through their `go` directive, but older Go commands
 are best effort.
 
-Using VS Code? The [gohawk extension](/vscode/) includes the binary, so you can
+Using VS Code or Cursor? The [gohawk extension](/vscode/) includes the binary, so you can
 skip this page.
 
 ## Install the CLI
