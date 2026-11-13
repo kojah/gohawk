@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"os/signal"
@@ -45,6 +46,12 @@ func runLanguageServer(arguments []string, runtime cliRuntime) error {
 	}
 	var eventLog io.Writer
 	if *eventLogPath != "" {
+		// Opening a named pipe for writing waits for a reader, and a device
+		// may never accept the log. Either would hang the server before it
+		// reads its first message, so only a regular file is accepted.
+		if info, err := os.Stat(*eventLogPath); err == nil && !info.Mode().IsRegular() {
+			return fmt.Errorf("event log %s is not a regular file", *eventLogPath)
+		}
 		file, err := os.OpenFile(*eventLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 		if err != nil {
 			return err

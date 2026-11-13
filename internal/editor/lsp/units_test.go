@@ -326,3 +326,47 @@ func TestAStartingServerRemovesDirectoriesOfServersThatAreGone(t *testing.T) {
 		t.Error("this process was reported as gone")
 	}
 }
+
+// A file with more findings than one list holds is cut, and says so.
+func TestAFileWithTooManyFindingsIsCutAndSaysSo(t *testing.T) {
+	t.Parallel()
+	var written bytes.Buffer
+	server := &Server{
+		connection: newConnection(&bytes.Buffer{}, &written),
+		eventLog:   &eventLog{},
+		results:    newResultStore(),
+	}
+	path := filepath.Join(t.TempDir(), "generated.go")
+	total := maxFindingsPerFile + 50
+	findings := make([]fileDiagnostic, total)
+	for index := range findings {
+		findings[index] = fileDiagnostic{path: path, diagnostic: diagnostic{
+			Range: textRange{Start: position{Line: index}}, Severity: severityWarning, Source: diagnosticSource, Message: "finding",
+		}}
+	}
+	server.results.replace([]string{filepath.Dir(path)}, findings)
+	server.publish([]string{path})
+	server.connection.close()
+
+	var published publishDiagnosticsParams
+	reader := newConnection(&written, &bytes.Buffer{})
+	for published.URI == "" {
+		next, err := reader.read()
+		if err != nil {
+			t.Fatalf("no diagnostics were published: %v", err)
+		}
+		if next.Method == methodPublishDiagnostics && !decode(next.Params, &published) {
+			t.Fatal("published diagnostics did not decode")
+		}
+	}
+	if len(published.Diagnostics) != maxFindingsPerFile+1 {
+		t.Fatalf("published %d diagnostics, want %d and a note", len(published.Diagnostics), maxFindingsPerFile)
+	}
+	note := published.Diagnostics[maxFindingsPerFile]
+	if note.Severity != severityInformation || !strings.Contains(note.Message, strconv.Itoa(total)) {
+		t.Errorf("note = %+v, want the true count of %d", note, total)
+	}
+	if server.results.total() != total {
+		t.Errorf("stored findings = %d, want all %d kept", server.results.total(), total)
+	}
+}

@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -393,10 +394,27 @@ func (s *Server) applyBuildFailure(result runResult) {
 	}
 }
 
+// maxFindingsPerFile bounds one published list. A generated file can carry
+// thousands of findings; sending them all makes one message of many
+// megabytes that no reader will go through.
+const maxFindingsPerFile = 200
+
 func (s *Server) publish(paths []string) {
 	for _, path := range paths {
-		params := publishDiagnosticsParams{URI: uriFromPath(path), Diagnostics: s.results.forFile(path)}
-		count := len(params.Diagnostics)
+		findings := s.results.forFile(path)
+		count := len(findings)
+		if count > maxFindingsPerFile {
+			// Never silent: the list says it was cut and how long it really
+			// is. The store keeps every finding, so the status count is whole.
+			findings = append(findings[:maxFindingsPerFile:maxFindingsPerFile], diagnostic{
+				Severity: severityInformation,
+				Source:   diagnosticSource,
+				Message: fmt.Sprintf("gohawk has %d findings in this file and shows the first %d. Run gohawk on the command line to see them all.",
+					count, maxFindingsPerFile),
+			})
+			s.logf("capped    %s: %d findings, %d shown", path, count, maxFindingsPerFile)
+		}
+		params := publishDiagnosticsParams{URI: uriFromPath(path), Diagnostics: findings}
 		s.eventLog.record(event{Event: "published", Path: path, Findings: &count})
 		if err := s.connection.notify(methodPublishDiagnostics, params); err != nil {
 			return

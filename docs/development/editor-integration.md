@@ -107,6 +107,10 @@ behind:
   starts carries the server's process ID, and the analysis tool stops itself
   when that server no longer exists. A starting server removes the
   temporary directories of servers that are gone.
+- At most 200 findings are published for one file. A longer list ends with
+  a note giving the true count; the store and the status keep them all.
+- The event log must be a regular file. A named pipe would block the server
+  before it read its first message.
 - A message that is not valid costs one error reply; the server reads on. A
   header with no usable length loses the stream and ends the server.
 - Messages to the client are queued for one writer. A client that stops
@@ -241,8 +245,6 @@ transport: the oracle is that what the editor shows must equal what
   dependency graph.
 - The hard memory limit exists only on Linux.
 - Explain shows raw tracer output and ignores unsaved buffers.
-- A package with thousands of findings produces one large publish message;
-  nothing caps findings per file.
 - A generated file of a few thousand lines can take longer than the default
   time limit. It is then reported as stopped, not analyzed faster.
 - Every gohawk release needs a matching extension release, because the
