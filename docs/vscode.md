@@ -1,5 +1,5 @@
 ---
-title: VS Code
+title: VSCode extension
 description: See gohawk findings in VS Code while you edit.
 ---
 
