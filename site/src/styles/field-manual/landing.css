@@ -128,6 +128,9 @@ main:has(.landing),
 }
 
 .landing-get-started-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1.75rem;
 	margin: 1rem 0 0;
 }
 

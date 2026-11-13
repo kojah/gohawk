@@ -33,7 +33,7 @@ head:
     <p class="landing-body">gohawk is an industrial-grade static analyzer that finds resource
     management and concurrency issues in Go code. It has been used to find and fix bugs in
     <a href="https://github.com/moby/moby/pull/53517">Docker</a>, <a href="https://github.com/kubernetes/kubernetes/pull/142429">Kubernetes</a>, and <a href="https://github.com/caddyserver/caddy/pull/7968">Caddy</a>.</p>
-    <p class="landing-get-started-row"><a class="landing-get-started" href="installation/">Get started <span aria-hidden="true">&rarr;</span></a></p>
+    <p class="landing-get-started-row"><a class="landing-get-started" href="installation/">Get started <span aria-hidden="true">&rarr;</span></a> <a class="landing-get-started" href="https://github.com/kojah/gohawk">View on GitHub <span aria-hidden="true">&rarr;</span></a></p>
   </div>
 </div>
 
