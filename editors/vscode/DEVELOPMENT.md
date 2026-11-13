@@ -53,14 +53,14 @@ to Open VSX, which is where Cursor and VSCodium install from.
 
 One-time setup:
 
-- **Marketplace.** Create the publisher `kojah` at
-  <https://marketplace.visualstudio.com/manage>. On its Trusted Publishing
-  page add a policy for the repository `kojah/gohawk` and the workflow file
-  `publish-extension.yml`. The workflow then publishes with no stored secret.
-- **Open VSX.** Sign in at <https://open-vsx.org> with GitHub, sign the
-  publisher agreement, create the namespace `kojah`, and create an access
-  token. Save it as the repository secret `OVSX_PAT`.
+- **Marketplace.** The publisher is `gohawk`, at
+  <https://marketplace.visualstudio.com/manage>. Its Trusted Publishing page
+  has a policy for the repository `kojah/gohawk` and the workflow file
+  `publish-extension.yml`, so the workflow publishes with no stored secret.
+- **Open VSX.** Not set up yet. To add it, sign in at <https://open-vsx.org>
+  with GitHub, sign the publisher agreement, create the namespace `gohawk`,
+  and create an access token. Save it as the repository secret `OVSX_PAT`.
 
-Then run the workflow from the Actions tab with the release tag. Either
-registry can be switched off for a run. Publishing a version that is already
-there is skipped, so a run can be repeated.
+Then run the workflow from the Actions tab with the release tag. It publishes
+to the Marketplace by default; tick Open VSX once that is set up. Publishing
+a version that is already there is skipped, so a run can be repeated.

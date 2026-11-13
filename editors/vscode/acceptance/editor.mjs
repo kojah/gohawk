@@ -4,8 +4,8 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-const statusItem = '.statusbar-item[id="kojah.gohawk.gohawk.status"]';
-const stepItem = '.statusbar-item[id^="kojah.gohawk"]:not([id="kojah.gohawk.gohawk.status"])';
+const statusItem = '.statusbar-item[id="gohawk.gohawk.gohawk.status"]';
+const stepItem = '.statusbar-item[id^="gohawk.gohawk"]:not([id="gohawk.gohawk.gohawk.status"])';
 
 export function createEditor({ page, out, workspace, url }) {
 	const pause = (ms) => page.waitForTimeout(ms);
