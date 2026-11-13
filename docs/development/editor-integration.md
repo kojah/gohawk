@@ -207,6 +207,19 @@ On gohawk itself (61 packages, 2026-11-12, GOMAXPROCS=4):
 | Edit a package 39 others import, re-check the module | 10.5 s | 541 MiB |
 | Comment-only edit in that package, whole module | 7.3 s | 443 MiB |
 
+On larger repositories (2026-11-13, `acceptance/stress.mjs`, default settings,
+two parallel jobs, edits as unsaved buffers):
+
+| Package | First check, cold cache | Re-check after an edit | Importers, warm | Peak memory |
+|---|---|---|---|---|
+| Caddy `modules/caddyhttp` (23k lines) | 144 s | 3–7 s | 22–28 s | 1.0 GiB |
+| Moby `daemon` (31k lines) | 229 s | 7–16 s | 12–14 s | 0.9 GiB |
+| Kubernetes `pkg/kubelet` (38k lines) | 413 s | 9–16 s | 30–36 s | 1.4 GiB |
+| Kubernetes `pkg/apis/core` (very widely imported) | — | about 1 s | 3–5 s with the importer limit, about 250 s without | 1.7 GiB without the limit |
+
+The first check is a one-time cost per build cache. The server process stayed
+between 13 and 21 MiB in every run.
+
 A comment-only edit still re-checks importers: the go cache does not cut off
 when a package's facts are unchanged.
 
