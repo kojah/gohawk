@@ -94,13 +94,22 @@ jobs:
           pnpm check
           pnpm test
 
-      - name: Package the extension and run its bundled binary
+      - name: Package the extension for every platform
         working-directory: editors/vscode
         run: |
-          node scripts/package.mjs --target linux-x64 --version 0.0.0 --out "$RUNNER_TEMP/vsix"
+          node scripts/package.mjs --all --version 0.0.0 --out "$RUNNER_TEMP/vsix"
+          for target in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64 win32-arm64; do
+            package="$RUNNER_TEMP/vsix/gohawk-$target-0.0.0.vsix"
+            binary="extension/bin/gohawk"
+            if [[ "$target" == win32-* ]]; then
+              binary="extension/bin/gohawk.exe"
+            fi
+            unzip -l "$package" "$binary" extension/icon.png extension/dist/extension.js > /dev/null
+          done
+
+      - name: Run the bundled binary of this platform's package
+        run: |
           unzip -q "$RUNNER_TEMP/vsix/gohawk-linux-x64-0.0.0.vsix" -d "$RUNNER_TEMP/unpacked"
-          test -f "$RUNNER_TEMP/unpacked/extension/icon.png"
-          test -f "$RUNNER_TEMP/unpacked/extension/dist/extension.js"
           "$RUNNER_TEMP/unpacked/extension/bin/gohawk" lsp --help 2>&1 | grep -F 'usage: gohawk lsp'
 
   vulnerability:

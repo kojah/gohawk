@@ -214,7 +214,12 @@ func Use(path string) error {
 }
 
 func TestImportersInASiblingWorkspaceModuleAreChecked(t *testing.T) {
-	t.Parallel()
+	// Not parallel: the scenario needs the go command's workspace mode, which
+	// the environment can switch off. CI runs with GOWORK=off, and a -mod
+	// flag in GOFLAGS is rejected in workspace mode. The server passes its
+	// environment on to the go command, as it must for a real user.
+	t.Setenv("GOWORK", "")
+	t.Setenv("GOFLAGS", "")
 	base, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
