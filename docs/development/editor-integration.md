@@ -33,8 +33,8 @@ It offers no source edits and no action that hides a finding.
 - Packages that import it are then checked in one background run, because
   facts flow along imports. The import graph comes from `go list`.
 - A package with more importers than `importerLimit` (50 by default) is
-  followed only into the importers that have a file open. The status says
-  how many were not re-checked until a whole-module check covers them. On
+  followed only into the importers that have a file open. The status tooltip
+  says how many were not re-checked until a whole-module check covers them. On
   Kubernetes, the importers of `pkg/apis/core` take about four minutes to
   re-check; without the limit that would start after every pause.
 - Any edit cancels the foreground run for that package and the background
@@ -144,9 +144,10 @@ a workspace opened through a link still shows them. `internal/reporting/vetjson`
 renderer and the server both use it.
 
 The hover adds the catalog's help sentence. Code actions are commands:
-step through the path and explain (both implemented by the client, and
-offered only when the client says it has them), and open documentation.
-Explain runs `gohawk dump trace` for the one candidate and reads saved files.
+step through the path (implemented by the client, and offered only when the
+client says it has it), and open documentation. An earlier "Explain this
+finding" action opened the raw `gohawk dump trace` output in a tab; it was
+removed because the dump is a debugging aid, not something a user can read.
 
 `gohawk/status` is a custom notification with a state and a composed text,
 so every client shows the same wording.
@@ -244,7 +245,6 @@ transport: the oracle is that what the editor shows must equal what
   cache costs 6 to 7 seconds there, which is the go command loading the
   dependency graph.
 - The hard memory limit exists only on Linux.
-- Explain shows raw tracer output and ignores unsaved buffers.
 - A generated file of a few thousand lines can take longer than the default
   time limit. It is then reported as stopped, not analyzed faster.
 - Every gohawk release needs a matching extension release, because the

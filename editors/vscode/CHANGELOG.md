@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Removed **Explain this finding**. It opened the raw evidence trace, which
+  is a debugging dump and not useful to read.
+- `Tab` and `Shift+Tab` move between the steps of a path.
+- The status bar is shorter. Details such as the time of the last check are
+  in its tooltip.
+
 ## 0.8.0
 
 First release.

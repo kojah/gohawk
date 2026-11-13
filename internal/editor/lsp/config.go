@@ -27,7 +27,6 @@ const (
 	defaultMaxParallel    = 2
 	defaultImporterLimit  = 50
 	stepPathClientCommand = "gohawk.stepPath"
-	explainClientCommand  = "gohawk.explainFinding"
 )
 
 type settings struct {

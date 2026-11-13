@@ -506,7 +506,7 @@ func TestMemoryLimitStopsTheRunWithoutACleanResult(t *testing.T) {
 	client.expectQuiet(path, 300*time.Millisecond)
 }
 
-func TestActionsNavigateAndExplainButNeverEdit(t *testing.T) {
+func TestActionsNavigateButNeverEdit(t *testing.T) {
 	t.Parallel()
 	root := writeModule(t, map[string]string{"leak/leak.go": leakSource})
 	path := filepath.Join(root, "leak", "leak.go")
@@ -537,7 +537,6 @@ func TestActionsNavigateAndExplainButNeverEdit(t *testing.T) {
 		}
 		commands = append(commands, invoked.Command)
 	}
-	// The explain command was not declared by this client, so it is absent.
 	want := []string{stepPathClientCommand, commandOpenDocumentation}
 	if strings.Join(commands, ",") != strings.Join(want, ",") {
 		t.Errorf("commands = %v, want %v", commands, want)

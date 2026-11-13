@@ -39,7 +39,7 @@ The Problems panel lists the same steps under each finding.
 
 Put the cursor on a finding and open the lightbulb menu (`Ctrl+.`, or `Cmd+.`
 on a Mac). **Step through the reported path** dims everything that is not part
-of the path and numbers each step. `Alt+]` and `Alt+[` move between steps and
+of the path and numbers each step. `Tab` and `Shift+Tab` move between steps and
 `Esc` exits. A step in another file opens that file.
 
 ![Stepping through the path of a finding](/editor/path.png)
@@ -60,13 +60,14 @@ The status bar tells you what happened:
 |---|---|
 | `no findings` | The last check found nothing. |
 | `2 findings` | Findings are listed in the Problems panel. |
-| `checking server… 412 packages, 1m20s` | A check is running. |
+| `checking… 1m20s` | A check is running. The time appears once it has run for a few seconds. |
 | `build failed in server` | The package does not compile, so it cannot be checked. Earlier findings stay until it compiles again. |
-| `stopped at a limit: server` | A check used too much time or memory and was stopped. |
-| `12 importers not re-checked` | The package has many importers. Only the ones you have open were checked. |
+| `check of server stopped` | A check used too much time or memory and was stopped. |
+| `still checking…` | The packages that use the one you edited are being checked. |
 | `not checked` | The file is a test file, or is outside your workspace or module. |
 
-Run **gohawk: Show Output** for a log of each check.
+Hover the status for details, such as how long the last check took. Run
+**gohawk: Show Output** for a log of each check.
 
 ## Large projects
 
@@ -83,8 +84,8 @@ while you type, set `gohawk.run` to `onSave`.
 |---|---|---|
 | `gohawk.run` | `onPause` | Check after you stop typing, `onSave`, or only on request (`manual`). |
 | `gohawk.debounce` | `750` | How long to wait after the last keystroke, in milliseconds. |
-| `gohawk.scope` | `packageThenImporters` | Also check importers, only the edited `package`, or the whole module on save (`workspaceOnSave`). |
-| `gohawk.importerLimit` | `50` | With more importers than this, check only the ones you have open. |
+| `gohawk.scope` | `packageThenImporters` | Also check the packages that use the edited one, only the edited `package`, or the whole module on save (`workspaceOnSave`). |
+| `gohawk.importerLimit` | `50` | When more packages than this use the edited one, check only the ones you have open. |
 | `gohawk.experimental` | `false` | Include [experimental checks](/configuration/#choose-what-runs). |
 | `gohawk.memoryLimit` | `2GiB` | Stop a check that uses more memory than this. |
 | `gohawk.maxParallel` | `2` | Packages analyzed at once. |

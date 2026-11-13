@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
 // What a user can do with a finding: read its help, follow its reported
-// path, see the full evidence, and open its documentation. Every action
-// navigates or explains. None edits source, and there is no action that
-// hides a finding.
+// path, and open its documentation. Every action navigates. None edits
+// source, and there is no action that hides a finding.
 
 const (
 	codeActionKind           = "quickfix"
@@ -21,19 +19,17 @@ const (
 	commandCheckWorkspace    = "gohawk.server.checkWorkspace"
 	commandClearResults      = "gohawk.server.clearResults"
 	commandOpenDocumentation = "gohawk.server.openDocumentation"
-	commandExplain           = "gohawk.server.explain"
 )
 
 func serverCommands() []string {
-	return []string{commandCheckPackage, commandCheckWorkspace, commandClearResults, commandOpenDocumentation, commandExplain}
+	return []string{commandCheckPackage, commandCheckWorkspace, commandClearResults, commandOpenDocumentation}
 }
 
-// findingTarget names one finding. The client commands receive it and look
-// the finding up among the diagnostics the editor already holds; the explain
-// command uses it to select the tracer's candidate.
+// findingTarget names one finding. The client command receives it and looks
+// the finding up among the diagnostics the editor already holds.
 type findingTarget struct {
 	URI       string `json:"uri"`
-	Line      int    `json:"line"` // one-based, as the tracer and the terminal print it
+	Line      int    `json:"line"` // one-based, as the terminal prints it
 	Character int    `json:"character"`
 	Analyzer  string `json:"analyzer"`
 	Check     string `json:"check"`
@@ -96,8 +92,8 @@ func (s *Server) actionsFor(uri string, finding diagnostic) []codeAction {
 			Command: &command{Title: title, Command: name, Arguments: arguments},
 		})
 	}
-	// The client implements these two: stepping needs editor decorations and
-	// the explanation needs a tab. Other editors are not offered them.
+	// The client implements this one: stepping needs editor decorations.
+	// Other editors are not offered it.
 	if finding.Data != nil {
 		target := findingTarget{
 			URI: uri, Line: finding.Range.Start.Line + 1, Character: finding.Range.Start.Character,
@@ -105,9 +101,6 @@ func (s *Server) actionsFor(uri string, finding diagnostic) []codeAction {
 		}
 		if s.clientCommands[stepPathClientCommand] && len(finding.RelatedInformation) > 0 {
 			add("gohawk: Step through the reported path", stepPathClientCommand, target)
-		}
-		if s.clientCommands[explainClientCommand] {
-			add("gohawk: Explain this finding", explainClientCommand, target)
 		}
 	}
 	if finding.CodeDescription != nil && isWebAddress(finding.CodeDescription.Href) {
@@ -141,9 +134,6 @@ func (s *Server) executeCommand(ctx context.Context, incoming *message) {
 		}
 		s.nextRequestID++
 		_ = s.connection.request(s.nextRequestID, methodShowDocument, showDocumentParams{URI: target, External: true})
-	case commandExplain:
-		s.explain(ctx, incoming.ID, params.Arguments)
-		return
 	default:
 		_ = s.connection.replyError(incoming.ID, errorMethodNotFound, "unknown command "+params.Command)
 		return
@@ -183,64 +173,4 @@ func firstPathArgument(arguments []json.RawMessage) (string, bool) {
 func isWebAddress(target string) bool {
 	parsed, err := url.Parse(target)
 	return err == nil && (parsed.Scheme == "https" || parsed.Scheme == "http") && parsed.Host != ""
-}
-
-// analyzerName matches a catalog analyzer name. The name is passed to the
-// tracer as an argument and echoed into the explanation.
-var analyzerName = regexp.MustCompile(`^[a-z][a-z0-9]*$`)
-
-// explain runs the evidence tracer for one finding and replies with its
-// text. It reads saved files: the tracer has no overlay, so the explanation
-// of an unsaved buffer may describe the file as last saved.
-//
-// One explanation runs at a time, under the same time and memory limits as a
-// check. Each one is a full analysis of the package, so answering many at
-// once would multiply the memory a single check is allowed.
-func (s *Server) explain(ctx context.Context, id *json.RawMessage, arguments []json.RawMessage) {
-	var target findingTarget
-	path, ok := "", false
-	if len(arguments) > 0 && decode(arguments[0], &target) {
-		path, ok = pathFromURI(target.URI)
-	}
-	switch {
-	case !ok || !analyzerName.MatchString(target.Analyzer) || target.Line < 1:
-		_ = s.connection.replyError(id, errorInvalidParams, "explain needs a file, a line, and an analyzer")
-		return
-	case s.skipReason(path) != "":
-		_ = s.connection.replyError(id, errorInvalidParams, "explain: "+s.skipReason(path))
-		return
-	case s.shutdown:
-		_ = s.connection.replyError(id, errorRequestFailed, "explain: the server is shutting down")
-		return
-	case s.stopExplain != nil:
-		_ = s.connection.replyError(id, errorRequestFailed, "explain: another explanation is still running")
-		return
-	}
-	candidate := fmt.Sprintf("%s:%d", filepath.Base(path), target.Line)
-	// The tracer names no packages as it goes, so its idle limit is in
-	// effect a limit on the whole explanation.
-	limits := runLimits{idle: s.settings.timeout(), memoryBytes: s.settings.memoryBytes(), memoryLimit: s.settings.MemoryLimit}
-	explainContext, cancel := context.WithTimeout(ctx, longestRun)
-	s.stopExplain = cancel
-	s.runs.Go(func() {
-		guarded := newGuard(limits, cancel, nil)
-		arguments := []string{"dump", "trace", "-analyzer", target.Analyzer, "-candidate", candidate, "."}
-		output, runErr := guarded.runProgram(explainContext, filepath.Dir(path), s.options.Executable, arguments)
-		stopped := interrupted(ctx, explainContext, guarded, outcomeCompleted)
-		go s.post(func() {
-			cancel()
-			s.stopExplain = nil
-			text := string(output.stdout) + string(output.stderr)
-			switch {
-			case stopped != outcomeCompleted:
-				_ = s.connection.replyError(id, errorRequestFailed, "explain was stopped: "+stopped.String())
-			case runErr != nil && text == "":
-				_ = s.connection.replyError(id, errorRequestFailed, "explain: "+runErr.Error())
-			default:
-				check := strings.Join(strings.Fields(target.Check), " ")
-				header := fmt.Sprintf("# %s at %s\n# gohawk dump trace -analyzer %s -candidate %s .\n\n", check, candidate, target.Analyzer, candidate)
-				_ = s.connection.reply(id, header+text)
-			}
-		})
-	})
 }

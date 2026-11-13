@@ -140,7 +140,7 @@ export class PathStepper implements vscode.Disposable {
 		});
 		editor.revealRange(step.range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
 		this.bar.text = `$(debug-step-over) gohawk: path ${this.index + 1}/${this.steps.length} · ${step.message}`;
-		this.bar.tooltip = `${this.title}\n\nAlt+] next · Alt+[ previous · Esc to exit`;
+		this.bar.tooltip = `${this.title}\n\nTab next · Shift+Tab previous · Esc to exit`;
 		this.bar.show();
 		this.render();
 	}

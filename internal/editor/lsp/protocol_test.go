@@ -9,7 +9,6 @@ import (
 	"math"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -89,7 +88,7 @@ func TestOneBadMessageCostsOneErrorReply(t *testing.T) {
 		{`{"jsonrpc":"2.0","id":4,"method":""}`, errorInvalidRequest},
 		{`{"jsonrpc":"2.0","id":5,"method":"no/such"}`, errorMethodNotFound},
 		{commandRequest(6, commandOpenDocumentation, `"file:///etc/passwd"`), errorInvalidParams},
-		{commandRequest(7, commandExplain, `{"uri":"file:///etc/x.go","line":1,"analyzer":"-h"}`), errorInvalidParams},
+		{commandRequest(7, "gohawk.server.explain", `{}`), errorMethodNotFound},
 	} {
 		client.send(test.body)
 		reply := client.reply()
@@ -211,42 +210,5 @@ func TestPackagesWithoutAModuleAreDroppedFromTheImporterQueue(t *testing.T) {
 	}
 	if len(server.scheduler.ripple) != 0 {
 		t.Errorf("the importer queue still holds %v", server.scheduler.ripple)
-	}
-}
-
-func TestOnlyOneExplanationRunsAtATime(t *testing.T) {
-	t.Parallel()
-	root := writeModule(t, map[string]string{"leak/leak.go": leakSource})
-	path := filepath.Join(root, "leak", "leak.go")
-	client := startEditor(t, editorOptions{workspace: root, settings: map[string]any{"run": runManual}})
-	explain := func(id int) {
-		raw := json.RawMessage(strconv.Itoa(id))
-		params := mustJSON(t, map[string]any{"command": commandExplain, "arguments": []any{
-			findingTarget{URI: uriFromPath(path), Line: 9, Analyzer: "resourcelifetime", Check: "resourcelifetime/missing-release"},
-		}})
-		if err := client.connection.write(&message{ID: &raw, Method: methodExecuteCommand, Params: params}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	explain(101)
-	explain(102)
-	var explained, refused int
-	for range 2 {
-		select {
-		case reply := <-client.replies:
-			switch {
-			case reply.Error != nil && strings.Contains(reply.Error.Message, "another explanation"):
-				refused++
-			case reply.Error == nil && strings.Contains(string(reply.Result), "gohawk dump trace"):
-				explained++
-			default:
-				t.Errorf("unexpected reply: %+v %s", reply.Error, reply.Result)
-			}
-		case <-time.After(scenarioTimeout):
-			t.Fatal("an explain request got no reply")
-		}
-	}
-	if explained != 1 || refused != 1 {
-		t.Errorf("explained %d, refused %d; want one of each", explained, refused)
 	}
 }

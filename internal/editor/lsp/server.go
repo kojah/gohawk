@@ -57,8 +57,6 @@ type Server struct {
 	nextRequestID int
 	shutdown      bool
 	initialized   bool
-	// stopExplain cancels the one explanation in flight, or is nil.
-	stopExplain context.CancelFunc
 }
 
 // Serve runs the server until the client sends exit or closes the stream.

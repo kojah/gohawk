@@ -4,7 +4,6 @@
 
 import * as vscode from 'vscode';
 import { findBinary, openPathSetting } from './binary.ts';
-import { ExplainView } from './explain.ts';
 import { PathStepper, stepsOf } from './pathMode.ts';
 import { errorMessage } from './platform.ts';
 import { type FindingTarget, parseFindingTarget } from './protocol.ts';
@@ -12,7 +11,6 @@ import { Session } from './session.ts';
 import { StatusItem } from './status.ts';
 
 const stepPathCommand = 'gohawk.stepPath';
-const explainCommand = 'gohawk.explainFinding';
 const source = 'gohawk';
 
 type Finding = { uri: vscode.Uri; diagnostic: vscode.Diagnostic };
@@ -56,29 +54,17 @@ function findingFor(target: FindingTarget): Finding | undefined {
 	return diagnostic === undefined ? undefined : { uri, diagnostic };
 }
 
-function targetOf(finding: Finding): FindingTarget {
-	const check = checkOf(finding.diagnostic);
-	return {
-		uri: finding.uri.toString(),
-		line: finding.diagnostic.range.start.line + 1,
-		character: finding.diagnostic.range.start.character,
-		analyzer: check.split('/')[0] ?? check,
-		check,
-	};
-}
-
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	const output = vscode.window.createOutputChannel('gohawk');
 	const status = new StatusItem();
 	const stepper = new PathStepper();
-	const explain = new ExplainView();
 	const session = new Session({
 		output,
-		clientCommands: [stepPathCommand, explainCommand],
+		clientCommands: [stepPathCommand],
 		readSettings: () => vscode.workspace.getConfiguration('gohawk'),
 		onStatus: (next) => status.show(next),
 	});
-	context.subscriptions.push(output, status, stepper, explain, session);
+	context.subscriptions.push(output, status, stepper, session);
 
 	const showStatusForGo = () =>
 		status.setVisible(
@@ -131,17 +117,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}
 	});
 
-	const explainFinding = async (target: FindingTarget) => {
-		const text = await vscode.window.withProgress(
-			{ location: vscode.ProgressLocation.Window, title: 'gohawk: explaining finding…' },
-			() => session.command('gohawk.server.explain', target),
-		);
-		if (typeof text !== 'string') {
-			throw new Error('the server returned no explanation');
-		}
-		await explain.show(`${target.check.replace('/', ' ')} line ${target.line}`, text);
-	};
-
 	// A notice is shown, not waited on: its promise settles only when the user
 	// dismisses it, and a command should not stay pending on that.
 	const notify = (message: string) => {
@@ -184,29 +159,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		showStatusForGo();
 	});
 	register('gohawk.stepPathAtCursor', () => stepThrough(findingAtCursor()));
-	register('gohawk.explainAtCursor', async () => {
-		const finding = findingAtCursor();
-		if (finding === undefined) {
-			notify('No gohawk finding here.');
-			return;
-		}
-		await explainFinding(targetOf(finding));
-	});
-
-	// The server's code actions invoke these two with a finding target. The
+	// The server's code action invokes this with a finding target. The
 	// argument crosses a process boundary, so it is parsed before use.
 	register(stepPathCommand, async (argument: unknown) => {
 		const target = parseFindingTarget(argument);
 		await stepThrough(target === undefined ? undefined : findingFor(target));
 	});
-	register(explainCommand, async (argument: unknown) => {
-		const target = parseFindingTarget(argument);
-		if (target === undefined) {
-			throw new Error('the finding to explain was not named');
-		}
-		await explainFinding(target);
-	});
-
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (

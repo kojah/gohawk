@@ -53,10 +53,6 @@
 				"title": "gohawk: Step Through Path"
 			},
 			{
-				"command": "gohawk.explainAtCursor",
-				"title": "gohawk: Explain Finding"
-			},
-			{
 				"command": "gohawk.stepNext",
 				"title": "gohawk: Next Path Step"
 			},
@@ -102,6 +98,16 @@
 				"command": "gohawk.stepExit",
 				"key": "escape",
 				"when": "gohawk.steppingPath && editorTextFocus && !suggestWidgetVisible && !findWidgetVisible"
+			},
+			{
+				"command": "gohawk.stepNext",
+				"key": "tab",
+				"when": "gohawk.steppingPath && editorTextFocus && !suggestWidgetVisible && !inSnippetMode && !inlineSuggestionVisible"
+			},
+			{
+				"command": "gohawk.stepPrevious",
+				"key": "shift+tab",
+				"when": "gohawk.steppingPath && editorTextFocus && !suggestWidgetVisible && !inSnippetMode && !inlineSuggestionVisible"
 			},
 			{
 				"command": "gohawk.stepNext",

@@ -58,10 +58,7 @@ export const scenarios = {
 			'lightbulb offers path stepping',
 			offered.includes('gohawk: Step through the reported path'),
 		);
-		editor.check(
-			'lightbulb offers the explanation',
-			offered.includes('gohawk: Explain this finding'),
-		);
+		editor.check('lightbulb offers no explanation dump', !offered.includes('gohawk: Explain'));
 		editor.check('lightbulb offers documentation', offered.includes('gohawk: Open documentation'));
 		await editor.shot('actions-lightbulb');
 		await editor.page.keyboard.press('Escape');
@@ -76,20 +73,14 @@ export const scenarios = {
 			(await editor.stepText()).includes('path 2/3 · when this is true'),
 		);
 		await editor.shot('actions-step');
+		await editor.page.keyboard.press('Tab');
+		await editor.pause(600);
+		editor.check('Tab moves to the next step', (await editor.stepText()).includes('path 3/3'));
+		await editor.page.keyboard.press('Shift+Tab');
+		await editor.pause(600);
+		editor.check('Shift+Tab moves back', (await editor.stepText()).includes('path 2/3'));
 		await editor.palette('gohawk: Exit Path Stepping');
 		editor.check('exit ends stepping', (await editor.stepText()) === '');
-
-		await editor.palette('gohawk: Explain Finding');
-		const explained = editor.page
-			.locator('.editor-instance .view-lines', { hasText: 'gohawk dump trace' })
-			.first();
-		await explained.waitFor({ timeout: 60_000 });
-		editor.check(
-			'explain shows the tracer output for this finding',
-			(await explained.innerText()).includes('resourcelifetime'),
-		);
-		await editor.shot('actions-explain');
-		await editor.palette('View: Close Editor');
 	},
 
 	/** An unsaved fix clears the finding; a broken build never looks clean. */

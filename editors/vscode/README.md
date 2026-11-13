@@ -17,7 +17,7 @@ It runs beside the official Go extension and does not replace it.
 
 Put the cursor on a finding, open the lightbulb menu, and pick **Step through
 the reported path**. Everything that is not part of the path is dimmed and
-each step is numbered. `Alt+]` and `Alt+[` move between steps; `Esc` exits.
+each step is numbered. `Tab` and `Shift+Tab` move between steps; `Esc` exits.
 
 ![Stepping through the path of a finding](images/path.png)
 
@@ -38,7 +38,7 @@ so analysis memory is released between checks.
 | `gohawk.memoryLimit`   | `2GiB`                 | Memory limit for one check.                                                       |
 | `gohawk.maxParallel`   | `2`                    | Packages a background check analyzes at once.                                     |
 | `gohawk.timeout`       | `60`                   | Seconds a check may go without finishing a package.                               |
-| `gohawk.importerLimit` | `50`                   | Most importers re-checked after an edit; beyond it, only open ones.               |
+| `gohawk.importerLimit` | `50`                   | Most packages re-checked after an edit; beyond it, only open ones.                |
 | `gohawk.path`          | empty                  | Path to your own gohawk binary. Empty uses the one that ships with the extension. |
 
 Test files (`_test.go`) are not analyzed.

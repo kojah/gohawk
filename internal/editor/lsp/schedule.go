@@ -200,7 +200,7 @@ func (s *Server) start(ctx context.Context, request *runRequest) *activeRun {
 		importerLimit: s.settings.importerLimit(),
 	}
 	s.heartbeat()
-	s.logf("check     %s%s", request.label, strings.TrimSuffix(unsavedNote(request), "…"))
+	s.logf("check     %s%s", request.label, unsavedNote(request))
 	s.eventLog.record(event{
 		Event: "run-started", Run: request.id, Detail: request.kind.String(), Label: request.label, Unsaved: len(request.texts) > 0,
 	})
@@ -277,9 +277,6 @@ func (s *Server) cancelAllRuns() {
 		}
 	}
 	s.scheduler.foreground, s.scheduler.background = nil, nil
-	if s.stopExplain != nil {
-		s.stopExplain()
-	}
 }
 
 // finish applies a completed run. A run that is no longer the active one was

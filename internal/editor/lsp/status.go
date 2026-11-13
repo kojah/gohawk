@@ -38,10 +38,11 @@ func (s *Server) status() StatusParams {
 	status := StatusParams{Findings: findings}
 	switch {
 	case schedule.foreground != nil:
+		request := schedule.foreground.request
 		status.State = stateChecking
-		status.Text = "gohawk: checking " + schedule.foreground.request.label + unsavedNote(schedule.foreground.request) +
-			progressNote(schedule.foreground.request.progress)
-		status.Tooltip = "The first check of a package also analyzes its dependencies once. Later checks reuse that work."
+		status.Text = "gohawk: checking…" + elapsedNote(request.progress)
+		status.Tooltip = "Checking " + request.label + unsavedNote(request) + packagesNote(request.progress) +
+			". The first check of a package also analyzes its dependencies once. Later checks reuse that work."
 	case len(schedule.queue) > 0 || len(schedule.pending) > 0:
 		status.State, status.Text = stateChecking, "gohawk: waiting for a pause"
 	case schedule.skipped != "":
@@ -49,15 +50,39 @@ func (s *Server) status() StatusParams {
 	default:
 		status = s.settledStatus(findings)
 	}
+	// The bar stays short: what is still running or was left out is one
+	// plain phrase at most, and the details go in the tooltip.
 	if schedule.background != nil && schedule.foreground == nil {
-		status.Text += " · checking " + schedule.background.request.label + progressNote(schedule.background.request.progress)
+		status.Text += " · still checking…"
+		subject := "the packages that use the one you edited"
+		if schedule.background.request.kind == runWorkspace {
+			subject = "every package in the module"
+		}
+		status.Tooltip = joinSentences(status.Tooltip, "Now checking "+subject+packagesNote(schedule.background.request.progress)+".")
 	}
 	if unchecked := s.uncheckedImporters(); unchecked > 0 && schedule.foreground == nil {
-		status.Text += fmt.Sprintf(" · %d importers not re-checked", unchecked)
-		status.Tooltip = strings.TrimSpace(status.Tooltip + " The edited package has more importers than gohawk.importerLimit, so only" +
-			" the ones with an open file were checked. Run “gohawk: Check Workspace” to check them all.")
+		status.Tooltip = joinSentences(status.Tooltip, fmt.Sprintf("%s the one you edited %s not re-checked, because there are more than"+
+			" gohawk.importerLimit. Run “gohawk: Check Workspace” to check them all.", countUsers(unchecked), wasOrWere(unchecked)))
 	}
 	return status
+}
+
+func joinSentences(first, second string) string {
+	return strings.TrimSpace(first + " " + second)
+}
+
+func countUsers(count int) string {
+	if count == 1 {
+		return "1 package that uses"
+	}
+	return fmt.Sprintf("%d packages that use", count)
+}
+
+func wasOrWere(count int) string {
+	if count == 1 {
+		return "was"
+	}
+	return "were"
 }
 
 // settledStatus describes the state when nothing is running in front. It is
@@ -75,7 +100,7 @@ func (s *Server) settledStatus(findings int) StatusParams {
 	switch {
 	case len(stopped) > 0:
 		status.State = stateStopped
-		status.Text = unresolvedText(findings, "stopped at a limit: "+packageNames(stopped))
+		status.Text = unresolvedText(findings, "check of "+packageNames(stopped)+" stopped")
 		status.Tooltip = "A check passed its time or memory limit and was stopped. The findings of that package are unknown."
 	case len(broken) > 0:
 		status.State = stateStale
@@ -91,7 +116,7 @@ func (s *Server) settledStatus(findings int) StatusParams {
 			status.Text = "gohawk"
 		}
 	case last.outcome == outcomeCompleted:
-		status.Text += " · " + last.label + " " + formatElapsed(last.elapsed)
+		status.Tooltip = "Last check: " + last.label + ", " + formatElapsed(last.elapsed) + "."
 	}
 	return status
 }
@@ -120,9 +145,9 @@ func (s *Server) uncheckedImporters() int {
 	return total
 }
 
-// progressNote says how far a run has got, once it has run long enough that
-// the user may wonder. A quick check shows no note at all.
-func progressNote(progress *runProgress) string {
+// elapsedNote says how long a run has taken, once it has run long enough
+// that the user may wonder. A quick check shows no note at all.
+func elapsedNote(progress *runProgress) string {
 	if progress == nil {
 		return ""
 	}
@@ -130,11 +155,18 @@ func progressNote(progress *runProgress) string {
 	if elapsed < progressNoteAfter {
 		return ""
 	}
-	note := " " + formatDuration(elapsed)
-	if packages := progress.packages.Load(); packages > 1 {
-		note = fmt.Sprintf(" %d packages,%s", packages, note)
+	return " " + formatDuration(elapsed)
+}
+
+// packagesNote says how many packages a long run has got through.
+func packagesNote(progress *runProgress) string {
+	if progress == nil {
+		return ""
 	}
-	return note
+	if packages := progress.packages.Load(); packages > 1 {
+		return fmt.Sprintf(", %d packages so far", packages)
+	}
+	return ""
 }
 
 const progressNoteAfter = 3 * time.Second
@@ -149,9 +181,9 @@ func formatDuration(elapsed time.Duration) string {
 
 func unsavedNote(request *runRequest) string {
 	if len(request.texts) > 0 {
-		return " (unsaved)…"
+		return " (unsaved)"
 	}
-	return "…"
+	return ""
 }
 
 func countFindings(count int) string {

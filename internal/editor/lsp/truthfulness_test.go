@@ -142,7 +142,7 @@ func TestWorkspaceRunLeavesANestedModuleAlone(t *testing.T) {
 	for started := false; running; {
 		select {
 		case status := <-client.statuses:
-			checking := strings.Contains(status.Text, "checking workspace")
+			checking := strings.Contains(status.Tooltip, "every package in the module")
 			started = started || checking
 			if started && !checking {
 				running = false

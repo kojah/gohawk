@@ -145,26 +145,30 @@ func TestAWidelyImportedPackageIsFollowedOnlyIntoOpenImporters(t *testing.T) {
 	}
 }
 
-func TestProgressNoteAppearsOnlyOnceARunIsLong(t *testing.T) {
+func TestElapsedNoteAppearsOnlyOnceARunIsLong(t *testing.T) {
 	t.Parallel()
 	quick := newRunProgress()
-	if note := progressNote(quick); note != "" {
+	if note := elapsedNote(quick); note != "" {
 		t.Errorf("a run that just started shows %q", note)
 	}
 	long := newRunProgress()
 	long.started = time.Now().Add(-83 * time.Second)
 	long.packages.Store(412)
-	if note := progressNote(long); note != " 412 packages, 1m23s" {
-		t.Errorf("progress note = %q", note)
+	if note := elapsedNote(long); note != " 1m23s" {
+		t.Errorf("elapsed note = %q, want only the time", note)
+	}
+	if note := packagesNote(long); note != ", 412 packages so far" {
+		t.Errorf("packages note = %q", note)
 	}
 	long.packages.Store(1)
-	if note := progressNote(long); note != " 1m23s" {
-		t.Errorf("a single package shows %q, want only the time", note)
+	if note := packagesNote(long); note != "" {
+		t.Errorf("a single package shows %q, want nothing", note)
 	}
 }
 
 // The edited package has more importers than the limit, so only the importer
-// the user has open is re-checked, and the status says the others were not.
+// the user has open is re-checked, and the status tooltip says the others
+// were not. The status text stays short and names no importers.
 func TestImporterLimitIsReportedAndLiftedByAWorkspaceCheck(t *testing.T) {
 	t.Parallel()
 	const library = "package lib\n\nfunc Value() int { return 1 }\n"
@@ -189,8 +193,11 @@ func TestImporterLimitIsReportedAndLiftedByAWorkspaceCheck(t *testing.T) {
 	for noted := false; !noted; {
 		select {
 		case status := <-client.statuses:
-			seen = append(seen, status.Text)
-			noted = strings.Contains(status.Text, "2 importers not re-checked")
+			seen = append(seen, status.Text+" | "+status.Tooltip)
+			noted = strings.Contains(status.Tooltip, "2 packages that use the one you edited were not re-checked")
+			if strings.Contains(status.Text, "importer") {
+				t.Errorf("status text %q uses the word importer", status.Text)
+			}
 		case <-deadline:
 			t.Fatalf("the status never said importers were left unchecked; statuses: %q\nserver log:\n%s", seen, client.logs())
 		}
@@ -203,7 +210,7 @@ func TestImporterLimitIsReportedAndLiftedByAWorkspaceCheck(t *testing.T) {
 	for {
 		select {
 		case status := <-client.statuses:
-			if !strings.Contains(status.Text, "not re-checked") && !strings.Contains(status.Text, "checking") {
+			if !strings.Contains(status.Tooltip, "not re-checked") && !strings.Contains(status.Text, "checking") {
 				if status.Findings != 3 {
 					t.Errorf("after the workspace check: %d findings (%s), want 3", status.Findings, status.Text)
 				}

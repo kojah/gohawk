@@ -111,7 +111,7 @@ func (g *guard) run(ctx context.Context, directory string, arguments []string) (
 }
 
 // runProgram runs any program under the limits; the go command is the usual
-// one, and the explanation runs gohawk itself.
+// one, and tests run a stand-in.
 func (g *guard) runProgram(ctx context.Context, directory, program string, arguments []string) (commandOutput, error) {
 	// Each command gets the full idle allowance, however long the one
 	// before it took.
