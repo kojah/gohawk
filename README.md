@@ -62,6 +62,17 @@ gohawk -disable-groups=concurrency ./...
 gohawk -enable-all ./...
 ```
 
+## VSCode/Cursor extension
+
+The gohawk extension shows findings as you type, with the steps that lead to
+each one. Search for **gohawk** in the Extensions view of VS Code or Cursor.
+The gohawk binary is included.
+
+![A gohawk finding in VS Code, with the steps that lead to it and the usual fix](editors/vscode/images/finding.png)
+
+See the [extension guide](https://gohawk.dev/vscode/) for path stepping and
+settings.
+
 ## How gohawk compares to other analyzers
 
 gohawk aims to complement other Go analyzers, not replace them. Deep, flow-based analysis of Go already covers several domains well.
