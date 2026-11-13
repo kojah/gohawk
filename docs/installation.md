@@ -20,11 +20,11 @@ and put it on your `PATH`. Archives cover Linux, macOS, and Windows on AMD64 and
 ARM64. Each release includes SHA-256 checksums. The prebuilt CLI still requires
 a supported Go command to analyze projects.
 
-Generated Go sources are committed, so v0.8.0 installs directly with the Go
+Generated Go sources are committed, so v0.8.1 installs directly with the Go
 command:
 
 ```sh
-go install github.com/kojah/gohawk@v0.8.0
+go install github.com/kojah/gohawk@v0.8.1
 ```
 
 v0.6.0 and earlier releases did not commit generated sources and cannot be built

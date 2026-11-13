@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.1
 
 - Removed **Explain this finding**. It opened the raw evidence trace, which
   is a debugging dump and not useful to read.
