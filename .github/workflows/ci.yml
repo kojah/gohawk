@@ -53,6 +53,56 @@ jobs:
       - name: Run golangci-lint
         run: make lint
 
+  # The editor extension: its own checks and tests, and a package built the
+  # way a release builds one, with a gohawk binary from this commit inside.
+  # The packaged binary must start and offer the editor server, since that is
+  # what an installed extension runs.
+  editor-extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # pnpm/action-setup owns the CI version; avoid re-entering it through Corepack.
+      PNPM: pnpm
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: .go-version
+          cache-dependency-path: go.sum
+
+      - name: Generate Go sources
+        uses: ./.github/actions/prepare-hyrule
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: editors/vscode/pnpm-lock.yaml
+
+      - name: Check and test the extension
+        working-directory: editors/vscode
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm check
+          pnpm test
+
+      - name: Package the extension and run its bundled binary
+        working-directory: editors/vscode
+        run: |
+          node scripts/package.mjs --target linux-x64 --version 0.0.0 --out "$RUNNER_TEMP/vsix"
+          unzip -q "$RUNNER_TEMP/vsix/gohawk-linux-x64-0.0.0.vsix" -d "$RUNNER_TEMP/unpacked"
+          test -f "$RUNNER_TEMP/unpacked/extension/icon.png"
+          test -f "$RUNNER_TEMP/unpacked/extension/dist/extension.js"
+          "$RUNNER_TEMP/unpacked/extension/bin/gohawk" lsp --help 2>&1 | grep -F 'usage: gohawk lsp'
+
   vulnerability:
     runs-on: ubuntu-latest
     timeout-minutes: 15
