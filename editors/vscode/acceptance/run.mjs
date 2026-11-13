@@ -12,7 +12,7 @@ import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/pr
 import { createServer } from 'node:net';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs, promisify } from 'node:util';
 import { chromium } from 'playwright-core';
 import { editorFont, screenshotFontEnvironment } from './fonts.mjs';
@@ -33,6 +33,13 @@ const { values: options } = parseArgs({
 		scale: { type: 'string', default: '2' },
 		'with-go-extension': { type: 'boolean', default: false },
 		'first-file': { type: 'string', default: 'clean/clean.go' },
+		// A module exporting `scenarios`, to play something other than the
+		// acceptance checks, such as a capture session for screenshots.
+		'scenarios-from': { type: 'string' },
+		width: { type: 'string', default: '1440' },
+		height: { type: 'string', default: '900' },
+		// Extra machine settings as JSON, merged over the harness's own.
+		settings: { type: 'string', default: '{}' },
 		keep: { type: 'boolean', default: false },
 	},
 });
@@ -218,6 +225,7 @@ async function main() {
 			...(gohawk ? { 'gohawk.path': gohawk } : {}),
 			'gohawk.eventLog': eventLog,
 			'go.toolsManagement.autoUpdate': false,
+			...JSON.parse(options.settings),
 		}),
 	);
 
@@ -262,7 +270,7 @@ async function main() {
 		// The first page load makes the launcher download the server itself.
 		browser = await chromium.launchPersistentContext(join(sandbox, 'browser'), {
 			executablePath: await chromiumPath(),
-			viewport: { width: 1440, height: 900 },
+			viewport: { width: Number(options.width), height: Number(options.height) },
 			deviceScaleFactor: Number(options.scale),
 			env: {
 				...process.env,
@@ -292,10 +300,16 @@ async function main() {
 		);
 		await editor.prepare(options.theme, options['first-file'], editorFont);
 
-		for (const name of options.scenarios.split(',').filter(Boolean)) {
-			const scenario = scenarios[name];
+		const available = options['scenarios-from']
+			? (await import(pathToFileURL(resolve(options['scenarios-from'])).href)).scenarios
+			: scenarios;
+		const requested = options['scenarios-from']
+			? Object.keys(available)
+			: options.scenarios.split(',').filter(Boolean);
+		for (const name of requested) {
+			const scenario = available[name];
 			if (!scenario) {
-				throw new Error(`unknown scenario ${name}; known: ${Object.keys(scenarios).join(', ')}`);
+				throw new Error(`unknown scenario ${name}; known: ${Object.keys(available).join(', ')}`);
 			}
 			const entry = { name, checks: [], screenshots: [], measurements: {} };
 			report.scenarios.push(entry);

@@ -142,6 +142,7 @@ export function createEditor({ page, out, workspace, url }) {
 			return {
 				...base,
 				shot: (name) => shot(entry, name),
+				out,
 				check(name, passed, detail) {
 					entry.checks.push({ name, passed: Boolean(passed), detail });
 				},
