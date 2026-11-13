@@ -11,7 +11,7 @@
 [![Coverage](https://img.shields.io/endpoint?url=https://cdn.jsdelivr.net/gh/kojah/gohawk@badges/coverage.json)](https://github.com/kojah/gohawk/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/github/actions/workflow/status/kojah/gohawk/pages.yml?branch=website&label=docs)](https://github.com/kojah/gohawk/actions/workflows/pages.yml)
 [![Documentation links](https://img.shields.io/github/actions/workflow/status/kojah/gohawk/links.yml?branch=main&label=links)](https://github.com/kojah/gohawk/actions/workflows/links.yml)
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/gohawk.gohawk?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=gohawk.gohawk)
+[![VS Code Marketplace](https://vsmarketplacebadges.dev/version/gohawk.gohawk.svg?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=gohawk.gohawk)
 [![Open VSX](https://img.shields.io/open-vsx/v/gohawk/gohawk?label=Open%20VSX)](https://open-vsx.org/extension/gohawk/gohawk)
 
 gohawk is an industrial-grade static analyzer that finds resource management
