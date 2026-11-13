@@ -2,6 +2,12 @@
 	"name": "gohawk",
 	"displayName": "gohawk",
 	"description": "Precise resource-leak and concurrency findings for Go, with the evidence path.",
+	"icon": "icon.png",
+	"galleryBanner": {
+		"color": "#1b1d22",
+		"theme": "dark"
+	},
+	"preview": true,
 	"version": "0.1.0",
 	"publisher": "kojah",
 	"license": "MIT",
@@ -11,6 +17,9 @@
 		"directory": "editors/vscode"
 	},
 	"homepage": "https://gohawk.dev",
+	"bugs": {
+		"url": "https://github.com/kojah/gohawk/issues"
+	},
 	"engines": {
 		"vscode": "^1.90.0"
 	},
@@ -203,8 +212,9 @@
 		"@biomejs/biome": "^2.5.10",
 		"@types/node": "^24.0.0",
 		"@types/vscode": "~1.90.0",
-		"@vscode/vsce": "^3.6.0",
+		"@vscode/vsce": "^4.1.0",
 		"esbuild": "^0.25.0",
+		"ovsx": "^1.4.0",
 		"playwright-core": "^1.65.0",
 		"typescript": "^7.0.2"
 	},

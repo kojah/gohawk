@@ -1,0 +1,97 @@
+name: Publish extension
+
+# Publishes the editor extension packages of an existing gohawk release to
+# the Visual Studio Marketplace and to Open VSX (which Cursor and VSCodium
+# install from). The packages are the ones the Release workflow attached to
+# the GitHub release, so what is published is what was released and tested.
+#
+# Run it by hand with a release tag. Publishing a version a registry already
+# has is skipped, so a run can be repeated after a partial failure.
+#
+# One-time setup is described in editors/vscode/DEVELOPMENT.md: a Trusted
+# Publishing policy on the Marketplace publisher for this workflow file, and
+# an OVSX_PAT repository secret for Open VSX.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release tag whose packages to publish, such as v0.8.0
+        required: true
+        type: string
+      marketplace:
+        description: Publish to the Visual Studio Marketplace
+        required: true
+        default: true
+        type: boolean
+      openvsx:
+        description: Publish to Open VSX
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  # The Marketplace accepts this workflow's identity in place of a stored token.
+  id-token: write
+
+concurrency:
+  group: publish-extension
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # pnpm/action-setup owns the CI version; avoid re-entering it through Corepack.
+      PNPM: pnpm
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.24.0
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: editors/vscode/pnpm-lock.yaml
+
+      - name: Install publishing tools
+        working-directory: editors/vscode
+        run: pnpm install --frozen-lockfile
+
+      - name: Download and verify the release's packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          mkdir -p dist
+          gh release download "$VERSION" --dir dist --pattern 'gohawk-*.vsix' --pattern checksums.txt
+          count="$(find dist -name 'gohawk-*.vsix' | wc -l)"
+          if [[ "$count" -ne 6 ]]; then
+            echo "::error::expected 6 extension packages on release $VERSION, found $count"
+            exit 1
+          fi
+          (cd dist && sha256sum --check --ignore-missing checksums.txt)
+
+      - name: Publish to the Visual Studio Marketplace
+        if: ${{ inputs.marketplace }}
+        working-directory: editors/vscode
+        run: pnpm exec vsce publish --oidc --skip-duplicate --packagePath "$GITHUB_WORKSPACE"/dist/gohawk-*.vsix
+
+      - name: Publish to Open VSX
+        if: ${{ inputs.openvsx }}
+        working-directory: editors/vscode
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [[ -z "$OVSX_PAT" ]]; then
+            echo "::error::the OVSX_PAT secret is not set; see editors/vscode/DEVELOPMENT.md"
+            exit 1
+          fi
+          pnpm exec ovsx publish --skip-duplicate --packagePath "$GITHUB_WORKSPACE"/dist/gohawk-*.vsix

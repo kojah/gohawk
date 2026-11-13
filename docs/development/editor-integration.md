@@ -167,8 +167,14 @@ work is reported, not silently replaced.
 default, for one target with `--target`, or for all six with `--all`. Without
 `--binary` it cross-compiles gohawk from the repository. The release workflow
 packages each platform from the release binaries with the release version,
-and attaches the `.vsix` files to the GitHub release. Publishing them to the
-Marketplace is a manual step: `vsce publish --packagePath <file>` for each.
+and attaches the `.vsix` files to the GitHub release.
+
+Publishing is a separate, manually run workflow, `publish-extension.yml`. It
+takes a release tag, downloads that release's six packages, checks them
+against the release checksums, and publishes them to the Visual Studio
+Marketplace (by Trusted Publishing, with no stored secret) and to Open VSX,
+which Cursor and VSCodium install from. The one-time setup is in
+`editors/vscode/DEVELOPMENT.md`.
 
 It adds what the protocol does not provide: the status bar item, path
 stepping (decorations built from related locations), and the explanation

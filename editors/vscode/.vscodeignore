@@ -6,6 +6,8 @@ test/
 out/
 scripts/
 acceptance/
+images/
+DEVELOPMENT.md
 esbuild.mjs
 tsconfig.json
 biome.json

@@ -11,6 +11,16 @@ nothing waits for, and more. Each finding carries the path that proves it.
 
 It runs beside the official Go extension and does not replace it.
 
+![A gohawk finding in VS Code, with the steps that lead to it and the usual fix](images/finding.png)
+
+## Follow the path
+
+Put the cursor on a finding, open the lightbulb menu, and pick **Step through
+the reported path**. Everything that is not part of the path is dimmed and
+each step is numbered. `Alt+]` and `Alt+[` move between steps; `Esc` exits.
+
+![Stepping through the path of a finding](images/path.png)
+
 ## How it works
 
 The extension starts `gohawk lsp`, a small process that holds no analysis
@@ -33,47 +43,13 @@ so analysis memory is released between checks.
 
 Test files (`_test.go`) are not analyzed.
 
-## Development
+## Large projects
 
-```sh
-pnpm install
-pnpm check        # Biome and the TypeScript compiler
-pnpm test         # unit tests for the pure modules
-pnpm build        # bundle to dist/
-pnpm package      # build a .vsix for this platform, with gohawk built from this repository
-```
+The first check in a project also analyzes its dependencies. On a very large
+project this takes a few minutes, once; the status bar shows the progress. If
+checks feel slow while you type, set `gohawk.run` to `onSave`.
 
-`node scripts/package.mjs --all` builds the six platform packages, each with its own gohawk binary.
+## More
 
-Press F5 in this folder to try a change in an Extension Development Host. Set
-`gohawk.path` there to a binary built from this repository (`go build -o
-gohawk .` at the repository root).
-
-### Acceptance run
-
-```sh
-pnpm acceptance --with-go-extension
-```
-
-This builds the package for this platform and installs it into a real VS Code served to a headless
-browser, plays the scenarios in `acceptance/scenarios.mjs`, and writes
-`out/acceptance/report.md` with screenshots, edit-to-findings latency, memory
-per check, and anything that looks like a crash or a leftover process. It
-needs a Chromium that Playwright can drive; set `ACCEPTANCE_CHROMIUM` to its
-path if it is not in Playwright's cache. The process exits nonzero when a
-check fails.
-
-On Linux the run fetches Inter and JetBrains Mono once into `.vscode-test/`
-and points the browser at them, so screenshots do not use a server's
-fallback fonts. Nothing is installed on the machine.
-
-### Stress run
-
-```sh
-node acceptance/stress.mjs --gohawk /path/to/gohawk --workspace /path/to/repo --file pkg/big/file.go
-```
-
-This drives `gohawk lsp` directly on a real package: it opens the file, makes
-a few unsaved edits, and prints for each one how long the check took, its
-peak memory, and what the importer run cost. The repository is never
-modified.
+Documentation for every check is at [gohawk.dev](https://gohawk.dev). Report
+problems at [github.com/kojah/gohawk](https://github.com/kojah/gohawk/issues).

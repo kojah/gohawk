@@ -101,6 +101,12 @@ async function packageFor(platform) {
 			'--target',
 			platform.vsce,
 			'--no-dependencies',
+			// The listing page shows the README; its relative links and images
+			// must point at this folder of the repository, not at its root.
+			'--baseContentUrl',
+			'https://github.com/kojah/gohawk/blob/main/editors/vscode',
+			'--baseImagesUrl',
+			'https://github.com/kojah/gohawk/raw/main/editors/vscode',
 			'--out',
 			output,
 		],
