@@ -1,0 +1,10 @@
+{
+	"name": "gohawk-probe",
+	"publisher": "local",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.80.0"
+	},
+	"main": "./noop.js",
+	"activationEvents": []
+}

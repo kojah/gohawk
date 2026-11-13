@@ -142,9 +142,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		await explain.show(`${target.check.replace('/', ' ')} line ${target.line}`, text);
 	};
 
+	// A notice is shown, not waited on: its promise settles only when the user
+	// dismisses it, and a command should not stay pending on that.
+	const notify = (message: string) => {
+		void vscode.window.showInformationMessage(message);
+	};
+
 	const stepThrough = async (finding: Finding | undefined) => {
 		if (finding === undefined) {
-			await vscode.window.showInformationMessage('No gohawk finding here.');
+			notify('No gohawk finding here.');
 			return;
 		}
 		await stepper.start(finding.diagnostic.message, stepsOf(finding.uri, finding.diagnostic));
@@ -181,7 +187,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	register('gohawk.explainAtCursor', async () => {
 		const finding = findingAtCursor();
 		if (finding === undefined) {
-			await vscode.window.showInformationMessage('No gohawk finding here.');
+			notify('No gohawk finding here.');
 			return;
 		}
 		await explainFinding(targetOf(finding));

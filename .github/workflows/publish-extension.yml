@@ -27,7 +27,7 @@ on:
       openvsx:
         description: Publish to Open VSX (needs the OVSX_PAT secret)
         required: true
-        default: false
+        default: true
         type: boolean
 
 permissions:

@@ -43,6 +43,25 @@ a few unsaved edits, and prints for each one how long the check took, its
 peak memory, and what the importer run cost. The repository is never
 modified.
 
+## Checking a desktop editor
+
+The acceptance run uses VS Code's web build. To check a desktop editor,
+including Cursor, run the script in `acceptance/desktop` inside it. It opens
+the leaking demo file, waits for the finding, reads the hover and the
+lightbulb actions, steps through the path, types an unsaved fix, and writes
+what it saw to a JSON file:
+
+```sh
+GOHAWK_PROBE_OUT=/tmp/probe.json code acceptance/testdata/demo \
+  --extensionDevelopmentPath="$PWD/acceptance/desktop/blank" \
+  --extensionTestsPath="$PWD/acceptance/desktop/runner.cjs" \
+  --user-data-dir=/tmp/probe-data --disable-workspace-trust
+```
+
+The extension under test is the one installed in that editor; the `blank`
+folder only satisfies the flag. Copy the demo folder out of this repository
+first, because the repository's `go.work` does not include it.
+
 ## Publishing
 
 A gohawk release attaches six `.vsix` files to its GitHub release, one per
@@ -57,10 +76,10 @@ One-time setup:
   <https://marketplace.visualstudio.com/manage>. Its Trusted Publishing page
   has a policy for the repository `kojah/gohawk` and the workflow file
   `publish-extension.yml`, so the workflow publishes with no stored secret.
-- **Open VSX.** Not set up yet. To add it, sign in at <https://open-vsx.org>
-  with GitHub, sign the publisher agreement, create the namespace `gohawk`,
-  and create an access token. Save it as the repository secret `OVSX_PAT`.
+- **Open VSX.** The namespace is `gohawk` at <https://open-vsx.org>, and the
+  repository secret `OVSX_PAT` holds an access token for it. The namespace is
+  not verified; claiming ownership is a separate request to Open VSX.
 
 Then run the workflow from the Actions tab with the release tag. It publishes
-to the Marketplace by default; tick Open VSX once that is set up. Publishing
+to both by default; either can be switched off for a run. Publishing
 a version that is already there is skipped, so a run can be repeated.
