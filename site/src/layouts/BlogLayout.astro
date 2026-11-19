@@ -55,7 +55,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 					<a href="/">Docs</a>
 					<a href="/blog/" aria-current={Astro.url.pathname.startsWith('/blog') ? 'page' : undefined}>Blog</a>
 					<a href="https://github.com/kojah/gohawk">GitHub</a>
-					<ThemeToggle showBlogLink={false} />
+					<ThemeToggle />
 				</nav>
 			</div>
 		</header>
